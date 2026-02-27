@@ -10,5 +10,5 @@ public enum CurriculumType {
     INTERNATIONAL("international"),
     INTEGRATED("integrated");
 
-    private final String description;
+    private final String value;
 }

@@ -8,6 +8,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/parent")
 @RequiredArgsConstructor
-@Tag(name = "Account")
+@Tag(name = "Parent")
 public class ParentController {
 }
