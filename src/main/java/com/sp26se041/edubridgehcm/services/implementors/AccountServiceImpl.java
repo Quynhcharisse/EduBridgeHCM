@@ -1,5 +1,7 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.sp26se041.edubridgehcm.models.Account;
+import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AccountService;
 import com.sp26se041.edubridgehcm.services.JWTService;
@@ -13,10 +15,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Service
 @RequiredArgsConstructor
 public class AccountServiceImpl implements AccountService {
+
     private final JWTService jWTService;
+
+    private final AccountRepo accountRepo;
 
     @Override
     public ResponseEntity<ResponseObject> logout(HttpServletRequest request, HttpServletResponse response) {
@@ -38,6 +46,25 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public ResponseEntity<ResponseObject> getAccessToken(HttpServletRequest request) {
-        return null;
+
+        Cookie access = CookieUtil.getCookie(request, "access");
+
+        if (access == null) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "No access", null);
+        }
+
+        Account account = CookieUtil.extractAccountFromCookie(request, jWTService, accountRepo);
+
+        if (account == null) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "No account", null);
+        }
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("access", access.getValue());
+        data.put("id", account.getId());
+        data.put("email", account.getEmail());
+        data.put("role", account.getRole());
+
+        return ResponseBuilder.build(HttpStatus.OK, "", data);
     }
 }
