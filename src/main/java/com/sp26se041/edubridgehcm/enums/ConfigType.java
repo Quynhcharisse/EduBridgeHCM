@@ -11,5 +11,5 @@ public enum ConfigType {
     SPECIAL_EVENT("special event"),
     OTHER("other");
 
-    private final String description;
+    private final String value;
 }

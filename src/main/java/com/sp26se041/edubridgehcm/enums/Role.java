@@ -19,6 +19,6 @@ public enum Role {
 
     public List<SimpleGrantedAuthority> getAuthorities() {
         return Collections.singletonList(new SimpleGrantedAuthority(
-                "ROLE_" + this.name().toUpperCase()));
+                "ROLE_" + this.name()));
     }
 }
