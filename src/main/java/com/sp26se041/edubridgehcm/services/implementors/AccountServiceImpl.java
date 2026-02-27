@@ -35,4 +35,9 @@ public class AccountServiceImpl implements AccountService {
 
         return ResponseBuilder.build(HttpStatus.OK, "Logout successfully", null);
     }
+
+    @Override
+    public ResponseEntity<ResponseObject> getAccessToken(HttpServletRequest request) {
+        return null;
+    }
 }
