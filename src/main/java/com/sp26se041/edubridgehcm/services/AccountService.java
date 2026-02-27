@@ -7,4 +7,6 @@ import org.springframework.http.ResponseEntity;
 
 public interface AccountService {
     ResponseEntity<ResponseObject> logout(HttpServletRequest request, HttpServletResponse response);
+
+    ResponseEntity<ResponseObject> getAccessToken(HttpServletRequest request);
 }
