@@ -32,7 +32,7 @@ public class Image {
     Integer id;
 
     @Column(name = "parent_id")
-    Integer parentId;
+    int parentId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "parent_type")

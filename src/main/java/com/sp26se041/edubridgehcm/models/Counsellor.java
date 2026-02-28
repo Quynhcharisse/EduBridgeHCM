@@ -52,8 +52,6 @@ public class Counsellor {
     @EqualsAndHashCode.Exclude
     List<Assignment> assignmentList;
 
-    String name;
-
     @Column(name = "employee_code")
     UUID employeeCode; // ở ngoài tự tạo
 

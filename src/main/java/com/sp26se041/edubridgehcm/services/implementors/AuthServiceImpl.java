@@ -53,10 +53,6 @@ public class AuthServiceImpl implements AuthService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Email is require", null);
         }
 
-        if (account.getStatus().equals(Status.ACCOUNT_RESTRICTED)) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Account is restricted", null);
-        }
-
         if (account.getStatus().equals(Status.ACCOUNT_PENDING_VERIFY)) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is awaiting admin verified", null);
         }
@@ -91,7 +87,7 @@ public class AuthServiceImpl implements AuthService {
         if (account.getRole().equals(Role.SCHOOL)) {
             account.setStatus(Status.ACCOUNT_PENDING_VERIFY);
             accountRepo.save(account);
-            return ResponseBuilder.build(HttpStatus.ACCEPTED, "Registration submitted. Your account is pending admin verified.", null);
+            return ResponseBuilder.build(HttpStatus.OK, "Registration submitted. Your account is pending admin verified.", null);
         }
 
         return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "This role is not allowed for self-registration", null);
@@ -121,8 +117,8 @@ public class AuthServiceImpl implements AuthService {
 
     private Map<String, Object> buildParentData(Parent parent) {
         Map<String, Object> parentData = new HashMap<>();
-        parentData.put("name", parent.getName());
-        parentData.put("phone", parent.getPhone());
+        parentData.put("name", parent.getAccount().getName());
+        parentData.put("phone", parent.getAccount().getPhone());
         parentData.put("relationship", parent.getRelationship());
         parentData.put("status", parent.getStatus());
         parentData.put("crmMetadata", parent.getCrmMetadata());
@@ -147,7 +143,7 @@ public class AuthServiceImpl implements AuthService {
 
     private Map<String, Object> buildCounsellorData(Counsellor counsellor) {
         Map<String, Object> counsellorData = new HashMap<>();
-        counsellorData.put("name", counsellor.getName());
+        counsellorData.put("name", counsellor.getAccount().getName());
         counsellorData.put("employeeCode", counsellor.getEmployeeCode());
         return counsellorData;
     }

@@ -23,7 +23,7 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "consultationAssignment")
+@Table(name = "assignment")
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @NullMarked
 public class Assignment {

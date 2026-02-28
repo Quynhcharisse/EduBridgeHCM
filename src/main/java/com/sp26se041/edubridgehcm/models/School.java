@@ -50,10 +50,6 @@ public class School {
     @Column(name = "is_verified")
     Boolean isVerified;
 
-    @Type(JsonBinaryType.class)
-    @Column(columnDefinition = "jsonb", name = "business_config")
-    String businessConfig;
-
     @OneToMany(mappedBy = "school")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude

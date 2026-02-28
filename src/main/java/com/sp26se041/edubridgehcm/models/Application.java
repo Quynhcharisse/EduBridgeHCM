@@ -57,11 +57,11 @@ public class Application {
 
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb", name = "documents_jsonb")
-    String documentsJsonb;
+    Object documentsJsonb;
 
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb", name = "test_results_jsonb")
-    String testResultsJsonb;
+    Object testResultsJsonb;
 
     @Column(name = "total_score")
     Double totalScore;

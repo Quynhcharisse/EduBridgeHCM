@@ -44,7 +44,7 @@ public class Subscription {
 
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb", name = "features")
-    String features;
+    Object features;
 
     @Column(name = "is_active")
     Boolean isActive;
