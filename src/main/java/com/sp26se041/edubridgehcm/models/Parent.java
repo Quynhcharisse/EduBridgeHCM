@@ -46,10 +46,6 @@ public class Parent {
     @JoinColumn(name = "account_id")
     Account account;
 
-    String name;
-
-    String phone;
-
     String relationship;
 
     @Enumerated(EnumType.STRING)

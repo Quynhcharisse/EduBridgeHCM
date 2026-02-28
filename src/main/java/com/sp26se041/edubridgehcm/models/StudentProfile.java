@@ -62,7 +62,7 @@ public class StudentProfile {
    */
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb", name = "profile_metadata")
-    String profileMetadata;
+    Object profileMetadata;
 
     @OneToMany(mappedBy = "studentProfile")
     @ToString.Exclude

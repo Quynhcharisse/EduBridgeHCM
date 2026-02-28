@@ -11,14 +11,19 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.Type;
+
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -43,12 +48,17 @@ public class Curriculum {
 
     @Type(JsonBinaryType.class)
     @Column(name = "mandatory_subjects_jsonb", columnDefinition = "jsonb")
-    String mandatorySubjectsJsonb;
+    Object mandatorySubjectsJsonb;
 
     @Type(JsonBinaryType.class)
     @Column(name = "subjects_jsonb", columnDefinition = "jsonb")
-    String subjectsJsonb;
+    Object subjectsJsonb;
 
     @Column(name = "method_learning")
     String methodLearning;
+
+    @OneToMany(mappedBy = "curriculum")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<FeeStructure> feeStructureList;
 }

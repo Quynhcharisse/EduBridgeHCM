@@ -28,7 +28,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "consultationSlot")
+@Table(name = "consultation_slot")
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @NullMarked
 public class ConsultationSlot {

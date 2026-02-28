@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.models;
 
+import com.sp26se041.edubridgehcm.enums.Gender;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import jakarta.persistence.CascadeType;
@@ -42,6 +43,15 @@ public class Account implements UserDetails {
     Integer id;
 
     String email;
+
+    String name;
+
+    @Enumerated(EnumType.STRING)
+    Gender gender;
+
+    String address;
+
+    String phone;
 
     @Enumerated(EnumType.STRING)
     Role role;

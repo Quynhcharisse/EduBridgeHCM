@@ -70,7 +70,7 @@ public class AdmissionPlan {
 
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb", name = "requirements_details_jsonb")
-    String requirementsDetailsJsonb;
+    Object requirementsDetailsJsonb;
 
     @OneToMany(mappedBy = "admissionPlan")
     @ToString.Exclude

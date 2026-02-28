@@ -1,8 +1,11 @@
 package com.sp26se041.edubridgehcm.models;
 
+import com.sp26se041.edubridgehcm.enums.BoardingType;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -18,8 +21,6 @@ import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.Type;
 import org.jspecify.annotations.NullMarked;
 
-import java.math.BigDecimal;
-
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -34,23 +35,26 @@ public class FeeStructure {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
 
-    @Column(name = "tuition_fee", precision = 15, scale = 2)
-    BigDecimal tuitionFee;
-
-    @Column(name = "boarding_fee", precision = 15, scale = 2)
-    BigDecimal boardingFee;
-
-    @Column(name = "day_fee", precision = 15, scale = 2)
-    BigDecimal dayFee;
-
     @Column(name = "academic_year")
-    String academicYear;
+    int academicYear;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "boarding_type")
+    BoardingType boardingType;
 
     @Type(JsonBinaryType.class)
-    @Column(columnDefinition = "jsonb", name = "other_services_jsonb")
-    String otherServicesJsonb;
+    @Column(columnDefinition = "jsonb", name = "fees_detail")
+    Object feesDetail;
 
     @ManyToOne
     @JoinColumn(name = "admission_plan_id")
     AdmissionPlan admissionPlan;
+
+    @ManyToOne
+    @JoinColumn(name = "campus_id")
+    Campus campus;
+
+    @ManyToOne
+    @JoinColumn(name = "curriculum_id")
+    Curriculum curriculum;
 }

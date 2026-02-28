@@ -48,4 +48,7 @@ public class SchoolSubscription {
 
     @Column(name = "is_selected")
     Boolean isSelected;
+
+    @Column(name = "license_key")
+    String licenseKey; //giải quyết yêu cầu về "License provided by admin" và quản lý thời hạn sử dụng dịch vụ của từng trường.
 }

@@ -47,17 +47,7 @@ public class Campus {
     @JoinColumn(name = "account_id")
     Account account;
 
-    @Column(name = "description", columnDefinition = "TEXT")
-    String description;
-
-    @Column(name = "campus_name")
-    String campusName;
-
-    String address;
-
-    String district;
-
-    String phone;
+    String ward;
 
     @Column(name = "map_url")
     String mapUrl;
@@ -81,6 +71,10 @@ public class Campus {
     @Column(columnDefinition = "jsonb", name = "image_json")
     String imageJson;
 
+    @Type(JsonBinaryType.class)
+    @Column(columnDefinition = "jsonb", name = "policy_details_jsonb")
+    String policyDetailsJsonb; //lưu thông tin về ký túc xá, quy định riêng của từng cơ sở
+
     @OneToMany(mappedBy = "campus")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
@@ -100,4 +94,9 @@ public class Campus {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     List<SpecialDayConfig> specialDayConfigList;
+
+    @OneToMany(mappedBy = "campus")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<FeeStructure> feeStructureList;
 }
