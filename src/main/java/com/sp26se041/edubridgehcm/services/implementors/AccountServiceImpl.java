@@ -72,11 +72,18 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public ResponseEntity<ResponseObject> toggleAccountRestriction(int accountId, RestrictionRequest request, HttpServletResponse response) {
-
         Account account = accountRepo.findById(accountId).orElse(null);
 
         if (account == null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account not found", null);
+        }
+
+        if (account.isRestricted() == request.isRestricted()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, request.isRestricted() ? "Account is already restricted" : "Account is already unrestricted", null);
+        }
+
+        if (request.isRestricted() && (request.getReason() == null || request.getReason().trim().isEmpty())) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Reason is required", null);
         }
 
         account.setRestricted(request.isRestricted());
@@ -85,8 +92,6 @@ public class AccountServiceImpl implements AccountService {
 
         accountRepo.save(account);
 
-        String msg = request.isRestricted() ? "Account restricted successfully" : "Account unrestricted successfully";
-
-        return ResponseBuilder.build(HttpStatus.OK, msg, null);
+        return ResponseBuilder.build(HttpStatus.OK, request.isRestricted() ? "Account restricted successfully" : "Account unrestricted successfully", null);
     }
 }
