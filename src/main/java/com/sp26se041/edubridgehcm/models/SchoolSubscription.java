@@ -7,16 +7,20 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 import lombok.experimental.FieldDefaults;
 import org.jspecify.annotations.NullMarked;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -51,4 +55,9 @@ public class SchoolSubscription {
 
     @Column(name = "license_key")
     String licenseKey; //giải quyết yêu cầu về "License provided by admin" và quản lý thời hạn sử dụng dịch vụ của từng trường.
+
+    @OneToMany(mappedBy = "schoolSubscription")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<PaymentTransaction> paymentTransactionList;
 }
