@@ -2,6 +2,7 @@ package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
+import com.sp26se041.edubridgehcm.requests.RestrictionRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AccountService;
 import com.sp26se041.edubridgehcm.services.JWTService;
@@ -15,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -66,5 +68,25 @@ public class AccountServiceImpl implements AccountService {
         data.put("role", account.getRole());
 
         return ResponseBuilder.build(HttpStatus.OK, "", data);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> toggleAccountRestriction(int accountId, RestrictionRequest request, HttpServletResponse response) {
+
+        Account account = accountRepo.findById(accountId).orElse(null);
+
+        if (account == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account not found", null);
+        }
+
+        account.setRestricted(request.isRestricted());
+        account.setRestrictionReason(request.getReason());
+        account.setRestrictionDate(request.isRestricted() ? LocalDateTime.now() : null);
+
+        accountRepo.save(account);
+
+        String msg = request.isRestricted() ? "Account restricted successfully" : "Account unrestricted successfully";
+
+        return ResponseBuilder.build(HttpStatus.OK, msg, null);
     }
 }

@@ -26,6 +26,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collection;
 
 @Data
@@ -64,6 +65,15 @@ public class Account implements UserDetails {
 
     @Column(name = "first_login")
     Boolean firstLogin;
+
+    @Column(name = "is_restricted")
+    boolean isRestricted;
+
+    @Column(name = "restriction_reason")
+    String restrictionReason;
+
+    @Column(name = "restriction_date")
+    LocalDateTime restrictionDate;
 
     @OneToOne(mappedBy = "account", cascade = CascadeType.ALL)
     @ToString.Exclude
