@@ -3,6 +3,7 @@ package com.sp26se041.edubridgehcm.services.implementors;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.requests.RestrictionRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateProfileRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AccountService;
 import com.sp26se041.edubridgehcm.services.JWTService;
@@ -75,7 +76,7 @@ public class AccountServiceImpl implements AccountService {
         Account account = accountRepo.findById(accountId).orElse(null);
 
         if (account == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Account not found", null);
         }
 
         if (account.isRestricted() == request.isRestricted()) {
@@ -88,10 +89,26 @@ public class AccountServiceImpl implements AccountService {
 
         account.setRestricted(request.isRestricted());
         account.setRestrictionReason(request.getReason());
-        account.setRestrictionDate(request.isRestricted() ? LocalDateTime.now() : null);
+        account.setRestrictionDate(LocalDateTime.now());
 
         accountRepo.save(account);
 
         return ResponseBuilder.build(HttpStatus.OK, request.isRestricted() ? "Account restricted successfully" : "Account unrestricted successfully", null);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> updateProfile(UpdateProfileRequest request, HttpServletResponse response) {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewProfile(HttpServletRequest request, HttpServletResponse response) {
+
+        Account account = CookieUtil.extractAccountFromCookie(request, jWTService, accountRepo);
+
+        if (account == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No account", null);
+        }
+        return null;
     }
 }

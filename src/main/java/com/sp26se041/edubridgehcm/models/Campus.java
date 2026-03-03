@@ -1,8 +1,11 @@
 package com.sp26se041.edubridgehcm.models;
 
+import com.sp26se041.edubridgehcm.enums.Status;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -22,7 +25,6 @@ import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.Type;
 import org.jspecify.annotations.NullMarked;
 
-import java.time.LocalTime;
 import java.util.List;
 
 @Data
@@ -47,19 +49,21 @@ public class Campus {
     @JoinColumn(name = "account_id")
     Account account;
 
-    String ward;
+    String name;
 
-    @Column(name = "map_url")
-    String mapUrl;
+    String address;
 
-    @Column(name = "open_time")
-    LocalTime openTime;
-
-    @Column(name = "close_time")
-    LocalTime closeTime;
+    @Column(name = "approved_by_account_id")
+    Integer approvedByAccountId; // ID của Account hoặc Admin đã duyệt campus này
 
     @Column(name = "is_active")
-    Boolean isActive;
+    Boolean isActive; // đại diện cho trạng thái hoạt động của cơ sở đó ==> hoạt động thực tế
+
+    @Enumerated(EnumType.STRING)
+    Status status; // đại diện cho trạng thái xét duyệt của cơ sở đó (PENDING_APPROVAL, APPROVED, REJECTED) ==> xét duyệt pháp lý
+
+    @Column(name = "is_primary_branch")
+    Boolean isPrimaryBranch; // campus 1 sẽ có quyền duyệt campust 2,3,4...
 
     @Column(name = "is_boarding_school")
     Boolean isBoardingSchool;
@@ -73,7 +77,7 @@ public class Campus {
 
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb", name = "policy_details_jsonb")
-    String policyDetailsJsonb; //lưu thông tin về ký túc xá, quy định riêng của từng cơ sở
+    String policyDetailsJsonb; //lưu thông tin về ký túc xá, quy định riêng của từng cơ sở (open time, close time, mapUrl)
 
     @OneToMany(mappedBy = "campus")
     @ToString.Exclude
