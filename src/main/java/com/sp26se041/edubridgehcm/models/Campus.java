@@ -1,8 +1,11 @@
 package com.sp26se041.edubridgehcm.models;
 
+import com.sp26se041.edubridgehcm.enums.Status;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -59,7 +62,13 @@ public class Campus {
     LocalTime closeTime;
 
     @Column(name = "is_active")
-    Boolean isActive;
+    Boolean isActive; // đại diện cho trạng thái hoạt động của cơ sở đó
+
+    @Enumerated(EnumType.STRING)
+    Status status; // đại diện cho trạng thái xét duyệt của cơ sở đó (PENDING_APPROVAL, APPROVED, REJECTED)
+
+    @Column(name = "is_primary_branch")
+    Boolean isPrimaryBranch; // campus 1 sẽ có quyền duyệt campust 2,3,4...
 
     @Column(name = "is_boarding_school")
     Boolean isBoardingSchool;
