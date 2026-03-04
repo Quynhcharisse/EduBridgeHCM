@@ -36,10 +36,6 @@ public class SchoolRegistrationRequest {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
 
-    @ManyToOne
-    @JoinColumn(name = "account_id")
-    Account account; // Người nộp đơn
-
     @Column(name = "email_personal")
     String emailPersonal;
 

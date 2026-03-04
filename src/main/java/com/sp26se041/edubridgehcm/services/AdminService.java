@@ -8,7 +8,6 @@ import org.springframework.http.ResponseEntity;
 public interface AdminService {
 
     // manage packages
-
     ResponseEntity<ResponseObject> getSubscriptionList();
 
     ResponseEntity<ResponseObject> createSubscription(SubscriptionRequest request, HttpServletResponse response);
@@ -17,5 +16,6 @@ public interface AdminService {
 
     ResponseEntity<ResponseObject> deactivateSubscription(int id);
 
-
+    // verify school
+    ResponseEntity<ResponseObject> processRegistration(boolean aTrue, int accountId);
 }
