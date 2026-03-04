@@ -3,9 +3,8 @@ package com.sp26se041.edubridgehcm.services.implementors;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
-import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Parent;
-import com.sp26se041.edubridgehcm.models.StudentProfile;
+import com.sp26se041.edubridgehcm.models.SchoolRegistrationRequest;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.requests.LoginRequest;
 import com.sp26se041.edubridgehcm.requests.RegisterRequest;
@@ -24,7 +23,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @Service
@@ -43,14 +41,15 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public ResponseEntity<ResponseObject> login(LoginRequest request, HttpServletResponse response) {
+
+        if (request.getEmail() == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Email is require", null);
+        }
+
         Account account = accountRepo.findByEmail(request.getEmail()).orElse(null);
 
         if (account == null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account not found", null);
-        }
-
-        if (request.getEmail() == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Email is require", null);
         }
 
         if (account.getStatus().equals(Status.ACCOUNT_PENDING_VERIFY)) {
@@ -79,12 +78,17 @@ public class AuthServiceImpl implements AuthService {
 
         if (account.getRole().equals(Role.PARENT)) {
             account.setStatus(Status.ACCOUNT_ACTIVE);
+            account.setFirstLogin(true);
             accountRepo.save(account);
 
             return ResponseBuilder.build(HttpStatus.CREATED, "Registration successful", buildAccountData(account));
         }
 
         if (account.getRole().equals(Role.SCHOOL)) {
+
+            SchoolRegistrationRequest accountSchoolRegistrationRequest = SchoolRegistrationRequest.builder()
+                    .build();
+
             account.setStatus(Status.ACCOUNT_PENDING_VERIFY);
             accountRepo.save(account);
             return ResponseBuilder.build(HttpStatus.OK, "Registration submitted. Your account is pending admin verified.", null);
@@ -105,10 +109,6 @@ public class AuthServiceImpl implements AuthService {
             accountData.put("parent", buildParentData(account.getParent()));
         }
 
-        if (account.getRole().equals(Role.COUNSELLOR)) {
-            accountData.put("counsellor", buildCounsellorData(account.getCounsellor()));
-        }
-
         if (account.getRole().equals(Role.SCHOOL)) {
             accountData.put("school", null);
         }
@@ -122,30 +122,7 @@ public class AuthServiceImpl implements AuthService {
         parentData.put("relationship", parent.getRelationship());
         parentData.put("status", parent.getStatus());
         parentData.put("crmMetadata", parent.getCrmMetadata());
-        parentData.put("studentProfileList", buildStudentProfileData(parent.getStudentProfileList()));
         return parentData;
-    }
-
-    private List<Map<String, Object>> buildStudentProfileData(List<StudentProfile> studentProfileList) {
-        return (List<Map<String, Object>>) studentProfileList.stream()
-                .map(
-                        student -> {
-                            Map<String, Object> data = new HashMap<>();
-                            data.put("studentName", student.getStudentName());
-                            data.put("dob", student.getDob());
-                            data.put("gender", student.getGender());
-                            data.put("profileMetadata", student.getProfileMetadata());
-                            return data;
-                        }
-                )
-                .toList();
-    }
-
-    private Map<String, Object> buildCounsellorData(Counsellor counsellor) {
-        Map<String, Object> counsellorData = new HashMap<>();
-        counsellorData.put("name", counsellor.getAccount().getName());
-        counsellorData.put("employeeCode", counsellor.getEmployeeCode());
-        return counsellorData;
     }
 
     @Override

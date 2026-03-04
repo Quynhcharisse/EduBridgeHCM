@@ -98,17 +98,22 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public ResponseEntity<ResponseObject> updateProfile(UpdateProfileRequest request, HttpServletResponse response) {
+        // update dành cho parent , school
+
+
         return null;
     }
 
     @Override
     public ResponseEntity<ResponseObject> viewProfile(HttpServletRequest request, HttpServletResponse response) {
-
+        // update dành cho parent , school, counsellor
         Account account = CookieUtil.extractAccountFromCookie(request, jWTService, accountRepo);
 
         if (account == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No account", null);
         }
+
+
         return null;
     }
 }
