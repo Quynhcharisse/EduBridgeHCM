@@ -21,6 +21,5 @@ public enum Status {
     COMPLETED("completed"),
     CANCELLED("cancelled"),
     NO_SHOW("no-show");
-
     private final String value;
 }

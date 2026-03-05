@@ -61,9 +61,6 @@ public class SchoolRegistrationRequest {
     @Column(columnDefinition = "jsonb", name = "document_urls")
     Object documentUrls; // Link ảnh giấy phép kinh doanh/giấy phép giáo dục (có thể lưu dạng JSON array hoặc comma-separated)
 
-    @Column(name = "review_note", columnDefinition = "TEXT")
-    String reviewNote; // Ghi chú của người duyệt
-
     @Enumerated(EnumType.STRING)
     Status status; // PENDING, APPROVED, REJECTED
 
@@ -72,7 +69,4 @@ public class SchoolRegistrationRequest {
 
     @Column(name = "created_at")
     LocalDateTime createdAt;
-
-    @Column(name = "approved_at")
-    LocalDateTime approvedAt;
 }

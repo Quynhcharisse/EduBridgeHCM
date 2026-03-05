@@ -26,6 +26,8 @@ public class RegisterRequest {
 
     String role;
 
+    String name;
+
     String personalEmail;
 
     String schoolName;
