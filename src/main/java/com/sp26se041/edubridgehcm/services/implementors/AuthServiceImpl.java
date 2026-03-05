@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -72,12 +73,13 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public ResponseEntity<ResponseObject> register(RegisterRequest request, HttpServletResponse response) {
         if (accountRepo.findByEmail(request.getEmail()).isPresent()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Email already exists", null);
         }
 
-        if (Role.valueOf(request.getRole()).equals(Role.PARENT)) {
+        if (Role.valueOf(request.getRole().toUpperCase()).equals(Role.PARENT)) {
             Account account = accountRepo.save(Account.builder()
                     .email(request.getEmail())
                     .role(Role.PARENT)
@@ -86,23 +88,22 @@ public class AuthServiceImpl implements AuthService {
                     .firstLogin(true)
                     .build());
 
-            parentRepo.save(Parent.builder()
+            account.setParent(parentRepo.save(Parent.builder()
                     .account(account)
-                    .name(request.getName())
-                    .build());
+                    .build()));
             return ResponseBuilder.build(HttpStatus.OK, "Register successfully", buildAccountData(account));
         }
 
-        if (Role.valueOf(request.getRole()).equals(Role.SCHOOL)) {
+        if (Role.valueOf(request.getRole().toUpperCase()).equals(Role.SCHOOL)) {
             SchoolRegistrationRequest schoolRegistrationRequest = schoolRegistrationRequestRepo.save(SchoolRegistrationRequest.builder()
                     .emailPersonal(request.getEmail().toLowerCase())
-                    .schoolName(request.getSchoolName())
-                    .schoolAddress(request.getSchoolAddress())
-                    .campusName(request.getCampusName())
-                    .campusAddress(request.getCampusAddress())
-                    .taxCode(request.getTaxCode())
-                    .websiteUrl(request.getWebsiteUrl())
-                    .documentUrls(request.getDocumentUrls())
+                    .schoolName(request.getSchoolRequest().getSchoolName())
+                    .schoolAddress(request.getSchoolRequest().getSchoolAddress())
+                    .campusName(request.getSchoolRequest().getCampusName())
+                    .campusAddress(request.getSchoolRequest().getCampusAddress())
+                    .taxCode(request.getSchoolRequest().getTaxCode())
+                    .websiteUrl(request.getSchoolRequest().getWebsiteUrl())
+                    .documentUrls(request.getSchoolRequest().getDocumentUrls())
                     .status(Status.ACCOUNT_PENDING_VERIFY) // trạng thái chờ Admin duyệt
                     .createdAt(LocalDateTime.now())
                     .build());

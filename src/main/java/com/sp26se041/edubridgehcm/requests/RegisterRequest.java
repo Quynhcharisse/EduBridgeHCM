@@ -1,18 +1,12 @@
 package com.sp26se041.edubridgehcm.requests;
 
 import com.sp26se041.edubridgehcm.enums.Status;
-import com.sp26se041.edubridgehcm.models.SchoolRegistrationRequest;
-import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
-import jakarta.persistence.Column;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.hibernate.annotations.Type;
 
 import java.time.LocalDateTime;
 
@@ -26,31 +20,38 @@ public class RegisterRequest {
 
     String role;
 
-    String name;
+    SchoolRequest schoolRequest;
 
-    String personalEmail;
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class SchoolRequest {
+        String personalEmail;
 
-    String schoolName;
+        String schoolName;
 
-    String schoolAddress;
+        String schoolAddress;
 
-    String campusName;
+        String campusName;
 
-    String campusAddress;
+        String campusAddress;
 
-    String taxCode;
+        String taxCode;
 
-    String websiteUrl;
+        String websiteUrl;
 
-    Object documentUrls;  // sinh ra JSON : sau đó nhập biến a, biến b
+        Object documentUrls;  // sinh ra JSON : sau đó nhập biến a, biến b
 
-    String reviewNote;
+        String reviewNote;
 
-    Status status;
+        Status status;
 
-    String rejectionReason;
+        String rejectionReason;
 
-    LocalDateTime createdAt;
+        LocalDateTime createdAt;
 
-    LocalDateTime approvedAt;
+        LocalDateTime approvedAt;
+    }
+
 }
