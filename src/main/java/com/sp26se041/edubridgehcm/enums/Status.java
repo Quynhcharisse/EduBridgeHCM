@@ -15,11 +15,11 @@ public enum Status {
     REJECTED("rejected"),
 
     //With status consultation appointment
-    PENDING("pending"),
-    CONFIRMED("confirmed"),
-    IN_PROGRESS("in-progress"),
-    COMPLETED("completed"),
-    CANCELLED("cancelled"),
-    NO_SHOW("no-show");
+    CONSULTATION_PENDING("pending"),
+    CONSULTATION_CONFIRMED("confirmed"),
+    CONSULTATION_IN_PROGRESS("in-progress"),
+    CONSULTATION_COMPLETED("completed"),
+    CONSULTATION_CANCELLED("cancelled"),
+    CONSULTATION_NO_SHOW("no-show");
     private final String value;
 }

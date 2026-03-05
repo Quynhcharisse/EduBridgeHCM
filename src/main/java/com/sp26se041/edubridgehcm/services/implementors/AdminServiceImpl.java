@@ -76,6 +76,19 @@ public class AdminServiceImpl implements AdminService {
     }
 
     private ResponseEntity<ResponseObject> handleApprove(SchoolRegistrationRequest request, ProcessRegistrationRequest reviewRequest) {
+
+        if (request.getStatus() != Status.ACCOUNT_PENDING_VERIFY) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "This request has been processed previously.", null);
+        }
+
+        if (accountRepo.existsByEmail((request.getEmailPersonal()))) {
+            return ResponseBuilder.build(HttpStatus.CONFLICT, "This email address has already been registered in the system", null);
+        }
+
+        if (schoolRepo.existsByTaxCode(request.getTaxCode())) {
+            return ResponseBuilder.build(HttpStatus.CONFLICT, "This tax identification number already exists.", null);
+        }
+
         // tạo account
         Account account = accountRepo.save(Account.builder()
                 .email(request.getEmailPersonal())
@@ -88,9 +101,9 @@ public class AdminServiceImpl implements AdminService {
         // tạo school (Thông tin pháp lý)
         // Có thể dùng dữ liệu từ VietQR API response để update
         School school = schoolRepo.save(School.builder()
-                .name(reviewRequest.getTaxData().getName() != null ? reviewRequest.getTaxData().getName() : request.getSchoolName())
-                .address(reviewRequest.getTaxData().getAddress() != null ? reviewRequest.getTaxData().getAddress() : request.getSchoolAddress())
-                .taxCode(reviewRequest.getTaxData().getId() != null ? reviewRequest.getTaxData().getId() : request.getTaxCode())
+                .name((reviewRequest.getTaxData() != null && reviewRequest.getTaxData().getName() != null) ? reviewRequest.getTaxData().getName() : request.getSchoolName())
+                .address((reviewRequest.getTaxData() != null && reviewRequest.getTaxData().getAddress() != null) ? reviewRequest.getTaxData().getAddress() : request.getSchoolAddress())
+                .taxCode((reviewRequest.getTaxData() != null && reviewRequest.getTaxData().getId() != null) ? reviewRequest.getTaxData().getId() : request.getTaxCode())
                 .websiteUrl(request.getWebsiteUrl())
                 .businessLicenseUrl(request.getBusinessLicenseUrl())
                 .build());
