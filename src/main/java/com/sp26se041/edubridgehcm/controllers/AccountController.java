@@ -34,6 +34,7 @@ public class AccountController {
     }
 
     @PostMapping("/access")
+    @SkipRestrictedCheck
     @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL', 'PARENT', 'COUNSELLOR')")
     public ResponseEntity<ResponseObject> getAccessToken(HttpServletRequest request) {
         return accountService.getAccessToken(request);

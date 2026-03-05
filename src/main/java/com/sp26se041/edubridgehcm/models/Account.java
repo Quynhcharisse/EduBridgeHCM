@@ -22,6 +22,7 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.experimental.FieldDefaults;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
@@ -44,11 +45,6 @@ public class Account implements UserDetails {
     Integer id;
 
     String email;
-
-    String name;
-
-    @Enumerated(EnumType.STRING)
-    Gender gender;
 
     String address;
 
@@ -78,16 +74,19 @@ public class Account implements UserDetails {
     @OneToOne(mappedBy = "account", cascade = CascadeType.ALL)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
+    @Nullable
     Counsellor counsellor;
 
     @OneToOne(mappedBy = "account", cascade = CascadeType.ALL)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
+    @Nullable
     Campus campus;
 
     @OneToOne(mappedBy = "account", cascade = CascadeType.ALL)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
+    @Nullable
     Parent parent;
 
     @Override

@@ -6,6 +6,8 @@ import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.SchoolRegistrationRequest;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
+import com.sp26se041.edubridgehcm.repositories.ParentRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolRegistrationRequestRepo;
 import com.sp26se041.edubridgehcm.requests.LoginRequest;
 import com.sp26se041.edubridgehcm.requests.RegisterRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -20,8 +22,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -38,6 +42,11 @@ public class AuthServiceImpl implements AuthService {
     private final JWTService jwtService;
 
     private final AccountRepo accountRepo;
+
+
+    private final ParentRepo parentRepo;
+
+    private final SchoolRegistrationRequestRepo schoolRegistrationRequestRepo;
 
     @Override
     public ResponseEntity<ResponseObject> login(LoginRequest request, HttpServletResponse response) {
@@ -64,34 +73,41 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public ResponseEntity<ResponseObject> register(RegisterRequest request, HttpServletResponse response) {
         if (accountRepo.findByEmail(request.getEmail()).isPresent()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Email already exists", null);
         }
 
-        Account account = Account.builder()
-                .email(request.getEmail())
-                .role(Role.valueOf(request.getRole().toUpperCase()))
-                .registerDate(LocalDate.now())
-                .firstLogin(true)
-                .build();
+        if (Role.valueOf(request.getRole().toUpperCase()).equals(Role.PARENT)) {
+            Account account = accountRepo.save(Account.builder()
+                    .email(request.getEmail())
+                    .role(Role.PARENT)
+                    .registerDate(LocalDate.now())
+                    .status(Status.ACCOUNT_ACTIVE)
+                    .firstLogin(true)
+                    .build());
 
-        if (account.getRole().equals(Role.PARENT)) {
-            account.setStatus(Status.ACCOUNT_ACTIVE);
-            account.setFirstLogin(true);
-            accountRepo.save(account);
-
-            return ResponseBuilder.build(HttpStatus.CREATED, "Registration successful", buildAccountData(account));
+            account.setParent(parentRepo.save(Parent.builder()
+                    .account(account)
+                    .build()));
+            return ResponseBuilder.build(HttpStatus.OK, "Register successfully", buildAccountData(account));
         }
 
-        if (account.getRole().equals(Role.SCHOOL)) {
-
-            SchoolRegistrationRequest accountSchoolRegistrationRequest = SchoolRegistrationRequest.builder()
-                    .build();
-
-            account.setStatus(Status.ACCOUNT_PENDING_VERIFY);
-            accountRepo.save(account);
-            return ResponseBuilder.build(HttpStatus.OK, "Registration submitted. Your account is pending admin verified.", null);
+        if (Role.valueOf(request.getRole().toUpperCase()).equals(Role.SCHOOL)) {
+            SchoolRegistrationRequest schoolRegistrationRequest = schoolRegistrationRequestRepo.save(SchoolRegistrationRequest.builder()
+                    .emailPersonal(request.getEmail().toLowerCase())
+                    .schoolName(request.getSchoolRequest().getSchoolName())
+                    .schoolAddress(request.getSchoolRequest().getSchoolAddress())
+                    .campusName(request.getSchoolRequest().getCampusName())
+                    .campusAddress(request.getSchoolRequest().getCampusAddress())
+                    .taxCode(request.getSchoolRequest().getTaxCode())
+                    .websiteUrl(request.getSchoolRequest().getWebsiteUrl())
+                    .businessLicenseUrl(request.getSchoolRequest().getBusinessLicenseUrl())
+                    .status(Status.ACCOUNT_PENDING_VERIFY) // trạng thái chờ Admin duyệt
+                    .createdAt(LocalDateTime.now())
+                    .build());
+            return ResponseBuilder.build(HttpStatus.OK, "Registration submitted. Your account is pending admin verified.", buildSchoolRegistrationData(schoolRegistrationRequest));
         }
 
         return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "This role is not allowed for self-registration", null);
@@ -100,13 +116,13 @@ public class AuthServiceImpl implements AuthService {
     private Map<String, Object> buildAccountData(Account account) {
         Map<String, Object> accountData = new HashMap<>();
         accountData.put("email", account.getEmail());
-        accountData.put("role", account.getRole().getValue().toLowerCase());
+        accountData.put("role", account.getRole().getValue().toUpperCase());
         accountData.put("registerDate", account.getRegisterDate());
         accountData.put("status", account.getStatus());
         accountData.put("firstLogin", account.getFirstLogin());
 
         if (account.getRole().equals(Role.PARENT)) {
-            accountData.put("parent", buildParentData(account.getParent()));
+            accountData.put("parent", account.getParent() != null ? buildParentData(account.getParent()) : null);
         }
 
         if (account.getRole().equals(Role.SCHOOL)) {
@@ -117,12 +133,28 @@ public class AuthServiceImpl implements AuthService {
 
     private Map<String, Object> buildParentData(Parent parent) {
         Map<String, Object> parentData = new HashMap<>();
-        parentData.put("name", parent.getAccount().getName());
-        parentData.put("phone", parent.getAccount().getPhone());
         parentData.put("relationship", parent.getRelationship());
-        parentData.put("status", parent.getStatus());
-        parentData.put("crmMetadata", parent.getCrmMetadata());
+        parentData.put("idCardNumber", parent.getIdCardNumber());
+        parentData.put("workplace", parent.getWorkplace());
+        parentData.put("occupation", parent.getOccupation());
+        parentData.put("currentAddress", parent.getCurrentAddress());
         return parentData;
+    }
+
+    private Map<String, Object> buildSchoolRegistrationData(SchoolRegistrationRequest schoolRequest) {
+        Map<String, Object> schoolRequestData = new HashMap<>();
+        schoolRequestData.put("requestId", schoolRequest.getId());
+        schoolRequestData.put("emailPersonal", schoolRequest.getEmailPersonal());
+        schoolRequestData.put("schoolName", schoolRequest.getSchoolName());
+        schoolRequestData.put("schoolAddress", schoolRequest.getSchoolAddress());
+        schoolRequestData.put("campusName", schoolRequest.getCampusName());
+        schoolRequestData.put("campusAddress", schoolRequest.getCampusAddress());
+        schoolRequestData.put("taxCode", schoolRequest.getTaxCode());
+        schoolRequestData.put("websiteUrl", schoolRequest.getWebsiteUrl());
+        schoolRequestData.put("businessLicenseUrl", schoolRequest.getBusinessLicenseUrl());
+        schoolRequestData.put("status", schoolRequest.getStatus());
+        schoolRequestData.put("createdAt", schoolRequest.getCreatedAt());
+        return schoolRequestData;
     }
 
     @Override

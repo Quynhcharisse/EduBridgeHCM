@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.services;
 
+import com.sp26se041.edubridgehcm.requests.ProcessRegistrationRequest;
 import com.sp26se041.edubridgehcm.requests.SubscriptionRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,5 +18,5 @@ public interface AdminService {
     ResponseEntity<ResponseObject> deactivateSubscription(int id);
 
     // verify school
-    ResponseEntity<ResponseObject> processRegistration(boolean aTrue, int accountId);
+    ResponseEntity<ResponseObject> processRegistration(boolean isApproved, int requestId, ProcessRegistrationRequest reviewRequest);
 }

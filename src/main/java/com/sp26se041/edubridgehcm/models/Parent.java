@@ -1,7 +1,8 @@
 package com.sp26se041.edubridgehcm.models;
 
+import com.sp26se041.edubridgehcm.enums.Gender;
+import com.sp26se041.edubridgehcm.enums.Relationship;
 import com.sp26se041.edubridgehcm.enums.Status;
-import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -23,9 +24,9 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.experimental.FieldDefaults;
-import org.hibernate.annotations.Type;
 import org.jspecify.annotations.NullMarked;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Data
@@ -46,21 +47,25 @@ public class Parent {
     @JoinColumn(name = "account_id")
     Account account;
 
-    String relationship;
+    @Enumerated(EnumType.STRING)
+    Gender gender;
+
+    String name;
 
     @Enumerated(EnumType.STRING)
-    Status status;
+    Relationship relationship;
 
-    // Dùng crmMetadata để lưu các thông tin "phi cấu trúc" khác
-    // như: sở thích, thói quen, lịch sử tư vấn...
-    /* - ekyc_data: { id_card_number, dob, address, ocr_accuracy }
-      - workplace: "Công ty FPT"
-      - residency_status: "Thường trú"
-      - expected_budget: (Có thể đẩy vào đây nếu không dùng để lọc thường xuyên)
-    */
-    @Type(JsonBinaryType.class)
-    @Column(columnDefinition = "jsonb", name = "crm_metadata")
-    Object crmMetadata;
+    // Identity Data
+    @Column(name = "id_card_number")
+    String idCardNumber; // cccd
+
+    // Professional & Location
+    String workplace;
+
+    String occupation;
+
+    @Column(name = "current_address")
+    String currentAddress; // địa chỉ hiện tại
 
     @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @ToString.Exclude
