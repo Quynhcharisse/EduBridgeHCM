@@ -103,7 +103,7 @@ public class AuthServiceImpl implements AuthService {
                     .campusAddress(request.getSchoolRequest().getCampusAddress())
                     .taxCode(request.getSchoolRequest().getTaxCode())
                     .websiteUrl(request.getSchoolRequest().getWebsiteUrl())
-                    .documentUrls(request.getSchoolRequest().getDocumentUrls())
+                    .businessLicenseUrl(request.getSchoolRequest().getBusinessLicenseUrl())
                     .status(Status.ACCOUNT_PENDING_VERIFY) // trạng thái chờ Admin duyệt
                     .createdAt(LocalDateTime.now())
                     .build());
@@ -151,7 +151,7 @@ public class AuthServiceImpl implements AuthService {
         schoolRequestData.put("campusAddress", schoolRequest.getCampusAddress());
         schoolRequestData.put("taxCode", schoolRequest.getTaxCode());
         schoolRequestData.put("websiteUrl", schoolRequest.getWebsiteUrl());
-        schoolRequestData.put("documentUrls", schoolRequest.getDocumentUrls());
+        schoolRequestData.put("businessLicenseUrl", schoolRequest.getBusinessLicenseUrl());
         schoolRequestData.put("status", schoolRequest.getStatus());
         schoolRequestData.put("createdAt", schoolRequest.getCreatedAt());
         return schoolRequestData;

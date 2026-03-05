@@ -41,7 +41,7 @@ public class RegisterRequest {
 
         String websiteUrl;
 
-        Object documentUrls;  // sinh ra JSON : sau đó nhập biến a, biến b
+        String businessLicenseUrl;  // giấy phép kinh doanh
 
         String reviewNote;
 

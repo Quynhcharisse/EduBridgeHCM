@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.models;
 
+import com.sp26se041.edubridgehcm.enums.Gender;
 import com.sp26se041.edubridgehcm.enums.Relationship;
 import com.sp26se041.edubridgehcm.enums.Status;
 import jakarta.persistence.CascadeType;
@@ -45,6 +46,9 @@ public class Parent {
     @OneToOne
     @JoinColumn(name = "account_id")
     Account account;
+
+    @Enumerated(EnumType.STRING)
+    Gender gender;
 
     String name;
 

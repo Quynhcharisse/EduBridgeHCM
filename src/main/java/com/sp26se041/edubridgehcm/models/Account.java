@@ -46,9 +46,6 @@ public class Account implements UserDetails {
 
     String email;
 
-    @Enumerated(EnumType.STRING)
-    Gender gender;
-
     String address;
 
     String phone;

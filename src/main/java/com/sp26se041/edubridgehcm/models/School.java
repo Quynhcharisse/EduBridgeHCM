@@ -1,6 +1,5 @@
 package com.sp26se041.edubridgehcm.models;
 
-import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -16,7 +15,6 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.experimental.FieldDefaults;
-import org.hibernate.annotations.Type;
 import org.jspecify.annotations.NullMarked;
 
 import java.time.LocalDate;
@@ -52,9 +50,8 @@ public class School {
     @Column(name = "website_url")
     String websiteUrl;
 
-    @Type(JsonBinaryType.class)
-    @Column(columnDefinition = "jsonb", name = "document_urls")
-    Object documentUrls; // Link ảnh giấy phép kinh doanh/giấy phép giáo dục (có thể lưu dạng JSON array hoặc comma-separated)
+    @Column(name = "business_license_url")
+    String businessLicenseUrl; // Link ảnh giấy phép kinh doanh
 
     @Column(name = "is_verified")
     Boolean isVerified;

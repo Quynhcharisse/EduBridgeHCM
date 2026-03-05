@@ -43,7 +43,6 @@ public class EduBridgeHcmApplication {
                                 .registerDate(LocalDate.now())
                                 .phone("0703345054")
                                 .address("FPT University, Ho Chi Minh city")
-                                .gender(Gender.MALE)
                                 .status(Status.ACCOUNT_ACTIVE)
                                 .build()
                 );
@@ -56,7 +55,6 @@ public class EduBridgeHcmApplication {
                                 .registerDate(LocalDate.now())
                                 .phone("0901234567")
                                 .address("District 1, Ho Chi Minh city")
-                                .gender(Gender.MALE)
                                 .status(Status.ACCOUNT_ACTIVE)
                                 .parent(null)
                                 .build());
@@ -65,6 +63,7 @@ public class EduBridgeHcmApplication {
                         .account(account)
                         .relationship(Relationship.FATHER)
                         .name("John Doe")
+                        .gender(Gender.MALE)
                         .idCardNumber("123456789")
                         .workplace("ABC Company")
                         .occupation("Engineer")

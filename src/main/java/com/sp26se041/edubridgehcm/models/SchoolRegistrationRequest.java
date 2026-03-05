@@ -1,7 +1,6 @@
 package com.sp26se041.edubridgehcm.models;
 
 import com.sp26se041.edubridgehcm.enums.Status;
-import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -9,8 +8,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -18,7 +15,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.hibernate.annotations.Type;
 import org.jspecify.annotations.NullMarked;
 
 import java.time.LocalDateTime;
@@ -57,9 +53,8 @@ public class SchoolRegistrationRequest {
     @Column(name = "website_url")
     String websiteUrl; // Website của trường
 
-    @Type(JsonBinaryType.class)
-    @Column(columnDefinition = "jsonb", name = "document_urls")
-    Object documentUrls; // Link ảnh giấy phép kinh doanh/giấy phép giáo dục (có thể lưu dạng JSON array hoặc comma-separated)
+    @Column(name = "business_license_url")
+    String businessLicenseUrl; // Link ảnh giấy phép kinh doanh
 
     @Enumerated(EnumType.STRING)
     Status status; // PENDING, APPROVED, REJECTED
