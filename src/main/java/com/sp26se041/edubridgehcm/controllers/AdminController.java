@@ -26,7 +26,7 @@ public class AdminController {
     @PreAuthorize("hasRole('ADMIN')")
     @SkipRestrictedCheck
     public ResponseEntity<ResponseObject> processRegistration(
-            @RequestParam(name = "b", defaultValue = "true") String isApproved,
+            @RequestParam(name = "a", defaultValue = "true") String isApproved,
             @RequestParam(name = "requestId") int requestId,
             @RequestBody ProcessRegistrationRequest reviewRequest) {
         return adminService.processRegistration(isApproved.equalsIgnoreCase("true"), requestId, reviewRequest);
