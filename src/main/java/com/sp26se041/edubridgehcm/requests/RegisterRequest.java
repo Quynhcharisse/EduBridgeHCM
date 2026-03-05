@@ -45,13 +45,9 @@ public class RegisterRequest {
 
         String reviewNote;
 
-        Status status;
-
         String rejectionReason;
 
         LocalDateTime createdAt;
-
-        LocalDateTime approvedAt;
     }
 
 }
