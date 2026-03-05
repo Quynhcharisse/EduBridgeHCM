@@ -64,4 +64,7 @@ public class SchoolRegistrationRequest {
 
     @Column(name = "created_at")
     LocalDateTime createdAt;
+
+    @Column(name = "changed_at")
+    LocalDateTime changedAt;
 }

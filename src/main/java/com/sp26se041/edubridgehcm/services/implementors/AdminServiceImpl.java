@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -120,6 +121,7 @@ public class AdminServiceImpl implements AdminService {
         // lưu ý: sau này thêm logic Audit Log và delete request tại đây
         // schoolRegistrationRequestRepo.delete(request); ==> lúc sau hẵn xử ly log audit
         request.setStatus(Status.APPROVED);
+        request.setChangedAt(LocalDateTime.now());
         schoolRegistrationRequestRepo.save(request);
 
         return ResponseBuilder.build(HttpStatus.OK, "Approval successful. Tax code verified.", null);
@@ -137,6 +139,7 @@ public class AdminServiceImpl implements AdminService {
         // Tạm thời chưa xóa để đợi logic Audit Log
         request.setStatus(Status.REJECTED);
         request.setRejectionReason(reviewRequest.getRejectionReason());
+        request.setChangedAt(LocalDateTime.now());
         schoolRegistrationRequestRepo.save(request);
 
         return ResponseBuilder.build(HttpStatus.OK, "The application has been rejected.", null);
