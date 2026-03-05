@@ -115,7 +115,7 @@ public class AuthServiceImpl implements AuthService {
     private Map<String, Object> buildAccountData(Account account) {
         Map<String, Object> accountData = new HashMap<>();
         accountData.put("email", account.getEmail());
-        accountData.put("role", account.getRole().getValue().toLowerCase());
+        accountData.put("role", account.getRole().getValue().toUpperCase());
         accountData.put("registerDate", account.getRegisterDate());
         accountData.put("status", account.getStatus());
         accountData.put("firstLogin", account.getFirstLogin());
