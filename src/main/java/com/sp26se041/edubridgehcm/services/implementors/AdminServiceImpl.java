@@ -69,13 +69,13 @@ public class AdminServiceImpl implements AdminService {
 
         // 2. xử lý logic cho approve or reject
         if (isApproved) {
-            return handleApprove(schoolRegistrationRequest);
+            return handleApprove(schoolRegistrationRequest, reviewRequest);
         } else {
             return handleReject(schoolRegistrationRequest, reviewRequest);
         }
     }
 
-    private ResponseEntity<ResponseObject> handleApprove(SchoolRegistrationRequest request) {
+    private ResponseEntity<ResponseObject> handleApprove(SchoolRegistrationRequest request, ProcessRegistrationRequest reviewRequest) {
         // tạo account
         Account account = accountRepo.save(Account.builder()
                 .email(request.getEmailPersonal())
@@ -85,16 +85,17 @@ public class AdminServiceImpl implements AdminService {
                 .firstLogin(true)
                 .build());
 
-        // tạo School (Thông tin pháp lý)
+        // tạo school (Thông tin pháp lý)
+        // Có thể dùng dữ liệu từ VietQR API response để update
         School school = schoolRepo.save(School.builder()
-                .name(request.getSchoolName())
-                .address(request.getSchoolAddress())
-                .taxCode(request.getTaxCode())
+                .name(reviewRequest.getTaxData().getName() != null ? reviewRequest.getTaxData().getName() : request.getSchoolName())
+                .address(reviewRequest.getTaxData().getAddress() != null ? reviewRequest.getTaxData().getAddress() : request.getSchoolAddress())
+                .taxCode(reviewRequest.getTaxData().getId() != null ? reviewRequest.getTaxData().getId() : request.getTaxCode())
                 .websiteUrl(request.getWebsiteUrl())
                 .businessLicenseUrl(request.getBusinessLicenseUrl())
                 .build());
 
-        // tạo Campus (Địa điểm vận hành)
+        // tạo campus (Địa điểm vận hành)
         campusRepo.save(Campus.builder()
                 .school(school)
                 .account(account) // gán người quản lý campus này
@@ -105,7 +106,10 @@ public class AdminServiceImpl implements AdminService {
 
         // lưu ý: sau này thêm logic Audit Log và delete request tại đây
         // schoolRegistrationRequestRepo.delete(request); ==> lúc sau hẵn xử ly log audit
-        return ResponseBuilder.build(HttpStatus.OK, "Approval successful.", null);
+        request.setStatus(Status.APPROVED);
+        schoolRegistrationRequestRepo.save(request);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Approval successful. Tax code verified.", null);
     }
 
     private ResponseEntity<ResponseObject> handleReject(SchoolRegistrationRequest request, ProcessRegistrationRequest reviewRequest) {
@@ -118,6 +122,7 @@ public class AdminServiceImpl implements AdminService {
 //        schoolRegistrationRequestRepo.delete(request);
 
         // Tạm thời chưa xóa để đợi logic Audit Log
+        request.setStatus(Status.REJECTED);
         request.setRejectionReason(reviewRequest.getRejectionReason());
         schoolRegistrationRequestRepo.save(request);
 

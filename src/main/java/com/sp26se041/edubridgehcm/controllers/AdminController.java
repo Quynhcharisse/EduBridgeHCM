@@ -22,7 +22,7 @@ public class AdminController {
 
     private final AdminService adminService;
 
-    @PostMapping("/process/registration")
+    @PostMapping("/school/registrations")
     @PreAuthorize("hasRole('ADMIN')")
     @SkipRestrictedCheck
     public ResponseEntity<ResponseObject> processRegistration(

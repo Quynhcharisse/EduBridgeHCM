@@ -13,5 +13,19 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class ProcessRegistrationRequest {
+
     String rejectionReason;
+
+    TaxData TaxData;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class TaxData {
+        private String id;      // mã số thuế
+        private String name;    // Tên công ty/trường học trả về từ API
+        private String address; // Địa chỉ từ API
+    }
 }

@@ -11,8 +11,8 @@ public enum Status {
     ACCOUNT_PENDING_VERIFY("pending verify"),
 
     //With status school & campus
-    VERIFIED("verified"),
-    UNVERIFIED("unverified"),
+    APPROVED("approved"),
+    REJECTED("rejected"),
 
     //With status consultation appointment
     PENDING("pending"),
