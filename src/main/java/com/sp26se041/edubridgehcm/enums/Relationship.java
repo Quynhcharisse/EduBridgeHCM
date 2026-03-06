@@ -8,9 +8,8 @@ import lombok.RequiredArgsConstructor;
 public enum Relationship {
     FATHER("father"),
     MOTHER("mother"),
-    GRANDFATHER("grandfather"),
-    GRANDMOTHER("grandmother"),
     GUARDIAN("guardian"),
-    SIBLING("sibling");
+    SIBLING("sibling"),
+    OTHER("other");
     private final String value;
 }
