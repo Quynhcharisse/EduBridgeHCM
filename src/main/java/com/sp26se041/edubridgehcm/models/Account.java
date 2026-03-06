@@ -1,6 +1,5 @@
 package com.sp26se041.edubridgehcm.models;
 
-import com.sp26se041.edubridgehcm.enums.Gender;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import jakarta.persistence.CascadeType;
@@ -11,6 +10,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
@@ -22,13 +22,13 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.experimental.FieldDefaults;
 import org.jspecify.annotations.NullMarked;
-import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -74,20 +74,22 @@ public class Account implements UserDetails {
     @OneToOne(mappedBy = "account", cascade = CascadeType.ALL)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    @Nullable
     Counsellor counsellor;
 
     @OneToOne(mappedBy = "account", cascade = CascadeType.ALL)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    @Nullable
     Campus campus;
 
     @OneToOne(mappedBy = "account", cascade = CascadeType.ALL)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    @Nullable
     Parent parent;
+
+    @OneToMany(mappedBy = "account")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<Post> postList;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
