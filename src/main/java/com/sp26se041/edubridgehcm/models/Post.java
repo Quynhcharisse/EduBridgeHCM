@@ -3,6 +3,8 @@ package com.sp26se041.edubridgehcm.models;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -42,10 +44,10 @@ public class Post {
     @Column(name = "category")
     String category;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "target_scope")
     String targetScope;
 
-    @Column(name = "priority")
     int priority; //Dùng để sắp xếp độ ưu tiên hiển thị
 
     @Column(name = "is_pinned")
