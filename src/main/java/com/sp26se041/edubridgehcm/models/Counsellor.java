@@ -43,6 +43,11 @@ public class Counsellor {
     @JoinColumn(name = "`account_id`")
     Account account;
 
+    @Column(name = "employee_code")
+    UUID employeeCode; // ở ngoài tự tạo
+
+    String name;
+
     @ManyToOne
     @JoinColumn(name = "`campus_id`")
     Campus campus;
@@ -51,9 +56,6 @@ public class Counsellor {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     List<Assignment> assignmentList;
-
-    @Column(name = "employee_code")
-    UUID employeeCode; // ở ngoài tự tạo
 
     @OneToMany(mappedBy = "counsellor")
     @ToString.Exclude

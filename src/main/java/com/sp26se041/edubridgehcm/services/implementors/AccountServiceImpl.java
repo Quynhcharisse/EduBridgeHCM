@@ -98,9 +98,7 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public ResponseEntity<ResponseObject> updateProfile(UpdateProfileRequest request) {
-        // update dành cho parent , school
-
-
+        // update dành cho parent , school, counsellor
         return null;
     }
 
