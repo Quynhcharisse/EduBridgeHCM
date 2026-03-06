@@ -10,8 +10,14 @@ import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRegistrationRequestRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
+import com.sp26se041.edubridgehcm.requests.CreatePostRequest;
+import com.sp26se041.edubridgehcm.requests.CreateServicePackageFeeRequest;
+import com.sp26se041.edubridgehcm.requests.DisablePostRequest;
 import com.sp26se041.edubridgehcm.requests.ProcessRegistrationRequest;
 import com.sp26se041.edubridgehcm.requests.SubscriptionRequest;
+import com.sp26se041.edubridgehcm.requests.UpdatePostRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateServicePackageFeeRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AdminService;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
@@ -36,26 +42,6 @@ public class AdminServiceImpl implements AdminService {
     private final SchoolRepo schoolRepo;
 
     private final CampusRepo campusRepo;
-
-    @Override
-    public ResponseEntity<ResponseObject> getSubscriptionList() {
-        return null;
-    }
-
-    @Override
-    public ResponseEntity<ResponseObject> createSubscription(SubscriptionRequest request, HttpServletResponse response) {
-        return null;
-    }
-
-    @Override
-    public ResponseEntity<ResponseObject> updateSubscription(SubscriptionRequest request, HttpServletResponse response) {
-        return null;
-    }
-
-    @Override
-    public ResponseEntity<ResponseObject> deactivateSubscription(int id) {
-        return null;
-    }
 
     @Override
     @Transactional
@@ -143,5 +129,46 @@ public class AdminServiceImpl implements AdminService {
         schoolRegistrationRequestRepo.save(request);
 
         return ResponseBuilder.build(HttpStatus.OK, "The application has been rejected.", null);
+    }
+
+
+    @Override
+    public ResponseEntity<ResponseObject> createServicePackageFee(CreateServicePackageFeeRequest request) {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> updateServicePackageFee(UpdateServicePackageFeeRequest request) {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewServicePackageFeeList() {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> updateStatusServicePackageFee(UpdateStatusServicePackageFeeRequest request) {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> createPost(CreatePostRequest request) {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> updatePost(UpdatePostRequest request) {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewPostList() {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> disablePost(DisablePostRequest request) {
+        return null;
     }
 }

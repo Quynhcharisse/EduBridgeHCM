@@ -25,7 +25,9 @@ public class ProcessRegistrationRequest {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class TaxData {
         private String id;      // mã số thuế
+
         private String name;    // Tên công ty/trường học trả về từ API
+
         private String address; // Địa chỉ từ API
     }
 }

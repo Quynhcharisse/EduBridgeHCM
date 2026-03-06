@@ -45,9 +45,8 @@ public class AccountController {
     @SkipRestrictedCheck
     public ResponseEntity<ResponseObject> toggleAccountRestriction(
             @PathVariable int accountId,
-            @RequestBody RestrictionRequest request,
-            HttpServletResponse response) {
-        return accountService.toggleAccountRestriction(accountId, request, response);
+            @RequestBody RestrictionRequest request) {
+        return accountService.toggleAccountRestriction(accountId, request);
     }
 
     @GetMapping("/profile")
@@ -59,8 +58,8 @@ public class AccountController {
 
     @PostMapping("/profile")
     @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL', 'PARENT', 'COUNSELLOR')")
-    public ResponseEntity<ResponseObject> updateProfile(@RequestBody UpdateProfileRequest request, HttpServletResponse response) {
-        return accountService.updateProfile(request, response);
+    public ResponseEntity<ResponseObject> updateProfile(@RequestBody UpdateProfileRequest request) {
+        return accountService.updateProfile(request);
     }
 
 }
