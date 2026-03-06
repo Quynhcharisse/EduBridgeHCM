@@ -53,9 +53,6 @@ public class Campus {
 
     String address;
 
-    @Column(name = "approved_by_account_id")
-    Integer approvedByAccountId; // ID của Account hoặc Admin đã duyệt campus này
-
     @Column(name = "is_active")
     Boolean isActive; // đại diện cho trạng thái hoạt động của cơ sở đó ==> hoạt động thực tế
 
