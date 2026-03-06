@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class RegisterRequest {
+
     String email;
 
     String role;
@@ -27,6 +28,7 @@ public class RegisterRequest {
     @AllArgsConstructor
     @Builder
     public static class SchoolRequest {
+
         String personalEmail;
 
         String schoolName;

@@ -12,7 +12,7 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class SubscriptionRequest {
+public class UpdateStatusServicePackageFeeRequest {
 
-    String name;
+    int id;
 }

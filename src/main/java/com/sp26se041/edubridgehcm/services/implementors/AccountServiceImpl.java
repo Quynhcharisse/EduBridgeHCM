@@ -72,7 +72,7 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> toggleAccountRestriction(int accountId, RestrictionRequest request, HttpServletResponse response) {
+    public ResponseEntity<ResponseObject> toggleAccountRestriction(int accountId, RestrictionRequest request) {
         Account account = accountRepo.findById(accountId).orElse(null);
 
         if (account == null) {
@@ -97,7 +97,7 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> updateProfile(UpdateProfileRequest request, HttpServletResponse response) {
+    public ResponseEntity<ResponseObject> updateProfile(UpdateProfileRequest request) {
         // update dành cho parent , school
 
 

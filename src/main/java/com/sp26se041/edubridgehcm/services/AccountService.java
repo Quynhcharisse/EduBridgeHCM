@@ -12,9 +12,9 @@ public interface AccountService {
 
     ResponseEntity<ResponseObject> getAccessToken(HttpServletRequest request);
 
-    ResponseEntity<ResponseObject> toggleAccountRestriction(int accountId, RestrictionRequest request, HttpServletResponse response);
+    ResponseEntity<ResponseObject> toggleAccountRestriction(int accountId, RestrictionRequest request);
 
-    ResponseEntity<ResponseObject> updateProfile(UpdateProfileRequest request, HttpServletResponse response);
+    ResponseEntity<ResponseObject> updateProfile(UpdateProfileRequest request);
 
     ResponseEntity<ResponseObject> viewProfile(HttpServletRequest request, HttpServletResponse response);
 }
