@@ -6,6 +6,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -34,19 +36,33 @@ public class Post {
 
     String title;
 
-    @Column(name = "content_body", columnDefinition = "TEXT")
+    @Column(name = "content_body")
     String contentBody;
 
     @Column(name = "category")
     String category;
 
+    @Column(name = "target_scope")
+    String targetScope;
+
+    @Column(name = "priority")
+    int priority; //Dùng để sắp xếp độ ưu tiên hiển thị
+
+    @Column(name = "is_pinned")
+    boolean isPinned;
+
     @Column(name = "published_date")
     LocalDateTime publishedDate;
 
     @Column(name = "is_active")
-    Boolean isActive;
+    Boolean isActive; //Cho phép ẩn hiện bài viết
 
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb", name = "image_json")
     String imageJson;
+
+    @ManyToOne
+    @JoinColumn(name = "account_id")
+    Account account;
 }
+
