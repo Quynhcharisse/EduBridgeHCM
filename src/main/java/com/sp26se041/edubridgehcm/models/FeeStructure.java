@@ -47,10 +47,6 @@ public class FeeStructure {
     Object feesDetail;
 
     @ManyToOne
-    @JoinColumn(name = "admission_plan_id")
-    AdmissionPlan admissionPlan;
-
-    @ManyToOne
     @JoinColumn(name = "campus_id")
     Campus campus;
 

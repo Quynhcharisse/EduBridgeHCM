@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.models;
 
+import com.sp26se041.edubridgehcm.enums.TargetScope;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -46,7 +47,7 @@ public class Post {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "target_scope")
-    String targetScope;
+    TargetScope targetScope;
 
     int priority; //Dùng để sắp xếp độ ưu tiên hiển thị
 

@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.models;
 
 import com.sp26se041.edubridgehcm.enums.Status;
+import com.sp26se041.edubridgehcm.enums.StudyOrientation;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -61,6 +62,10 @@ public class AdmissionPlan {
     @Column(name = "conduct_required")
     String conductRequired;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "study_orientation")
+    StudyOrientation studyOrientation;
+
     @Column(name = "admission_plan_status")
     @Enumerated(EnumType.STRING)
     Status admissionPlanStatus;
@@ -72,10 +77,6 @@ public class AdmissionPlan {
     @Column(columnDefinition = "jsonb", name = "requirements_details_jsonb")
     Object requirementsDetailsJsonb;
 
-    @OneToMany(mappedBy = "admissionPlan")
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    List<FeeStructure> feeStructureList;
 
     @OneToMany(mappedBy = "admissionPlan")
     @ToString.Exclude
