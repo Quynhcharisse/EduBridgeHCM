@@ -1,37 +1,34 @@
 package com.sp26se041.edubridgehcm.models;
 
+import com.sp26se041.edubridgehcm.enums.LearningMode;
+import com.sp26se041.edubridgehcm.enums.Status;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import lombok.ToString;
 import lombok.experimental.FieldDefaults;
 import org.jspecify.annotations.NullMarked;
-
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.List;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "consultation_slot")
+@Table(name = "campus_program_offering")
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @NullMarked
-public class ConsultationSlot {
+public class CampusProgramOffering {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -41,23 +38,22 @@ public class ConsultationSlot {
     @JoinColumn(name = "campus_id")
     Campus campus;
 
-    @Column(name = "day_of_week")
-    String dayOfWeek;
+    @ManyToOne
+    @JoinColumn(name = "admission_campaign_id")
+    AdmissionCampaign admissionCampaign;
 
-    @Column(name = "start_time")
-    LocalTime startTime;
+    @ManyToOne
+    @JoinColumn(name = "program_id")
+    Program program;
 
-    @Column(name = "end_time")
-    LocalTime endTime;
+    int quota;
 
-    @Column(name = "created_date")
-    LocalDate createdDate;
+    @Enumerated(EnumType.STRING)
+    LearningMode learningMode;
 
-    @Column(name = "updated_date")
-    LocalDate updatedDate;
+    @Column(name = "price_adjustment_percentage")
+    float priceAdjustmentPercentage;
 
-    @OneToMany(mappedBy = "consultationSlot")
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    List<Assignment> assignmentList;
+    @Enumerated(EnumType.STRING)
+    Status status;
 }

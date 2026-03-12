@@ -17,6 +17,7 @@ import lombok.ToString;
 import lombok.experimental.FieldDefaults;
 import org.jspecify.annotations.NullMarked;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -36,11 +37,6 @@ public class School {
 
     String name;
 
-    String address;
-
-    @Column(name = "created_at")
-    LocalDate createdAt;
-
     @Column(name = "tax_code", length = 50)
     String taxCode;
 
@@ -50,11 +46,22 @@ public class School {
     @Column(name = "website_url")
     String websiteUrl;
 
+    @Column(name = "representative_name")
+    String representativeName;
+
+    String hotline;
+
+    @Column(name = "average_rating")
+    BigDecimal averageRating;
+
     @Column(name = "business_license_url")
     String businessLicenseUrl; // Link ảnh giấy phép kinh doanh
 
-    @Column(name = "is_verified")
-    Boolean isVerified;
+    @Column(name = "is_featured")
+    Boolean isFeatured;
+
+    @Column(name = "founding_date")
+    LocalDate foundingDate;
 
     @OneToMany(mappedBy = "school")
     @ToString.Exclude
@@ -65,6 +72,11 @@ public class School {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     List<SchoolSubscription> schoolSubscriptionList;
+
+    @OneToMany(mappedBy = "school")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<AdmissionCampaign> admissionCampaignList;
 
     @OneToMany(mappedBy = "school")
     @ToString.Exclude

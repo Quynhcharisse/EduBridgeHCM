@@ -56,9 +56,4 @@ public class Counsellor {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     List<Assignment> assignmentList;
-
-    @OneToMany(mappedBy = "counsellor")
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    List<Application> applicationList;
 }

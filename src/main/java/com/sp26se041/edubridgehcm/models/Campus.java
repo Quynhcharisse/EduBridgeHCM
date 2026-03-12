@@ -12,7 +12,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -45,41 +44,39 @@ public class Campus {
     @JoinColumn(name = "school_id")
     School school;
 
-    @OneToOne
+    @ManyToOne
     @JoinColumn(name = "account_id")
     Account account;
 
     String name;
 
+    @Column(name = "phone_number")
+    String phoneNumber;
+
+    @Column(name = "address")
     String address;
 
-    @Column(name = "is_active")
-    Boolean isActive; // đại diện cho trạng thái hoạt động của cơ sở đó ==> hoạt động thực tế
-
     @Enumerated(EnumType.STRING)
-    Status status; // đại diện cho trạng thái xét duyệt của cơ sở đó (PENDING_APPROVAL, APPROVED, REJECTED) ==> xét duyệt pháp lý
+    Status status;
 
     @Column(name = "is_primary_branch")
     Boolean isPrimaryBranch; // campus 1 sẽ có quyền duyệt campust 2,3,4...
 
-    @Column(name = "is_boarding_school")
-    Boolean isBoardingSchool;
-
-    @Column(name = "is_day_school")
-    Boolean isDaySchool;
-
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb", name = "image_json")
-    String imageJson;
+    Object imageJson;
 
     @Type(JsonBinaryType.class)
-    @Column(columnDefinition = "jsonb", name = "policy_details_jsonb")
-    String policyDetailsJsonb; //lưu thông tin về ký túc xá, quy định riêng của từng cơ sở (open time, close time, mapUrl)
+    @Column(columnDefinition = "jsonb", name = "facility")
+    Object facility;
+
+    @Column(name = "policy_detail")
+    String policyDetail; //quy định riêng của từng cơ sở (open time, close time)
 
     @OneToMany(mappedBy = "campus")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    List<ConsultationSlot> consultationSlotList;
+    List<CampusScheduleTemplate> campusScheduleTemplate;
 
     @OneToMany(mappedBy = "campus")
     @ToString.Exclude
@@ -89,15 +86,5 @@ public class Campus {
     @OneToMany(mappedBy = "campus")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    List<AdmissionPlan> admissionPlanList;
-
-    @OneToMany(mappedBy = "campus")
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    List<SpecialDayConfig> specialDayConfigList;
-
-    @OneToMany(mappedBy = "campus")
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    List<FeeStructure> feeStructureList;
+    List<CampusProgramOffering> programOfferingList;
 }

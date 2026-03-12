@@ -79,12 +79,12 @@ public class Account implements UserDetails {
     @OneToOne(mappedBy = "account", cascade = CascadeType.ALL)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    Campus campus;
+    Parent parent;
 
     @OneToOne(mappedBy = "account", cascade = CascadeType.ALL)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    Parent parent;
+    Campus campus;
 
     @OneToMany(mappedBy = "account")
     @ToString.Exclude

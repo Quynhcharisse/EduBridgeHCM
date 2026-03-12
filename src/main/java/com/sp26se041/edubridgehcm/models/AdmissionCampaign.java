@@ -1,8 +1,6 @@
 package com.sp26se041.edubridgehcm.models;
 
 import com.sp26se041.edubridgehcm.enums.Status;
-import com.sp26se041.edubridgehcm.enums.StudyOrientation;
-import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -22,7 +20,6 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.experimental.FieldDefaults;
-import org.hibernate.annotations.Type;
 import org.jspecify.annotations.NullMarked;
 
 import java.time.LocalDate;
@@ -33,22 +30,31 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "admission_plan")
+@Table(name = "admission_campaign")
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @NullMarked
-public class AdmissionPlan {
+public class AdmissionCampaign {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
 
     @ManyToOne
-    @JoinColumn(name = "campus_id")
-    Campus campus;
+    @JoinColumn(name = "school_id")
+    School school;
 
-    String title;
+    @OneToMany(mappedBy = "admissionCampaign")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<AdmissionReservationForm> admissionReservationFormList;
 
-    Integer quota;
+    @OneToMany(mappedBy = "admissionCampaign")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<CampusProgramOffering> campusProgramOfferingList;
+
+    @Column(name = "academic_year")
+    int year;
 
     @Column(name = "start_date")
     LocalDate startDate;
@@ -56,35 +62,6 @@ public class AdmissionPlan {
     @Column(name = "end_date")
     LocalDate endDate;
 
-    @Column(name = "min_gpa_required")
-    Double minGpaRequired;
-
-    @Column(name = "conduct_required")
-    String conductRequired;
-
     @Enumerated(EnumType.STRING)
-    @Column(name = "study_orientation")
-    StudyOrientation studyOrientation;
-
-    @Column(name = "admission_plan_status")
-    @Enumerated(EnumType.STRING)
-    Status admissionPlanStatus;
-
-    @Column(name = "verify_at")
-    LocalDate verifyAt;
-
-    @Type(JsonBinaryType.class)
-    @Column(columnDefinition = "jsonb", name = "requirements_details_jsonb")
-    Object requirementsDetailsJsonb;
-
-
-    @OneToMany(mappedBy = "admissionPlan")
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    List<Application> applicationList;
-
-    @OneToMany(mappedBy = "admissionPlan")
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    List<Curriculum> curriculumList;
+    Status status;
 }

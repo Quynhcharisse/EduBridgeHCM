@@ -1,6 +1,5 @@
 package com.sp26se041.edubridgehcm.requests;
 
-import com.sp26se041.edubridgehcm.enums.Status;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -8,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -28,9 +28,6 @@ public class RegisterRequest {
     @AllArgsConstructor
     @Builder
     public static class SchoolRequest {
-
-        String personalEmail;
-
         String schoolName;
 
         String schoolAddress;
@@ -43,9 +40,17 @@ public class RegisterRequest {
 
         String websiteUrl;
 
-        String businessLicenseUrl;  // giấy phép kinh doanh
+        String logoUrl;
 
-        String reviewNote;
+        LocalDate foundingDate;
+
+        String representativeName;
+
+        String hotline;
+
+        String businessLicenseUrl;
+
+        String status;
 
         String rejectionReason;
 

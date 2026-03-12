@@ -7,42 +7,57 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 import lombok.experimental.FieldDefaults;
 import org.jspecify.annotations.NullMarked;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "assignment")
+@Table(name = "campus_schedule_template")
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @NullMarked
-public class Assignment {
+public class CampusScheduleTemplate {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
 
     @ManyToOne
-    @JoinColumn(name = "`slot_id`")
-    CampusScheduleTemplate campusScheduleTemplate;
+    @JoinColumn(name = "campus_id")
+    Campus campus;
 
-    @ManyToOne
-    @JoinColumn(name = "`counsellor_id`")
-    Counsellor counsellor;
+    @Column(name = "day_of_week")
+    String dayOfWeek;
 
-    @Column(name = "date_applied")
-    LocalDate dateApplied;
+    @Column(name = "start_time")
+    LocalTime startTime;
 
-    @Column(name = "date_unassigned")
-    LocalDate dateUnassigned;
+    @Column(name = "end_time")
+    LocalTime endTime;
+
+    @Column(name = "created_date")
+    LocalDate createdDate;
+
+    @Column(name = "updated_date")
+    LocalDate updatedDate;
+
+    @OneToMany(mappedBy = "campusScheduleTemplate")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<Assignment> assignmentList;
 }
