@@ -40,7 +40,7 @@ public class Curriculum {
 
     @ManyToOne
     @JoinColumn(name = "admission_plan_id")
-    AdmissionPlan admissionPlan;
+    AdmissionCampaign admissionCampaign;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "curriculum_type")
@@ -56,9 +56,4 @@ public class Curriculum {
 
     @Column(name = "method_learning")
     String methodLearning;
-
-    @OneToMany(mappedBy = "curriculum")
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    List<FeeStructure> feeStructureList;
 }

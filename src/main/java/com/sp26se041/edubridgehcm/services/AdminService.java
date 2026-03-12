@@ -4,17 +4,15 @@ import com.sp26se041.edubridgehcm.requests.CreatePostRequest;
 import com.sp26se041.edubridgehcm.requests.CreateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.DisablePostRequest;
 import com.sp26se041.edubridgehcm.requests.ProcessRegistrationRequest;
-import com.sp26se041.edubridgehcm.requests.SubscriptionRequest;
 import com.sp26se041.edubridgehcm.requests.UpdatePostRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
-import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.ResponseEntity;
 
 public interface AdminService {
 
-    ResponseEntity<ResponseObject> processRegistration(boolean isApproved, int requestId, ProcessRegistrationRequest reviewRequest);
+    ResponseEntity<ResponseObject> verifyRegistration(boolean isVerified, int requestId, ProcessRegistrationRequest reviewRequest);
 
     ResponseEntity<ResponseObject> createServicePackageFee(CreateServicePackageFeeRequest request);
 

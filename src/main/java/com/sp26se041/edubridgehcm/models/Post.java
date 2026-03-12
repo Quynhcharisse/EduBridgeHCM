@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.models;
 
-import com.sp26se041.edubridgehcm.enums.TargetScope;
+import com.sp26se041.edubridgehcm.enums.CategoryPost;
+import com.sp26se041.edubridgehcm.enums.Status;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -42,30 +43,27 @@ public class Post {
     @Column(name = "content_body")
     String contentBody;
 
-    @Column(name = "category")
-    String category;
-
     @Enumerated(EnumType.STRING)
-    @Column(name = "target_scope")
-    TargetScope targetScope;
+    @Column(name = "category_post")
+    CategoryPost categoryPost;
 
     int priority; //Dùng để sắp xếp độ ưu tiên hiển thị
 
     @Column(name = "is_pinned")
     boolean isPinned;
 
+    @Enumerated(EnumType.STRING)
+    Status status; //Cho phép ẩn hiện bài viết
+
     @Column(name = "published_date")
     LocalDateTime publishedDate;
-
-    @Column(name = "is_active")
-    Boolean isActive; //Cho phép ẩn hiện bài viết
-
-    @Type(JsonBinaryType.class)
-    @Column(columnDefinition = "jsonb", name = "image_json")
-    String imageJson;
 
     @ManyToOne
     @JoinColumn(name = "account_id")
     Account account;
+
+    @Type(JsonBinaryType.class)
+    @Column(columnDefinition = "jsonb", name = "image_json")
+    String imageJson;
 }
 

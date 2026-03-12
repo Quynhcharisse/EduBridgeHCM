@@ -63,9 +63,4 @@ public class StudentProfile {
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb", name = "profile_metadata")
     Object profileMetadata;
-
-    @OneToMany(mappedBy = "studentProfile")
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    List<Application> applicationList;
 }

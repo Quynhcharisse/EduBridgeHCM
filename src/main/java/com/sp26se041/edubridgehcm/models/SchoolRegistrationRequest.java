@@ -17,6 +17,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.jspecify.annotations.NullMarked;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -32,14 +33,8 @@ public class SchoolRegistrationRequest {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
 
-    @Column(name = "email_personal")
-    String emailPersonal;
-
     @Column(name = "school_name")
     String schoolName;
-
-    @Column(name = "school_address")
-    String schoolAddress;
 
     @Column(name = "campus_name")
     String campusName;
@@ -48,23 +43,43 @@ public class SchoolRegistrationRequest {
     String campusAddress;
 
     @Column(name = "tax_code", length = 50)
-    String taxCode; // Mã số thuế của trường
+    String taxCode;
 
     @Column(name = "website_url")
-    String websiteUrl; // Website của trường
+    String websiteUrl;
+
+    @Column(name = "logo_url")
+    String logoUrl;
+
+    @Column(name = "founding_date")
+    LocalDate foundingDate;
+
+    @Column(name = "representative_name")
+    String representativeName;
+
+    String hotline;
+
+    // 1. Số nhà và tên đường (Thông tin thay đổi tùy campus)
+    @Column(name = "street_address")
+    String streetAddress;
+
+    // 2. Tên phường/xã MỚI (Dựa theo cột 4 trong bảng công văn)
+    @Column(name = "ward_name")
+    String wardName;
+
+    // 3. Tên Quận/Huyện hoặc Thành phố thuộc tỉnh
+    @Column(name = "district_name")
+    String districtName;
 
     @Column(name = "business_license_url")
-    String businessLicenseUrl; // Link ảnh giấy phép kinh doanh
+    String businessLicenseUrl;
 
     @Enumerated(EnumType.STRING)
-    Status status; // PENDING, APPROVED, REJECTED
+    Status status;
 
     @Column(name = "rejection_reason")
     String rejectionReason;
 
     @Column(name = "created_at")
     LocalDateTime createdAt;
-
-    @Column(name = "changed_at")
-    LocalDateTime changedAt;
 }

@@ -8,10 +8,11 @@ import lombok.RequiredArgsConstructor;
 public enum Status {
     //With status account
     ACCOUNT_ACTIVE("active"),
+    ACCOUNT_INACTIVE("inactive"),
     ACCOUNT_PENDING_VERIFY("pending verify"),
 
     //With status school & campus
-    APPROVED("approved"),
+    VERIFIED("verified"),
     REJECTED("rejected"),
 
     //With status consultation appointment

@@ -1,6 +1,5 @@
 package com.sp26se041.edubridgehcm.requests;
 
-import com.sp26se041.edubridgehcm.enums.StudyOrientation;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -27,8 +26,6 @@ public class CreateAdmissionPlanRequest {
     Double minGpaRequired;
 
     String conductRequired;
-
-    StudyOrientation studyOrientation;
 
     Object requirementsDetails;
 }

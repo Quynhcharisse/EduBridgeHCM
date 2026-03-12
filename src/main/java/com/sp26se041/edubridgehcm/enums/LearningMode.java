@@ -5,10 +5,11 @@ import lombok.RequiredArgsConstructor;
 
 @Getter
 @RequiredArgsConstructor
-public enum TargetScope {
-    GLOBAL("global"),
-    SCHOOL_WIDE("school wide"),
-    CAMPUS_SPECIFIC("campus specific");
+public enum LearningMode {
+    DAY_SCHOOL("day school"),
+    BOARDING("boarding"),
+    SEMI_BOARDING("semi boarding"),
+    HALF_DAY("half day");
 
     private final String value;
 }

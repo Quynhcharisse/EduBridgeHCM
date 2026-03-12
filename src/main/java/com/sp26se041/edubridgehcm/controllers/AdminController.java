@@ -30,11 +30,13 @@ public class AdminController {
 
     private final AdminService adminService;
 
-    @PostMapping("/school/registrations")
+    @PostMapping("/school/registrations/verify")
     @PreAuthorize("hasRole('ADMIN')")
     @SkipRestrictedCheck
-    public ResponseEntity<ResponseObject> processRegistration(@RequestParam(name = "a", defaultValue = "true") String isApproved, @RequestParam(name = "requestId") int requestId, @RequestBody ProcessRegistrationRequest reviewRequest) {
-        return adminService.processRegistration(isApproved.equalsIgnoreCase("true"), requestId, reviewRequest);
+    public ResponseEntity<ResponseObject> verifyRegistration(@RequestParam(name = "v", defaultValue = "true") String isVerified,
+                                                             @RequestParam(name = "requestId") int requestId,
+                                                             @RequestBody ProcessRegistrationRequest reviewRequest) {
+        return adminService.verifyRegistration(isVerified.equalsIgnoreCase("true"), requestId, reviewRequest);
     }
 
     @PostMapping("/service/package/fee")

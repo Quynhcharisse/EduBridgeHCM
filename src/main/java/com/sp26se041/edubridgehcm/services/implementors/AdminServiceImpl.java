@@ -14,14 +14,12 @@ import com.sp26se041.edubridgehcm.requests.CreatePostRequest;
 import com.sp26se041.edubridgehcm.requests.CreateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.DisablePostRequest;
 import com.sp26se041.edubridgehcm.requests.ProcessRegistrationRequest;
-import com.sp26se041.edubridgehcm.requests.SubscriptionRequest;
 import com.sp26se041.edubridgehcm.requests.UpdatePostRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AdminService;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,7 +27,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -45,7 +42,7 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @Transactional
-    public ResponseEntity<ResponseObject> processRegistration(boolean isApproved, int requestId, ProcessRegistrationRequest reviewRequest) {
+    public ResponseEntity<ResponseObject> verifyRegistration(boolean isVerified, int requestId, ProcessRegistrationRequest reviewRequest) {
 
         // 1. lấy dữ liệu từ bảng tạm
         SchoolRegistrationRequest schoolRegistrationRequest = schoolRegistrationRequestRepo.findById(requestId).orElse(null);
@@ -54,22 +51,14 @@ public class AdminServiceImpl implements AdminService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No registration request with ID found: " + requestId, null);
         }
 
-        // 2. xử lý logic cho approve or reject
-        if (isApproved) {
-            return handleApprove(schoolRegistrationRequest, reviewRequest);
-        } else {
-            return handleReject(schoolRegistrationRequest, reviewRequest);
-        }
+        // 2. xử lý logic cho verify
+        return handleVerify(schoolRegistrationRequest, reviewRequest);
     }
 
-    private ResponseEntity<ResponseObject> handleApprove(SchoolRegistrationRequest request, ProcessRegistrationRequest reviewRequest) {
+    private ResponseEntity<ResponseObject> handleVerify(SchoolRegistrationRequest request, ProcessRegistrationRequest reviewRequest) {
 
         if (request.getStatus() != Status.ACCOUNT_PENDING_VERIFY) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "This request has been processed previously.", null);
-        }
-
-        if (accountRepo.existsByEmail((request.getEmailPersonal()))) {
-            return ResponseBuilder.build(HttpStatus.CONFLICT, "This email address has already been registered in the system", null);
         }
 
         if (schoolRepo.existsByTaxCode(request.getTaxCode())) {
@@ -78,7 +67,6 @@ public class AdminServiceImpl implements AdminService {
 
         // tạo account
         Account account = accountRepo.save(Account.builder()
-                .email(request.getEmailPersonal())
                 .role(Role.SCHOOL)
                 .registerDate(LocalDate.now())
                 .status(Status.ACCOUNT_ACTIVE)
@@ -89,48 +77,31 @@ public class AdminServiceImpl implements AdminService {
         // Có thể dùng dữ liệu từ VietQR API response để update
         School school = schoolRepo.save(School.builder()
                 .name((reviewRequest.getTaxData() != null && reviewRequest.getTaxData().getName() != null) ? reviewRequest.getTaxData().getName() : request.getSchoolName())
-                .address((reviewRequest.getTaxData() != null && reviewRequest.getTaxData().getAddress() != null) ? reviewRequest.getTaxData().getAddress() : request.getSchoolAddress())
                 .taxCode((reviewRequest.getTaxData() != null && reviewRequest.getTaxData().getId() != null) ? reviewRequest.getTaxData().getId() : request.getTaxCode())
                 .websiteUrl(request.getWebsiteUrl())
+                .logoUrl(request.getLogoUrl())
+                .representativeName(request.getRepresentativeName())
+                .hotline(request.getHotline())
+                .foundingDate(request.getFoundingDate())
                 .businessLicenseUrl(request.getBusinessLicenseUrl())
                 .build());
 
         // tạo campus (Địa điểm vận hành)
         campusRepo.save(Campus.builder()
-                .school(school)
-                .account(account) // gán người quản lý campus này
+                .account(account)
                 .name(request.getCampusName())
-                .address(request.getCampusAddress())
-                .isPrimaryBranch(true) // đánh dấu đây là cơ sở chính
+                .phoneNumber(request.getCampusName())
+                .address(request.getStreetAddress() + ", " + request.getWardName() + ", " + request.getDistrictName()) // 45B Le Trong Tan street, Binh Tan disctrict, HCM city
+                .status(Status.ACCOUNT_ACTIVE)
+                .isPrimaryBranch(true)
+                .school(school)
                 .build());
 
-        // lưu ý: sau này thêm logic Audit Log và delete request tại đây
-        // schoolRegistrationRequestRepo.delete(request); ==> lúc sau hẵn xử ly log audit
-        request.setStatus(Status.APPROVED);
-        request.setChangedAt(LocalDateTime.now());
+        request.setStatus(Status.VERIFIED);
         schoolRegistrationRequestRepo.save(request);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Approval successful. Tax code verified.", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Verified successful", null);
     }
-
-    private ResponseEntity<ResponseObject> handleReject(SchoolRegistrationRequest request, ProcessRegistrationRequest reviewRequest) {
-        // kiểm tra lý do từ chối
-        if (reviewRequest.getRejectionReason() == null || reviewRequest.getRejectionReason().isBlank()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Rejection reason is required.", null);
-        }
-
-//        // xóa hồ sơ khỏi bảng tạm (Vì người dùng sẽ phải đăng ký lại hồ sơ mới nếu muốn)
-//        schoolRegistrationRequestRepo.delete(request);
-
-        // Tạm thời chưa xóa để đợi logic Audit Log
-        request.setStatus(Status.REJECTED);
-        request.setRejectionReason(reviewRequest.getRejectionReason());
-        request.setChangedAt(LocalDateTime.now());
-        schoolRegistrationRequestRepo.save(request);
-
-        return ResponseBuilder.build(HttpStatus.OK, "The application has been rejected.", null);
-    }
-
 
     @Override
     public ResponseEntity<ResponseObject> createServicePackageFee(CreateServicePackageFeeRequest request) {
