@@ -23,7 +23,6 @@ import java.io.IOException;
 @Component
 @RequiredArgsConstructor
 public class JWTAuthenticationFilter extends OncePerRequestFilter {
-
     private final JWTService jwtService;
     private final UserDetailsService userDetailsService;
     private static final String AUTH_PATH_PREFIX = "/api/v1/auth";
@@ -35,6 +34,7 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
+
         String requestURI = request.getRequestURI();
         if (requestURI.startsWith(AUTH_PATH_PREFIX)) {
             filterChain.doFilter(request, response);
@@ -48,25 +48,30 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        String username = jwtService.extractEmailFromJWT(accessCookie.getValue());
+        try {
 
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            Account account = (Account) userDetailsService.loadUserByUsername(username);
+            String username = jwtService.extractEmailFromJWT(accessCookie.getValue());
 
-            if (!account.getStatus().equals(Status.ACCOUNT_ACTIVE)) {
-                filterChain.doFilter(request, response);
-                return;
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                Account account = (Account) userDetailsService.loadUserByUsername(username);
+
+                if (!account.getStatus().equals(Status.ACCOUNT_ACTIVE)) {
+                    CookieUtil.removeCookie(response);
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        account, null, account.getAuthorities()
+                );
+
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authToken);
             }
-
-            UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                    account, null, account.getAuthorities()
-            );
-
-            authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-            SecurityContextHolder.getContext().setAuthentication(authToken);
+        } catch (Exception e) {
+            CookieUtil.removeCookie(response);
         }
 
         filterChain.doFilter(request, response);
     }
 }
-
