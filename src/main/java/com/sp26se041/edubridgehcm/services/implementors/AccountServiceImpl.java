@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.requests.RestrictionRequest;
@@ -83,13 +84,21 @@ public class AccountServiceImpl implements AccountService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, request.isRestricted() ? "Account is already restricted" : "Account is already unrestricted", null);
         }
 
-        if (request.isRestricted() && (request.getReason() == null || request.getReason().trim().isEmpty())) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Reason is required", null);
+        if (request.isRestricted()) {
+            if (request.getReason().trim().isEmpty()) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Reason is required when restricting an account", null);
+            }
+            account.setRestricted(true);
+            account.setRestrictionReason(request.getReason().trim());
+            account.setRestrictionDate(LocalDateTime.now());
+        } else {
+            account.setRestricted(false);
+            account.setRestrictionReason(null);
+            account.setRestrictionDate(null);
         }
 
-        account.setRestricted(request.isRestricted());
-        account.setRestrictionReason(request.getReason());
-        account.setRestrictionDate(LocalDateTime.now());
+        // keep account status active so restricted users can still login and use read API
+        account.setStatus(Status.ACCOUNT_ACTIVE);
 
         accountRepo.save(account);
 

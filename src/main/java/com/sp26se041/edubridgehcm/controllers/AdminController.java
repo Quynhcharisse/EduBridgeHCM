@@ -1,6 +1,5 @@
 package com.sp26se041.edubridgehcm.controllers;
 
-import com.sp26se041.edubridgehcm.configurations.SkipRestrictedCheck;
 import com.sp26se041.edubridgehcm.requests.CreatePostRequest;
 import com.sp26se041.edubridgehcm.requests.CreateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.DisablePostRequest;
@@ -32,7 +31,6 @@ public class AdminController {
 
     @PostMapping("/school/registrations/verify")
     @PreAuthorize("hasRole('ADMIN')")
-    @SkipRestrictedCheck
     public ResponseEntity<ResponseObject> verifyRegistration(@RequestParam(name = "v", defaultValue = "true") String isVerified,
                                                              @RequestParam(name = "requestId") int requestId,
                                                              @RequestBody ProcessRegistrationRequest reviewRequest) {
@@ -41,56 +39,48 @@ public class AdminController {
 
     @PostMapping("/service/package/fee")
     @PreAuthorize("hasRole('ADMIN')")
-    @SkipRestrictedCheck
     public ResponseEntity<ResponseObject> createServicePackageFee(@RequestBody CreateServicePackageFeeRequest request) {
         return adminService.createServicePackageFee(request);
     }
 
     @PutMapping("/service/package/fee")
     @PreAuthorize("hasRole('ADMIN')")
-    @SkipRestrictedCheck
     public ResponseEntity<ResponseObject> updateServicePackageFee(@RequestBody UpdateServicePackageFeeRequest request) {
         return adminService.updateServicePackageFee(request);
     }
 
     @PutMapping("status/service/package/fee")
     @PreAuthorize("hasRole('ADMIN')")
-    @SkipRestrictedCheck
     public ResponseEntity<ResponseObject> updateStatusServicePackageFee(@RequestBody UpdateStatusServicePackageFeeRequest request) {
         return adminService.updateStatusServicePackageFee(request);
     }
 
     @GetMapping("/service/package/fee/list")
     @PreAuthorize("hasRole('ADMIN')")
-    @SkipRestrictedCheck
     public ResponseEntity<ResponseObject> viewServicePackageFeeList() {
         return adminService.viewServicePackageFeeList();
     }
 
     @PostMapping("/post")
     @PreAuthorize("hasRole('ADMIN')")
-    @SkipRestrictedCheck
     public ResponseEntity<ResponseObject> createPost(@RequestBody CreatePostRequest request) {
         return adminService.createPost(request);
     }
 
     @PutMapping("/post")
     @PreAuthorize("hasRole('ADMIN')")
-    @SkipRestrictedCheck
     public ResponseEntity<ResponseObject> updatePost(@RequestBody UpdatePostRequest request) {
         return adminService.updatePost(request);
     }
 
     @PutMapping("post/disable")
     @PreAuthorize("hasRole('ADMIN')")
-    @SkipRestrictedCheck
     public ResponseEntity<ResponseObject> disablePost(@RequestBody DisablePostRequest request) {
         return adminService.disablePost(request);
     }
 
     @GetMapping("/post/list")
     @PreAuthorize("hasRole('ADMIN')")
-    @SkipRestrictedCheck
     public ResponseEntity<ResponseObject> viewPostList() {
         return adminService.viewPostList();
     }
