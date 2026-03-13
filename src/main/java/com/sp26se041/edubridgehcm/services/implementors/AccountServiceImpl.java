@@ -1,7 +1,11 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
+import com.sp26se041.edubridgehcm.models.Campus;
+import com.sp26se041.edubridgehcm.models.Counsellor;
+import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.requests.RestrictionRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateProfileRequest;
@@ -106,13 +110,65 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> updateProfile(UpdateProfileRequest request) {
-        // update dành cho parent , school, counsellor
-        return null;
+    public ResponseEntity<ResponseObject> updateProfile(UpdateProfileRequest request, HttpServletRequest httpRequest) {
+
+        if (request == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Request body is required", null);
+        }
+
+        String name = normalize(request.getName());
+        String phone = normalize(request.getPhone());
+        String address = normalize(request.getAddress());
+
+        Account account = CookieUtil.extractAccountFromCookie(httpRequest, jWTService, accountRepo);
+
+        if (account == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No account", null);
+        }
+
+        if (account.isRestricted()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        if (name == null && phone == null && address == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "At least one field is required", null);
+        }
+
+        if (phone != null) {
+            account.setPhone(phone);
+        }
+
+        if (address != null) {
+            account.setAddress(address);
+        }
+
+        if (name != null) {
+            if (account.getRole() == Role.PARENT) {
+                Parent parent = account.getParent();
+                if (parent == null) {
+                    return ResponseBuilder.build(HttpStatus.CONFLICT, "Parent profile is not initialized", null);
+                }
+                parent.setName(name);
+            } else if (account.getRole() == Role.COUNSELLOR) {
+                Counsellor counsellor = account.getCounsellor();
+                if (counsellor == null) {
+                    return ResponseBuilder.build(HttpStatus.CONFLICT, "Counsellor profile is not initialized", null);
+                }
+                counsellor.setName(name);
+            } else if (account.getRole() == Role.SCHOOL) {
+                Campus campus = account.getCampus();
+                if (campus != null) {
+                    campus.setName(name);
+                }
+            }
+        }
+
+        Account saved = accountRepo.save(account);
+        return ResponseBuilder.build(HttpStatus.OK, "Update profile successfully", buildProfileData(saved));
     }
 
     @Override
-    public ResponseEntity<ResponseObject> viewProfile(HttpServletRequest request, HttpServletResponse response) {
+    public ResponseEntity<ResponseObject> viewProfile(HttpServletRequest request) {
         // update dành cho parent , school, counsellor
         Account account = CookieUtil.extractAccountFromCookie(request, jWTService, accountRepo);
 
@@ -120,7 +176,91 @@ public class AccountServiceImpl implements AccountService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No account", null);
         }
 
+        return ResponseBuilder.build(HttpStatus.OK, "View profile successfully", buildProfileData(account));
+    }
 
-        return null;
+    private Map<String, Object> buildProfileData(Account account) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", account.getId());
+        data.put("email", account.getEmail());
+        data.put("role", account.getRole());
+        data.put("status", account.getStatus());
+        data.put("phone", account.getPhone());
+        data.put("address", account.getAddress());
+        data.put("firstLogin", account.getFirstLogin());
+        data.put("isRestricted", account.isRestricted());
+        data.put("restrictionReason", account.getRestrictionReason());
+        data.put("restrictionDate", account.getRestrictionDate());
+
+        if (account.getRole() == Role.PARENT) {
+            data.put("parent", buildParentProfileData(account.getParent()));
+        }
+
+        if (account.getRole() == Role.COUNSELLOR) {
+            data.put("counsellor", buildCounsellorProfileData(account.getCounsellor()));
+        }
+
+        if (account.getRole() == Role.SCHOOL) {
+            data.put("campus", buildCampusProfileData(account.getCampus()));
+        }
+
+        return data;
+    }
+
+    private Map<String, Object> buildParentProfileData(Parent parent) {
+        if (parent == null) {
+            return null;
+        }
+
+        Map<String, Object> parentData = new HashMap<>();
+        parentData.put("id", parent.getId());
+        parentData.put("name", parent.getName());
+        parentData.put("gender", parent.getGender());
+        parentData.put("relationship", parent.getRelationship());
+        parentData.put("idCardNumber", parent.getIdCardNumber());
+        parentData.put("workplace", parent.getWorkplace());
+        parentData.put("occupation", parent.getOccupation());
+        parentData.put("currentAddress", parent.getCurrentAddress());
+        return parentData;
+    }
+
+    private Map<String, Object> buildCounsellorProfileData(Counsellor counsellor) {
+        if (counsellor == null) {
+            return null;
+        }
+
+        Map<String, Object> counsellorData = new HashMap<>();
+        counsellorData.put("id", counsellor.getId());
+        counsellorData.put("name", counsellor.getName());
+        counsellorData.put("employeeCode", counsellor.getEmployeeCode());
+        counsellorData.put("campusId", counsellor.getCampus() == null ? null : counsellor.getCampus().getId());
+        counsellorData.put("campusName", counsellor.getCampus() == null ? null : counsellor.getCampus().getName());
+        return counsellorData;
+    }
+
+    private Map<String, Object> buildCampusProfileData(Campus campus) {
+        if (campus == null) {
+            return null;
+        }
+
+        Map<String, Object> campusData = new HashMap<>();
+        campusData.put("id", campus.getId());
+        campusData.put("name", campus.getName());
+        campusData.put("phoneNumber", campus.getPhoneNumber());
+        campusData.put("address", campus.getAddress());
+        campusData.put("status", campus.getStatus());
+        campusData.put("isPrimaryBranch", campus.getIsPrimaryBranch());
+        campusData.put("schoolId", campus.getSchool() == null ? null : campus.getSchool().getId());
+        campusData.put("schoolName", campus.getSchool() == null ? null : campus.getSchool().getName());
+        return campusData;
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

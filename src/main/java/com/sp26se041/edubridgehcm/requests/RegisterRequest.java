@@ -6,9 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
-
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -30,11 +28,11 @@ public class RegisterRequest {
     public static class SchoolRequest {
         String schoolName;
 
-        String schoolAddress;
-
         String campusName;
 
         String campusAddress;
+
+        String campusPhone;
 
         String taxCode;
 
@@ -49,12 +47,6 @@ public class RegisterRequest {
         String hotline;
 
         String businessLicenseUrl;
-
-        String status;
-
-        String rejectionReason;
-
-        LocalDateTime createdAt;
     }
 
 }

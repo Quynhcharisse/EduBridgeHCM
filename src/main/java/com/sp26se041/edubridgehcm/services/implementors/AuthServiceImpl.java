@@ -103,6 +103,7 @@ public class AuthServiceImpl implements AuthService {
                     .schoolName(request.getSchoolRequest().getSchoolName())
                     .campusName(request.getSchoolRequest().getCampusName())
                     .campusAddress(request.getSchoolRequest().getCampusAddress())
+                    .campusPhone(request.getSchoolRequest().getCampusPhone())
                     .taxCode(request.getSchoolRequest().getTaxCode())
                     .websiteUrl(request.getSchoolRequest().getWebsiteUrl())
                     .logoUrl(request.getSchoolRequest().getLogoUrl())
@@ -155,6 +156,7 @@ public class AuthServiceImpl implements AuthService {
         schoolRequestData.put("schoolName", schoolRequest.getSchoolName());
         schoolRequestData.put("campusName", schoolRequest.getCampusName());
         schoolRequestData.put("campusAddress", schoolRequest.getCampusAddress());
+        schoolRequestData.put("campusPhone", schoolRequest.getCampusPhone());
         schoolRequestData.put("taxCode", schoolRequest.getTaxCode());
         schoolRequestData.put("websiteUrl", schoolRequest.getWebsiteUrl());
         schoolRequestData.put("logoUrl", schoolRequest.getLogoUrl());

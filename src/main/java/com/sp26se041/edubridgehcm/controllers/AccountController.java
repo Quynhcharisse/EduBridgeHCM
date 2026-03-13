@@ -47,14 +47,14 @@ public class AccountController {
 
     @GetMapping("/profile")
     @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL', 'PARENT', 'COUNSELLOR')")
-    public ResponseEntity<ResponseObject> viewProfile(HttpServletRequest request, HttpServletResponse response) {
-        return accountService.viewProfile(request, response);
+    public ResponseEntity<ResponseObject> viewProfile(HttpServletRequest request) {
+        return accountService.viewProfile(request);
     }
 
     @PostMapping("/profile")
     @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL', 'PARENT', 'COUNSELLOR')")
-    public ResponseEntity<ResponseObject> updateProfile(@RequestBody UpdateProfileRequest request) {
-        return accountService.updateProfile(request);
+    public ResponseEntity<ResponseObject> updateProfile(@RequestBody UpdateProfileRequest request, HttpServletRequest httpRequest) {
+        return accountService.updateProfile(request, httpRequest);
     }
 
 }
