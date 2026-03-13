@@ -1,6 +1,5 @@
 package com.sp26se041.edubridgehcm.controllers;
 
-import com.sp26se041.edubridgehcm.configurations.SkipRestrictedCheck;
 import com.sp26se041.edubridgehcm.requests.RestrictionRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateProfileRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -28,13 +27,11 @@ public class AccountController {
 
     @PostMapping("/logout")
     @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL', 'PARENT', 'COUNSELLOR')")
-    @SkipRestrictedCheck
     public ResponseEntity<ResponseObject> logout(HttpServletRequest request, HttpServletResponse response) {
         return accountService.logout(request, response);
     }
 
     @PostMapping("/access")
-    @SkipRestrictedCheck
     @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL', 'PARENT', 'COUNSELLOR')")
     public ResponseEntity<ResponseObject> getAccessToken(HttpServletRequest request) {
         return accountService.getAccessToken(request);
@@ -42,7 +39,6 @@ public class AccountController {
 
     @PostMapping("/{accountId}/restrict")
     @PreAuthorize("hasRole('ADMIN')")
-    @SkipRestrictedCheck
     public ResponseEntity<ResponseObject> toggleAccountRestriction(
             @PathVariable int accountId,
             @RequestBody RestrictionRequest request) {
@@ -51,7 +47,6 @@ public class AccountController {
 
     @GetMapping("/profile")
     @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL', 'PARENT', 'COUNSELLOR')")
-    @SkipRestrictedCheck
     public ResponseEntity<ResponseObject> viewProfile(HttpServletRequest request, HttpServletResponse response) {
         return accountService.viewProfile(request, response);
     }

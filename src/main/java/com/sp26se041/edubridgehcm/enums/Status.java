@@ -7,9 +7,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum Status {
     //With status account
-    ACCOUNT_ACTIVE("active"),
-    ACCOUNT_INACTIVE("inactive"),
     ACCOUNT_PENDING_VERIFY("pending verify"),
+    ACCOUNT_ACTIVE("active"),
+    ACCOUNT_RESTRICTED("restricted"),
+    ACCOUNT_INACTIVE("inactive"),
 
     //With status school & campus
     VERIFIED("verified"),
