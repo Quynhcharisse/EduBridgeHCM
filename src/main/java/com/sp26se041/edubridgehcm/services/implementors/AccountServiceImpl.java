@@ -9,6 +9,9 @@ import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusRepo;
+import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
+import com.sp26se041.edubridgehcm.repositories.ParentRepo;
 import com.sp26se041.edubridgehcm.requests.RestrictionRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateProfileRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -37,6 +40,9 @@ public class AccountServiceImpl implements AccountService {
     private final JWTService jWTService;
 
     private final AccountRepo accountRepo;
+    private final CampusRepo campusRepo;
+    private final CounsellorRepo counsellorRepo;
+    private final ParentRepo parentRepo;
 
     @Override
     public ResponseEntity<ResponseObject> logout(HttpServletRequest request, HttpServletResponse response) {
@@ -155,19 +161,63 @@ public class AccountServiceImpl implements AccountService {
         parent.setWorkplace(parentData.getWorkplace());
         parent.setOccupation(parentData.getOccupation());
         parent.setCurrentAddress(parentData.getCurrentAddress());
+        parentRepo.save(parent);
     }
 
     private void updateCounsellorProfile(Counsellor counsellor, UpdateProfileRequest.CounsellorData counsellorData) {
         counsellor.setName(counsellorData.getName());
+        counsellorRepo.save(counsellor);
     }
 
     private void updateCampusProfile(Campus campus, UpdateProfileRequest.CampusData campusData) {
+
+        if (campus.getIsPrimaryBranch()) {
+            campus.getSchool().setName(campusData.getSchoolData().getName());
+            campus.getSchool().setLogoUrl(campusData.getSchoolData().getLogoUrl());
+            campus.getSchool().setRepresentativeName(campusData.getSchoolData().getRepresentativeName());
+            campus.getSchool().setHotline(campusData.getSchoolData().getHotline());
+            campus.getSchool().setRepresentativeName(campusData.getSchoolData().getBusinessLicenseUrl());
+            campus.getSchool().setFoundingDate(campusData.getSchoolData().getFoundingDate());
+        }
+
         campus.setName(campusData.getName());
         campus.setPhoneNumber(campusData.getPhoneNumber());
         campus.setAddress(campusData.getAddress());
-        campus.setImageJson(campusData.getImageJson());
-        campus.setFacility(campusData.getFacilityJson());
+
+        Map<String, Object> imageMap = new HashMap<>();
+        imageMap.put("coverUrl", campusData.getImageJson().getCoverUrl());
+
+        imageMap.put("itemList", campusData.getImageJson().getItemList().stream()
+                .map(item -> {
+                    Map<String, Object> dataItem = new HashMap<>();
+                    dataItem.put("name", item.getName());
+                    dataItem.put("url", item.getUrl());
+                    dataItem.put("altName", item.getAltName());
+                    dataItem.put("uploadDate", item.getUploadDate());
+                    dataItem.put("isUsage", item.isUsage());
+                    return dataItem;
+                })
+        );
+        campus.setImageJson(imageMap);
+
+        Map<String, Object> facilityMap = new HashMap<>();
+        facilityMap.put("overview", campusData.getFacilityJson().getOverview());
+
+        facilityMap.put("itemList", campusData.getFacilityJson().getItemList().stream()
+                .map(item -> {
+                    Map<String, Object> dataItem = new HashMap<>();
+                    dataItem.put("facilityCode", item.getFacilityCode());
+                    dataItem.put("name", item.getName());
+                    dataItem.put("value", item.getValue());
+                    dataItem.put("unit", item.getUnit());
+                    dataItem.put("category", item.getCategory());
+                    return dataItem;
+                })
+        );
+        campus.setFacility(facilityMap);
         campus.setPolicyDetail(campusData.getPolicyDetail());
+
+        campusRepo.save(campus);
     }
 
     private String updateProfileValidation(UpdateProfileRequest request, Account account) {

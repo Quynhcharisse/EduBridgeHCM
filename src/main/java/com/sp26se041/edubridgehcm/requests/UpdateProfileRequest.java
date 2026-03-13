@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -23,11 +24,11 @@ public class UpdateProfileRequest {
 
     CampusData campusData;
 
-
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class ParentData {
 
         String gender;
@@ -49,6 +50,7 @@ public class UpdateProfileRequest {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class CounsellorData {
 
         String name;
@@ -58,7 +60,10 @@ public class UpdateProfileRequest {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class CampusData {
+
+        SchoolData schoolData;
 
         String name;
 
@@ -77,6 +82,29 @@ public class UpdateProfileRequest {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class SchoolData {
+
+        String name;
+
+        String logoUrl;
+
+        String websiteUrl;
+
+        String representativeName;
+
+        String hotline;
+
+        String businessLicenseUrl;
+
+        LocalDate foundingDate;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class ImageJsonData {
 
         String coverUrl;
@@ -88,6 +116,7 @@ public class UpdateProfileRequest {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class ImageItem {
 
         String name;
@@ -105,6 +134,7 @@ public class UpdateProfileRequest {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class FacilityData {
 
         String overview;
@@ -116,6 +146,7 @@ public class UpdateProfileRequest {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class FacilityItem {
         // Ví dụ: "LIBRARY", "SWIMMING_POOL", "LAB"
         // Dùng code để Frontend dễ map với bộ Icon
