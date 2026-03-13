@@ -7,6 +7,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -14,9 +17,117 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateProfileRequest {
 
-    String name;
+    ParentData parentData;
 
-    String phone;
+    CounsellorData counsellorData;
 
-    String address;
+    CampusData campusData;
+
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ParentData {
+
+        String gender;
+
+        String name;
+
+        String phone;
+
+        String relationship;
+
+        String workplace;
+
+        String occupation;
+
+        String currentAddress;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class CounsellorData {
+
+        String name;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class CampusData {
+
+        String name;
+
+        String phoneNumber;
+
+        String policyDetail;
+
+        String address;
+
+        ImageJsonData imageJson;
+
+        FacilityData facilityJson;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ImageJsonData {
+
+        String coverUrl;
+
+        List<ImageItem> itemList;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ImageItem {
+
+        String name;
+
+        String url;
+
+        String altName;
+
+        LocalDateTime uploadDate;
+
+        boolean isUsage;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class FacilityData {
+
+        String overview;
+
+        List<FacilityItem> itemList;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class FacilityItem {
+        // Ví dụ: "LIBRARY", "SWIMMING_POOL", "LAB"
+        // Dùng code để Frontend dễ map với bộ Icon
+        String facilityCode;
+
+        String name; // Ví dụ: Thư viện trung tâm
+
+        String value; // Ví dụ: 500
+
+        String unit; // Ví dụ: "m2" hoặc "phòng
+
+        // Phân loại: Học tập, Thể thao, Nội trú
+        String category;
+    }
 }

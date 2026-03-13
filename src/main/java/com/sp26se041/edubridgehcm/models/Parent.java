@@ -2,7 +2,6 @@ package com.sp26se041.edubridgehcm.models;
 
 import com.sp26se041.edubridgehcm.enums.Gender;
 import com.sp26se041.edubridgehcm.enums.Relationship;
-import com.sp26se041.edubridgehcm.enums.Status;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -26,7 +25,6 @@ import lombok.ToString;
 import lombok.experimental.FieldDefaults;
 import org.jspecify.annotations.NullMarked;
 
-import java.time.LocalDate;
 import java.util.List;
 
 @Data
@@ -51,6 +49,8 @@ public class Parent {
     Gender gender;
 
     String name;
+
+    String phone;
 
     @Enumerated(EnumType.STRING)
     Relationship relationship;

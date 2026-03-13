@@ -56,6 +56,10 @@ public class AdmissionCampaign {
     @Column(name = "academic_year")
     int year;
 
+    String name;
+
+    String description;
+
     @Column(name = "start_date")
     LocalDate startDate;
 
