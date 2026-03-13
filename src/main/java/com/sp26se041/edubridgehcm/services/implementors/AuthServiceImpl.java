@@ -61,6 +61,10 @@ public class AuthServiceImpl implements AuthService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account not found", null);
         }
 
+        if (account.getStatus().equals(Status.ACCOUNT_INACTIVE)) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is inactive", null);
+        }
+
         if (account.getStatus().equals(Status.ACCOUNT_PENDING_VERIFY)) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is awaiting admin verified", null);
         }
