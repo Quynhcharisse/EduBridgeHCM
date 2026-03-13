@@ -1,5 +1,7 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.sp26se041.edubridgehcm.enums.Gender;
+import com.sp26se041.edubridgehcm.enums.Relationship;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
@@ -23,8 +25,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -89,7 +93,7 @@ public class AccountServiceImpl implements AccountService {
         }
 
         if (request.isRestricted()) {
-            if (request.getReason().trim().isEmpty()) {
+            if (request.getReason() == null || request.getReason().trim().isEmpty()) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Reason is required when restricting an account", null);
             }
             account.setRestricted(true);
@@ -112,64 +116,144 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public ResponseEntity<ResponseObject> updateProfile(UpdateProfileRequest request, HttpServletRequest httpRequest) {
 
-        if (request == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Request body is required", null);
-        }
-
-        String name = normalize(request.getName());
-        String phone = normalize(request.getPhone());
-        String address = normalize(request.getAddress());
-
         Account account = CookieUtil.extractAccountFromCookie(httpRequest, jWTService, accountRepo);
 
         if (account == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No account", null);
         }
 
+        String error = updateProfileValidation(request, account);
+
+        if (!error.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+        }
+
+        if (account.getRole() == Role.PARENT) {
+            updateParentProfile(account.getParent(), request.getParentData());
+        }
+
+        if (account.getRole() == Role.COUNSELLOR) {
+            updateCounsellorProfile(account.getCounsellor(), request.getCounsellorData());
+        }
+
+        if (account.getRole() == Role.SCHOOL) {
+            updateCampusProfile(account.getCampus(), request.getCampusData());
+        }
+
+        account.setFirstLogin(false);
+        accountRepo.save(account);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Update profile successfully", null);
+    }
+
+
+    private void updateParentProfile(Parent parent, UpdateProfileRequest.ParentData parentData) {
+        parent.setName(parentData.getName());
+        parent.setGender(Gender.valueOf(parentData.getGender()));
+        parent.setRelationship(Relationship.valueOf(parentData.getRelationship()));
+        parent.setPhone(parentData.getPhone());
+        parent.setWorkplace(parentData.getWorkplace());
+        parent.setOccupation(parentData.getOccupation());
+        parent.setCurrentAddress(parentData.getCurrentAddress());
+    }
+
+    private void updateCounsellorProfile(Counsellor counsellor, UpdateProfileRequest.CounsellorData counsellorData) {
+        counsellor.setName(counsellorData.getName());
+    }
+
+    private void updateCampusProfile(Campus campus, UpdateProfileRequest.CampusData campusData) {
+        campus.setName(campusData.getName());
+        campus.setPhoneNumber(campusData.getPhoneNumber());
+        campus.setAddress(campusData.getAddress());
+        campus.setImageJson(campusData.getImageJson());
+        campus.setFacility(campusData.getFacilityJson());
+        campus.setPolicyDetail(campusData.getPolicyDetail());
+    }
+
+    private String updateProfileValidation(UpdateProfileRequest request, Account account) {
+
+        if (account == null) {
+            return "Account does not exist";
+        }
+
         if (account.isRestricted()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return "Your account is restricted";
         }
 
-        if (name == null && phone == null && address == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "At least one field is required", null);
-        }
+        if (account.getRole() == Role.PARENT) {
 
-        if (phone != null) {
-            account.setPhone(phone);
-        }
-
-        if (address != null) {
-            account.setAddress(address);
-        }
-
-        if (name != null) {
-            if (account.getRole() == Role.PARENT) {
-                Parent parent = account.getParent();
-                if (parent == null) {
-                    return ResponseBuilder.build(HttpStatus.CONFLICT, "Parent profile is not initialized", null);
-                }
-                parent.setName(name);
-            } else if (account.getRole() == Role.COUNSELLOR) {
-                Counsellor counsellor = account.getCounsellor();
-                if (counsellor == null) {
-                    return ResponseBuilder.build(HttpStatus.CONFLICT, "Counsellor profile is not initialized", null);
-                }
-                counsellor.setName(name);
-            } else if (account.getRole() == Role.SCHOOL) {
-                Campus campus = account.getCampus();
-                if (campus != null) {
-                    campus.setName(name);
-                }
+            if (request.getParentData().getName().trim().isEmpty()) {
+                return "Require parent name";
             }
+
+            if (request.getParentData().getGender() == null || !isGenderValid(request.getParentData().getGender())) {
+                return "Invalid parent gender";
+            }
+
+            if (request.getParentData().getRelationship() == null || !isRelationshipValid(request.getParentData().getRelationship())) {
+                return "Invalid parent relationship";
+            }
+
+            if (request.getParentData().getPhone() == null || request.getParentData().getPhone().trim().isEmpty()) {
+                return "Require parent phone";
+            }
+
+            if (request.getParentData().getOccupation().trim().isEmpty()) {
+                return "Require parent occupation";
+            }
+
+            if (request.getParentData().getWorkplace().trim().isEmpty()) {
+                return "Require parent workplace";
+            }
+
+            if (request.getParentData().getCurrentAddress().trim().isEmpty()) {
+                return "Require parent address";
+            }
+
+            return "";
         }
 
-        Account saved = accountRepo.save(account);
-        return ResponseBuilder.build(HttpStatus.OK, "Update profile successfully", buildProfileData(saved));
+        if (account.getRole() == Role.COUNSELLOR) {
+
+            if (request.getCounsellorData().getName().trim().isEmpty()) {
+                return "Require counsellor name";
+            }
+            return "";
+        }
+
+        if (account.getRole() == Role.SCHOOL) {
+
+            if (request.getCampusData().getName() == null || request.getCampusData().getName().trim().isEmpty()) {
+                return "Require campus name";
+            }
+
+            if (request.getCampusData().getPhoneNumber() == null || request.getCampusData().getPhoneNumber().trim().isEmpty()) {
+                return "Require campus phone number";
+            }
+
+            if (request.getCampusData().getAddress() == null || request.getCampusData().getAddress().trim().isEmpty()) {
+                return "Require campus address";
+            }
+
+            return "";
+        }
+
+        return "";
+    }
+
+    private boolean isGenderValid(String value) {
+        return Arrays.stream(Gender.values())
+                .anyMatch(g -> g.getValue().equalsIgnoreCase(value));
+    }
+
+    private boolean isRelationshipValid(String value) {
+        return Arrays.stream(Relationship.values())
+                .anyMatch(r -> r.getValue().equalsIgnoreCase(value));
     }
 
     @Override
     public ResponseEntity<ResponseObject> viewProfile(HttpServletRequest request) {
-        // update dành cho parent , school, counsellor
+
         Account account = CookieUtil.extractAccountFromCookie(request, jWTService, accountRepo);
 
         if (account == null) {
@@ -181,16 +265,10 @@ public class AccountServiceImpl implements AccountService {
 
     private Map<String, Object> buildProfileData(Account account) {
         Map<String, Object> data = new HashMap<>();
-        data.put("id", account.getId());
         data.put("email", account.getEmail());
         data.put("role", account.getRole());
         data.put("status", account.getStatus());
-        data.put("phone", account.getPhone());
-        data.put("address", account.getAddress());
         data.put("firstLogin", account.getFirstLogin());
-        data.put("isRestricted", account.isRestricted());
-        data.put("restrictionReason", account.getRestrictionReason());
-        data.put("restrictionDate", account.getRestrictionDate());
 
         if (account.getRole() == Role.PARENT) {
             data.put("parent", buildParentProfileData(account.getParent()));
@@ -208,59 +286,46 @@ public class AccountServiceImpl implements AccountService {
     }
 
     private Map<String, Object> buildParentProfileData(Parent parent) {
-        if (parent == null) {
-            return null;
-        }
+
+        if (parent == null) return null;
 
         Map<String, Object> parentData = new HashMap<>();
-        parentData.put("id", parent.getId());
         parentData.put("name", parent.getName());
         parentData.put("gender", parent.getGender());
         parentData.put("relationship", parent.getRelationship());
-        parentData.put("idCardNumber", parent.getIdCardNumber());
         parentData.put("workplace", parent.getWorkplace());
         parentData.put("occupation", parent.getOccupation());
         parentData.put("currentAddress", parent.getCurrentAddress());
+        parentData.put("idCardNumber", parent.getIdCardNumber());
         return parentData;
     }
 
     private Map<String, Object> buildCounsellorProfileData(Counsellor counsellor) {
-        if (counsellor == null) {
-            return null;
-        }
+
+        if (counsellor == null) return null;
 
         Map<String, Object> counsellorData = new HashMap<>();
-        counsellorData.put("id", counsellor.getId());
         counsellorData.put("name", counsellor.getName());
         counsellorData.put("employeeCode", counsellor.getEmployeeCode());
-        counsellorData.put("campusId", counsellor.getCampus() == null ? null : counsellor.getCampus().getId());
-        counsellorData.put("campusName", counsellor.getCampus() == null ? null : counsellor.getCampus().getName());
+        counsellorData.put("campusId", Optional.of(counsellor.getCampus().getId()).orElse(null));
+        counsellorData.put("campusName", Optional.of(counsellor.getCampus().getName()).orElse(null));
         return counsellorData;
     }
 
     private Map<String, Object> buildCampusProfileData(Campus campus) {
-        if (campus == null) {
-            return null;
-        }
+
+        if (campus == null) return null;
 
         Map<String, Object> campusData = new HashMap<>();
-        campusData.put("id", campus.getId());
         campusData.put("name", campus.getName());
         campusData.put("phoneNumber", campus.getPhoneNumber());
         campusData.put("address", campus.getAddress());
         campusData.put("status", campus.getStatus());
         campusData.put("isPrimaryBranch", campus.getIsPrimaryBranch());
-        campusData.put("schoolId", campus.getSchool() == null ? null : campus.getSchool().getId());
-        campusData.put("schoolName", campus.getSchool() == null ? null : campus.getSchool().getName());
+        campusData.put("schoolId", Optional.of(campus.getSchool().getId()).orElse(null));
+        campusData.put("schoolName", Optional.of(campus.getSchool().getName()).orElse(null));
+        campusData.put("imageJson", campus.getImageJson());
+        campusData.put("facility", campus.getFacility());
         return campusData;
-    }
-
-    private String normalize(String value) {
-        if (value == null) {
-            return null;
-        }
-
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
     }
 }

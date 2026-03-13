@@ -39,8 +39,6 @@ public class EduBridgeHcmApplication {
                                 .role(Role.ADMIN)
                                 .firstLogin(true)
                                 .registerDate(LocalDate.now())
-                                .phone("0703345054")
-                                .address("FPT University, Ho Chi Minh city")
                                 .status(Status.ACCOUNT_ACTIVE)
                                 .build()
                 );
@@ -51,8 +49,6 @@ public class EduBridgeHcmApplication {
                                 .role(Role.PARENT)
                                 .firstLogin(false)
                                 .registerDate(LocalDate.now())
-                                .phone("0901234567")
-                                .address("District 1, Ho Chi Minh city")
                                 .status(Status.ACCOUNT_ACTIVE)
                                 .parent(null)
                                 .build());

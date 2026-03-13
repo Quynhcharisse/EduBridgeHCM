@@ -10,11 +10,8 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class CreateCampusRequest {
+public class ViewCampusProgramOfferingRequest {
 
-    String name;
-
-    String address;
-
-    String phone;
+    int campusId;
 }
+

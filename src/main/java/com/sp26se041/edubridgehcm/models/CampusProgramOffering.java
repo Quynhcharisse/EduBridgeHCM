@@ -19,6 +19,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.jspecify.annotations.NullMarked;
+import java.math.BigDecimal;
 
 @Data
 @NoArgsConstructor
@@ -53,6 +54,9 @@ public class CampusProgramOffering {
 
     @Column(name = "price_adjustment_percentage")
     float priceAdjustmentPercentage;
+
+    @Column(name = "tuition_fee")
+    BigDecimal tuitionFee;
 
     @Enumerated(EnumType.STRING)
     Status status;
