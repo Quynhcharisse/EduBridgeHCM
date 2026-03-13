@@ -42,6 +42,9 @@ public class SchoolRegistrationRequest {
     @Column(name = "campus_address")
     String campusAddress;
 
+    @Column(name = "campus_phone")
+    String campusPhone;
+
     @Column(name = "tax_code", length = 50)
     String taxCode;
 
@@ -58,18 +61,6 @@ public class SchoolRegistrationRequest {
     String representativeName;
 
     String hotline;
-
-    // 1. Số nhà và tên đường (Thông tin thay đổi tùy campus)
-    @Column(name = "street_address")
-    String streetAddress;
-
-    // 2. Tên phường/xã MỚI (Dựa theo cột 4 trong bảng công văn)
-    @Column(name = "ward_name")
-    String wardName;
-
-    // 3. Tên Quận/Huyện hoặc Thành phố thuộc tỉnh
-    @Column(name = "district_name")
-    String districtName;
 
     @Column(name = "business_license_url")
     String businessLicenseUrl;

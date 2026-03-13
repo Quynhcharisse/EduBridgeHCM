@@ -90,8 +90,8 @@ public class AdminServiceImpl implements AdminService {
         campusRepo.save(Campus.builder()
                 .account(account)
                 .name(request.getCampusName())
-                .phoneNumber(request.getCampusName())
-                .address(request.getStreetAddress() + ", " + request.getWardName() + ", " + request.getDistrictName()) // 45B Le Trong Tan street, Binh Tan disctrict, HCM city
+                .phoneNumber(request.getCampusPhone())
+                .address(request.getCampusAddress())
                 .status(Status.ACCOUNT_ACTIVE)
                 .isPrimaryBranch(true)
                 .school(school)
