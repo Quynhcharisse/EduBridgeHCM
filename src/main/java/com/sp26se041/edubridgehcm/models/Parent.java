@@ -62,6 +62,8 @@ public class Parent {
     // Professional & Location
     String workplace;
 
+    String occupation;
+
     @Column(name = "current_address")
     String currentAddress; // địa chỉ hiện tại
 
