@@ -44,6 +44,8 @@ public class UpdateProfileRequest {
         String occupation;
 
         String currentAddress;
+
+        String idCardNumber;
     }
 
     @Data

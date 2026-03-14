@@ -141,7 +141,7 @@ public class AccountServiceImpl implements AccountService {
         }
 
         if (account.getRole() == Role.PARENT) {
-            updateParentProfile(account.getParent(), request.getParentData());
+            updateParentProfile(account.getParent(), request.getParentData(), account.getFirstLogin());
         }
 
         if (account.getRole() == Role.COUNSELLOR) {
@@ -158,8 +158,7 @@ public class AccountServiceImpl implements AccountService {
         return ResponseBuilder.build(HttpStatus.OK, "Update profile successfully", null);
     }
 
-
-    private void updateParentProfile(Parent parent, UpdateProfileRequest.ParentData parentData) {
+    private void updateParentProfile(Parent parent, UpdateProfileRequest.ParentData parentData, boolean isFirstLogin) {
         parent.setName(parentData.getName());
         parent.setGender(Gender.valueOf(parentData.getGender()));
         parent.setRelationship(Relationship.valueOf(parentData.getRelationship()));
@@ -167,6 +166,11 @@ public class AccountServiceImpl implements AccountService {
         parent.setWorkplace(parentData.getWorkplace());
         parent.setOccupation(parentData.getOccupation());
         parent.setCurrentAddress(parentData.getCurrentAddress());
+
+        if (isFirstLogin) {
+            parent.setIdCardNumber(parentData.getIdCardNumber());
+        }
+
         parentRepo.save(parent);
     }
 
@@ -237,6 +241,18 @@ public class AccountServiceImpl implements AccountService {
         }
 
         if (account.getRole() == Role.PARENT) {
+
+            if (request.getParentData() == null) {
+                return "Require parent data";
+            }
+
+            if (account.getFirstLogin() && request.getParentData().getIdCardNumber() == null) {
+                return "Require parent id card number on first login";
+            }
+
+            if (!account.getFirstLogin() && request.getParentData().getIdCardNumber() != null && !request.getParentData().getIdCardNumber().equals(account.getParent().getIdCardNumber())) {
+                return "Parent id card number can only be updated on first login";
+            }
 
             if (request.getParentData().getName().trim().isEmpty()) {
                 return "Require parent name";
@@ -348,6 +364,7 @@ public class AccountServiceImpl implements AccountService {
         Map<String, Object> parentData = new HashMap<>();
         parentData.put("name", parent.getName());
         parentData.put("gender", parent.getGender());
+        parentData.put("phone", parent.getPhone());
         parentData.put("relationship", parent.getRelationship());
         parentData.put("workplace", parent.getWorkplace());
         parentData.put("occupation", parent.getOccupation());
