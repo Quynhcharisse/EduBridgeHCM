@@ -8,6 +8,7 @@ import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Parent;
+import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
@@ -31,7 +32,9 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -159,6 +162,7 @@ public class AccountServiceImpl implements AccountService {
     }
 
     private void updateParentProfile(Parent parent, UpdateProfileRequest.ParentData parentData, boolean isFirstLogin) {
+
         parent.setName(parentData.getName());
         parent.setGender(Gender.valueOf(parentData.getGender()));
         parent.setRelationship(Relationship.valueOf(parentData.getRelationship()));
@@ -166,32 +170,34 @@ public class AccountServiceImpl implements AccountService {
         parent.setWorkplace(parentData.getWorkplace());
         parent.setCurrentAddress(parentData.getCurrentAddress());
 
+
         if (isFirstLogin) {
-            parent.setIdCardNumber(parentData.getIdCardNumber());
+            parent.setIdCardNumber(normalize(parentData.getIdCardNumber()));
         }
 
         parentRepo.save(parent);
     }
 
     private void updateCounsellorProfile(Counsellor counsellor, UpdateProfileRequest.CounsellorData counsellorData) {
-        counsellor.setName(counsellorData.getName());
+        counsellor.setName(normalize(counsellorData.getName()));
         counsellorRepo.save(counsellor);
     }
 
     private void updateCampusProfile(Campus campus, UpdateProfileRequest.CampusData campusData) {
 
         if (campus.getIsPrimaryBranch()) {
-            campus.getSchool().setName(campusData.getSchoolData().getName());
-            campus.getSchool().setLogoUrl(campusData.getSchoolData().getLogoUrl());
-            campus.getSchool().setRepresentativeName(campusData.getSchoolData().getRepresentativeName());
-            campus.getSchool().setHotline(campusData.getSchoolData().getHotline());
-            campus.getSchool().setRepresentativeName(campusData.getSchoolData().getBusinessLicenseUrl());
+            campus.getSchool().setName(normalize(campusData.getSchoolData().getName()));
+            campus.getSchool().setLogoUrl(normalize(campusData.getSchoolData().getLogoUrl()));
+            campus.getSchool().setWebsiteUrl(normalize(campusData.getSchoolData().getWebsiteUrl()));
+            campus.getSchool().setRepresentativeName(normalize(campusData.getSchoolData().getRepresentativeName()));
+            campus.getSchool().setHotline(normalize(campusData.getSchoolData().getHotline()));
+            campus.getSchool().setBusinessLicenseUrl(normalize(campusData.getSchoolData().getBusinessLicenseUrl()));
             campus.getSchool().setFoundingDate(campusData.getSchoolData().getFoundingDate());
         }
 
-        campus.setName(campusData.getName());
-        campus.setPhoneNumber(campusData.getPhoneNumber());
-        campus.setAddress(campusData.getAddress());
+        campus.setName(normalize(campusData.getName()));
+        campus.setPhoneNumber(normalize(campusData.getPhoneNumber()));
+        campus.setAddress(normalize(campusData.getAddress()));
 
         Map<String, Object> imageMap = new HashMap<>();
         imageMap.put("coverUrl", campusData.getImageJson().getCoverUrl());
@@ -199,13 +205,14 @@ public class AccountServiceImpl implements AccountService {
         imageMap.put("itemList", campusData.getImageJson().getItemList().stream()
                 .map(item -> {
                     Map<String, Object> dataItem = new HashMap<>();
-                    dataItem.put("name", item.getName());
-                    dataItem.put("url", item.getUrl());
-                    dataItem.put("altName", item.getAltName());
+                    dataItem.put("name", normalize(item.getName()));
+                    dataItem.put("url", normalize(item.getUrl()));
+                    dataItem.put("altName", normalize(item.getAltName()));
                     dataItem.put("uploadDate", item.getUploadDate());
                     dataItem.put("isUsage", item.isUsage());
                     return dataItem;
                 })
+                .collect(Collectors.toList())
         );
         campus.setImageJson(imageMap);
 
@@ -215,16 +222,17 @@ public class AccountServiceImpl implements AccountService {
         facilityMap.put("itemList", campusData.getFacilityJson().getItemList().stream()
                 .map(item -> {
                     Map<String, Object> dataItem = new HashMap<>();
-                    dataItem.put("facilityCode", item.getFacilityCode());
-                    dataItem.put("name", item.getName());
-                    dataItem.put("value", item.getValue());
-                    dataItem.put("unit", item.getUnit());
-                    dataItem.put("category", item.getCategory());
+                    dataItem.put("facilityCode", normalize(item.getFacilityCode()));
+                    dataItem.put("name", normalize(item.getName()));
+                    dataItem.put("value", normalize(item.getValue()));
+                    dataItem.put("unit", normalize(item.getUnit()));
+                    dataItem.put("category", normalize(item.getCategory()));
                     return dataItem;
                 })
+                .collect(Collectors.toList())
         );
         campus.setFacility(facilityMap);
-        campus.setPolicyDetail(campusData.getPolicyDetail());
+        campus.setPolicyDetail(normalize(campusData.getPolicyDetail()));
 
         campusRepo.save(campus);
     }
@@ -235,50 +243,90 @@ public class AccountServiceImpl implements AccountService {
             return "Account does not exist";
         }
 
+        if (request == null) {
+            return "Request body is required";
+        }
+
         if (account.isRestricted()) {
             return "Your account is restricted";
         }
 
+        if (account.getRole() == Role.ADMIN) {
+            return "Admin does not support this profile update API";
+        }
+
         if (account.getRole() == Role.PARENT) {
+
+            if (request.getCounsellorData() != null || request.getCampusData() != null) {
+                return "Only parentData is allowed for parent role";
+            }
 
             if (request.getParentData() == null) {
                 return "Require parent data";
             }
 
-            if (account.getFirstLogin() && request.getParentData().getIdCardNumber() == null) {
+            String parentName = normalize(request.getParentData().getName());
+            String parentPhone = normalize(request.getParentData().getPhone());
+            String parentOccupation = normalize(request.getParentData().getOccupation());
+            String parentWorkplace = normalize(request.getParentData().getWorkplace());
+            String parentAddress = normalize(request.getParentData().getCurrentAddress());
+            String idCardNumber = normalize(request.getParentData().getIdCardNumber());
+            boolean isFirstLogin = account.getFirstLogin();
+
+            if (isFirstLogin && idCardNumber == null) {
                 return "Require parent id card number on first login";
             }
 
-            if (!account.getFirstLogin() && request.getParentData().getIdCardNumber() != null && !request.getParentData().getIdCardNumber().equals(account.getParent().getIdCardNumber())) {
+            if (idCardNumber != null && !isExactDigits(idCardNumber)) {
+                return "Parent id card number must contain exactly 12 digits";
+            }
+
+            if (!isFirstLogin && idCardNumber != null && !idCardNumber.equals(account.getParent().getIdCardNumber())) {
                 return "Parent id card number can only be updated on first login";
             }
 
-            if (request.getParentData().getName().trim().isEmpty()) {
+            if (parentName == null) {
                 return "Require parent name";
             }
 
-            if (request.getParentData().getGender() == null || !isGenderValid(request.getParentData().getGender())) {
+            if (parseGender(request.getParentData().getGender()) == null) {
                 return "Invalid parent gender";
             }
 
-            if (request.getParentData().getRelationship() == null || !isRelationshipValid(request.getParentData().getRelationship())) {
+            if (parseRelationship(request.getParentData().getRelationship()) == null) {
                 return "Invalid parent relationship";
             }
 
-            if (request.getParentData().getPhone() == null || request.getParentData().getPhone().trim().isEmpty()) {
+            if (parentPhone == null) {
                 return "Require parent phone";
             }
 
-            if (request.getParentData().getOccupation().trim().isEmpty()) {
+            if (!isValidPhoneNumber(parentPhone)) {
+                return "Parent phone number must contain exactly 10 digits and start with 03, 07, 08, or 09";
+            }
+
+            if (parentOccupation == null) {
                 return "Require parent occupation";
             }
 
-            if (request.getParentData().getWorkplace().trim().isEmpty()) {
+            if (hasMaxWords(parentOccupation)) {
+                return "Parent occupation must not exceed 100 words";
+            }
+
+            if (parentWorkplace == null) {
                 return "Require parent workplace";
             }
 
-            if (request.getParentData().getCurrentAddress().trim().isEmpty()) {
+            if (hasMaxWords(parentWorkplace)) {
+                return "Parent workplace must not exceed 100 words";
+            }
+
+            if (parentAddress == null) {
                 return "Require parent address";
+            }
+
+            if (hasMaxWords(parentAddress)) {
+                return "Parent address must not exceed 100 words";
             }
 
             return "";
@@ -286,7 +334,15 @@ public class AccountServiceImpl implements AccountService {
 
         if (account.getRole() == Role.COUNSELLOR) {
 
-            if (request.getCounsellorData().getName().trim().isEmpty()) {
+            if (request.getParentData() != null || request.getCampusData() != null) {
+                return "Only counsellorData is allowed for counsellor role";
+            }
+
+            if (request.getCounsellorData() == null) {
+                return "Require counsellor data";
+            }
+
+            if (normalize(request.getCounsellorData().getName()) == null) {
                 return "Require counsellor name";
             }
             return "";
@@ -294,32 +350,129 @@ public class AccountServiceImpl implements AccountService {
 
         if (account.getRole() == Role.SCHOOL) {
 
-            if (request.getCampusData().getName() == null || request.getCampusData().getName().trim().isEmpty()) {
+            if (request.getParentData() != null || request.getCounsellorData() != null) {
+                return "Only campusData is allowed for school role";
+            }
+
+            if (request.getCampusData() == null) {
+                return "Require campus data";
+            }
+
+            if (normalize(request.getCampusData().getName()) == null) {
                 return "Require campus name";
             }
 
-            if (request.getCampusData().getPhoneNumber() == null || request.getCampusData().getPhoneNumber().trim().isEmpty()) {
+            if (normalize(request.getCampusData().getPhoneNumber()) == null) {
                 return "Require campus phone number";
             }
 
-            if (request.getCampusData().getAddress() == null || request.getCampusData().getAddress().trim().isEmpty()) {
+            if (!isValidPhoneNumber(request.getCampusData().getPhoneNumber())) {
+                return "Campus phone number must contain exactly 10 digits and start with 03, 07, 08, or 09";
+            }
+
+            if (normalize(request.getCampusData().getAddress()) == null) {
                 return "Require campus address";
+            }
+
+            if (hasMaxWords(request.getCampusData().getAddress())) {
+                return "Campus address must not exceed 100 words";
+            }
+
+            if (request.getCampusData().getImageJson() == null) {
+                return "Require campus imageJson";
+            }
+
+            if (request.getCampusData().getImageJson().getItemList() == null) {
+                return "Require image itemList";
+            }
+
+            if (request.getCampusData().getImageJson().getItemList().stream().anyMatch(item -> item == null || normalize(item.getUrl()) == null)) {
+                return "Invalid image item";
+            }
+
+            if (request.getCampusData().getFacilityJson() == null) {
+                return "Require campus facilityJson";
+            }
+
+            if (request.getCampusData().getFacilityJson().getItemList() == null) {
+                return "Require facility itemList";
+            }
+
+            if (request.getCampusData().getFacilityJson().getItemList().stream().anyMatch(item -> item == null || normalize(item.getFacilityCode()) == null || normalize(item.getName()) == null)) {
+                return "Invalid facility item";
+            }
+
+            if (account.getCampus().getIsPrimaryBranch()) {
+                if (request.getCampusData().getSchoolData() == null) {
+                    return "Require school data for primary branch";
+                }
+
+                if (normalize(request.getCampusData().getSchoolData().getName()) == null) {
+                    return "Require school name for primary branch";
+                }
+
+                String hotline = normalize(request.getCampusData().getSchoolData().getHotline());
+                if (hotline != null && !isValidPhoneNumber(hotline)) {
+                    return "School hotline must contain exactly 10 digits and start with 03, 07, 08, or 09";
+                }
             }
 
             return "";
         }
 
-        return "";
+        return "Role does not support profile update";
     }
 
-    private boolean isGenderValid(String value) {
+    private Gender parseGender(String value) {
+        String normalizedValue = normalize(value);
+        if (normalizedValue == null) {
+            return null;
+        }
+
         return Arrays.stream(Gender.values())
-                .anyMatch(g -> g.getValue().equalsIgnoreCase(value));
+                .filter(g -> g.getValue().equalsIgnoreCase(normalizedValue) || g.name().equalsIgnoreCase(normalizedValue))
+                .findFirst()
+                .orElse(null);
     }
 
-    private boolean isRelationshipValid(String value) {
+    private Relationship parseRelationship(String value) {
+        String normalizedValue = normalize(value);
+        if (normalizedValue == null) {
+            return null;
+        }
+
         return Arrays.stream(Relationship.values())
-                .anyMatch(r -> r.getValue().equalsIgnoreCase(value));
+                .filter(r -> r.getValue().equalsIgnoreCase(normalizedValue) || r.name().equalsIgnoreCase(normalizedValue))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private boolean isValidPhoneNumber(String value) {
+        String normalizedValue = normalize(value);
+        return normalizedValue != null && normalizedValue.matches("^(03|07|08|09)\\d{8}$");
+    }
+
+    private boolean isExactDigits(String value) {
+        String normalizedValue = normalize(value);
+        return normalizedValue != null && normalizedValue.matches("^\\d{" + 12 + "}$");
+    }
+
+    private boolean hasMaxWords(String value) {
+        String normalizedValue = normalize(value);
+        if (normalizedValue == null) {
+            return true;
+        }
+
+        return normalizedValue.split("\\s+").length > 100;
     }
 
     @Override
@@ -378,8 +531,8 @@ public class AccountServiceImpl implements AccountService {
         Map<String, Object> counsellorData = new HashMap<>();
         counsellorData.put("name", counsellor.getName());
         counsellorData.put("employeeCode", counsellor.getEmployeeCode());
-        counsellorData.put("campusId", Optional.of(counsellor.getCampus().getId()).orElse(null));
-        counsellorData.put("campusName", Optional.of(counsellor.getCampus().getName()).orElse(null));
+        counsellorData.put("campusId", Optional.of(counsellor.getCampus()).map(Campus::getId).orElse(null));
+        counsellorData.put("campusName", Optional.of(counsellor.getCampus()).map(Campus::getName).orElse(null));
         return counsellorData;
     }
 
@@ -393,8 +546,8 @@ public class AccountServiceImpl implements AccountService {
         campusData.put("address", campus.getAddress());
         campusData.put("status", campus.getStatus());
         campusData.put("isPrimaryBranch", campus.getIsPrimaryBranch());
-        campusData.put("schoolId", Optional.of(campus.getSchool().getId()).orElse(null));
-        campusData.put("schoolName", Optional.of(campus.getSchool().getName()).orElse(null));
+        campusData.put("schoolId", Optional.of(campus.getSchool()).map(School::getId).orElse(null));
+        campusData.put("schoolName", Optional.of(campus.getSchool()).map(School::getName).orElse(null));
         campusData.put("imageJson", campus.getImageJson());
         campusData.put("facility", campus.getFacility());
         return campusData;
