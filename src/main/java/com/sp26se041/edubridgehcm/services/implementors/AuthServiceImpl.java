@@ -9,10 +9,12 @@ import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.ParentRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRegistrationRequestRepo;
 import com.sp26se041.edubridgehcm.requests.LoginRequest;
+import com.sp26se041.edubridgehcm.requests.RefreshTokenRequest;
 import com.sp26se041.edubridgehcm.requests.RegisterRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AuthService;
 import com.sp26se041.edubridgehcm.services.JWTService;
+import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.CookieUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,6 +34,7 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
+    private static final String TOKEN_TYPE = "Bearer";
 
     @Value("${jwt.expiration.access-token}")
     private long accessExpiration;
@@ -49,13 +52,15 @@ public class AuthServiceImpl implements AuthService {
     private final SchoolRegistrationRequestRepo schoolRegistrationRequestRepo;
 
     @Override
-    public ResponseEntity<ResponseObject> login(LoginRequest request, HttpServletResponse response) {
+    public ResponseEntity<ResponseObject> login(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse response) {
 
-        if (request.getEmail() == null) {
+        String email = normalize(request == null ? null : request.getEmail());
+
+        if (email == null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Email is require", null);
         }
 
-        Account account = accountRepo.findByEmail(request.getEmail()).orElse(null);
+        Account account = accountRepo.findByEmail(email).orElse(null);
 
         if (account == null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account not found", null);
@@ -71,6 +76,10 @@ public class AuthServiceImpl implements AuthService {
 
         String access = jwtService.generateAccessToken(account);
         String refresh = jwtService.generateRefreshToken(account);
+
+        if (AuthRequestUtil.isMobileRequest(httpRequest)) {
+            return ResponseBuilder.build(HttpStatus.OK, "Login successfully", buildMobileAuthData(account, access, refresh));
+        }
 
         CookieUtil.createCookies(response, access, refresh, accessExpiration, refreshExpiration);
         return ResponseBuilder.build(HttpStatus.OK, "Login successfully", buildAccountData(account));
@@ -170,8 +179,20 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> refresh(HttpServletRequest request, HttpServletResponse response) {
-        Account currentAcc = CookieUtil.extractAccountFromCookie(request, jwtService, accountRepo);
+    public ResponseEntity<ResponseObject> refresh(RefreshTokenRequest request, HttpServletRequest httpRequest, HttpServletResponse response) {
+        String refreshToken = AuthRequestUtil.extractRefreshToken(httpRequest, request == null ? null : request.getRefreshToken());
+
+        if (refreshToken == null) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "No refresh token found", null);
+        }
+
+        String email = jwtService.extractEmailFromJWT(refreshToken);
+
+        if (email == null) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Refresh token invalid", null);
+        }
+
+        Account currentAcc = accountRepo.findByEmailAndStatus(email, Status.ACCOUNT_ACTIVE).orElse(null);
 
         if (currentAcc == null) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "No user found", null);
@@ -181,8 +202,32 @@ public class AuthServiceImpl implements AuthService {
 
         String newRefresh = jwtService.generateRefreshToken(currentAcc);
 
+        if (AuthRequestUtil.isMobileRequest(httpRequest)) {
+            return ResponseBuilder.build(HttpStatus.OK, "Refresh access token successfully", buildMobileAuthData(currentAcc, newAccess, newRefresh));
+        }
+
         CookieUtil.createCookies(response, newAccess, newRefresh, accessExpiration, refreshExpiration);
 
         return ResponseBuilder.build(HttpStatus.OK, "Refresh access token successfully", null);
+    }
+
+    private Map<String, Object> buildMobileAuthData(Account account, String accessToken, String refreshToken) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("account", buildAccountData(account));
+        data.put("accessToken", accessToken);
+        data.put("refreshToken", refreshToken);
+        data.put("tokenType", TOKEN_TYPE);
+        data.put("accessExpiresIn", accessExpiration / 1000);
+        data.put("refreshExpiresIn", refreshExpiration / 1000);
+        return data;
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

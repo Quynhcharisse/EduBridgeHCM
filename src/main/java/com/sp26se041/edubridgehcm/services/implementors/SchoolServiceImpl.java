@@ -7,20 +7,18 @@ import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
 import com.sp26se041.edubridgehcm.models.Program;
-import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
-import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
 import com.sp26se041.edubridgehcm.requests.ViewCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
-import com.sp26se041.edubridgehcm.services.JWTService;
 import com.sp26se041.edubridgehcm.services.SchoolService;
-import com.sp26se041.edubridgehcm.utils.CookieUtil;
+import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -38,20 +36,18 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SchoolServiceImpl implements SchoolService {
     private final CampusRepo campusRepo;
-    private final AccountRepo accountRepo;
-    private final JWTService jwtService;
     private final AdmissionCampaignRepo admissionCampaignRepo;
     private final CampusProgramOfferingRepo campusProgramOfferingRepo;
     private final ProgramRepo programRepo;
 
     @Override
     public ResponseEntity<ResponseObject> createCampus(CreateCampusRequest request, HttpServletRequest httpServletRequest) {
-        Campus actorCampus = extractActorCampus(httpServletRequest);
+        Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
-        if (!Boolean.TRUE.equals(actorCampus.getIsPrimaryBranch())) {
+        if (!actorCampus.getIsPrimaryBranch()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can add new campus", null);
         }
 
@@ -77,12 +73,12 @@ public class SchoolServiceImpl implements SchoolService {
 
     @Override
     public ResponseEntity<ResponseObject> viewCampusList(HttpServletRequest httpServletRequest) {
-        Campus actorCampus = extractActorCampus(httpServletRequest);
+        Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
-        List<Campus> campusList = Boolean.TRUE.equals(actorCampus.getIsPrimaryBranch())
+        List<Campus> campusList = actorCampus.getIsPrimaryBranch()
                 ? campusRepo.findBySchoolId(actorCampus.getSchool().getId())
                 : List.of(actorCampus);
 
@@ -105,12 +101,12 @@ public class SchoolServiceImpl implements SchoolService {
 
     @Override
     public ResponseEntity<ResponseObject> createAdmissionCampaignTemplate(CreateAdmissionCampaignTemplateRequest request, HttpServletRequest httpServletRequest) {
-        Campus actorCampus = extractActorCampus(httpServletRequest);
+        Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
-        if (!Boolean.TRUE.equals(actorCampus.getIsPrimaryBranch())) {
+        if (!actorCampus.getIsPrimaryBranch()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can create campaign template", null);
         }
 
@@ -137,7 +133,7 @@ public class SchoolServiceImpl implements SchoolService {
 
     @Override
     public ResponseEntity<ResponseObject> createCampusProgramOffering(CreateCampusProgramOfferingRequest request, HttpServletRequest httpServletRequest) {
-        Campus actorCampus = extractActorCampus(httpServletRequest);
+        Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
@@ -182,7 +178,7 @@ public class SchoolServiceImpl implements SchoolService {
 
     @Override
     public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(ViewCampusProgramOfferingRequest request, HttpServletRequest httpServletRequest) {
-        Campus actorCampus = extractActorCampus(httpServletRequest);
+        Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
@@ -190,7 +186,7 @@ public class SchoolServiceImpl implements SchoolService {
         Integer requestedCampusId = request == null ? null : request.getCampusId();
 
         List<CampusProgramOffering> offeringList;
-        if (Boolean.TRUE.equals(actorCampus.getIsPrimaryBranch())) {
+        if (actorCampus.getIsPrimaryBranch()) {
             if (requestedCampusId == null) {
                 offeringList = campusProgramOfferingRepo.findByAdmissionCampaignSchoolId(actorCampus.getSchool().getId());
             } else {
@@ -214,8 +210,8 @@ public class SchoolServiceImpl implements SchoolService {
         return ResponseBuilder.build(HttpStatus.OK, "View campus offering list successfully", payload);
     }
 
-    private Campus extractActorCampus(HttpServletRequest request) {
-        Account account = CookieUtil.extractAccountFromCookie(request, jwtService, accountRepo);
+    private Campus extractActorCampus() {
+        Account account = AuthRequestUtil.extractAuthenticatedAccount();
         if (account == null || account.getRole() != Role.SCHOOL) {
             return null;
         }
@@ -223,7 +219,7 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     private Campus resolveTargetCampus(Campus actorCampus, Integer requestedCampusId) {
-        if (!Boolean.TRUE.equals(actorCampus.getIsPrimaryBranch())) {
+        if (!actorCampus.getIsPrimaryBranch()) {
             if (requestedCampusId != null && !requestedCampusId.equals(actorCampus.getId())) {
                 return null;
             }

@@ -3,10 +3,10 @@ package com.sp26se041.edubridgehcm.configurations;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.services.JWTService;
+import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.CookieUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +26,6 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
     private final JWTService jwtService;
     private final UserDetailsService userDetailsService;
     private static final String AUTH_PATH_PREFIX = "/api/v1/auth";
-    private static final String COOKIE_NAME = "access";
 
     @Override
     protected void doFilterInternal(
@@ -41,22 +40,26 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        Cookie accessCookie = CookieUtil.getCookie(request, COOKIE_NAME);
+        String accessToken = AuthRequestUtil.extractAccessToken(request);
 
-        if (accessCookie == null) {
+        if (accessToken == null) {
             filterChain.doFilter(request, response);
             return;
         }
 
+        boolean isMobileRequest = AuthRequestUtil.isMobileRequest(request);
+
         try {
 
-            String username = jwtService.extractEmailFromJWT(accessCookie.getValue());
+            String username = jwtService.extractEmailFromJWT(accessToken);
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 Account account = (Account) userDetailsService.loadUserByUsername(username);
 
                 if (!account.getStatus().equals(Status.ACCOUNT_ACTIVE)) {
-                    CookieUtil.removeCookie(response);
+                    if (!isMobileRequest) {
+                        CookieUtil.removeCookie(response);
+                    }
                     filterChain.doFilter(request, response);
                     return;
                 }
@@ -69,7 +72,9 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         } catch (Exception e) {
-            CookieUtil.removeCookie(response);
+            if (!isMobileRequest) {
+                CookieUtil.removeCookie(response);
+            }
         }
 
         filterChain.doFilter(request, response);
