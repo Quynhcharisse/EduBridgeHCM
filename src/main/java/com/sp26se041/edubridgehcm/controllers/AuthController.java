@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.controllers;
 
 import com.sp26se041.edubridgehcm.requests.LoginRequest;
+import com.sp26se041.edubridgehcm.requests.RefreshTokenRequest;
 import com.sp26se041.edubridgehcm.requests.RegisterRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AuthService;
@@ -22,8 +23,12 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public ResponseEntity<ResponseObject> login(@RequestBody LoginRequest request, HttpServletResponse response) {
-        return authService.login(request, response);
+    public ResponseEntity<ResponseObject> login(
+            @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse response
+    ) {
+        return authService.login(request, httpRequest, response);
     }
 
     @PostMapping("/register")
@@ -32,7 +37,11 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<ResponseObject> refresh(HttpServletRequest request, HttpServletResponse response) {
-        return authService.refresh(request, response);
+    public ResponseEntity<ResponseObject> refresh(
+            @RequestBody(required = false) RefreshTokenRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse response
+    ) {
+        return authService.refresh(request, httpRequest, response);
     }
 }
