@@ -41,9 +41,5 @@ public class Assignment {
     @EqualsAndHashCode.Exclude
     List<ConsultationOfflineRequest> consultationOfflineRequests;
 
-    @OneToMany(mappedBy = "assignment", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    List<CounsellorLeaveRequestDetail> counsellorLeaveRequestDetailList;
 
 }
