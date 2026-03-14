@@ -1,0 +1,25 @@
+package com.sp26se041.edubridgehcm.models;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.*;
+import lombok.experimental.FieldDefaults;
+import org.jspecify.annotations.NullMarked;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Entity
+@Table(name = "open_day_event")
+@FieldDefaults(level = AccessLevel.PRIVATE)
+@NullMarked
+public class OpenDayEvent {
+
+    @Id
+    private Long id;
+
+
+
+}

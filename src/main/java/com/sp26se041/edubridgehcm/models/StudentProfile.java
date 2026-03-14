@@ -54,13 +54,19 @@ public class StudentProfile {
     @Enumerated(EnumType.STRING)
     Gender gender;
 
-    /* Gom 3 cột TEXT cũ và interests_json vào đây:
-     - academic_history: "Điểm trung bình 8.5, học sinh giỏi..."
-     - personality_traits: "Hướng nội, thích logic..."
-     - goals_aspirations: "Muốn học CNTT, săn học bổng..."
-     - interests: ["Code", "Game", "Music"]
-   */
     @Type(JsonBinaryType.class)
-    @Column(columnDefinition = "jsonb", name = "profile_metadata")
-    Object profileMetadata;
+    @Column(columnDefinition = "jsonb", name = "academic_profile_metadata")
+    Object academicProfileMetadata;
+
+    @Type(JsonBinaryType.class)
+    @Column(columnDefinition = "jsonb", name = "personality_type")
+    Object personalityType;
+
+    @Column(name = "favourite_job")
+    String favouriteJob;
+
+    @Type(JsonBinaryType.class)
+    @Column(columnDefinition = "jsonb", name = "image_academic_profile")
+    Object imageAcademicProfile;
+
 }

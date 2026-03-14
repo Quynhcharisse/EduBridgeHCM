@@ -56,4 +56,6 @@ public class Counsellor {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     List<Assignment> assignmentList;
+
+
 }

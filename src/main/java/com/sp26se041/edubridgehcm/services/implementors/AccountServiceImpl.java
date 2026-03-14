@@ -164,7 +164,6 @@ public class AccountServiceImpl implements AccountService {
         parent.setRelationship(Relationship.valueOf(parentData.getRelationship()));
         parent.setPhone(parentData.getPhone());
         parent.setWorkplace(parentData.getWorkplace());
-        parent.setOccupation(parentData.getOccupation());
         parent.setCurrentAddress(parentData.getCurrentAddress());
 
         if (isFirstLogin) {
@@ -367,7 +366,6 @@ public class AccountServiceImpl implements AccountService {
         parentData.put("phone", parent.getPhone());
         parentData.put("relationship", parent.getRelationship());
         parentData.put("workplace", parent.getWorkplace());
-        parentData.put("occupation", parent.getOccupation());
         parentData.put("currentAddress", parent.getCurrentAddress());
         parentData.put("idCardNumber", parent.getIdCardNumber());
         return parentData;
