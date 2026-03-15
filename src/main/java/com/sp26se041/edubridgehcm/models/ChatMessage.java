@@ -1,5 +1,8 @@
 package com.sp26se041.edubridgehcm.models;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.sp26se041.edubridgehcm.enums.Status;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.*;
 import lombok.*;
@@ -29,7 +32,13 @@ public class ChatMessage {
 
     private String message;
 
+    private Long conversationId;
+
     @Column(nullable = false)
-    private Long timestamp;
+    private LocalDateTime timestamp;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
+    Status status;
 
 }

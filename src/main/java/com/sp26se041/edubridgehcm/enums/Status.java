@@ -29,6 +29,15 @@ public enum Status {
     CONSULTATION_IN_PROGRESS("in-progress"),
     CONSULTATION_COMPLETED("completed"),
     CONSULTATION_CANCELLED("cancelled"),
-    CONSULTATION_NO_SHOW("no-show");
+    CONSULTATION_NO_SHOW("no-show"),
+
+    //With status conservation
+    CONVERSATION_ACTIVE("active"),
+    CONVERSATION_BLOCKED("blocked"),
+
+    //With status message
+    MESSAGE_SENT("sent"),
+    MESSAGE_READ("read");
+
     private final String value;
 }

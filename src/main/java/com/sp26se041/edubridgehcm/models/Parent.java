@@ -72,4 +72,9 @@ public class Parent {
     @EqualsAndHashCode.Exclude
     List<StudentProfile> studentProfileList;
 
+    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<ConsultationOfflineRequest> consultationOfflineRequestList;
+
 }

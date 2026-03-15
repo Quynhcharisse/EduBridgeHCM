@@ -23,14 +23,6 @@ public class ConsultationOfflineRequest {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "counsellor_id")
-    Counsellor counsellor ;
-
-    @ManyToOne
-    @JoinColumn(name = "parent_id")
-    Parent parent;
-
     @Column(name = "phone")
     String phone;
 
@@ -49,11 +41,20 @@ public class ConsultationOfflineRequest {
     @Column(name = "created_date")
     LocalDate createdDate;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status")
     Status status;
 
     @Column(name = "cancel_reason")
     String cancelReason;
+
+    @ManyToOne
+    @JoinColumn(name = "counsellor_id")
+    Counsellor counsellor;
+
+    @ManyToOne
+    @JoinColumn(name = "parent_id")
+    Parent parent;
 
     @ManyToOne
     @JoinColumn(name = "counsellor_slot_id")

@@ -26,6 +26,8 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
     private final JWTService jwtService;
     private final UserDetailsService userDetailsService;
     private static final String AUTH_PATH_PREFIX = "/api/v1/auth";
+    private static final String WEBSOCKET_PREFIX = "/ws";
+
 
     @Override
     protected void doFilterInternal(
@@ -35,7 +37,7 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
 
         String requestURI = request.getRequestURI();
-        if (requestURI.startsWith(AUTH_PATH_PREFIX)) {
+        if (requestURI.startsWith(AUTH_PATH_PREFIX) || requestURI.equals(WEBSOCKET_PREFIX)) {
             filterChain.doFilter(request, response);
             return;
         }
