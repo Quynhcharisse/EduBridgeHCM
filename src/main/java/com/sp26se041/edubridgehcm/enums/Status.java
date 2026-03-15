@@ -16,6 +16,13 @@ public enum Status {
     VERIFIED("verified"),
     REJECTED("rejected"),
 
+    //With status for admissions
+    OPEN("open"), //tao moi
+    CLOSED("closed"), //schoo/admin pause thu cong
+    PAUSED("paused"), //school/admin dong thu cong
+    FULL("fulled"), //offering het quota
+    EXPIRED("expired"),//campaign qua enddate
+
     //With status consultation appointment
     CONSULTATION_PENDING("pending"),
     CONSULTATION_CONFIRMED("confirmed"),
