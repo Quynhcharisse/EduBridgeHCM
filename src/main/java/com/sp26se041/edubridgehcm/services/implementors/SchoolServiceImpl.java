@@ -26,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -44,6 +45,7 @@ public class SchoolServiceImpl implements SchoolService {
     private final AccountRepo accountRepo;
 
     @Override
+    @Transactional
     public ResponseEntity<ResponseObject> createCampus(CreateCampusRequest request, HttpServletRequest httpServletRequest) {
         Campus actorCampus = extractActorCampus();
 
@@ -163,6 +165,7 @@ public class SchoolServiceImpl implements SchoolService {
 
     private Map<String, Object> buildAccountData(Account account) {
         Map<String, Object> data = new HashMap<>();
+        data.put("id", account.getId());
         data.put("email", account.getEmail());
         data.put("registerDate", account.getRegisterDate());
         data.put("status", account.getStatus());
