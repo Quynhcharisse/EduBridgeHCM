@@ -1,4 +1,4 @@
-package com.sp26se041.edubridgehcm.services.implementors;
+package com.sp26se041.edubridgehcm.services;
 
 import com.sp26se041.edubridgehcm.requests.CreatePostRequest;
 import com.sp26se041.edubridgehcm.requests.DisablePostRequest;
