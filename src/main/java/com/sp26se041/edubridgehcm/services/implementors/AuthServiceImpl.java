@@ -154,7 +154,6 @@ public class AuthServiceImpl implements AuthService {
         parentData.put("relationship", parent.getRelationship());
         parentData.put("idCardNumber", parent.getIdCardNumber());
         parentData.put("workplace", parent.getWorkplace());
-        parentData.put("occupation", parent.getOccupation());
         parentData.put("currentAddress", parent.getCurrentAddress());
         return parentData;
     }

@@ -162,13 +162,14 @@ public class AccountServiceImpl implements AccountService {
     }
 
     private void updateParentProfile(Parent parent, UpdateProfileRequest.ParentData parentData, boolean isFirstLogin) {
-        parent.setName(normalize(parentData.getName()));
-        parent.setGender(Objects.requireNonNull(parseGender(parentData.getGender())));
-        parent.setRelationship(Objects.requireNonNull(parseRelationship(parentData.getRelationship())));
-        parent.setPhone(normalize(parentData.getPhone()));
-        parent.setWorkplace(normalize(parentData.getWorkplace()));
-        parent.setOccupation(normalize(parentData.getOccupation()));
-        parent.setCurrentAddress(normalize(parentData.getCurrentAddress()));
+
+        parent.setName(parentData.getName());
+        parent.setGender(Gender.valueOf(parentData.getGender()));
+        parent.setRelationship(Relationship.valueOf(parentData.getRelationship()));
+        parent.setPhone(parentData.getPhone());
+        parent.setWorkplace(parentData.getWorkplace());
+        parent.setCurrentAddress(parentData.getCurrentAddress());
+
 
         if (isFirstLogin) {
             parent.setIdCardNumber(normalize(parentData.getIdCardNumber()));
@@ -518,7 +519,6 @@ public class AccountServiceImpl implements AccountService {
         parentData.put("phone", parent.getPhone());
         parentData.put("relationship", parent.getRelationship());
         parentData.put("workplace", parent.getWorkplace());
-        parentData.put("occupation", parent.getOccupation());
         parentData.put("currentAddress", parent.getCurrentAddress());
         parentData.put("idCardNumber", parent.getIdCardNumber());
         return parentData;

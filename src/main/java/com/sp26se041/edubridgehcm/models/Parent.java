@@ -71,4 +71,5 @@ public class Parent {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     List<StudentProfile> studentProfileList;
+
 }
