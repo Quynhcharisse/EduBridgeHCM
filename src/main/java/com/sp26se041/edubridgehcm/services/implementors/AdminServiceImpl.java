@@ -13,7 +13,6 @@ import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.requests.CreatePostRequest;
 import com.sp26se041.edubridgehcm.requests.CreateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.DisablePostRequest;
-import com.sp26se041.edubridgehcm.requests.ProcessRegistrationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdatePostRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
@@ -42,28 +41,45 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @Transactional
-    public ResponseEntity<ResponseObject> verifyRegistration(boolean isVerified, int requestId, ProcessRegistrationRequest reviewRequest) {
+    public ResponseEntity<ResponseObject> verifyRegistration(int requestId) {
 
-        // 1. lấy dữ liệu từ bảng tạm
-        SchoolRegistrationRequest schoolRegistrationRequest = schoolRegistrationRequestRepo.findById(requestId).orElse(null);
-
-        if (schoolRegistrationRequest == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No registration request with ID found: " + requestId, null);
+        if (requestId <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "requestId must be greater than 0", null);
         }
 
-        // 2. xử lý logic cho verify
-        return handleVerify(schoolRegistrationRequest, reviewRequest);
+        SchoolRegistrationRequest request = schoolRegistrationRequestRepo.findById(requestId).orElse(null);
+
+        if (request == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "No registration request with ID found: " + requestId, null);
+
+        }
+
+        String error = validationVerifyRegistration(requestId, request);
+        if (!error.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+        }
+
+        return handleVerify(request);
     }
 
-    private ResponseEntity<ResponseObject> handleVerify(SchoolRegistrationRequest request, ProcessRegistrationRequest reviewRequest) {
+    private String validationVerifyRegistration(int requestId, SchoolRegistrationRequest request) {
+
+        if (request == null) {
+            return "No registration request with ID found: " + requestId;
+        }
 
         if (request.getStatus() != Status.ACCOUNT_PENDING_VERIFY) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "This request has been processed previously.", null);
+            return "This request has been processed previously.";
         }
 
-        if (schoolRepo.existsByTaxCode(request.getTaxCode())) {
-            return ResponseBuilder.build(HttpStatus.CONFLICT, "This tax identification number already exists.", null);
+        if (schoolRepo.existsByTaxCode(request.getTaxCode().trim())) {
+            return "This tax identification number already exists.";
         }
+
+        return "";
+    }
+
+    private ResponseEntity<ResponseObject> handleVerify(SchoolRegistrationRequest request) {
 
         // tạo account
         Account account = accountRepo.save(Account.builder()
@@ -73,11 +89,10 @@ public class AdminServiceImpl implements AdminService {
                 .firstLogin(true)
                 .build());
 
-        // tạo school (Thông tin pháp lý)
-        // Có thể dùng dữ liệu từ VietQR API response để update
+        // tạo school (lấy thẳng từ bảng tạm)
         School school = schoolRepo.save(School.builder()
-                .name((reviewRequest.getTaxData() != null && reviewRequest.getTaxData().getName() != null) ? reviewRequest.getTaxData().getName() : request.getSchoolName())
-                .taxCode((reviewRequest.getTaxData() != null && reviewRequest.getTaxData().getId() != null) ? reviewRequest.getTaxData().getId() : request.getTaxCode())
+                .name(request.getSchoolName().trim())
+                .taxCode(request.getTaxCode().trim())
                 .websiteUrl(request.getWebsiteUrl())
                 .logoUrl(request.getLogoUrl())
                 .representativeName(request.getRepresentativeName())
@@ -86,21 +101,22 @@ public class AdminServiceImpl implements AdminService {
                 .businessLicenseUrl(request.getBusinessLicenseUrl())
                 .build());
 
-        // tạo campus (Địa điểm vận hành)
+        // tạo campus đầu tiên (primary branch)
         campusRepo.save(Campus.builder()
                 .account(account)
-                .name(request.getCampusName())
+                .name(request.getCampusName().trim())
                 .phoneNumber(request.getCampusPhone())
-                .address(request.getCampusAddress())
+                .address(request.getCampusAddress().trim())
                 .status(Status.ACCOUNT_ACTIVE)
                 .isPrimaryBranch(true)
                 .school(school)
                 .build());
 
+        // đánh dấu bảng tạm đã duyệt
         request.setStatus(Status.VERIFIED);
         schoolRegistrationRequestRepo.save(request);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Verified successful", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Verified successfully", null);
     }
 
     @Override

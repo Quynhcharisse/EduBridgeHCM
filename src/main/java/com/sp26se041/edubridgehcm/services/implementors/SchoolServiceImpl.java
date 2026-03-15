@@ -7,6 +7,7 @@ import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
 import com.sp26se041.edubridgehcm.models.Program;
+import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
@@ -27,6 +28,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +41,7 @@ public class SchoolServiceImpl implements SchoolService {
     private final AdmissionCampaignRepo admissionCampaignRepo;
     private final CampusProgramOfferingRepo campusProgramOfferingRepo;
     private final ProgramRepo programRepo;
+    private final AccountRepo accountRepo;
 
     @Override
     public ResponseEntity<ResponseObject> createCampus(CreateCampusRequest request, HttpServletRequest httpServletRequest) {
@@ -51,24 +54,46 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can add new campus", null);
         }
 
-        String name = normalize(request == null ? null : request.getName());
-        String address = normalize(request == null ? null : request.getAddress());
-        String phone = normalize(request == null ? null : request.getPhone());
-
-        if (name == null || address == null || phone == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campus name, address and phone are required", null);
+        String validationError = validateCreateCampusRequest(request);
+        if (validationError != null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, validationError, null);
         }
+
+        Account account = accountRepo.save(Account.builder()
+                .email(normalize(request.getEmail()))
+                .role(Role.SCHOOL)
+                .status(Status.ACCOUNT_ACTIVE)
+                .registerDate(LocalDate.now())
+                .build());
 
         Campus created = campusRepo.save(Campus.builder()
                 .school(actorCampus.getSchool())
-                .name(name)
-                .address(address)
-                .phoneNumber(phone)
+                .account(account)
+                .name(normalize(request.getName()))
+                .address(normalize(request.getAddress()))
+                .phoneNumber(normalize(request.getPhone()))
                 .status(Status.ACCOUNT_ACTIVE)
                 .isPrimaryBranch(false)
                 .build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Create campus successfully", buildCampusData(created));
+    }
+
+    private String validateCreateCampusRequest(CreateCampusRequest request) {
+
+        if (normalize(request.getEmail()) == null) {
+            return "Campus account email is required";
+        }
+
+        if (normalize(request.getAddress()) == null) {
+            return "Campus account address is required";
+        }
+
+        if (normalize(request.getPhone()) == null) {
+            return "Campus account phone is required";
+        }
+
+        return null;
     }
 
     @Override
@@ -87,16 +112,6 @@ public class SchoolServiceImpl implements SchoolService {
                 .collect(Collectors.toList());
 
         return ResponseBuilder.build(HttpStatus.OK, "View campus list successfully", payload);
-    }
-
-    @Override
-    public ResponseEntity<ResponseObject> createAccountCounsellor(CreateAccountCounsellorRequest request) {
-        return null;
-    }
-
-    @Override
-    public ResponseEntity<ResponseObject> viewAccountCounsellorList() {
-        return null;
     }
 
     @Override
@@ -277,4 +292,15 @@ public class SchoolServiceImpl implements SchoolService {
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
     }
+
+    @Override
+    public ResponseEntity<ResponseObject> createAccountCounsellor(CreateAccountCounsellorRequest request) {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewAccountCounsellorList() {
+        return null;
+    }
+
 }

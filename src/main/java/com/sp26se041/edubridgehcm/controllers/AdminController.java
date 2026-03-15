@@ -3,7 +3,6 @@ package com.sp26se041.edubridgehcm.controllers;
 import com.sp26se041.edubridgehcm.requests.CreatePostRequest;
 import com.sp26se041.edubridgehcm.requests.CreateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.DisablePostRequest;
-import com.sp26se041.edubridgehcm.requests.ProcessRegistrationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdatePostRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
@@ -31,10 +30,8 @@ public class AdminController {
 
     @PostMapping("/school/registrations/verify")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> verifyRegistration(@RequestParam(name = "v", defaultValue = "true") String isVerified,
-                                                             @RequestParam(name = "requestId") int requestId,
-                                                             @RequestBody ProcessRegistrationRequest reviewRequest) {
-        return adminService.verifyRegistration(isVerified.equalsIgnoreCase("true"), requestId, reviewRequest);
+    public ResponseEntity<ResponseObject> verifyRegistration(@RequestParam(name = "requestId") int requestId) {
+        return adminService.verifyRegistration(requestId);
     }
 
     @PostMapping("/service/package/fee")
