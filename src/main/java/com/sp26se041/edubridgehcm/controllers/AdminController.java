@@ -1,9 +1,6 @@
 package com.sp26se041.edubridgehcm.controllers;
 
-import com.sp26se041.edubridgehcm.requests.CreatePostRequest;
 import com.sp26se041.edubridgehcm.requests.CreateServicePackageFeeRequest;
-import com.sp26se041.edubridgehcm.requests.DisablePostRequest;
-import com.sp26se041.edubridgehcm.requests.UpdatePostRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -34,6 +31,12 @@ public class AdminController {
         return adminService.verifyRegistration(requestId);
     }
 
+    @GetMapping("/school/registrations/list")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ResponseObject> viewSchoolRegistrationList() {
+        return adminService.viewSchoolRegistrationList();
+    }
+
     @PostMapping("/service/package/fee")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ResponseObject> createServicePackageFee(@RequestBody CreateServicePackageFeeRequest request) {
@@ -56,29 +59,5 @@ public class AdminController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ResponseObject> viewServicePackageFeeList() {
         return adminService.viewServicePackageFeeList();
-    }
-
-    @PostMapping("/post")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> createPost(@RequestBody CreatePostRequest request) {
-        return adminService.createPost(request);
-    }
-
-    @PutMapping("/post")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> updatePost(@RequestBody UpdatePostRequest request) {
-        return adminService.updatePost(request);
-    }
-
-    @PutMapping("post/disable")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> disablePost(@RequestBody DisablePostRequest request) {
-        return adminService.disablePost(request);
-    }
-
-    @GetMapping("/post/list")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> viewPostList() {
-        return adminService.viewPostList();
     }
 }
