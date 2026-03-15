@@ -4,7 +4,7 @@ import com.sp26se041.edubridgehcm.requests.CreatePostRequest;
 import com.sp26se041.edubridgehcm.requests.DisablePostRequest;
 import com.sp26se041.edubridgehcm.requests.UpdatePostRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
-import com.sp26se041.edubridgehcm.services.implementors.PostService;
+import com.sp26se041.edubridgehcm.services.PostService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
