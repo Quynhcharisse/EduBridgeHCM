@@ -68,9 +68,6 @@ public class SchoolRegistrationRequest {
     @Enumerated(EnumType.STRING)
     Status status;
 
-    @Column(name = "rejection_reason")
-    String rejectionReason;
-
     @Column(name = "created_at")
     LocalDateTime createdAt;
 }

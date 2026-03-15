@@ -12,6 +12,8 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CreateCampusRequest {
 
+    String email;
+
     String name;
 
     String address;
