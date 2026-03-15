@@ -10,10 +10,7 @@ import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRegistrationRequestRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
-import com.sp26se041.edubridgehcm.requests.CreatePostRequest;
 import com.sp26se041.edubridgehcm.requests.CreateServicePackageFeeRequest;
-import com.sp26se041.edubridgehcm.requests.DisablePostRequest;
-import com.sp26se041.edubridgehcm.requests.UpdatePostRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -26,6 +23,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -120,6 +120,36 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
+    public ResponseEntity<ResponseObject> viewSchoolRegistrationList() {
+
+        List<SchoolRegistrationRequest> schoolRegistrationRequestList = schoolRegistrationRequestRepo.findAllByStatusOrderByCreatedAtDesc(Status.ACCOUNT_PENDING_VERIFY);
+
+        List<Map<String, Object>> data = schoolRegistrationRequestList.stream()
+                .map(this::buildRegistrationData)
+                .toList();
+
+        return ResponseBuilder.build(HttpStatus.OK, "View school registration list successfully", data);
+    }
+
+    private Map<String, Object> buildRegistrationData(SchoolRegistrationRequest request) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("schoolName", request.getSchoolName());
+        data.put("taxCode", request.getTaxCode());
+        data.put("websiteUrl", request.getWebsiteUrl());
+        data.put("logoUrl", request.getLogoUrl());
+        data.put("foundingDate", request.getFoundingDate());
+        data.put("representativeName", request.getRepresentativeName());
+        data.put("hotline", request.getHotline());
+        data.put("businessLicenseUrl", request.getBusinessLicenseUrl());
+        data.put("campusName", request.getCampusName());
+        data.put("campusAddress", request.getCampusAddress());
+        data.put("campusPhone", request.getCampusPhone());
+        data.put("status", request.getStatus());
+        data.put("createdAt", request.getCreatedAt());
+        return data;
+    }
+
+    @Override
     public ResponseEntity<ResponseObject> createServicePackageFee(CreateServicePackageFeeRequest request) {
         return null;
     }
@@ -136,26 +166,6 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public ResponseEntity<ResponseObject> updateStatusServicePackageFee(UpdateStatusServicePackageFeeRequest request) {
-        return null;
-    }
-
-    @Override
-    public ResponseEntity<ResponseObject> createPost(CreatePostRequest request) {
-        return null;
-    }
-
-    @Override
-    public ResponseEntity<ResponseObject> updatePost(UpdatePostRequest request) {
-        return null;
-    }
-
-    @Override
-    public ResponseEntity<ResponseObject> viewPostList() {
-        return null;
-    }
-
-    @Override
-    public ResponseEntity<ResponseObject> disablePost(DisablePostRequest request) {
         return null;
     }
 }
