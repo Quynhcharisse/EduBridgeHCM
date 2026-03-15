@@ -24,25 +24,25 @@ public class PostController {
 
     private final PostService postService;
 
-    @PostMapping("/post")
+    @PostMapping("/")
     @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL')")
     public ResponseEntity<ResponseObject> createPost(@RequestBody CreatePostRequest request) {
         return postService.createPost(request);
     }
 
-    @PutMapping("/post")
+    @PutMapping("/")
     @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL')")
     public ResponseEntity<ResponseObject> updatePost(@RequestBody UpdatePostRequest request) {
         return postService.updatePost(request);
     }
 
-    @PutMapping("post/disable")
+    @PutMapping("/status/disable")
     @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL')")
     public ResponseEntity<ResponseObject> disablePost(@RequestBody DisablePostRequest request) {
         return postService.disablePost(request);
     }
 
-    @GetMapping("/post/list")
+    @GetMapping("/list")
     @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL')")
     public ResponseEntity<ResponseObject> viewPostList() {
         return postService.viewPostList();
