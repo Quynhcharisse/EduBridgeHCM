@@ -6,11 +6,13 @@ import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
+import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
+import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
@@ -33,16 +35,24 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class SchoolServiceImpl implements SchoolService {
+
     private final CampusRepo campusRepo;
+
     private final AdmissionCampaignRepo admissionCampaignRepo;
+
     private final CampusProgramOfferingRepo campusProgramOfferingRepo;
+
     private final ProgramRepo programRepo;
+
     private final AccountRepo accountRepo;
+
+    private final CounsellorRepo counsellorRepo;
 
     @Override
     @Transactional
@@ -170,11 +180,13 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("registerDate", account.getRegisterDate());
         data.put("status", account.getStatus());
         data.put("role", account.getRole());
+        data.put("firstLogin", account.getFirstLogin());
         return data;
     }
 
     @Override
     public ResponseEntity<ResponseObject> createAdmissionCampaignTemplate(CreateAdmissionCampaignTemplateRequest request, HttpServletRequest httpServletRequest) {
+
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
@@ -182,10 +194,6 @@ public class SchoolServiceImpl implements SchoolService {
 
         if (!actorCampus.getIsPrimaryBranch()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can create campaign template", null);
-        }
-
-        if (request == null || normalize(request.getName()) == null || request.getStartDate() == null || request.getEndDate() == null || request.getYear() <= 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campaign name, year, start date and end date are required", null);
         }
 
         if (request.getEndDate().isBefore(request.getStartDate())) {
@@ -205,9 +213,20 @@ public class SchoolServiceImpl implements SchoolService {
         return ResponseBuilder.build(HttpStatus.OK, "Create campaign template successfully", buildCampaignData(campaign));
     }
 
+    private String validationCreateAdmissionCampaignTemplate(CreateAdmissionCampaignTemplateRequest request) {
+
+        if (request == null || normalize(request.getName()) == null || request.getStartDate() == null || request.getEndDate() == null || request.getYear() <= 0) {
+            return "Campaign name, year, start date and end date are required";
+        }
+
+        return "";
+    }
+
     @Override
     public ResponseEntity<ResponseObject> createCampusProgramOffering(CreateCampusProgramOfferingRequest request, HttpServletRequest httpServletRequest) {
+
         Campus actorCampus = extractActorCampus();
+
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
@@ -232,6 +251,7 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         BigDecimal tuitionFee = request.getTuitionFee();
+
         if (tuitionFee == null || tuitionFee.signum() < 0) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tuition fee must be >= 0", null);
         }
@@ -341,13 +361,89 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
+    @Transactional
     public ResponseEntity<ResponseObject> createAccountCounsellor(CreateAccountCounsellorRequest request) {
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        String validationError = validateCreateCounsellor(request);
+
+        if (validationError != null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, validationError, null);
+        }
+
+        Account account = accountRepo.save(Account.builder()
+                .email(normalize(request.getEmail()))
+                .role(Role.COUNSELLOR)
+                .status(Status.ACCOUNT_ACTIVE)
+                .registerDate(LocalDate.now())
+                .firstLogin(true)
+                .build());
+
+        Counsellor counsellor = counsellorRepo.save(Counsellor.builder()
+                .account(account)
+                .campus(actorCampus)
+                .employeeCode(UUID.randomUUID())
+                .build());
+
+        return ResponseBuilder.build(HttpStatus.OK, "Create counsellor successfully", buildCounsellorData(counsellor));
+    }
+
+    private String validateCreateCounsellor(CreateAccountCounsellorRequest request) {
+
+        String email = normalize(request.getEmail());
+        if (email == null) {
+            return "Email is required";
+        }
+
+        if (email.length() > 100) {
+            return "Email exceeds 100 characters";
+        }
+
+        if (!isValidEmail(email)) {
+            return "Email is invalid";
+        }
+
+        if (accountRepo.findByEmail(email).isPresent()) {
+            return "Email is already in use";
+        }
+
         return null;
     }
+
+    private boolean isValidEmail(String email) {
+        return email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+    }
+
 
     @Override
     public ResponseEntity<ResponseObject> viewAccountCounsellorList() {
-        return null;
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        List<Map<String, Object>> data = counsellorRepo.findByCampusId(actorCampus.getId()).stream()
+                .map(this::buildCounsellorData)
+                .collect(Collectors.toList());
+
+        return ResponseBuilder.build(HttpStatus.OK, "View counsellor list successfully", data);
     }
 
+    private Map<String, Object> buildCounsellorData(Counsellor counsellor) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", counsellor.getId());
+        data.put("name", counsellor.getName());
+        data.put("employeeCode", counsellor.getEmployeeCode());
+        data.put("campusId", counsellor.getCampus().getId());
+        data.put("campusName", counsellor.getCampus().getName());
+        data.put("account", buildAccountData(counsellor.getAccount()));
+        return data;
+    }
 }
