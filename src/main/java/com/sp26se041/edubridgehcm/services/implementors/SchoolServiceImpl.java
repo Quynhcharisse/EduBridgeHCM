@@ -46,6 +46,7 @@ public class SchoolServiceImpl implements SchoolService {
     @Override
     public ResponseEntity<ResponseObject> createCampus(CreateCampusRequest request, HttpServletRequest httpServletRequest) {
         Campus actorCampus = extractActorCampus();
+
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
@@ -54,43 +55,76 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can add new campus", null);
         }
 
-        String validationError = validateCreateCampusRequest(request);
-        if (validationError != null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, validationError, null);
+        String error = validateCreateCampus(request);
+        if (error != null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
-        Account account = accountRepo.save(Account.builder()
+        Account acc = accountRepo.save(Account.builder()
                 .email(normalize(request.getEmail()))
                 .role(Role.SCHOOL)
                 .status(Status.ACCOUNT_ACTIVE)
                 .registerDate(LocalDate.now())
+                .firstLogin(false)
+                .isRestricted(false)
                 .build());
 
-        Campus created = campusRepo.save(Campus.builder()
+        Campus campus = campusRepo.save(Campus.builder()
                 .school(actorCampus.getSchool())
-                .account(account)
+                .account(acc)
                 .name(normalize(request.getName()))
                 .address(normalize(request.getAddress()))
                 .phoneNumber(normalize(request.getPhone()))
-                .status(Status.ACCOUNT_ACTIVE)
+                .status(Status.VERIFIED)
                 .isPrimaryBranch(false)
                 .build());
 
-        return ResponseBuilder.build(HttpStatus.OK, "Create campus successfully", buildCampusData(created));
+        Map<String, Object> data = new HashMap<>();
+        data.put("campus", buildCampusData(campus));
+        data.put("account", buildAccountData(acc));
+
+        return ResponseBuilder.build(HttpStatus.OK, "Create campus successfully", data);
     }
 
-    private String validateCreateCampusRequest(CreateCampusRequest request) {
+    private String validateCreateCampus(CreateCampusRequest request) {
+        if (request == null) {
+            return "Request is required";
+        }
 
         if (normalize(request.getEmail()) == null) {
-            return "Campus account email is required";
+            return "Email is required";
+        }
+
+        if (normalize(request.getEmail()).length() > 100) {
+            return "Email exceeds 100 characters";
+        }
+
+        if (accountRepo.findByEmail(normalize(request.getEmail())).isPresent()) {
+            return "Email is already in use";
+        }
+
+        if (normalize(request.getName()) == null) {
+            return "Name is required";
+        }
+
+        if (normalize(request.getName()).length() > 50) {
+            return "Name exceeds 50 characters";
         }
 
         if (normalize(request.getAddress()) == null) {
-            return "Campus account address is required";
+            return "Address is required";
+        }
+
+        if (normalize(request.getAddress()).length() > 250) {
+            return "Address exceeds 250 characters";
         }
 
         if (normalize(request.getPhone()) == null) {
-            return "Campus account phone is required";
+            return "Phone is required";
+        }
+
+        if (!normalize(request.getPhone()).matches("^(09|08|07|03)\\d{8}$")) {
+            return "Phone must start with 09, 08, 07, or 03 and contain 10 digits";
         }
 
         return null;
@@ -99,6 +133,7 @@ public class SchoolServiceImpl implements SchoolService {
     @Override
     public ResponseEntity<ResponseObject> viewCampusList(HttpServletRequest httpServletRequest) {
         Campus actorCampus = extractActorCampus();
+
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
@@ -107,11 +142,32 @@ public class SchoolServiceImpl implements SchoolService {
                 ? campusRepo.findBySchoolId(actorCampus.getSchool().getId())
                 : List.of(actorCampus);
 
-        List<Map<String, Object>> payload = campusList.stream()
+        List<Map<String, Object>> data = campusList.stream()
                 .map(this::buildCampusData)
                 .collect(Collectors.toList());
 
-        return ResponseBuilder.build(HttpStatus.OK, "View campus list successfully", payload);
+        return ResponseBuilder.build(HttpStatus.OK, "View campus list successfully", data);
+    }
+
+    private Map<String, Object> buildCampusData(Campus campus) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", campus.getId());
+        data.put("name", campus.getName());
+        data.put("address", campus.getAddress());
+        data.put("phoneNumber", campus.getPhoneNumber());
+        data.put("status", campus.getStatus());
+        data.put("isPrimaryBranch", campus.getIsPrimaryBranch());
+        data.put("schoolId", campus.getSchool().getId());
+        return data;
+    }
+
+    private Map<String, Object> buildAccountData(Account account) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("email", account.getEmail());
+        data.put("registerDate", account.getRegisterDate());
+        data.put("status", account.getStatus());
+        data.put("role", account.getRole());
+        return data;
     }
 
     @Override
@@ -140,7 +196,7 @@ public class SchoolServiceImpl implements SchoolService {
                 .year(request.getYear())
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
-                .status(Status.ACCOUNT_ACTIVE)
+                .status(Status.OPEN)
                 .build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Create campaign template successfully", buildCampaignData(campaign));
@@ -185,7 +241,7 @@ public class SchoolServiceImpl implements SchoolService {
                 .learningMode(request.getLearningMode())
                 .priceAdjustmentPercentage(0)
                 .tuitionFee(tuitionFee)
-                .status(Status.ACCOUNT_ACTIVE)
+                .status(Status.OPEN)
                 .build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Create campus offering successfully", buildOfferingData(offering));
@@ -243,18 +299,6 @@ public class SchoolServiceImpl implements SchoolService {
 
         Integer targetCampusId = requestedCampusId == null ? actorCampus.getId() : requestedCampusId;
         return campusRepo.findByIdAndSchoolId(targetCampusId, actorCampus.getSchool().getId()).orElse(null);
-    }
-
-    private Map<String, Object> buildCampusData(Campus campus) {
-        Map<String, Object> data = new HashMap<>();
-        data.put("id", campus.getId());
-        data.put("name", campus.getName());
-        data.put("address", campus.getAddress());
-        data.put("phoneNumber", campus.getPhoneNumber());
-        data.put("status", campus.getStatus());
-        data.put("isPrimaryBranch", campus.getIsPrimaryBranch());
-        data.put("schoolId", campus.getSchool().getId());
-        return data;
     }
 
     private Map<String, Object> buildCampaignData(AdmissionCampaign campaign) {
