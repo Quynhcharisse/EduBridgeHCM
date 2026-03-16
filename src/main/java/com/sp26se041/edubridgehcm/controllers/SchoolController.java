@@ -1,6 +1,5 @@
 package com.sp26se041.edubridgehcm.controllers;
 
-
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
@@ -33,7 +32,7 @@ public class SchoolController {
         return schoolService.createCampus(request, httpServletRequest);
     }
 
-    @PostMapping("/campus/list")
+    @GetMapping("/campus/list")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> viewCampusList(HttpServletRequest httpServletRequest) {
         return schoolService.viewCampusList(httpServletRequest);
@@ -51,7 +50,7 @@ public class SchoolController {
         return schoolService.createCampusProgramOffering(request, httpServletRequest);
     }
 
-    @PostMapping("/campaign/offering/list")
+    @GetMapping("/campaign/offering/list")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(@RequestBody(required = false) ViewCampusProgramOfferingRequest request, HttpServletRequest httpServletRequest) {
         return schoolService.viewCampusProgramOfferingList(request, httpServletRequest);
@@ -68,5 +67,4 @@ public class SchoolController {
     public ResponseEntity<ResponseObject> viewAccountCounsellorList() {
         return schoolService.viewAccountCounsellorList();
     }
-
 }

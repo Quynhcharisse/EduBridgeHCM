@@ -14,6 +14,8 @@ public interface AccountService {
 
     ResponseEntity<ResponseObject> toggleAccountRestriction(int accountId, RestrictionRequest request);
 
+    ResponseEntity<ResponseObject> viewUserList();
+
     ResponseEntity<ResponseObject> updateProfile(UpdateProfileRequest request, HttpServletRequest httpRequest);
 
     ResponseEntity<ResponseObject> viewProfile(HttpServletRequest request);

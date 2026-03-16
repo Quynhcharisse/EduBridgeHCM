@@ -13,6 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -45,13 +46,20 @@ public class AccountController {
         return accountService.toggleAccountRestriction(accountId, request);
     }
 
+    @GetMapping("/user/list")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ResponseObject> viewUserList() {
+        return accountService.viewUserList();
+    }
+
+
     @GetMapping("/profile")
     @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL', 'PARENT', 'COUNSELLOR')")
     public ResponseEntity<ResponseObject> viewProfile(HttpServletRequest request) {
         return accountService.viewProfile(request);
     }
 
-    @PostMapping("/profile")
+    @PutMapping("/profile")
     @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL', 'PARENT', 'COUNSELLOR')")
     public ResponseEntity<ResponseObject> updateProfile(@RequestBody UpdateProfileRequest request, HttpServletRequest httpRequest) {
         return accountService.updateProfile(request, httpRequest);

@@ -46,11 +46,6 @@ public class AdmissionCampaign {
     @OneToMany(mappedBy = "admissionCampaign")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    List<AdmissionReservationForm> admissionReservationFormList;
-
-    @OneToMany(mappedBy = "admissionCampaign")
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
     List<CampusProgramOffering> campusProgramOfferingList;
 
     @Column(name = "academic_year")

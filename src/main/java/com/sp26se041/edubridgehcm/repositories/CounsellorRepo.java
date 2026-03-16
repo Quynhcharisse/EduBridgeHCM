@@ -8,4 +8,6 @@ import java.util.List;
 public interface CounsellorRepo extends JpaRepository<Counsellor, Integer> {
   
     List<Counsellor> findByCampusId(Integer campusId);
+
+    List<Counsellor> findByCampusIdIn(List<Integer> campusIds);
 }

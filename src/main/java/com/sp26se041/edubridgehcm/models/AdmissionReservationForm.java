@@ -30,6 +30,6 @@ public class AdmissionReservationForm {
     Integer id;
 
     @ManyToOne
-    @JoinColumn(name = "admission_campaign_id")
-    AdmissionCampaign admissionCampaign;
+    @JoinColumn(name = "campus_program_offering_id")
+    CampusProgramOffering campusProgramOffering;
 }

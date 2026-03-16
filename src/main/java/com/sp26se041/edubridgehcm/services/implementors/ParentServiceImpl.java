@@ -1,8 +1,12 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.Status;
-import com.sp26se041.edubridgehcm.models.*;
-import com.sp26se041.edubridgehcm.repositories.*;
+import com.sp26se041.edubridgehcm.models.Account;
+import com.sp26se041.edubridgehcm.models.ChatMessage;
+import com.sp26se041.edubridgehcm.models.Conversation;
+import com.sp26se041.edubridgehcm.repositories.AccountRepo;
+import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
+import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.ParentService;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
@@ -11,7 +15,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -64,7 +74,7 @@ public class ParentServiceImpl implements ParentService {
         }
 
 
-        return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(conversation ,messages, hasMore, nextCursorId));
+        return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(conversation, messages, hasMore, nextCursorId));
 
     }
 
@@ -80,8 +90,8 @@ public class ParentServiceImpl implements ParentService {
     public String createChatMessage(ChatMessage chatMessage) {
         Optional<Conversation> conversation = conversationRepo.findById(chatMessage.getConversationId());
         chatMessage.setStatus(Status.MESSAGE_SENT);
-        if(conversation.isEmpty()) {
-           return "Please refresh page and try again later";
+        if (conversation.isEmpty()) {
+            return "Please refresh page and try again later";
         }
         chatMessageRepo.save(chatMessage);
         return "";
@@ -98,6 +108,7 @@ public class ParentServiceImpl implements ParentService {
 
         return response;
     }
+
     private List<Map<String, Object>> buildMessages(List<ChatMessage> messages) {
 
         if (messages == null || messages.isEmpty()) {

@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
@@ -34,6 +35,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -72,6 +74,12 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
+        BoardingType boardingType = parseBoardingType(request.getBoardingType());
+
+        if (boardingType == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Boarding type is invalid. Accepted values: NONE, FULL_BOARDING, SEMI_BOARDING, BOTH", null);
+        }
+
         Account acc = accountRepo.save(Account.builder()
                 .email(normalize(request.getEmail()))
                 .role(Role.SCHOOL)
@@ -87,6 +95,11 @@ public class SchoolServiceImpl implements SchoolService {
                 .name(normalize(request.getName()))
                 .address(normalize(request.getAddress()))
                 .phoneNumber(normalize(request.getPhone()))
+                .city(normalize(request.getCity()))
+                .district(normalize(request.getDistrict()))
+                .latitude(request.getLatitude())
+                .longitude(request.getLongitude())
+                .boardingType(boardingType)
                 .status(Status.VERIFIED)
                 .isPrimaryBranch(false)
                 .build());
@@ -139,6 +152,30 @@ public class SchoolServiceImpl implements SchoolService {
             return "Phone must start with 09, 08, 07, or 03 and contain 10 digits";
         }
 
+        if (normalize(request.getCity()) == null) {
+            return "City is required";
+        }
+
+        if (normalize(request.getDistrict()) == null) {
+            return "District is required";
+        }
+
+        if (request.getLatitude() == null || request.getLongitude() == null) {
+            return "Latitude and longitude are required";
+        }
+
+        if (request.getLatitude() < -90 || request.getLatitude() > 90) {
+            return "Latitude must be in range [-90, 90]";
+        }
+
+        if (request.getLongitude() < -180 || request.getLongitude() > 180) {
+            return "Longitude must be in range [-180, 180]";
+        }
+
+        if (parseBoardingType(request.getBoardingType()) == null) {
+            return "Boarding type is invalid. Accepted values: NONE, FULL_BOARDING, SEMI_BOARDING, BOTH";
+        }
+
         return null;
     }
 
@@ -166,10 +203,19 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("id", campus.getId());
         data.put("name", campus.getName());
         data.put("address", campus.getAddress());
+        data.put("city", campus.getCity());
+        data.put("district", campus.getDistrict());
+        data.put("latitude", campus.getLatitude());
+        data.put("longitude", campus.getLongitude());
+        data.put("boardingType", campus.getBoardingType().name());
+        data.put("boardingTypeLabel", campus.getBoardingType().getValue());
         data.put("phoneNumber", campus.getPhoneNumber());
         data.put("status", campus.getStatus());
         data.put("isPrimaryBranch", campus.getIsPrimaryBranch());
         data.put("schoolId", campus.getSchool().getId());
+
+        Account acc = campus.getAccount();
+        data.put("account", buildAccountData(acc));
         return data;
     }
 
@@ -222,6 +268,7 @@ public class SchoolServiceImpl implements SchoolService {
         return "";
     }
 
+
     @Override
     public ResponseEntity<ResponseObject> createCampusProgramOffering(CreateCampusProgramOfferingRequest request, HttpServletRequest httpServletRequest) {
 
@@ -256,14 +303,29 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tuition fee must be >= 0", null);
         }
 
+        LocalDate openDate = request.getOpenDate();
+        LocalDate closeDate = request.getCloseDate();
+        if (openDate != null && closeDate != null && closeDate.isBefore(openDate)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Close date must be after or equal to open date", null);
+        }
+
+        Status applicationStatus = parseApplicationStatus(request.getApplicationStatus());
+        if (applicationStatus == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Application status must be OPEN, PAUSED, FULL, or CLOSED", null);
+        }
+
         CampusProgramOffering offering = campusProgramOfferingRepo.save(CampusProgramOffering.builder()
                 .campus(targetCampus)
                 .admissionCampaign(campaign)
                 .program(program)
                 .quota(request.getQuota())
+                .remainingQuota(request.getQuota())
                 .learningMode(request.getLearningMode())
                 .priceAdjustmentPercentage(0)
                 .tuitionFee(tuitionFee)
+                .applicationStatus(applicationStatus)
+                .openDate(openDate)
+                .closeDate(closeDate)
                 .status(Status.OPEN)
                 .build());
 
@@ -346,8 +408,12 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("campaignName", offering.getAdmissionCampaign().getName());
         data.put("programId", offering.getProgram().getId());
         data.put("quota", offering.getQuota());
+        data.put("remainingQuota", offering.getRemainingQuota());
         data.put("learningMode", offering.getLearningMode());
         data.put("tuitionFee", offering.getTuitionFee());
+        data.put("applicationStatus", offering.getApplicationStatus());
+        data.put("openDate", offering.getOpenDate());
+        data.put("closeDate", offering.getCloseDate());
         data.put("status", offering.getStatus());
         return data;
     }
@@ -358,6 +424,53 @@ public class SchoolServiceImpl implements SchoolService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private BoardingType parseBoardingType(String value) {
+        String normalized = normalize(value);
+        if (normalized == null) {
+            return null;
+        }
+
+        String enumKey = normalized.toUpperCase(Locale.ROOT)
+                .replace('-', '_')
+                .replace(' ', '_');
+
+        try {
+            return BoardingType.valueOf(enumKey);
+        } catch (IllegalArgumentException ignored) {
+            for (BoardingType boardingType : BoardingType.values()) {
+                if (boardingType.getValue().equalsIgnoreCase(normalized)) {
+                    return boardingType;
+                }
+            }
+            return null;
+        }
+    }
+
+    private Status parseApplicationStatus(String value) {
+        String normalized = normalize(value);
+        if (normalized == null) {
+            return Status.OPEN;
+        }
+
+        String enumKey = normalized.toUpperCase(Locale.ROOT)
+                .replace('-', '_')
+                .replace(' ', '_');
+
+        Status parsed;
+        try {
+            parsed = Status.valueOf(enumKey);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+
+        if (parsed != Status.OPEN && parsed != Status.PAUSED
+                && parsed != Status.FULL && parsed != Status.CLOSED) {
+            return null;
+        }
+
+        return parsed;
     }
 
     @Override
