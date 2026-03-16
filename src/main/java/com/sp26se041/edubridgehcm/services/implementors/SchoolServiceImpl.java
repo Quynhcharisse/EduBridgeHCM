@@ -213,7 +213,7 @@ public class SchoolServiceImpl implements SchoolService {
         return ResponseBuilder.build(HttpStatus.OK, "Create campaign template successfully", buildCampaignData(campaign));
     }
 
-    private String validationCreateAdmissionCampaignTemplate(CreateAdmissionCampaignTemplateRequest request) {
+    private String validationCreateAdmissionCampaignTemplate (CreateAdmissionCampaignTemplateRequest request) {
 
         if (request == null || normalize(request.getName()) == null || request.getStartDate() == null || request.getEndDate() == null || request.getYear() <= 0) {
             return "Campaign name, year, start date and end date are required";
@@ -221,6 +221,8 @@ public class SchoolServiceImpl implements SchoolService {
 
         return "";
     }
+
+
 
     @Override
     public ResponseEntity<ResponseObject> createCampusProgramOffering(CreateCampusProgramOfferingRequest request, HttpServletRequest httpServletRequest) {

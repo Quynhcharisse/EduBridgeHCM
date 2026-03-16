@@ -51,7 +51,7 @@ public class SchoolController {
         return schoolService.createCampusProgramOffering(request, httpServletRequest);
     }
 
-    @PostMapping("/campaign/offering/list")
+    @GetMapping("/campaign/offering/list")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(@RequestBody(required = false) ViewCampusProgramOfferingRequest request, HttpServletRequest httpServletRequest) {
         return schoolService.viewCampusProgramOfferingList(request, httpServletRequest);
