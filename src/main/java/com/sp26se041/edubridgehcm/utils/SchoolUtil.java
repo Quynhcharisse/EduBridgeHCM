@@ -6,9 +6,14 @@ import com.sp26se041.edubridgehcm.models.School;
 public class SchoolUtil {
 
     public static String checkSchoolStatus(School school) {
+
+        if (school == null || school.getCampusList() == null || school.getCampusList().isEmpty()) {
+            return Status.ACCOUNT_INACTIVE.name();
+        }
+
         return school.getCampusList().stream()
-                .noneMatch(campus -> campus.getStatus().equals(Status.ACCOUNT_ACTIVE))
-                ? Status.ACCOUNT_INACTIVE.getValue()
-                : Status.ACCOUNT_ACTIVE.getValue();
+                .anyMatch(campus -> campus.getStatus() == Status.ACCOUNT_ACTIVE)
+                ? Status.ACCOUNT_INACTIVE.name()
+                : Status.ACCOUNT_ACTIVE.name();
     }
 }
