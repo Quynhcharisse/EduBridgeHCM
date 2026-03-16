@@ -2,24 +2,12 @@ package com.sp26se041.edubridgehcm.models;
 
 import com.sp26se041.edubridgehcm.enums.LearningMode;
 import com.sp26se041.edubridgehcm.enums.Status;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import jakarta.persistence.*;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.jspecify.annotations.NullMarked;
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -42,6 +30,11 @@ public class CampusProgramOffering {
     @ManyToOne
     @JoinColumn(name = "admission_campaign_id")
     AdmissionCampaign admissionCampaign;
+
+    @OneToMany(mappedBy = "campusProgramOffering")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<AdmissionReservationForm> admissionReservationFormList;
 
     @ManyToOne
     @JoinColumn(name = "program_id")
