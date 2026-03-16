@@ -7,7 +7,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface CampusRepo extends JpaRepository<Campus, Integer> {
-	List<Campus> findBySchoolId(Integer schoolId);
 
-	Optional<Campus> findByIdAndSchoolId(Integer id, Integer schoolId);
+    List<Campus> findBySchoolId(Integer schoolId);
+
+    Optional<Campus> findByIdAndSchoolId(Integer id, Integer schoolId);
 }
