@@ -40,6 +40,13 @@ public class AccountController {
         return accountService.toggleAccountRestriction(accountId, request);
     }
 
+    @GetMapping("/user/list")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ResponseObject> viewUserList() {
+        return accountService.viewUserList();
+    }
+
+
     @GetMapping("/profile")
     @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL', 'PARENT', 'COUNSELLOR')")
     public ResponseEntity<ResponseObject> viewProfile(HttpServletRequest request) {

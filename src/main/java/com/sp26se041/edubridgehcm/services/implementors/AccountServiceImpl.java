@@ -4,11 +4,7 @@ import com.sp26se041.edubridgehcm.enums.Gender;
 import com.sp26se041.edubridgehcm.enums.Relationship;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
-import com.sp26se041.edubridgehcm.models.Account;
-import com.sp26se041.edubridgehcm.models.Campus;
-import com.sp26se041.edubridgehcm.models.Counsellor;
-import com.sp26se041.edubridgehcm.models.Parent;
-import com.sp26se041.edubridgehcm.models.School;
+import com.sp26se041.edubridgehcm.models.*;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
@@ -32,7 +28,6 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -112,20 +107,24 @@ public class AccountServiceImpl implements AccountService {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Reason is required when restricting an account", null);
             }
             account.setRestricted(true);
+            account.setStatus(Status.ACCOUNT_RESTRICTED);
             account.setRestrictionReason(request.getReason().trim());
             account.setRestrictionDate(LocalDateTime.now());
         } else {
             account.setRestricted(false);
             account.setRestrictionReason(null);
             account.setRestrictionDate(null);
+            account.setStatus(Status.ACCOUNT_ACTIVE);
         }
-
-        // keep account status active so restricted users can still login and use read API
-        account.setStatus(Status.ACCOUNT_ACTIVE);
 
         accountRepo.save(account);
 
         return ResponseBuilder.build(HttpStatus.OK, request.isRestricted() ? "Account restricted successfully" : "Account unrestricted successfully", null);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewUserList() {
+        return null;
     }
 
     @Override
@@ -518,6 +517,7 @@ public class AccountServiceImpl implements AccountService {
         parentData.put("gender", parent.getGender());
         parentData.put("phone", parent.getPhone());
         parentData.put("relationship", parent.getRelationship());
+        parentData.put("occupation", parent.getOccupation());
         parentData.put("workplace", parent.getWorkplace());
         parentData.put("currentAddress", parent.getCurrentAddress());
         parentData.put("idCardNumber", parent.getIdCardNumber());
