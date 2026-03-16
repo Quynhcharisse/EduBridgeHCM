@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm;
 
+import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.Gender;
 import com.sp26se041.edubridgehcm.enums.Relationship;
 import com.sp26se041.edubridgehcm.enums.Role;
@@ -118,9 +119,16 @@ public class EduBridgeHcmApplication {
                         .name("Campus Chinh")
                         .phoneNumber("0900000000")
                         .address("Quan 1, TP Ho Chi Minh")
+                        .city("Ho Chi Minh")
+                        .district("Quan 1")
+                        .latitude(10.7769)
+                        .longitude(106.7009)
+                        .boardingType(BoardingType.BOTH)
                         .status(Status.VERIFIED)
                         .isPrimaryBranch(true)
                         .build()));
+
+        primaryCampus = ensurePrimaryCampusSeedFields(primaryCampus, school, primaryCampusAccount);
 
         Account counsellorAccount = accountRepo.findByEmail("counsellor-main@edubridge.local")
                 .orElseGet(() -> accountRepo.save(Account.builder()
@@ -147,6 +155,51 @@ public class EduBridgeHcmApplication {
                 .name("Counsellor Chinh")
                 .employeeCode(UUID.randomUUID())
                 .build());
+    }
+
+    private Campus ensurePrimaryCampusSeedFields(Campus campus, School school, Account primaryCampusAccount) {
+        boolean changed = false;
+
+        if (campus.getSchool() == null) {
+            campus.setSchool(school);
+            changed = true;
+        }
+
+        if (campus.getAccount() == null) {
+            campus.setAccount(primaryCampusAccount);
+            changed = true;
+        }
+
+        if (campus.getCity() == null) {
+            campus.setCity("Ho Chi Minh");
+            changed = true;
+        }
+
+        if (campus.getDistrict() == null) {
+            campus.setDistrict("Quan 1");
+            changed = true;
+        }
+
+        if (campus.getLatitude() == null) {
+            campus.setLatitude(10.7769);
+            changed = true;
+        }
+
+        if (campus.getLongitude() == null) {
+            campus.setLongitude(106.7009);
+            changed = true;
+        }
+
+        if (campus.getBoardingType() == null) {
+            campus.setBoardingType(BoardingType.BOTH);
+            changed = true;
+        }
+
+        if (changed) {
+            return campusRepo.save(campus);
+        }
+
+        return campus;
     }
 
     private School resolveOrCreateSeedSchool() {

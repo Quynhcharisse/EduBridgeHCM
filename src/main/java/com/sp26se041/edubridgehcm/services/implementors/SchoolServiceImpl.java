@@ -76,6 +76,10 @@ public class SchoolServiceImpl implements SchoolService {
 
         BoardingType boardingType = parseBoardingType(request.getBoardingType());
 
+        if (boardingType == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Boarding type is invalid. Accepted values: NONE, FULL_BOARDING, SEMI_BOARDING, BOTH", null);
+        }
+
         Account acc = accountRepo.save(Account.builder()
                 .email(normalize(request.getEmail()))
                 .role(Role.SCHOOL)
