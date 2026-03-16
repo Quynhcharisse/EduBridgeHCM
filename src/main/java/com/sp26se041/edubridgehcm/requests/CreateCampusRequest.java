@@ -19,4 +19,14 @@ public class CreateCampusRequest {
     String address;
 
     String phone;
+
+    String city;
+
+    String district;
+
+    Double latitude;
+
+    Double longitude;
+
+    String boardingType;
 }

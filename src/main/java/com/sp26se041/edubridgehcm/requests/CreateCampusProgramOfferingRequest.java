@@ -1,14 +1,11 @@
 package com.sp26se041.edubridgehcm.requests;
 
 import com.sp26se041.edubridgehcm.enums.LearningMode;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Data
 @NoArgsConstructor
@@ -28,5 +25,11 @@ public class CreateCampusProgramOfferingRequest {
     LearningMode learningMode;
 
     BigDecimal tuitionFee;
+
+    String applicationStatus;
+
+    LocalDate openDate;
+
+    LocalDate closeDate;
 }
 

@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface AccountRepo extends JpaRepository<Account, Integer> {
+
     Optional<Account> findByEmail(String email);
 
     Optional<Account> findByEmailAndStatus(String email, Status status);

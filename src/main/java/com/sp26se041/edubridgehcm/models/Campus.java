@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.models;
 
+import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.Status;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;
@@ -56,6 +57,22 @@ public class Campus {
 
     @Column(name = "address")
     String address;
+
+    @Column(name = "city")
+    String city;
+
+    @Column(name = "district")
+    String district;
+
+    @Column(name = "latitude")
+    Double latitude;
+
+    @Column(name = "longitude")
+    Double longitude;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "boarding_type")
+    BoardingType boardingType;
 
     @Enumerated(EnumType.STRING)
     Status status;

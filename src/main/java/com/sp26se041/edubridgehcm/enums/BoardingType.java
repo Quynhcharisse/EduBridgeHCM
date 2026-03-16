@@ -5,12 +5,12 @@ import lombok.RequiredArgsConstructor;
 
 @Getter
 @RequiredArgsConstructor
-public enum LearningMode {
-    //cách học/khung thời gian học (day school, half day, boarding...)
-    DAY_SCHOOL("day school"),
-    BOARDING("boarding"),
+public enum BoardingType {
+    // dịch vụ lưu trú của campus (không có, bán trú, nội trú, cả hai)
+    NONE("none"),
+    FULL_BOARDING("full boarding"),
     SEMI_BOARDING("semi boarding"),
-    HALF_DAY("half day");
+    BOTH("both");
 
     private final String value;
 }
