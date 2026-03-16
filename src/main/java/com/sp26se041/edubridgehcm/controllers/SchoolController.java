@@ -33,7 +33,7 @@ public class SchoolController {
         return schoolService.createCampus(request, httpServletRequest);
     }
 
-    @PostMapping("/campus/list")
+    @GetMapping("/campus/list")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> viewCampusList(HttpServletRequest httpServletRequest) {
         return schoolService.viewCampusList(httpServletRequest);
@@ -68,5 +68,4 @@ public class SchoolController {
     public ResponseEntity<ResponseObject> viewAccountCounsellorList() {
         return schoolService.viewAccountCounsellorList();
     }
-
 }

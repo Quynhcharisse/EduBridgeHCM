@@ -2,23 +2,9 @@ package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
-import com.sp26se041.edubridgehcm.models.Account;
-import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
-import com.sp26se041.edubridgehcm.models.Campus;
-import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
-import com.sp26se041.edubridgehcm.models.Counsellor;
-import com.sp26se041.edubridgehcm.models.Program;
-import com.sp26se041.edubridgehcm.repositories.AccountRepo;
-import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
-import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
-import com.sp26se041.edubridgehcm.repositories.CampusRepo;
-import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
-import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
-import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
-import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
-import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
-import com.sp26se041.edubridgehcm.requests.ViewCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.models.*;
+import com.sp26se041.edubridgehcm.repositories.*;
+import com.sp26se041.edubridgehcm.requests.*;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
@@ -170,6 +156,9 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("status", campus.getStatus());
         data.put("isPrimaryBranch", campus.getIsPrimaryBranch());
         data.put("schoolId", campus.getSchool().getId());
+
+        Account acc = campus.getAccount();
+        data.put("account", buildAccountData(acc));
         return data;
     }
 
@@ -213,7 +202,7 @@ public class SchoolServiceImpl implements SchoolService {
         return ResponseBuilder.build(HttpStatus.OK, "Create campaign template successfully", buildCampaignData(campaign));
     }
 
-    private String validationCreateAdmissionCampaignTemplate (CreateAdmissionCampaignTemplateRequest request) {
+    private String validationCreateAdmissionCampaignTemplate(CreateAdmissionCampaignTemplateRequest request) {
 
         if (request == null || normalize(request.getName()) == null || request.getStartDate() == null || request.getEndDate() == null || request.getYear() <= 0) {
             return "Campaign name, year, start date and end date are required";
@@ -221,7 +210,6 @@ public class SchoolServiceImpl implements SchoolService {
 
         return "";
     }
-
 
 
     @Override
