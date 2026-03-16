@@ -3,7 +3,11 @@ package com.sp26se041.edubridgehcm.models;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.jspecify.annotations.NullMarked;
 
@@ -19,7 +23,6 @@ public class OpenDayEvent {
 
     @Id
     private Long id;
-
 
 
 }
