@@ -37,7 +37,13 @@ public enum Status {
 
     //With status message
     MESSAGE_SENT("sent"),
-    MESSAGE_READ("read");
+    MESSAGE_READ("read"),
+
+    //With status event
+    EVENT_UPCOMING("upcoming"),
+    EVENT_ONGOING("ongoing"),
+    EVENT_FINISHED("finished"),
+    EVENT_CANCELLED("cancelled");
 
     private final String value;
 }
