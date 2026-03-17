@@ -27,6 +27,4 @@ public class OpenDayEvent {
 
     @Column(name = "title")
     String title;
-
-
 }

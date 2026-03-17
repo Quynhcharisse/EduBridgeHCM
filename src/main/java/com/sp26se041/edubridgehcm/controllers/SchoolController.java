@@ -49,7 +49,7 @@ public class SchoolController {
 
     @PutMapping("{id}/campaign/template/status")
     @PreAuthorize("hasRole('SCHOOL')")
-        public ResponseEntity<ResponseObject> changeAdmissionCampaignStatus(@PathVariable Integer id, @RequestParam Status targetStatus) { // Spring tự map String -> Enum
+    public ResponseEntity<ResponseObject> changeAdmissionCampaignStatus(@PathVariable Integer id, @RequestParam Status targetStatus) { // Spring tự map String -> Enum
         return schoolService.changeAdmissionCampaignStatus(id, targetStatus);
     }
 
