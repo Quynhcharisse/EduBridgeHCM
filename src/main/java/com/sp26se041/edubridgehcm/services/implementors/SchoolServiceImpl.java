@@ -19,15 +19,14 @@ import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
-import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
+import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -63,7 +62,7 @@ public class SchoolServiceImpl implements SchoolService {
 
     @Override
     @Transactional
-    public ResponseEntity<ResponseObject> createCampus(CreateCampusRequest request, HttpServletRequest httpServletRequest) {
+    public ResponseEntity<ResponseObject> createCampus(CreateCampusRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
@@ -190,7 +189,7 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> viewCampusList(HttpServletRequest httpServletRequest) {
+    public ResponseEntity<ResponseObject> viewCampusList() {
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
@@ -242,7 +241,7 @@ public class SchoolServiceImpl implements SchoolService {
 
     @Override
     @Transactional
-    public ResponseEntity<ResponseObject> createAdmissionCampaignTemplate(CreateAdmissionCampaignTemplateRequest request, HttpServletRequest httpServletRequest) {
+    public ResponseEntity<ResponseObject> createAdmissionCampaignTemplate(CreateAdmissionCampaignTemplateRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
@@ -341,7 +340,7 @@ public class SchoolServiceImpl implements SchoolService {
 
     @Override
     @Transactional
-    public ResponseEntity<ResponseObject> updateAdmissionCampaignTemplate(UpdateAdmissionCampaignTemplateRequest request, HttpServletRequest httpServletRequest) {
+    public ResponseEntity<ResponseObject> updateAdmissionCampaignTemplate(UpdateAdmissionCampaignTemplateRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
@@ -439,7 +438,45 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> viewAdmissionCampaignTemplate(int year, HttpServletRequest request) {
+    @Transactional
+    public ResponseEntity<ResponseObject> changeAdmissionCampaignStatus(Integer id, Status targetStatus) {
+
+        //kiểm tra Actor & Quyền (Tương tự Create/Update)
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null || !actorCampus.getIsPrimaryBranch()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can change status", null);
+        }
+
+        //Tìm Campaign
+        AdmissionCampaign campaign = admissionCampaignRepo.findById(id).orElse(null);
+        if (campaign == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campaign not found", null);
+
+        if (campaign.getStatus().equals(targetStatus)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campaign is already in status " + targetStatus.name(), null);
+        }
+
+        if (campaign.getStatus().equals(Status.CLOSED)) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Cannot change status of a closed campaign", null);
+        }
+
+        if (campaign.getStatus().equals(Status.EXPIRED) && targetStatus.equals(Status.OPEN)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot open an expired campaign. Please switch to PAUSED to update the end date first.", null);
+        }
+
+        if (targetStatus.equals(Status.OPEN)) {
+            if (LocalDate.now().isAfter(campaign.getEndDate())) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "The end date is in the past. Please update the campaign duration before opening.", null);
+            }
+        }
+
+        campaign.setStatus(targetStatus);
+        admissionCampaignRepo.save(campaign);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Status updated to " + targetStatus + " successfully", null);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewAdmissionCampaignTemplate(int year) {
 
         Campus actorCampus = extractActorCampus();
 
@@ -471,7 +508,8 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> createCampusProgramOffering(CreateCampusProgramOfferingRequest request, HttpServletRequest httpServletRequest) {
+    @Transactional
+    public ResponseEntity<ResponseObject> createCampusProgramOffering(CreateCampusProgramOfferingRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
@@ -538,7 +576,7 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(int campusId, HttpServletRequest httpServletRequest) {
+    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(int campusId) {
 
         Campus actorCampus = extractActorCampus();
 
@@ -748,6 +786,10 @@ public class SchoolServiceImpl implements SchoolService {
     public ResponseEntity<ResponseObject> viewAccountCounsellorList(int page, int size) {
 
         Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
 
         Pageable pageable;
         try {
