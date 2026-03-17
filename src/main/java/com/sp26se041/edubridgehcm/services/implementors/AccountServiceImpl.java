@@ -18,6 +18,7 @@ import com.sp26se041.edubridgehcm.requests.UpdateProfileRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AccountService;
 import com.sp26se041.edubridgehcm.services.JWTService;
+import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.CookieUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
@@ -380,7 +381,7 @@ public class AccountServiceImpl implements AccountService {
             return "Request body is required";
         }
 
-        if (account.isRestricted()) {
+        if (AccountRestrictionUtil.isRestricted(account)) {
             return "Your account is restricted";
         }
 
