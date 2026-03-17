@@ -19,9 +19,10 @@ import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
-import com.sp26se041.edubridgehcm.requests.ViewCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
+import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import jakarta.servlet.http.HttpServletRequest;
@@ -59,6 +60,11 @@ public class SchoolServiceImpl implements SchoolService {
     @Override
     @Transactional
     public ResponseEntity<ResponseObject> createCampus(CreateCampusRequest request, HttpServletRequest httpServletRequest) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
@@ -231,22 +237,31 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
+    @Transactional
     public ResponseEntity<ResponseObject> createAdmissionCampaignTemplate(CreateAdmissionCampaignTemplateRequest request, HttpServletRequest httpServletRequest) {
 
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
         Campus actorCampus = extractActorCampus();
+
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
+        // actor campus co phai la primary campus ko
         if (!actorCampus.getIsPrimaryBranch()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can create campaign template", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
         }
 
-        if (request.getEndDate().isBefore(request.getStartDate())) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "End date must be after start date", null);
+        String error = validationCreateAdmissionCampaignTemplate(request, actorCampus);
+
+        if (!error.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
-        AdmissionCampaign campaign = admissionCampaignRepo.save(AdmissionCampaign.builder()
+        AdmissionCampaign admissionCampaign = AdmissionCampaign.builder()
                 .school(actorCampus.getSchool())
                 .name(normalize(request.getName()))
                 .description(normalize(request.getDescription()))
@@ -254,23 +269,209 @@ public class SchoolServiceImpl implements SchoolService {
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
                 .status(Status.OPEN)
-                .build());
+                .build();
+        admissionCampaignRepo.save(admissionCampaign);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Create campaign template successfully", buildCampaignData(campaign));
+        return ResponseBuilder.build(HttpStatus.CREATED, "Create campaign template successfully", null);
     }
 
-    private String validationCreateAdmissionCampaignTemplate(CreateAdmissionCampaignTemplateRequest request) {
+    private String validationCreateAdmissionCampaignTemplate(CreateAdmissionCampaignTemplateRequest request, Campus actorCampus) {
 
-        if (request == null || normalize(request.getName()) == null || request.getStartDate() == null || request.getEndDate() == null || request.getYear() <= 0) {
-            return "Campaign name, year, start date and end date are required";
+        if (request == null) {
+            return "Request is required";
+        }
+
+        if (normalize(request.getName()) == null) {
+            return "Name is required";
+        }
+
+        if (normalize(request.getName()).length() > 100) {
+            return "Name is too long. Maximum length is 100 characters";
+        }
+
+        if (normalize(request.getDescription()) == null) {
+            return "Description is required";
+        }
+
+        if (request.getYear() <= 0) {
+            return "Year is required";
+        }
+
+        // 2. Kiểm tra Năm (Year)
+        if (request.getYear() < LocalDate.now().getYear()) {
+            return "Cannot create a campaign for a past year";
+        }
+
+        if (admissionCampaignRepo.existsBySchoolIdAndYear(actorCampus.getSchool().getId(), request.getYear())) {
+            return "A campaign template for the year already exists";
+        }
+
+        // 3. Kiểm tra Ngày tháng (Dates)
+        if (request.getStartDate() == null || request.getEndDate() == null) {
+            return "Start date and end date are required";
+        }
+
+        // Đồng bộ Năm và Ngày (Bạn đã làm rất tốt bước này)
+        if (request.getStartDate().getYear() != request.getYear() ||
+                request.getEndDate().getYear() != request.getYear()) {
+            return "Start date and end date must be within the year " + request.getYear();
+        }
+
+        // Check quá khứ cho StartDate (cho phép lùi 1 ngày)
+        if (request.getStartDate().isBefore(LocalDate.now().minusDays(1))) {
+            return "Start date cannot be in the past";
+        }
+
+        // Check quá khứ cho EndDate
+        if (request.getEndDate().isBefore(LocalDate.now())) {
+            return "End date must be in the future";
+        }
+
+        // Check mối quan hệ End - Start (Nên dùng !isAfter để bắt buộc khác ngày)
+        if (!request.getEndDate().isAfter(request.getStartDate())) {
+            return "End date must be after start date";
         }
 
         return "";
     }
 
+    @Override
+    @Transactional
+    public ResponseEntity<ResponseObject> updateAdmissionCampaignTemplate(UpdateAdmissionCampaignTemplateRequest request, HttpServletRequest httpServletRequest) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        // actor campus co phai la primary campus ko
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
+        }
+
+        if (request == null || request.getAdmissionCampaignTemplateId() <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campaign template id is required", null);
+        }
+
+        AdmissionCampaign admissionCampaign = admissionCampaignRepo.findById(request.getAdmissionCampaignTemplateId()).orElse(null);
+
+        if (admissionCampaign == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campaign template not found", null);
+        }
+
+        //Check Scope (Đảm bảo không sửa nhầm trường khác)
+        if (!admissionCampaign.getSchool().getId().equals(actorCampus.getSchool().getId())) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campaign template is out of your school scope", null);
+        }
+
+        //Chỉ cho sửa khi trạng thái là PAUSED ==> đang sửa sao cho update
+        //CLOSED: Nghĩa là chiến dịch đã kết thúc hẳn, dữ liệu đã được chốt để làm báo cáo. Nếu cho phép sửa ở trạng thái này sẽ làm mất tính toàn vẹn của lịch sử dữ liệu.
+        //PAUSE: Nghĩa là "Tạm nghỉ để bảo trì/chỉnh sửa". Đây chính là trạng thái sinh ra để dành cho việc thay đổi cấu hình mà không làm ảnh hưởng đến tiến trình chung.
+        if (!admissionCampaign.getStatus().equals(Status.PAUSED)) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "The campaign is currently active (OPEN). Please switch to PAUSED before updating the information.", null);
+        }
+
+        String error = validationUpdateAdmissionCampaignTemplate(request);
+
+        if (!error.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+        }
+
+        admissionCampaign.setName(normalize(request.getName()));
+        admissionCampaign.setDescription(normalize(request.getDescription()));
+        admissionCampaign.setStartDate(request.getStartDate());
+        admissionCampaign.setEndDate(request.getEndDate());
+        admissionCampaignRepo.save(admissionCampaign);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Update campaign template successfully", null);
+    }
+
+    private String validationUpdateAdmissionCampaignTemplate(UpdateAdmissionCampaignTemplateRequest request) {
+
+        if (request == null) {
+            return "Request is required";
+        }
+
+        if (normalize(request.getName()) == null) {
+            return "Name is required";
+        }
+
+        if (normalize(request.getName()).length() > 100) {
+            return "Name is too long. Maximum length is 100 characters";
+        }
+
+        String description = normalize(request.getDescription());
+        if (description == null) {
+            return "Description is required";
+        }
+
+        // 2. Kiểm tra Null cho ngày tháng (BẮT BUỘC để tránh crash 500)
+        if (request.getStartDate() == null || request.getEndDate() == null) {
+            return "Start date and end date are required";
+        }
+
+        // 3. Logic thời gian
+        // StartDate cho phép lùi 1 ngày
+        if (request.getStartDate().isBefore(LocalDate.now().minusDays(1))) {
+            return "Start date cannot be in the past";
+        }
+
+        // EndDate phải từ hôm nay trở đi
+        if (request.getEndDate().isBefore(LocalDate.now())) {
+            return "End date must be a future date";
+        }
+
+        // End phải sau Start (Dùng !isAfter để đảm bảo không trùng ngày)
+        if (!request.getEndDate().isAfter(request.getStartDate())) {
+            return "End date must be after start date";
+        }
+
+        return "";
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewAdmissionCampaignTemplate(int year, HttpServletRequest request) {
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        int schoolId = actorCampus.getSchool().getId();
+
+        if (year > 0) {
+            AdmissionCampaign campaign = admissionCampaignRepo
+                    .findFirstBySchoolIdAndYearOrderByIdDesc(schoolId, year)
+                    .orElse(null);
+
+            if (campaign == null) {
+                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campaign template not found", null);
+            }
+
+            return ResponseBuilder.build(HttpStatus.OK, "View campaign template successfully", buildCampaignData(campaign));
+        }
+
+        List<AdmissionCampaign> campaignList = admissionCampaignRepo.findBySchoolIdOrderByYearDesc(schoolId);
+
+        List<Map<String, Object>> data = campaignList.stream()
+                .map(this::buildCampaignData)
+                .toList();
+
+        return ResponseBuilder.build(HttpStatus.OK, "View campaign template list successfully", data);
+    }
 
     @Override
     public ResponseEntity<ResponseObject> createCampusProgramOffering(CreateCampusProgramOfferingRequest request, HttpServletRequest httpServletRequest) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
 
         Campus actorCampus = extractActorCampus();
 
@@ -333,13 +534,15 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(ViewCampusProgramOfferingRequest request, HttpServletRequest httpServletRequest) {
+    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(int campusId, HttpServletRequest httpServletRequest) {
+
         Campus actorCampus = extractActorCampus();
+
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
-        Integer requestedCampusId = request == null ? null : request.getCampusId();
+        Integer requestedCampusId = campusId <= 0 ? null : campusId;
 
         List<CampusProgramOffering> offeringList;
         if (actorCampus.getIsPrimaryBranch()) {
@@ -476,6 +679,10 @@ public class SchoolServiceImpl implements SchoolService {
     @Override
     @Transactional
     public ResponseEntity<ResponseObject> createAccountCounsellor(CreateAccountCounsellorRequest request) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
 
         Campus actorCampus = extractActorCampus();
 
