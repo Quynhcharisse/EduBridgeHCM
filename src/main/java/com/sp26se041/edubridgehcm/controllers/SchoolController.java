@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.controllers;
 
+import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
@@ -8,7 +9,6 @@ import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateReques
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -31,44 +31,50 @@ public class SchoolController {
 
     @PostMapping("/campus")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> createCampus(@RequestBody CreateCampusRequest request, HttpServletRequest httpServletRequest) {
-        return schoolService.createCampus(request, httpServletRequest);
+    public ResponseEntity<ResponseObject> createCampus(@RequestBody CreateCampusRequest request) {
+        return schoolService.createCampus(request);
     }
 
     @GetMapping("/campus/list")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewCampusList(HttpServletRequest httpServletRequest) {
-        return schoolService.viewCampusList(httpServletRequest);
+    public ResponseEntity<ResponseObject> viewCampusList() {
+        return schoolService.viewCampusList();
     }
 
     @PostMapping("/campaign/template")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> createAdmissionCampaignTemplate(@RequestBody CreateAdmissionCampaignTemplateRequest request, HttpServletRequest httpServletRequest) {
-        return schoolService.createAdmissionCampaignTemplate(request, httpServletRequest);
+    public ResponseEntity<ResponseObject> createAdmissionCampaignTemplate(@RequestBody CreateAdmissionCampaignTemplateRequest request) {
+        return schoolService.createAdmissionCampaignTemplate(request);
+    }
+
+    @PutMapping("{id}/campaign/template/status")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> changeAdmissionCampaignStatus(@PathVariable Integer id, @RequestParam Status targetStatus) { // Spring tự map String -> Enum
+        return schoolService.changeAdmissionCampaignStatus(id, targetStatus);
     }
 
     @PutMapping("/campaign/template")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> updateAdmissionCampaignTemplate(@RequestBody UpdateAdmissionCampaignTemplateRequest request, HttpServletRequest httpServletRequest) {
-        return schoolService.updateAdmissionCampaignTemplate(request, httpServletRequest);
+    public ResponseEntity<ResponseObject> updateAdmissionCampaignTemplate(@RequestBody UpdateAdmissionCampaignTemplateRequest request) {
+        return schoolService.updateAdmissionCampaignTemplate(request);
     }
 
     @GetMapping("{year}/campaign/template")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewAdmissionCampaignTemplate(@PathVariable int year, HttpServletRequest request) {
-        return schoolService.viewAdmissionCampaignTemplate(year, request);
+    public ResponseEntity<ResponseObject> viewAdmissionCampaignTemplate(@PathVariable int year) {
+        return schoolService.viewAdmissionCampaignTemplate(year);
     }
 
     @PostMapping("/campaign/offering")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> createCampusProgramOffering(@RequestBody CreateCampusProgramOfferingRequest request, HttpServletRequest httpServletRequest) {
-        return schoolService.createCampusProgramOffering(request, httpServletRequest);
+    public ResponseEntity<ResponseObject> createCampusProgramOffering(@RequestBody CreateCampusProgramOfferingRequest request) {
+        return schoolService.createCampusProgramOffering(request);
     }
 
     @GetMapping("{campusId}/campaign/offering/list")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(@PathVariable int campusId, HttpServletRequest httpServletRequest) {
-        return schoolService.viewCampusProgramOfferingList(campusId, httpServletRequest);
+    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(@PathVariable int campusId) {
+        return schoolService.viewCampusProgramOfferingList(campusId);
     }
 
     @PostMapping("/counsellor")

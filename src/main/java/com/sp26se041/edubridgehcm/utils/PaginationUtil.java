@@ -4,11 +4,8 @@ import com.sp26se041.edubridgehcm.responses.PageResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
-import java.awt.print.Pageable;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -35,9 +32,8 @@ public class PaginationUtil {
             throw new IllegalArgumentException("Mapper cannot be null");
         }
 
-        List<T> content = pageData.getContent() != null
-                ? pageData.getContent()
-                : Collections.emptyList();
+        pageData.getContent();
+        List<T> content = pageData.getContent();
 
         List<R> items = content.stream()
                 .filter(Objects::nonNull)
@@ -55,9 +51,8 @@ public class PaginationUtil {
             return emptyPage();
         }
 
-        List<T> items = pageData.getContent() != null
-                ? pageData.getContent()
-                : Collections.emptyList();
+        pageData.getContent();
+        List<T> items = pageData.getContent();
 
         return buildMeta(pageData, items);
     }
