@@ -105,4 +105,10 @@ public class Campus {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     List<CampusProgramOffering> programOfferingList;
+
+    @OneToMany(mappedBy = "campus")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<OpenDayEvent> openDayEvents;
+
 }

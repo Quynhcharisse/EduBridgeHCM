@@ -8,17 +8,20 @@ import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
 import com.sp26se041.edubridgehcm.models.Counsellor;
+import com.sp26se041.edubridgehcm.models.OpenDayEvent;
 import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
+import com.sp26se041.edubridgehcm.repositories.OpenDayEventRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
+import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -36,7 +39,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -59,6 +65,7 @@ public class SchoolServiceImpl implements SchoolService {
     private final AccountRepo accountRepo;
 
     private final CounsellorRepo counsellorRepo;
+    private final OpenDayEventRepo openDayEventRepo;
 
     @Override
     @Transactional
@@ -609,6 +616,123 @@ public class SchoolServiceImpl implements SchoolService {
                 .collect(Collectors.toList());
 
         return ResponseBuilder.build(HttpStatus.OK, "View campus offering list successfully", payload);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> createOpenDayEvent(CreateOpenDayEventRequest request) {
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        if (request == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Request body is required", null);
+        }
+
+        if (request.getTitle() == null || request.getTitle().isBlank()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Title is required", null);
+        }
+
+        String title = request.getTitle().trim();
+        if (title.length() < 5 || title.length() > 255) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Title must be between 5 and 255 characters", null);
+        }
+
+        if (request.getDescription() == null || request.getDescription().isBlank()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Description is required", null);
+        }
+
+        String description = request.getDescription().trim();
+        if (description.length() < 20 || description.length() > 2000) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Description must be between 20 and 2000 characters", null);
+        }
+
+        if (request.getBannerUrl() == null || request.getBannerUrl().isBlank()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Banner URL is required", null);
+        }
+
+        String bannerUrl = request.getBannerUrl().trim();
+        if (bannerUrl.length() > 1000) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Banner URL must not exceed 1000 characters", null);
+        }
+
+        if (!(bannerUrl.startsWith("http://") || bannerUrl.startsWith("https://"))) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Banner URL must be a valid URL", null);
+        }
+
+        if (request.getEventDate() == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Event date is required", null);
+        }
+
+        if (request.getEventDate().isBefore(LocalDate.now())) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Event date must be today or in the future", null);
+        }
+
+        if (request.getStartTime() == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Start time is required", null);
+        }
+
+        if (request.getEndTime() == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "End time is required", null);
+        }
+
+        if (request.getCampusId() <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campus ID must be greater than 0", null);
+        }
+
+        if (!request.getStartTime().isBefore(request.getEndTime())) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Start time must be earlier than end time", null);
+        }
+
+        if (request.getEventDate().isEqual(LocalDate.now())
+                && request.getStartTime().isBefore(LocalTime.now())) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Start time must be later than current time for today's event", null);
+        }
+
+        if (Duration.between(request.getStartTime(), request.getEndTime()).toMinutes() < 30) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Event duration must be at least 30 minutes", null);
+        }
+
+        OpenDayEvent openDayEvent =  openDayEventRepo.save(
+                OpenDayEvent.builder()
+                        .title(request.getTitle())
+                        .description(request.getDescription())
+                        .bannerUrl(request.getBannerUrl())
+                        .eventDate(request.getEventDate())
+                        .startTime(request.getStartTime())
+                        .endTime(request.getEndTime())
+                        .status(Status.EVENT_UPCOMING)
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .campus(actorCampus)
+                        .build()
+        );
+
+        return ResponseBuilder.build(HttpStatus.OK, "Create open day event successfully", buildOpenDayEvent(openDayEvent));
+    }
+
+    private Map<String, Object> buildOpenDayEvent(OpenDayEvent openDayEvent) {
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("title", openDayEvent.getTitle());
+        data.put("description", openDayEvent.getDescription());
+        data.put("bannerUrl", openDayEvent.getBannerUrl());
+        data.put("eventDate", openDayEvent.getEventDate());
+        data.put("startTime", openDayEvent.getStartTime());
+        data.put("endTime", openDayEvent.getEndTime());
+
+        data.put("campusName", openDayEvent.getCampus() != null ? openDayEvent.getCampus().getName() : "N/A");
+        data.put("campusId", openDayEvent.getCampus() != null ? openDayEvent.getCampus().getId() : null);
+        data.put("campusAddress", openDayEvent.getCampus() != null ? openDayEvent.getCampus().getAddress() : "N/A");
+
+        data.put("status",  openDayEvent.getStatus());
+        data.put("createdAt", openDayEvent.getCreatedAt());
+        data.put("updatedAt", openDayEvent.getUpdatedAt());
+
+        return data;
     }
 
     private Campus extractActorCampus() {

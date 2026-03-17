@@ -5,6 +5,7 @@ import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
+import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import org.springframework.http.ResponseEntity;
@@ -30,4 +31,8 @@ public interface SchoolService {
     ResponseEntity<ResponseObject> createCampusProgramOffering(CreateCampusProgramOfferingRequest request);
 
     ResponseEntity<ResponseObject> viewCampusProgramOfferingList(int campusId);
+
+    // Open Day Event
+    ResponseEntity<ResponseObject> createOpenDayEvent(CreateOpenDayEventRequest request);
+
 }
