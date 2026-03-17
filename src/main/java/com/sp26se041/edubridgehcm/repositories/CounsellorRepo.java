@@ -5,7 +5,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.List;
 import java.util.Optional;
 
 public interface CounsellorRepo extends JpaRepository<Counsellor, Integer> {
@@ -14,5 +13,7 @@ public interface CounsellorRepo extends JpaRepository<Counsellor, Integer> {
 
     Page<Counsellor> findByCampusId(Integer campusId, Pageable pageable);
 
-    List<Counsellor> findByCampusIdIn(List<Integer> campusIds);
+    Page<Counsellor> findByCampusIdOrderByIdDesc(Integer campusId, Pageable pageable);
+
+    long countByCampusSchoolId(Integer schoolId);
 }

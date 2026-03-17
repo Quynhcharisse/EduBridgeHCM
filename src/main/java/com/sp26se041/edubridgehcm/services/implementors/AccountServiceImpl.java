@@ -13,6 +13,8 @@ import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.ParentRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
+import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.requests.RestrictionRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateProfileRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -21,17 +23,18 @@ import com.sp26se041.edubridgehcm.services.JWTService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.CookieUtil;
+import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.utils.SchoolUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -52,6 +55,8 @@ public class AccountServiceImpl implements AccountService {
     private final CounsellorRepo counsellorRepo;
 
     private final ParentRepo parentRepo;
+
+    private final SchoolRepo schoolRepo;
 
     @Override
     public ResponseEntity<ResponseObject> logout(HttpServletRequest request, HttpServletResponse response) {
@@ -134,72 +139,92 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> viewUserList() {
+    public ResponseEntity<ResponseObject> viewUserList(String role, int page, int pageSize) {
 
-        List<Account> accList = accountRepo.findAllByOrderByIdDesc();
-
-        List<Map<String, Object>> parentList = accList.stream()
-                .filter(acc -> acc.getRole() == Role.PARENT)
-                .map(this::mapParentItem)
-                .toList();
-
-        List<Account> schoolAccounts = accList.stream()
-                .filter(acc -> acc.getRole() == Role.SCHOOL)
-                .toList();
-
-        List<Integer> campusIds = schoolAccounts.stream()
-                .map(Account::getCampus)
-                .map(Campus::getId)
-                .distinct()
-                .toList();
-
-        List<Counsellor> counsellorList = campusIds.isEmpty()
-                ? Collections.emptyList()
-                : counsellorRepo.findByCampusIdIn(campusIds);
-
-        Map<Integer, List<Counsellor>> counsellorByCampusId = counsellorList.stream()
-                .collect(Collectors.groupingBy(c -> c.getCampus().getId()));
-
-        Map<Integer, Map<String, Object>> schoolMap = new HashMap<>();
-
-        for (Account acc : schoolAccounts) {
-            Campus campus = acc.getCampus();
-            School school = campus.getSchool();
-            Map<String, Object> schoolNode = schoolMap.computeIfAbsent(school.getId(), key -> {
-                Map<String, Object> data = new HashMap<>();
-                data.put("schoolId", school.getId());
-                data.put("schoolName", school.getName());
-                data.put("taxCode", school.getTaxCode());
-                data.put("websiteUrl", school.getWebsiteUrl());
-                data.put("hotline", school.getHotline());
-                data.put("representativeName", school.getRepresentativeName());
-                data.put("logoUrl", school.getLogoUrl());
-                data.put("foundingDate", school.getFoundingDate());
-                data.put("primaryCampus", null);
-                data.put("branchCampuses", new ArrayList<Map<String, Object>>());
-                data.put("overallStatus", SchoolUtil.checkSchoolStatus(school));
-                return data;
-            });
-
-            Map<String, Object> campusNode = mapSchoolCampusItem(acc,
-                    counsellorByCampusId.getOrDefault(campus.getId(), Collections.emptyList()));
-
-            if (campus.getIsPrimaryBranch()) {
-                schoolNode.put("primaryCampus", campusNode);
-            } else {
-                @SuppressWarnings("unchecked")
-                List<Map<String, Object>> branchCampuses = (List<Map<String, Object>>) schoolNode.get("branchCampuses");
-                branchCampuses.add(campusNode);
-            }
+        Pageable pageable;
+        try {
+            pageable = PaginationUtil.buildPageRequest(page, pageSize);
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
         }
 
-        Map<String, Object> body = new HashMap<>();
-        body.put("parents", parentList);
-        body.put("schools", new ArrayList<>(schoolMap.values()));
-        body.put("totalParents", parentList.size());
-        body.put("totalSchools", schoolMap.size());
+        Role targetRole = parseSupportedUserListRole(role);
+        if (targetRole == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Role must be PARENT or SCHOOL", null);
+        }
 
-        return ResponseBuilder.build(HttpStatus.OK, "View user list successfully", body);
+        if (targetRole == Role.PARENT) {
+            Page<Account> parentPage = accountRepo.findByRoleOrderByIdDesc(Role.PARENT, pageable);
+            PageResponse<Map<String, Object>> response = PaginationUtil.buildPageResponse(parentPage, this::mapParentSummary);
+            return ResponseBuilder.build(HttpStatus.OK, "View parent list successfully", response);
+        }
+
+        Page<School> schoolPage = schoolRepo.findAllByOrderByIdDesc(pageable);
+        List<Integer> schoolIds = schoolPage.getContent().stream()
+                .map(School::getId)
+                .toList();
+
+        Map<Integer, List<Campus>> campusesBySchoolId = schoolIds.isEmpty()
+                ? Collections.emptyMap()
+                : campusRepo.findBySchoolIdIn(schoolIds).stream()
+                .collect(Collectors.groupingBy(campus -> campus.getSchool().getId()));
+
+        PageResponse<Map<String, Object>> response = PaginationUtil.buildPageResponse(
+                schoolPage,
+                school -> mapSchoolSummary(school, campusesBySchoolId.getOrDefault(school.getId(), Collections.emptyList()))
+        );
+
+        return ResponseBuilder.build(HttpStatus.OK, "View school list successfully", response);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewSchoolCampusList(int schoolId, int page, int pageSize) {
+
+        if (schoolId <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "School id must be greater than 0", null);
+        }
+
+        School school = schoolRepo.findById(schoolId).orElse(null);
+        if (school == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "School not found", null);
+        }
+
+        Pageable pageable;
+        try {
+            pageable = PaginationUtil.buildPageRequest(page, pageSize);
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
+
+        Page<Campus> campusPage = campusRepo.findBySchoolIdOrderByIsPrimaryBranchDescIdDesc(schoolId, pageable);
+        PageResponse<Map<String, Object>> response = PaginationUtil.buildPageResponse(campusPage, this::mapCampusSummary);
+
+        return ResponseBuilder.build(HttpStatus.OK, "View school campus list successfully", response);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewCampusCounsellorList(int campusId, int page, int pageSize) {
+
+        if (campusId <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campus id must be greater than 0", null);
+        }
+
+        Campus campus = campusRepo.findById(campusId).orElse(null);
+        if (campus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campus not found", null);
+        }
+
+        Pageable pageable;
+        try {
+            pageable = PaginationUtil.buildPageRequest(page, pageSize);
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
+
+        Page<Counsellor> counsellorPage = counsellorRepo.findByCampusIdOrderByIdDesc(campusId, pageable);
+        PageResponse<Map<String, Object>> response = PaginationUtil.buildPageResponse(counsellorPage, this::mapCounsellorItem);
+
+        return ResponseBuilder.build(HttpStatus.OK, "View campus counsellor list successfully", response);
     }
 
     private Map<String, Object> mapGeneralInfoUser(Account acc) {
@@ -214,39 +239,102 @@ public class AccountServiceImpl implements AccountService {
         return data;
     }
 
-    private Map<String, Object> mapParentItem(Account acc) {
+    private Role parseSupportedUserListRole(String value) {
+        String normalizedValue = normalize(value);
+
+        if (normalizedValue == null) {
+            return null;
+        }
+
+        if (Role.PARENT.name().equalsIgnoreCase(normalizedValue)) {
+            return Role.PARENT;
+        }
+
+        if (Role.SCHOOL.name().equalsIgnoreCase(normalizedValue)) {
+            return Role.SCHOOL;
+        }
+
+        return null;
+    }
+
+    private Map<String, Object> mapParentSummary(Account acc) {
         Map<String, Object> data = mapGeneralInfoUser(acc);
 
         Parent parent = acc.getParent();
-        Map<String, Object> detail = new HashMap<>();
-        detail.put("name", parent.getName());
-        detail.put("phone", parent.getPhone());
-        detail.put("gender", parent.getGender());
-        detail.put("relationship", parent.getRelationship());
-        detail.put("occupation", parent.getOccupation());
-        detail.put("workplace", parent.getWorkplace());
-        detail.put("currentAddress", parent.getCurrentAddress());
-
-        data.put("detail", detail);
+        data.put("name", parent != null ? parent.getName() : null);
+        data.put("phone", parent != null ? parent.getPhone() : null);
+        data.put("relationship", parent != null ? parent.getRelationship() : null);
 
         return data;
     }
 
-    private Map<String, Object> mapSchoolCampusItem(Account acc, List<Counsellor> counsellorList) {
-        Map<String, Object> data = mapGeneralInfoUser(acc);
+    private Map<String, Object> mapSchoolSummary(School school, List<Campus> campuses) {
+        List<Campus> safeCampuses = campuses == null ? Collections.emptyList() : campuses;
+        Campus primaryCampus = safeCampuses.stream()
+                .filter(campus -> Boolean.TRUE.equals(campus.getIsPrimaryBranch()))
+                .findFirst()
+                .orElse(null);
 
-        Campus campus = acc.getCampus();
-        Map<String, Object> detail = new HashMap<>();
-        detail.put("campusId", campus.getId());
-        detail.put("campusName", campus.getName());
-        detail.put("campusAddress", campus.getAddress());
-        detail.put("campusPhoneNumber", campus.getPhoneNumber());
-        detail.put("isPrimaryBranch", campus.getIsPrimaryBranch());
-        detail.put("counsellorList", counsellorList.stream().map(this::mapCounsellorItem).toList());
-        detail.put("counsellorSize", counsellorList.size());
+        Map<String, Object> data = new HashMap<>();
+        data.put("schoolId", school.getId());
+        data.put("schoolName", school.getName());
+        data.put("taxCode", school.getTaxCode());
+        data.put("websiteUrl", school.getWebsiteUrl());
+        data.put("hotline", school.getHotline());
+        data.put("representativeName", school.getRepresentativeName());
+        data.put("logoUrl", school.getLogoUrl());
+        data.put("foundingDate", school.getFoundingDate());
+        data.put("overallStatus", SchoolUtil.checkSchoolStatus(school));
+        data.put("primaryCampus", mapPrimaryCampusSummary(primaryCampus));
+        data.put("campusCount", safeCampuses.size());
+        data.put("counsellorCount", counsellorRepo.countByCampusSchoolId(school.getId()));
+        return data;
+    }
 
-        data.put("detail", detail);
+    private Map<String, Object> mapPrimaryCampusSummary(Campus campus) {
 
+        if (campus == null) {
+            return null;
+        }
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("campusId", campus.getId());
+        data.put("campusName", campus.getName());
+        data.put("address", campus.getAddress());
+        data.put("phoneNumber", campus.getPhoneNumber());
+        data.put("status", campus.getStatus());
+        data.put("isPrimaryBranch", campus.getIsPrimaryBranch());
+        return data;
+    }
+
+    private Map<String, Object> mapCampusSummary(Campus campus) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("campusId", campus.getId());
+        data.put("campusName", campus.getName());
+        data.put("address", campus.getAddress());
+        data.put("phoneNumber", campus.getPhoneNumber());
+        data.put("city", campus.getCity());
+        data.put("district", campus.getDistrict());
+        data.put("latitude", campus.getLatitude());
+        data.put("longitude", campus.getLongitude());
+        data.put("boardingType", campus.getBoardingType());
+        data.put("status", campus.getStatus());
+        data.put("isPrimaryBranch", campus.getIsPrimaryBranch());
+        data.put("account", buildAccountSummary(campus.getAccount()));
+        return data;
+    }
+
+    private Map<String, Object> buildAccountSummary(Account acc) {
+
+        if (acc == null) {
+            return null;
+        }
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("accountId", acc.getId());
+        data.put("email", acc.getEmail());
+        data.put("status", acc.getStatus());
+        data.put("isRestricted", acc.isRestricted());
         return data;
     }
 
@@ -255,11 +343,13 @@ public class AccountServiceImpl implements AccountService {
         item.put("counsellorId", counsellor.getId());
         item.put("name", counsellor.getName());
         item.put("employeeCode", counsellor.getEmployeeCode());
+        item.put("campusId", counsellor.getCampus() != null ? counsellor.getCampus().getId() : null);
+        item.put("campusName", counsellor.getCampus() != null ? counsellor.getCampus().getName() : null);
 
         Account acc = counsellor.getAccount();
-        item.put("accountId", acc.getId());
-        item.put("email", acc.getEmail());
-        item.put("status", acc.getStatus());
+        item.put("accountId", acc != null ? acc.getId() : null);
+        item.put("email", acc != null ? acc.getEmail() : null);
+        item.put("status", acc != null ? acc.getStatus() : null);
         return item;
     }
 
