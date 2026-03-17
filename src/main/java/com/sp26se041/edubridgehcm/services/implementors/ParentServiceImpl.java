@@ -13,8 +13,12 @@ import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -67,10 +71,13 @@ public class ParentServiceImpl implements ParentService {
             conversation = Conversation.builder()
                     .parentEmail(parentEmail)
                     .counsellorEmail(counsellorEmail)
+                    .createdDate(LocalDateTime.now())
+                    .updatedDate(LocalDateTime.now())
                     .status(Status.CONVERSATION_ACTIVE)
                     .build();
 
             conversation = conversationRepo.save(conversation);
+
         }
 
 
@@ -87,12 +94,79 @@ public class ParentServiceImpl implements ParentService {
     }
 
     @Override
+    public  ResponseEntity<ResponseObject> getConversations(Long cursorId) {
+
+        try {
+            String email = SecurityContextHolder
+                    .getContext()
+                    .getAuthentication()
+                    .getName();
+
+            Authentication authentication = SecurityContextHolder
+                    .getContext()
+                    .getAuthentication();
+
+            List<String> roles = authentication.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .toList();
+
+            boolean isParent = roles.contains("ROLE_PARENT");
+            boolean isCounsellor = roles.contains("ROLE_COUNSELLOR");
+
+            List<Conversation> conversations = new ArrayList<>();
+
+            if (cursorId == null) {
+                if (isParent) {
+                    conversations = conversationRepo
+                            .findTop20ByParentEmailOrderByUpdatedDateDesc(email);
+                } else if (isCounsellor) {
+                    conversations = conversationRepo
+                            .findTop20ByCounsellorEmailOrderByUpdatedDateDesc(email);
+                }
+            } else {
+                if (isParent) {
+                    conversations = conversationRepo
+                            .findTop20ByParentEmailAndIdLessThanOrderByUpdatedDateDesc(email, cursorId);
+                } else if (isCounsellor) {
+                    conversations = conversationRepo
+                            .findTop20ByCounsellorEmailAndIdLessThanOrderByUpdatedDateDesc(email, cursorId);
+                }
+            }
+            List<Map<String, Object>> items = buildConversationList(conversations, email);
+
+            boolean hasMore = conversations.size() == 20;
+            Long nextCursorId = hasMore && !conversations.isEmpty()
+                    ? conversations.get(conversations.size() - 1).getId()
+                    : null;
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("items", items);
+            result.put("hasMore", hasMore);
+            result.put("nextCursorId", nextCursorId);
+
+            return ResponseBuilder.build(
+                    HttpStatus.OK,
+                    "Get conversations successfully",
+                    result
+            );
+
+        } catch (Exception e) {
+            return ResponseBuilder.build(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed: " + e.getMessage(),
+                    null
+            );
+        }
+    }
+
+    @Override
     public String createChatMessage(ChatMessage chatMessage) {
         Optional<Conversation> conversation = conversationRepo.findById(chatMessage.getConversationId());
-        chatMessage.setStatus(Status.MESSAGE_SENT);
         if (conversation.isEmpty()) {
             return "Please refresh page and try again later";
         }
+        chatMessage.setStatus(Status.MESSAGE_SENT);
+        conversation.get().setUpdatedDate(LocalDateTime.now());
         chatMessageRepo.save(chatMessage);
         return "";
     }
@@ -107,6 +181,44 @@ public class ParentServiceImpl implements ParentService {
         response.put("nextCursorId", nextCursorId);
 
         return response;
+    }
+
+    private List<Map<String, Object>> buildConversationList(
+            List<Conversation> conversations,
+            String email
+    ) {
+
+        // 👉 tránh null pointer
+        if (conversations == null || conversations.isEmpty()) {
+            return List.of(); // hoặc return new ArrayList<>();
+        }
+
+        return conversations.stream()
+                .map(conversation -> {
+
+                    ChatMessage lastMessage = chatMessageRepo
+                            .findTopByConversationIdOrderByTimestampDesc(conversation.getId());
+
+                    Long unreadCount = chatMessageRepo
+                            .countByConversationIdAndReceiverNameAndStatusNot(
+                                    conversation.getId(),
+                                    email,
+                                    Status.MESSAGE_READ
+                            );
+
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("conversationId", conversation.getId());
+                    map.put("lastMessage", lastMessage != null ? lastMessage.getMessage() : null);
+                    map.put("updatedAt", conversation.getUpdatedDate());
+                    map.put("unreadCount", unreadCount != null ? unreadCount : 0L);
+                    String otherUser = conversation.getParentEmail().equals(email)
+                            ? conversation.getCounsellorEmail()
+                            : conversation.getParentEmail();
+
+                    map.put("otherUser", otherUser);
+                    return map;
+                })
+                .toList();
     }
 
     private List<Map<String, Object>> buildMessages(List<ChatMessage> messages) {

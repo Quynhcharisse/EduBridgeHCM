@@ -17,6 +17,8 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.jspecify.annotations.NullMarked;
 
+import java.time.LocalDateTime;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -40,4 +42,10 @@ public class Conversation {
 
     @Column(name = "counsellor_email")
     String counsellorEmail;
+
+    @Column(name = "created_date")
+    LocalDateTime createdDate;
+
+    @Column(name = "updated_date")
+    LocalDateTime updatedDate;
 }
