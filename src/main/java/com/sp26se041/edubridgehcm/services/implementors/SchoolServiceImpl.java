@@ -749,6 +749,10 @@ public class SchoolServiceImpl implements SchoolService {
 
         Campus actorCampus = extractActorCampus();
 
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+        
         Pageable pageable;
         try {
             pageable = PaginationUtil.buildPageRequest(page, size);
