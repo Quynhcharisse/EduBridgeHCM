@@ -17,7 +17,7 @@ public interface SchoolService {
 
     ResponseEntity<ResponseObject> createAccountCounsellor(CreateAccountCounsellorRequest request);
 
-    ResponseEntity<ResponseObject> viewAccountCounsellorList();
+    ResponseEntity<ResponseObject> viewAccountCounsellorList(int page, int size);
 
     ResponseEntity<ResponseObject> createAdmissionCampaignTemplate(CreateAdmissionCampaignTemplateRequest request, HttpServletRequest httpServletRequest);
 

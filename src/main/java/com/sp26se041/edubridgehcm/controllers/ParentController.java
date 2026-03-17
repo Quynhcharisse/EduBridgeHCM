@@ -60,6 +60,11 @@ public class ParentController {
                 message
         );
     }
+    @GetMapping("/conversations")
+    public ResponseEntity<?> getConversations(@RequestParam (required = false) Long cursorId){
+        return ResponseEntity.ok(parentService.getConversations(cursorId));
+    }
+
     @GetMapping("/messages/history/{parentEmail}/{counsellorEmail}")
     public ResponseEntity<ResponseObject> getChatHistory(@PathVariable String parentEmail, @PathVariable String counsellorEmail, @RequestParam (required = false) Long cursorId) {
         return parentService.getHistoryMessages(parentEmail, counsellorEmail, cursorId);

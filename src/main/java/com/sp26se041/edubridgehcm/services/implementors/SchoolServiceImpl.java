@@ -19,14 +19,18 @@ import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
+import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
+import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -741,19 +745,24 @@ public class SchoolServiceImpl implements SchoolService {
 
 
     @Override
-    public ResponseEntity<ResponseObject> viewAccountCounsellorList() {
+    public ResponseEntity<ResponseObject> viewAccountCounsellorList(int page, int size) {
 
         Campus actorCampus = extractActorCampus();
 
-        if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        Pageable pageable;
+        try {
+            pageable = PaginationUtil.buildPageRequest(page, size);
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
         }
 
-        List<Map<String, Object>> data = counsellorRepo.findByCampusId(actorCampus.getId()).stream()
-                .map(this::buildCounsellorData)
-                .collect(Collectors.toList());
+        Page<Counsellor> counsellorPage =
+                counsellorRepo.findByCampusId(actorCampus.getId(), pageable);
 
-        return ResponseBuilder.build(HttpStatus.OK, "View counsellor list successfully", data);
+        PageResponse<Map<String, Object>> pageResponse =
+                PaginationUtil.buildPageResponse(counsellorPage, this::buildCounsellorData);
+
+        return ResponseBuilder.build(HttpStatus.OK, "View counsellor list successfully", pageResponse);
     }
 
     private Map<String, Object> buildCounsellorData(Counsellor counsellor) {

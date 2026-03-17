@@ -140,10 +140,7 @@ public class EduBridgeHcmApplication {
                         .isRestricted(false)
                         .build()));
 
-        Optional<Counsellor> existingCounsellor = counsellorRepo.findByCampusId(primaryCampus.getId()).stream()
-                .filter(counsellor -> counsellor.getAccount() != null
-                        && counsellor.getAccount().getId().equals(counsellorAccount.getId()))
-                .findFirst();
+        Optional<Counsellor> existingCounsellor = counsellorRepo.findByAccountIdAndCampusId(counsellorAccount.getId(), primaryCampus.getId());
 
         if (existingCounsellor.isPresent()) {
             return;

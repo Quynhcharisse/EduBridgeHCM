@@ -1,12 +1,18 @@
 package com.sp26se041.edubridgehcm.repositories;
 
 import com.sp26se041.edubridgehcm.models.Counsellor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+
 import java.util.List;
+import java.util.Optional;
 
 public interface CounsellorRepo extends JpaRepository<Counsellor, Integer> {
-  
-    List<Counsellor> findByCampusId(Integer campusId);
+
+    Optional<Counsellor> findByAccountIdAndCampusId(Integer accountId, Integer campusId);
+
+    Page<Counsellor> findByCampusId(Integer campusId, Pageable pageable);
 
     List<Counsellor> findByCampusIdIn(List<Integer> campusIds);
 }

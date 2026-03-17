@@ -7,5 +7,6 @@ import org.springframework.http.ResponseEntity;
 public interface ParentService {
     ResponseEntity<ResponseObject> getHistoryMessages(String parentEmail, String counsellorEmail, Long cursorId);
     ResponseEntity<ResponseObject> markConversationAsRead(Long conversationId, String receiverEmail);
+    ResponseEntity<ResponseObject> getConversations(Long cursorId);
     String createChatMessage(ChatMessage chatMessage);
 }
