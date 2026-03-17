@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -48,10 +49,21 @@ public class AccountController {
 
     @GetMapping("/user/list")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> viewUserList() {
-        return accountService.viewUserList();
+    public ResponseEntity<ResponseObject> viewUserList(@RequestParam String role, @RequestParam int page, @RequestParam int pageSize) {
+        return accountService.viewUserList(role, page, pageSize);
     }
 
+    @GetMapping("/school/{schoolId}/campus/list")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ResponseObject> viewSchoolCampusList(@PathVariable int schoolId, @RequestParam int page, @RequestParam int pageSize) {
+        return accountService.viewSchoolCampusList(schoolId, page, pageSize);
+    }
+
+    @GetMapping("/campus/{campusId}/counsellor/list")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ResponseObject> viewCampusCounsellorList(@PathVariable int campusId, @RequestParam int page, @RequestParam int pageSize) {
+        return accountService.viewCampusCounsellorList(campusId, page, pageSize);
+    }
 
     @GetMapping("/profile")
     @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL', 'PARENT', 'COUNSELLOR')")
