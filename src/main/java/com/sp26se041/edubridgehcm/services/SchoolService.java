@@ -5,6 +5,7 @@ import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
+import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -34,4 +35,6 @@ public interface SchoolService {
 
     ResponseEntity<ResponseObject> updateCampusProgramOffering(UpdateCampusProgramOfferingRequest request);
 
+    // Open Day Event
+    ResponseEntity<ResponseObject> createOpenDayEvent(CreateOpenDayEventRequest request);
 }
