@@ -6,7 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.apache.commons.lang3.compare.ComparableUtils;
 
 @Data
 @NoArgsConstructor
