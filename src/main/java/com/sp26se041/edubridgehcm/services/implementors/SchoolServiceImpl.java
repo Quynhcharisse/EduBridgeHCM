@@ -1,6 +1,8 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.BoardingType;
+import com.sp26se041.edubridgehcm.enums.CurriculumType;
+import com.sp26se041.edubridgehcm.enums.LearningMethod;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
@@ -8,6 +10,7 @@ import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
 import com.sp26se041.edubridgehcm.models.Counsellor;
+import com.sp26se041.edubridgehcm.models.Curriculum;
 import com.sp26se041.edubridgehcm.models.OpenDayEvent;
 import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
@@ -15,6 +18,7 @@ import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
+import com.sp26se041.edubridgehcm.repositories.CurriculumRepo;
 import com.sp26se041.edubridgehcm.repositories.OpenDayEventRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
@@ -33,11 +37,11 @@ import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
+import com.sp26se041.edubridgehcm.utils.CurriculumNamingUtil;
 import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -49,6 +53,9 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Year;
+import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -72,6 +79,7 @@ public class SchoolServiceImpl implements SchoolService {
 
     private final CounsellorRepo counsellorRepo;
     private final OpenDayEventRepo openDayEventRepo;
+    private final CurriculumRepo curriculumRepo;
 
     @Override
     @Transactional
@@ -454,6 +462,10 @@ public class SchoolServiceImpl implements SchoolService {
     @Transactional
     public ResponseEntity<ResponseObject> changeAdmissionCampaignStatus(Integer id, Status targetStatus) {
 
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
         //kiểm tra Actor & Quyền (Tương tự Create/Update)
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null || !actorCampus.getIsPrimaryBranch()) {
@@ -521,8 +533,102 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
+    @Transactional
     public ResponseEntity<ResponseObject> createCurriculum(CreateCurriculumRequest request) {
-        return null;
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        // actor campus co phai la primary campus ko
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
+        }
+
+        String error = validationCreateCurriculum(request);
+
+        if (error != null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+        }
+
+        Status targetStatus = request.isPublishNow() ? Status.CUR_ACTIVE : Status.CUR_DRAFT;
+
+        if (targetStatus.equals(Status.CUR_ACTIVE)) {
+            curriculumRepo.findByGroupCodeAndEnrollmentYearAndIsLatestTrue(CurriculumNamingUtil.generateGroupCode(request), request.getEnrollmentYear());
+        }
+
+        long latestVersion = Long.parseLong(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
+
+        Curriculum curriculum = Curriculum.builder()
+                .name(CurriculumNamingUtil.generateName(request))
+                .description(request.getDescription())
+                .curriculumType(CurriculumType.valueOf(request.getCurriculumType()))
+                .methodLearning(LearningMethod.valueOf(request.getMethodLearning()))
+                .subjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()))
+                .enrollmentYear(request.getEnrollmentYear())
+                .groupCode(CurriculumNamingUtil.generateGroupCode(request))
+                .version(latestVersion)
+                .isLatest(targetStatus.equals(Status.CUR_ACTIVE)) //vì bản Latest phải là bản "đang được áp dụng"
+                .curriculumStatus(targetStatus)
+                .school(actorCampus.getSchool())
+                .build();
+
+        curriculumRepo.save(curriculum);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Create curriculum successfully", null);
+    }
+
+    private String validationCreateCurriculum(CreateCurriculumRequest request) {
+
+        if (request.getSubTypeName() == null || request.getSubTypeName().isBlank()) {
+            return "Sub-type name is required";
+        }
+
+        // Kiểm tra năm học
+        // Cho phép nhập cũ 5 năm và tương lai 2 năm
+
+        if (request.getEnrollmentYear() < Year.now().getValue() - 5 || request.getEnrollmentYear() > Year.now().getValue() + 2) {
+            return String.format("Invalid enrollment year. Must be between %d and %d.", Year.now().getValue() - 5, Year.now().getValue() + 2);
+        }
+
+        // Kiểm tra Curriculum Type
+        try {
+            CurriculumType.valueOf(request.getCurriculumType());
+        } catch (Exception e) {
+            return "Invalid Curriculum Type. Supported types: MOET, INTEGRATED, etc.";
+        }
+
+        // Kiểm tra Learning Method
+        try {
+            LearningMethod.valueOf(request.getMethodLearning());
+        } catch (Exception e) {
+            return "Invalid Learning Method. Supported methods: STEM_STEAM, BLENDED, TRADITIONAL, etc.";
+        }
+        return "";
+    }
+
+    // define cấu trúc subjectsJsonb theo format jsonb
+    private List<Map<String, Object>> buildSubjectsJsonb(List<CreateCurriculumRequest.SubjectOptionRequest> request) {
+
+        if (request == null) return Collections.emptyList();
+
+        return request.stream()
+                .map(
+                        opt -> {
+                            Map<String, Object> data = new HashMap<>();
+                            data.put("name", opt.getName());
+                            data.put("description", opt.getDescription());
+                            data.put("isMandatory", opt.isMandatory());
+                            return data;
+                        }
+                )
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -532,7 +638,34 @@ public class SchoolServiceImpl implements SchoolService {
 
     @Override
     public ResponseEntity<ResponseObject> updateCurriculum(UpdateCurriculumRequest request) {
-        return null;
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        // actor campus co phai la primary campus ko
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
+        }
+
+        String error = validationUpdateCurriculum(request);
+
+        if (error != null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+        }
+
+        return ResponseBuilder.build(HttpStatus.OK, "Update curriculum successfully", null);
+    }
+
+    private String validationUpdateCurriculum(UpdateCurriculumRequest request) {
+
+        return "";
     }
 
     @Override
@@ -769,9 +902,9 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         Pageable pageable;
-        try{
+        try {
             pageable = PaginationUtil.buildPageRequest(currentPage, pageSize);
-        } catch (IllegalArgumentException e){
+        } catch (IllegalArgumentException e) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
         }
 

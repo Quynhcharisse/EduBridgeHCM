@@ -23,6 +23,11 @@ public enum Status {
     FULL("fulled"), //offering het quota
     EXPIRED("expired"),//campaign qua enddate
 
+    //With status for curriculum
+    CUR_DRAFT("draft"),      // Bản nháp, chưa được dùng để tuyển sinh
+    CUR_ACTIVE("active"),    // Đang áp dụng cho khóa học
+    CUR_ARCHIVED("archived"), // Lưu trữ (phiên bản cũ đã bị thay thế)
+
     //With status consultation appointment
     CONSULTATION_PENDING("pending"),
     CONSULTATION_CONFIRMED("confirmed"),
