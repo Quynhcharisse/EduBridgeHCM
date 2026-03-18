@@ -1,8 +1,11 @@
 package com.sp26se041.edubridgehcm.utils;
 
 import com.sp26se041.edubridgehcm.requests.CreateCurriculumRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateCurriculumRequest;
 
 import java.text.Normalizer;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.regex.Pattern;
 
 public class CurriculumNamingUtil {
@@ -40,5 +43,29 @@ public class CurriculumNamingUtil {
 
         // Hardcode số 10 vào format vì nhóm chỉ làm khối 10
         return String.format("%s_%d_%s", typePrefix, DEFAULT_GRADE, abbr);
+    }
+
+    public static String generateGroupCode(UpdateCurriculumRequest request) {
+        String typePrefix = request.getCurriculumType().toUpperCase();
+        String abbr = getAbbreviation(request.getSubTypeName());
+
+        // Hardcode số 10 vào format vì nhóm chỉ làm khối 10
+        return String.format("%s_%d_%s", typePrefix, DEFAULT_GRADE, abbr);
+    }
+
+    public static String formatLongVersion(Long version) {
+        if (version == null) return "N/A";
+
+        // 1. Chuyển Long thành String
+        String versionStr = String.valueOf(version);
+
+        // 2. Định nghĩa Format đầu vào (phải khớp với yyyyMMddHHmmss)
+        DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+
+        // 3. Parse ngược lại thành LocalDateTime
+        LocalDateTime dateTime = LocalDateTime.parse(versionStr, inputFormatter);
+
+        // 4. Trả về định dạng dễ đọc (Ví dụ: 18/03/2026 22:45)
+        return dateTime.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
     }
 }
