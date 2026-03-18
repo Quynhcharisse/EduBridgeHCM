@@ -32,6 +32,7 @@ import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -620,9 +621,11 @@ public class SchoolServiceImpl implements SchoolService {
 
     @Override
     public ResponseEntity<ResponseObject> createOpenDayEvent(CreateOpenDayEventRequest request) {
+
         if (AccountRestrictionUtil.isRestrictedActor()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
         }
+
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
@@ -710,8 +713,34 @@ public class SchoolServiceImpl implements SchoolService {
                         .campus(actorCampus)
                         .build()
         );
-
         return ResponseBuilder.build(HttpStatus.OK, "Create open day event successfully", buildOpenDayEvent(openDayEvent));
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewOpenDayEventList(int currentPage, int pageSize) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        Pageable pageable;
+        try{
+            pageable = PaginationUtil.buildPageRequest(currentPage, pageSize);
+        } catch (IllegalArgumentException e){
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
+
+        Page<OpenDayEvent> openDayEventPage = openDayEventRepo.findByCampusId(actorCampus.getId(), pageable);
+
+        PageResponse<Map<String, Object>> pageResponse =
+                PaginationUtil.buildPageResponse(openDayEventPage, this::buildOpenDayEvent);
+
+        return ResponseBuilder.build(HttpStatus.OK, "View open day event list successfully", pageResponse);
     }
 
     private Map<String, Object> buildOpenDayEvent(OpenDayEvent openDayEvent) {

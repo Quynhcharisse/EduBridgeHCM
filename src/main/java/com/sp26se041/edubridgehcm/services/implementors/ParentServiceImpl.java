@@ -79,8 +79,6 @@ public class ParentServiceImpl implements ParentService {
             conversation = conversationRepo.save(conversation);
 
         }
-
-
         return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(conversation, messages, hasMore, nextCursorId));
 
     }

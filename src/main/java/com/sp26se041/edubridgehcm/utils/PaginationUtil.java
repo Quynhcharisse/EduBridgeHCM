@@ -16,7 +16,7 @@ public class PaginationUtil {
         if (page < 0 || size <= 0) {
             throw new IllegalArgumentException("Invalid page or size");
         }
-        return PageRequest.of(page, size);
+        return PageRequest.of(page + 1, size);
     }
 
     // 👉 Có mapper
