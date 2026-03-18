@@ -21,8 +21,13 @@ import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
+import com.sp26se041.edubridgehcm.requests.CreateCurriculumRequest;
 import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
+import com.sp26se041.edubridgehcm.requests.CreateProgramRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateCurriculumRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateProgramRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
@@ -515,6 +520,36 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
+    public ResponseEntity<ResponseObject> createCurriculum(CreateCurriculumRequest request) {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewCurriculumList() {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> updateCurriculum(UpdateCurriculumRequest request) {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> createProgram(CreateProgramRequest request) {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewProgramList() {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> updateProgram(UpdateProgramRequest request) {
+        return null;
+    }
+
+    @Override
     @Transactional
     public ResponseEntity<ResponseObject> createCampusProgramOffering(CreateCampusProgramOfferingRequest request) {
 
@@ -619,6 +654,11 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
+    public ResponseEntity<ResponseObject> updateCampusProgramOffering(UpdateCampusProgramOfferingRequest request) {
+        return null;
+    }
+
+    @Override
     public ResponseEntity<ResponseObject> createOpenDayEvent(CreateOpenDayEventRequest request) {
         if (AccountRestrictionUtil.isRestrictedActor()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
@@ -696,7 +736,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Event duration must be at least 30 minutes", null);
         }
 
-        OpenDayEvent openDayEvent =  openDayEventRepo.save(
+        OpenDayEvent openDayEvent = openDayEventRepo.save(
                 OpenDayEvent.builder()
                         .title(request.getTitle())
                         .description(request.getDescription())
@@ -728,7 +768,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("campusId", openDayEvent.getCampus() != null ? openDayEvent.getCampus().getId() : null);
         data.put("campusAddress", openDayEvent.getCampus() != null ? openDayEvent.getCampus().getAddress() : "N/A");
 
-        data.put("status",  openDayEvent.getStatus());
+        data.put("status", openDayEvent.getStatus());
         data.put("createdAt", openDayEvent.getCreatedAt());
         data.put("updatedAt", openDayEvent.getUpdatedAt());
 

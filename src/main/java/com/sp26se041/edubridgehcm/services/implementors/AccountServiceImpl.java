@@ -264,7 +264,12 @@ public class AccountServiceImpl implements AccountService {
         Parent parent = acc.getParent();
         data.put("name", parent != null ? parent.getName() : null);
         data.put("phone", parent != null ? parent.getPhone() : null);
+        data.put("gender", parent != null ? parent.getGender() : null);
         data.put("relationship", parent != null ? parent.getRelationship() : null);
+        data.put("idCardNumber", parent != null ? parent.getIdCardNumber() : null);
+        data.put("workplace", parent != null ? parent.getWorkplace() : null);
+        data.put("occupation", parent != null ? parent.getOccupation() : null);
+        data.put("currentAddress", parent != null ? parent.getCurrentAddress() : null);
 
         return data;
     }
@@ -394,6 +399,7 @@ public class AccountServiceImpl implements AccountService {
         parent.setRelationship(Relationship.valueOf(parentData.getRelationship()));
         parent.setPhone(parentData.getPhone());
         parent.setWorkplace(parentData.getWorkplace());
+        parent.setOccupation(parentData.getOccupation());
         parent.setCurrentAddress(parentData.getCurrentAddress());
 
         if (isFirstLogin) {
