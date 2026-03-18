@@ -7,11 +7,40 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CreateCurriculumRequest {
-    int id;
+
+    String subTypeName;
+
+    String description;
+
+    String curriculumType;
+
+    String methodLearning;
+
+    int enrollmentYear;
+
+    boolean isPublishNow;
+
+    List<SubjectOptionRequest> subjectOptions;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class SubjectOptionRequest {
+
+        boolean isMandatory; // môn học bắt buộc hay tùy chọn
+
+        String name;
+
+        String description;
+    }
 }
