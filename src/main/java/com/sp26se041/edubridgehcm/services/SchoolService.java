@@ -34,5 +34,6 @@ public interface SchoolService {
 
     // Open Day Event
     ResponseEntity<ResponseObject> createOpenDayEvent(CreateOpenDayEventRequest request);
+    ResponseEntity<ResponseObject> viewOpenDayEventList(int currentPage, int pageSize);
 
 }
