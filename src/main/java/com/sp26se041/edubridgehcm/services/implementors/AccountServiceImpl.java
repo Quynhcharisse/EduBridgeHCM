@@ -14,9 +14,9 @@ import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.ParentRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
-import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.requests.RestrictionRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateProfileRequest;
+import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AccountService;
 import com.sp26se041.edubridgehcm.services.JWTService;
@@ -34,6 +34,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
@@ -263,7 +264,12 @@ public class AccountServiceImpl implements AccountService {
         Parent parent = acc.getParent();
         data.put("name", parent != null ? parent.getName() : null);
         data.put("phone", parent != null ? parent.getPhone() : null);
+        data.put("gender", parent != null ? parent.getGender() : null);
         data.put("relationship", parent != null ? parent.getRelationship() : null);
+        data.put("idCardNumber", parent != null ? parent.getIdCardNumber() : null);
+        data.put("workplace", parent != null ? parent.getWorkplace() : null);
+        data.put("occupation", parent != null ? parent.getOccupation() : null);
+        data.put("currentAddress", parent != null ? parent.getCurrentAddress() : null);
 
         return data;
     }
@@ -393,6 +399,7 @@ public class AccountServiceImpl implements AccountService {
         parent.setRelationship(Relationship.valueOf(parentData.getRelationship()));
         parent.setPhone(parentData.getPhone());
         parent.setWorkplace(parentData.getWorkplace());
+        parent.setOccupation(parentData.getOccupation());
         parent.setCurrentAddress(parentData.getCurrentAddress());
 
         if (isFirstLogin) {

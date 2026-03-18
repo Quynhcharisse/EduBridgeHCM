@@ -33,10 +33,6 @@ public class Curriculum {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
 
-    @ManyToOne
-    @JoinColumn(name = "admission_plan_id")
-    AdmissionCampaign admissionCampaign;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "curriculum_type")
     CurriculumType curriculumType;
