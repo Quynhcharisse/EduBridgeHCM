@@ -137,9 +137,16 @@ public class SchoolController {
         return schoolService.viewAccountCounsellorList(page, pageSize);
     }
 
+    // Open day event
     @PostMapping("/event")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> createOpenDayEvent(@RequestBody CreateOpenDayEventRequest request) {
         return schoolService.createOpenDayEvent(request);
+    }
+
+    @GetMapping("/event")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> viewOpenDayEventList(@RequestParam int page, @RequestParam int pageSize) {
+        return schoolService.viewOpenDayEventList(page, pageSize);
     }
 }

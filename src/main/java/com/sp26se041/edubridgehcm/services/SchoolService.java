@@ -52,4 +52,8 @@ public interface SchoolService {
     ResponseEntity<ResponseObject> updateCampusProgramOffering(UpdateCampusProgramOfferingRequest request);
 
     ResponseEntity<ResponseObject> createOpenDayEvent(CreateOpenDayEventRequest request);
+  
+    ResponseEntity<ResponseObject> viewOpenDayEventList(int currentPage, int pageSize);
+
+    ResponseEntity<ResponseObject> createOpenDayEvent(CreateOpenDayEventRequest request);
 }
