@@ -8,4 +8,6 @@ import java.util.List;
 public interface CurriculumRepo extends JpaRepository<Curriculum, Integer> {
 
     List<Curriculum> findByGroupCodeAndEnrollmentYearAndIsLatestTrue(String groupCode, int enrollmentYear);
+
+    List<Curriculum> findBySchoolIdOrderByEnrollmentYearDescVersionDesc(Integer schoolId);
 }

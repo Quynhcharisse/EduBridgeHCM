@@ -60,6 +60,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -560,7 +561,16 @@ public class SchoolServiceImpl implements SchoolService {
         Status targetStatus = request.isPublishNow() ? Status.CUR_ACTIVE : Status.CUR_DRAFT;
 
         if (targetStatus.equals(Status.CUR_ACTIVE)) {
-            curriculumRepo.findByGroupCodeAndEnrollmentYearAndIsLatestTrue(CurriculumNamingUtil.generateGroupCode(request), request.getEnrollmentYear());
+            List<Curriculum> oldLatests = curriculumRepo.findByGroupCodeAndEnrollmentYearAndIsLatestTrue(
+                    CurriculumNamingUtil.generateGroupCode(request),
+                    request.getEnrollmentYear()
+            );
+
+            for (Curriculum old : oldLatests) {
+                old.setLatest(false);
+                old.setCurriculumStatus(Status.CUR_ARCHIVED);
+            }
+            curriculumRepo.saveAll(oldLatests); // Lưu lại thay đổi của bản cũ
         }
 
         long latestVersion = Long.parseLong(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
@@ -570,7 +580,7 @@ public class SchoolServiceImpl implements SchoolService {
                 .description(request.getDescription())
                 .curriculumType(CurriculumType.valueOf(request.getCurriculumType()))
                 .methodLearning(LearningMethod.valueOf(request.getMethodLearning()))
-                .subjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()))
+                .subjectsJsonb(buildCreateSubjectsJsonb(request.getSubjectOptions()))
                 .enrollmentYear(request.getEnrollmentYear())
                 .groupCode(CurriculumNamingUtil.generateGroupCode(request))
                 .version(latestVersion)
@@ -591,8 +601,7 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         // Kiểm tra năm học
-        // Cho phép nhập cũ 5 năm và tương lai 2 năm
-
+        // Cho phép nhập cũ 5 năm và tương lai 2 năm để đảm bảo tính thực tế và tránh lỗi nhập liệu
         if (request.getEnrollmentYear() < Year.now().getValue() - 5 || request.getEnrollmentYear() > Year.now().getValue() + 2) {
             return String.format("Invalid enrollment year. Must be between %d and %d.", Year.now().getValue() - 5, Year.now().getValue() + 2);
         }
@@ -610,11 +619,35 @@ public class SchoolServiceImpl implements SchoolService {
         } catch (Exception e) {
             return "Invalid Learning Method. Supported methods: STEM_STEAM, BLENDED, TRADITIONAL, etc.";
         }
+
+        // Kiểm tra danh sách môn học
+        if (request.getSubjectOptions() == null || request.getSubjectOptions().isEmpty()) {
+            return "At least one subject is required in the curriculum.";
+        }
+
+        for (CreateCurriculumRequest.SubjectOptionRequest opt : request.getSubjectOptions()) {
+            if (opt.getName() == null || opt.getName().isBlank()) {
+                return "Subject name is required.";
+            }
+
+            // Kiểm tra độ dài mô tả
+            if (opt.getDescription() == null) {
+                return "Subject description is required.";
+            }
+        }
+
+        // Check logic: Phải có ít nhất 1 môn bắt buộc (isMandatory = true)
+        // để đảm bảo khung chương trình có giá trị cốt lõi
+        boolean hasMandatory = request.getSubjectOptions().stream().anyMatch(o -> o.isMandatory());
+        if (!hasMandatory) {
+            return "The curriculum must have at least one mandatory subject.";
+        }
+
         return "";
     }
 
     // define cấu trúc subjectsJsonb theo format jsonb
-    private List<Map<String, Object>> buildSubjectsJsonb(List<CreateCurriculumRequest.SubjectOptionRequest> request) {
+    private List<Map<String, Object>> buildCreateSubjectsJsonb(List<CreateCurriculumRequest.SubjectOptionRequest> request) {
 
         if (request == null) return Collections.emptyList();
 
@@ -633,10 +666,40 @@ public class SchoolServiceImpl implements SchoolService {
 
     @Override
     public ResponseEntity<ResponseObject> viewCurriculumList() {
-        return null;
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "User session invalid or school not found", null);
+        }
+
+        List<Map<String, Object>> data = curriculumRepo.findBySchoolIdOrderByEnrollmentYearDescVersionDesc(Objects.requireNonNull(extractActorCampus()).getSchool().getId())
+                .stream()
+                .map(this::buildCurriculumData)
+                .collect(Collectors.toList());
+
+        return ResponseBuilder.build(HttpStatus.OK, "View Curriculum list successfully", data);
+    }
+
+    private Map<String, Object> buildCurriculumData(Curriculum curriculum) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", curriculum.getId());
+        data.put("name", curriculum.getName());
+        data.put("description", curriculum.getDescription());
+        data.put("curriculumType", curriculum.getCurriculumType());
+        data.put("methodLearning", curriculum.getMethodLearning());
+        data.put("enrollmentYear", curriculum.getEnrollmentYear());
+        data.put("groupCode", curriculum.getGroupCode());
+        data.put("version", curriculum.getVersion());
+        data.put("versionDisplay", CurriculumNamingUtil.formatLongVersion(curriculum.getVersion()));
+        data.put("isLatest", curriculum.isLatest());
+        data.put("curriculumStatus", curriculum.getCurriculumStatus().name());
+        data.put("subjects", curriculum.getSubjectsJsonb());
+        return data;
     }
 
     @Override
+    @Transactional
     public ResponseEntity<ResponseObject> updateCurriculum(UpdateCurriculumRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
@@ -660,10 +723,116 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
+        Curriculum curriculum = curriculumRepo.findById(request.getCurriculumId()).orElse(null);
+
+        if (curriculum.getCurriculumStatus().equals(Status.CUR_DRAFT)) {
+
+            curriculum.setDescription(request.getDescription());
+            curriculum.setSubjectsJsonb(buildUpdateSubjectsJsonb(request.getSubjectOptions()));
+            // Có thể update version nếu muốn track thời gian sửa gần nhất
+            curriculum.setVersion(Long.parseLong(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))));
+            curriculumRepo.save(curriculum);
+        } else {
+
+            List<Curriculum> oldL = curriculumRepo.findByGroupCodeAndEnrollmentYearAndIsLatestTrue(CurriculumNamingUtil.generateGroupCode(request), curriculum.getEnrollmentYear());
+
+            for (Curriculum old : oldL) {
+                old.setLatest(false);
+                old.setCurriculumStatus(Status.CUR_ARCHIVED); // Hoặc giữ nguyên status tùy nghiệp vụ
+            }
+
+            curriculumRepo.saveAll(oldL);
+
+            //tao ban moi voi version moi va isLatest = true, curriculumStatus = CUR_ACTIVE
+            Curriculum newVersion = Curriculum.builder()
+                    .name(curriculum.getName())
+                    .description(request.getDescription())
+                    .curriculumType(curriculum.getCurriculumType())
+                    .methodLearning(curriculum.getMethodLearning())
+                    .subjectsJsonb(buildUpdateSubjectsJsonb(request.getSubjectOptions()))
+                    .enrollmentYear(curriculum.getEnrollmentYear())
+                    .groupCode(curriculum.getGroupCode())
+                    .version(Long.parseLong(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))))
+                    .isLatest(true)
+                    .curriculumStatus(Status.CUR_ACTIVE)
+                    .school(actorCampus.getSchool())
+                    .build();
+            curriculumRepo.save(newVersion);
+        }
         return ResponseBuilder.build(HttpStatus.OK, "Update curriculum successfully", null);
     }
 
+    // define cấu trúc subjectsJsonb theo format jsonb
+    private List<Map<String, Object>> buildUpdateSubjectsJsonb(List<UpdateCurriculumRequest.SubjectOptionRequest> request) {
+
+        if (request == null) return Collections.emptyList();
+
+        return request.stream()
+                .map(
+                        opt -> {
+                            Map<String, Object> data = new HashMap<>();
+                            data.put("name", opt.getName());
+                            data.put("description", opt.getDescription());
+                            data.put("isMandatory", opt.isMandatory());
+                            return data;
+                        }
+                )
+                .collect(Collectors.toList());
+    }
+
     private String validationUpdateCurriculum(UpdateCurriculumRequest request) {
+
+        if (request.getCurriculumId() <= 0) {
+            return "Curriculum not found";
+
+        }
+
+        if (request.getSubTypeName() == null || request.getSubTypeName().isBlank()) {
+            return "Sub-type name is required";
+        }
+
+        // Kiểm tra năm học
+        // Cho phép nhập cũ 5 năm và tương lai 2 năm để đảm bảo tính thực tế và tránh lỗi nhập liệu
+        if (request.getEnrollmentYear() < Year.now().getValue() - 5 || request.getEnrollmentYear() > Year.now().getValue() + 2) {
+            return String.format("Invalid enrollment year. Must be between %d and %d.", Year.now().getValue() - 5, Year.now().getValue() + 2);
+        }
+
+        // Kiểm tra Curriculum Type
+        try {
+            CurriculumType.valueOf(request.getCurriculumType());
+        } catch (Exception e) {
+            return "Invalid Curriculum Type. Supported types: MOET, INTEGRATED, etc.";
+        }
+
+        // Kiểm tra Learning Method
+        try {
+            LearningMethod.valueOf(request.getMethodLearning());
+        } catch (Exception e) {
+            return "Invalid Learning Method. Supported methods: STEM_STEAM, BLENDED, TRADITIONAL, etc.";
+        }
+
+        // Kiểm tra danh sách môn học
+        if (request.getSubjectOptions() == null || request.getSubjectOptions().isEmpty()) {
+            return "At least one subject is required in the curriculum.";
+        }
+
+        for (UpdateCurriculumRequest.SubjectOptionRequest opt : request.getSubjectOptions()) {
+            if (opt.getName() == null || opt.getName().isBlank()) {
+                return "Subject name is required.";
+            }
+
+            // Kiểm tra độ dài mô tả
+            if (opt.getDescription() == null) {
+                return "Subject description is required.";
+            }
+        }
+
+        // Check logic: Phải có ít nhất 1 môn bắt buộc (isMandatory = true)
+        // để đảm bảo khung chương trình có giá trị cốt lõi
+        boolean hasMandatory = request.getSubjectOptions().stream().anyMatch(o -> o.isMandatory());
+        if (!hasMandatory) {
+            return "The curriculum must have at least one mandatory subject.";
+        }
 
         return "";
     }
