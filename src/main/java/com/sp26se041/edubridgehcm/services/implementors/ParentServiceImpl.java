@@ -95,7 +95,6 @@ public class ParentServiceImpl implements ParentService {
 
     @Override
     public  ResponseEntity<ResponseObject> getConversations(Long cursorId) {
-
         try {
             String email = SecurityContextHolder
                     .getContext()

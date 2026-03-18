@@ -5,6 +5,7 @@ import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
+import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
@@ -88,4 +89,11 @@ public class SchoolController {
     public ResponseEntity<ResponseObject> viewAccountCounsellorList(@RequestParam int page, @RequestParam int pageSize) {
         return schoolService.viewAccountCounsellorList(page, pageSize);
     }
+
+    @PostMapping("/event")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> createOpenDayEvent(@RequestBody CreateOpenDayEventRequest request) {
+        return schoolService.createOpenDayEvent(request);
+    }
+
 }
