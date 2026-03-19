@@ -1063,6 +1063,7 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         Campus actorCampus = extractActorCampus();
+
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
@@ -1134,8 +1135,23 @@ public class SchoolServiceImpl implements SchoolService {
         if (Duration.between(request.getStartTime(), request.getEndTime()).toMinutes() < 30) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Event duration must be at least 30 minutes", null);
         }
+        boolean isConflict = openDayEventRepo
+                .existsByCampusIdAndEventDateAndStartTimeLessThanAndEndTimeGreaterThan(
+                        actorCampus.getId(),
+                        request.getEventDate(),
+                        request.getEndTime(),
+                        request.getStartTime()
+                );
 
-        OpenDayEvent openDayEvent = openDayEventRepo.save(
+        if (isConflict) {
+            return ResponseBuilder.build(
+                    HttpStatus.CONFLICT,
+                    "Open day event time conflicts with another event in this campus",
+                    null
+            );
+        }
+        OpenDayEvent openDayEvent =  openDayEventRepo.save(
+
                 OpenDayEvent.builder()
                         .title(request.getTitle())
                         .description(request.getDescription())
