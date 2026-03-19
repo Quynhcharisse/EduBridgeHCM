@@ -26,10 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -44,7 +41,6 @@ public class AdminServiceImpl implements AdminService {
     private final SchoolRepo schoolRepo;
 
     private final CampusRepo campusRepo;
-    private final PersonalityTypeRepo personalityTypeRepo;
 
     @Override
     @Transactional

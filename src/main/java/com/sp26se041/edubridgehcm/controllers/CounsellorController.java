@@ -1,14 +1,11 @@
 package com.sp26se041.edubridgehcm.controllers;
 
-import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.CounsellorService;
 import com.sp26se041.edubridgehcm.services.WebSocketService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
