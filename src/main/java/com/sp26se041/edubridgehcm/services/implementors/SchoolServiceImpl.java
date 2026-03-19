@@ -576,7 +576,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         Curriculum targetCurriculum;
 
-        if (request.getCurriculumId() == null) {
+        if (request.getCurriculumId() == null || request.getCurriculumId() <= 0) {
             // LUỒNG CREATE: Tạo mới hoàn toàn (Mặc định là DRAFT hoặc theo publishNow)
             targetCurriculum = buildNewCurriculum(request, actorCampus.getSchool(), Long.parseLong(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))));
         } else {
@@ -598,14 +598,14 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         // 4. Đồng bộ trạng thái Latest & Status nếu người dùng muốn Publish ngay
-        if (request.isPublishNow()) {
+        if (Boolean.TRUE.equals(request.getPublishNow())) {
             processArchivingOldVersions(CurriculumNamingUtil.generateGroupCode(request), request.getEnrollmentYear());
             targetCurriculum.setLatest(true);
             targetCurriculum.setCurriculumStatus(Status.CUR_ACTIVE);
         }
 
         curriculumRepo.save(targetCurriculum);
-        String message = request.getCurriculumId() <= 0 ? "Created curriculum successfully" : "Updated curriculum successfully";
+        String message = request.getCurriculumId() == null || request.getCurriculumId() <= 0 ? "Created curriculum successfully" : "Updated curriculum successfully";
         return ResponseBuilder.build(HttpStatus.OK, message, null);
     }
 
@@ -668,7 +668,7 @@ public class SchoolServiceImpl implements SchoolService {
                             Map<String, Object> data = new HashMap<>();
                             data.put("name", opt.getName());
                             data.put("description", opt.getDescription());
-                            data.put("isMandatory", opt.isMandatory());
+                            data.put("isMandatory", Boolean.TRUE.equals(opt.getIsMandatory()));
                             return data;
                         }
                 )
@@ -731,10 +731,13 @@ public class SchoolServiceImpl implements SchoolService {
             if (opt.getDescription() == null || opt.getDescription().isBlank()) {
                 return "Subject description is required.";
             }
+            if (opt.getIsMandatory() == null) {
+                return "Subject mandatory flag is required.";
+            }
         }
 
         // 6. Check logic môn học bắt buộc
-        boolean hasMandatory = request.getSubjectOptions().stream().anyMatch(CurriculumRequest.SubjectOptionRequest::isMandatory);
+        boolean hasMandatory = request.getSubjectOptions().stream().anyMatch(opt -> Boolean.TRUE.equals(opt.getIsMandatory()));
         if (!hasMandatory) {
             return "The curriculum must have at least one mandatory subject.";
         }
@@ -848,7 +851,7 @@ public class SchoolServiceImpl implements SchoolService {
         program.setGraduationStandard(request.getGraduationStandard());
         program.setTargetStudentDescription(request.getTargetStudentDescription());
         program.setBaseTuitionFee(request.getBaseTuitionFee());
-        program.setActive(request.isActive());
+        program.setActive(Boolean.TRUE.equals(request.getIsActive()));
 
         programRepo.save(program);
 
@@ -886,7 +889,11 @@ public class SchoolServiceImpl implements SchoolService {
             }
         }
 
+        if (request.getBaseTuitionFee() == null) return "Tuition fee is required";
+
         if (request.getBaseTuitionFee() < 0) return "Tuition fee cannot be negative";
+
+        if (request.getIsActive() == null) return "Active flag is required";
 
         if (request.getGraduationStandard() == null || request.getGraduationStandard().isBlank()) {
             return "Graduation standard is required";
