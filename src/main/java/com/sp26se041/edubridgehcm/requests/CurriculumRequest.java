@@ -14,9 +14,9 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class UpdateCurriculumRequest {
+public class CurriculumRequest {
 
-    int curriculumId;
+    Integer curriculumId;
 
     String subTypeName;
 

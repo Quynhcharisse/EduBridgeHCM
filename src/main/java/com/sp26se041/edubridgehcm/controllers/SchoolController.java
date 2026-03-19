@@ -5,12 +5,11 @@ import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
-import com.sp26se041.edubridgehcm.requests.CreateCurriculumRequest;
 import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
 import com.sp26se041.edubridgehcm.requests.CreateProgramRequest;
+import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateCurriculumRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateProgramRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
@@ -73,8 +72,8 @@ public class SchoolController {
 
     @PostMapping("/curriculum")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> createCurriculum(@RequestBody CreateCurriculumRequest request) {
-        return schoolService.createCurriculum(request);
+    public ResponseEntity<ResponseObject> upsertCurriculum(@RequestBody CurriculumRequest request) {
+        return schoolService.upsertCurriculum(request);
     }
 
     @GetMapping("/curriculum/list")
@@ -83,11 +82,6 @@ public class SchoolController {
         return schoolService.viewCurriculumList(page, pageSize);
     }
 
-    @PutMapping("/curriculum")
-    @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> updateCurriculum(@RequestBody UpdateCurriculumRequest request) {
-        return schoolService.updateCurriculum(request);
-    }
 
     @PostMapping("/program")
     @PreAuthorize("hasRole('SCHOOL')")

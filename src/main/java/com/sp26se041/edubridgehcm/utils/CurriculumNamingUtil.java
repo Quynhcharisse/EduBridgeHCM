@@ -1,7 +1,6 @@
 package com.sp26se041.edubridgehcm.utils;
 
-import com.sp26se041.edubridgehcm.requests.CreateCurriculumRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateCurriculumRequest;
+import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
 
 import java.text.Normalizer;
 import java.time.LocalDateTime;
@@ -30,22 +29,14 @@ public class CurriculumNamingUtil {
         return abbr.toString().toUpperCase();
     }
 
-    public static String generateName(CreateCurriculumRequest request) {
+    public static String generateName(CurriculumRequest request) {
         return String.format("Hệ %s - Khối %d (%d)",
                 request.getSubTypeName(), // Tên phụ (VD: Song Ngữ)
                 DEFAULT_GRADE,            // Mặc định là 10
                 request.getEnrollmentYear());
     }
 
-    public static String generateGroupCode(CreateCurriculumRequest request) {
-        String typePrefix = request.getCurriculumType().toUpperCase();
-        String abbr = getAbbreviation(request.getSubTypeName());
-
-        // Hardcode số 10 vào format vì nhóm chỉ làm khối 10
-        return String.format("%s_%d_%s", typePrefix, DEFAULT_GRADE, abbr);
-    }
-
-    public static String generateGroupCode(UpdateCurriculumRequest request) {
+    public static String generateGroupCode(CurriculumRequest request) {
         String typePrefix = request.getCurriculumType().toUpperCase();
         String abbr = getAbbreviation(request.getSubTypeName());
 

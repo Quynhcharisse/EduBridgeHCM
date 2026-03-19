@@ -5,12 +5,11 @@ import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
-import com.sp26se041.edubridgehcm.requests.CreateCurriculumRequest;
 import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
 import com.sp26se041.edubridgehcm.requests.CreateProgramRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateCurriculumRequest;
+import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateProgramRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import org.springframework.http.ResponseEntity;
@@ -33,11 +32,9 @@ public interface SchoolService {
 
     ResponseEntity<ResponseObject> viewAdmissionCampaignTemplate(int year);
 
-    ResponseEntity<ResponseObject> createCurriculum(CreateCurriculumRequest request);
+    ResponseEntity<ResponseObject> upsertCurriculum(CurriculumRequest request);
 
     ResponseEntity<ResponseObject> viewCurriculumList(int page, int pageSize);
-
-    ResponseEntity<ResponseObject> updateCurriculum(UpdateCurriculumRequest request);
 
     ResponseEntity<ResponseObject> createProgram(CreateProgramRequest request);
 
