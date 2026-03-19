@@ -7,10 +7,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum LearningMethod {
 
-    TRADITIONAL("Traditional Learning", "Focus on lectures and textbooks"),
-    PROJECT_BASED("Project-Based Learning (PBL)", "Learning through real-world projects"),
-    INQUIRY_BASED("Inquiry-Based Learning", "Driven by student questions and research"),
-    STEM_STEAM("STEM/STEAM Integrated", "Focus on Science, Tech, Engineering, Arts, Math");
+    TRADITIONAL("Traditional Learning", "Focus on lectures and textbooks"), //Học tập truyền thống
+    PROJECT_BASED("Project-Based Learning (PBL)", "Learning through real-world projects"), //Học tập qua dự án
+    INQUIRY_BASED("Inquiry-Based Learning", "Driven by student questions and research"), //Học tập truy vấn
+    STEM_STEAM("STEM/STEAM Integrated", "Focus on Science, Tech, Engineering, Arts, Math"); //Tích hợp liên môn
 
     private final String value;
 

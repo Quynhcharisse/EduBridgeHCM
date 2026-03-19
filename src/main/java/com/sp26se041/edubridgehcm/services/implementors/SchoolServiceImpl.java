@@ -101,7 +101,7 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         String error = validateCreateCampus(request);
-        if (error != null) {
+        if (error != null && !error.isBlank()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
@@ -357,7 +357,7 @@ public class SchoolServiceImpl implements SchoolService {
             return "End date must be after start date";
         }
 
-        return "";
+        return null;
     }
 
     @Override
@@ -554,7 +554,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         String error = validationCreateCurriculum(request);
 
-        if (error != null) {
+        if (error != null && !error.isBlank()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
@@ -592,58 +592,6 @@ public class SchoolServiceImpl implements SchoolService {
         curriculumRepo.save(curriculum);
 
         return ResponseBuilder.build(HttpStatus.OK, "Create curriculum successfully", null);
-    }
-
-    private String validationCreateCurriculum(CreateCurriculumRequest request) {
-
-        if (request.getSubTypeName() == null || request.getSubTypeName().isBlank()) {
-            return "Sub-type name is required";
-        }
-
-        // Kiểm tra năm học
-        // Cho phép nhập cũ 5 năm và tương lai 2 năm để đảm bảo tính thực tế và tránh lỗi nhập liệu
-        if (request.getEnrollmentYear() < Year.now().getValue() - 5 || request.getEnrollmentYear() > Year.now().getValue() + 2) {
-            return String.format("Invalid enrollment year. Must be between %d and %d.", Year.now().getValue() - 5, Year.now().getValue() + 2);
-        }
-
-        // Kiểm tra Curriculum Type
-        try {
-            CurriculumType.valueOf(request.getCurriculumType());
-        } catch (Exception e) {
-            return "Invalid Curriculum Type. Supported types: MOET, INTEGRATED, etc.";
-        }
-
-        // Kiểm tra Learning Method
-        try {
-            LearningMethod.valueOf(request.getMethodLearning());
-        } catch (Exception e) {
-            return "Invalid Learning Method. Supported methods: STEM_STEAM, BLENDED, TRADITIONAL, etc.";
-        }
-
-        // Kiểm tra danh sách môn học
-        if (request.getSubjectOptions() == null || request.getSubjectOptions().isEmpty()) {
-            return "At least one subject is required in the curriculum.";
-        }
-
-        for (CreateCurriculumRequest.SubjectOptionRequest opt : request.getSubjectOptions()) {
-            if (opt.getName() == null || opt.getName().isBlank()) {
-                return "Subject name is required.";
-            }
-
-            // Kiểm tra độ dài mô tả
-            if (opt.getDescription() == null) {
-                return "Subject description is required.";
-            }
-        }
-
-        // Check logic: Phải có ít nhất 1 môn bắt buộc (isMandatory = true)
-        // để đảm bảo khung chương trình có giá trị cốt lõi
-        boolean hasMandatory = request.getSubjectOptions().stream().anyMatch(o -> o.isMandatory());
-        if (!hasMandatory) {
-            return "The curriculum must have at least one mandatory subject.";
-        }
-
-        return "";
     }
 
     // define cấu trúc subjectsJsonb theo format jsonb
@@ -719,7 +667,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         String error = validationUpdateCurriculum(request);
 
-        if (error != null) {
+        if (error != null && !error.isBlank()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
@@ -834,7 +782,7 @@ public class SchoolServiceImpl implements SchoolService {
             return "The curriculum must have at least one mandatory subject.";
         }
 
-        return "";
+        return null;
     }
 
     @Override
