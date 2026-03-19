@@ -16,7 +16,7 @@ public class PaginationUtil {
         if (page < 0 || size <= 0) {
             throw new IllegalArgumentException("Invalid page or size");
         }
-        return PageRequest.of(page + 1, size);
+        return PageRequest.of(page, size);
     }
 
     // 👉 Có mapper
@@ -32,7 +32,6 @@ public class PaginationUtil {
             throw new IllegalArgumentException("Mapper cannot be null");
         }
 
-        pageData.getContent();
         List<T> content = pageData.getContent();
 
         List<R> items = content.stream()
@@ -51,7 +50,6 @@ public class PaginationUtil {
             return emptyPage();
         }
 
-        pageData.getContent();
         List<T> items = pageData.getContent();
 
         return buildMeta(pageData, items);
