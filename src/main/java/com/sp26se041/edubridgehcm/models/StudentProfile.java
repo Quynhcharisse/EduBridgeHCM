@@ -54,9 +54,8 @@ public class StudentProfile {
     @Column(columnDefinition = "jsonb", name = "academic_profile_metadata")
     Object academicProfileMetadata;
 
-    @Type(JsonBinaryType.class)
-    @Column(columnDefinition = "jsonb", name = "personality_type")
-    Object personalityType;
+    @Column(name = "personality_type")
+    int personalityTypeId;
 
     @Column(name = "favourite_job")
     String favouriteJob;

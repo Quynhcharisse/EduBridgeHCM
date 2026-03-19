@@ -1,47 +1,32 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.Status;
-import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.models.Conversation;
-import com.sp26se041.edubridgehcm.models.PersonalityType;
-import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
 import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
-import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
-import com.sp26se041.edubridgehcm.services.ParentService;
+import com.sp26se041.edubridgehcm.services.CounsellorService;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
-public class ParentServiceImpl implements ParentService {
+public class CounsellorServiceImpl implements CounsellorService {
 
-    private final ChatMessageRepo chatMessageRepo;
     private final ConversationRepo conversationRepo;
-    private final PersonalityTypeRepo personalityTypeRepo;
-
-
+    private final ChatMessageRepo chatMessageRepo;
 
     @Override
-    public  ResponseEntity<ResponseObject> getConversations(Long cursorId) {
+    public ResponseEntity<ResponseObject> getConversations(Long cursorId) {
         try {
             String email = SecurityContextHolder
                     .getContext()
@@ -50,11 +35,11 @@ public class ParentServiceImpl implements ParentService {
             List<Conversation> conversations;
             if (cursorId == null) {
                 conversations = conversationRepo
-                            .findTop20ByParentEmailOrderByUpdatedDateDesc(email);
+                        .findTop20ByCounsellorEmailOrderByUpdatedDateDesc(email);
 
             } else {
-                    conversations = conversationRepo
-                            .findTop20ByParentEmailAndIdLessThanOrderByUpdatedDateDesc(email, cursorId);
+                conversations = conversationRepo
+                        .findTop20ByCounsellorEmailAndIdLessThanOrderByUpdatedDateDesc(email, cursorId);
             }
             List<Map<String, Object>> items = buildConversationList(conversations, email);
 
@@ -81,8 +66,6 @@ public class ParentServiceImpl implements ParentService {
             );
         }
     }
-
-
     private List<Map<String, Object>> buildConversationList(
             List<Conversation> conversations,
             String email
@@ -120,18 +103,4 @@ public class ParentServiceImpl implements ParentService {
                 })
                 .toList();
     }
-
-    @Override
-    public ResponseEntity<ResponseObject> getPersonalityTypes() {
-        List<PersonalityType> personalityTypes = personalityTypeRepo.findAll();
-        Map<String, List<PersonalityType>> result = new LinkedHashMap<>();
-        for (PersonalityType p : personalityTypes) {
-            String group = p.getPersonalityTypeGroup().getValue();
-            result
-                    .computeIfAbsent(group, k -> new ArrayList<>())
-                    .add(p);
-        }
-        return ResponseBuilder.build(HttpStatus.OK, "Get personality types successfully", result);
-    }
-
 }
