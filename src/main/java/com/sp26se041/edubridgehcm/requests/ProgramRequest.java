@@ -22,7 +22,7 @@ public class ProgramRequest {
 
     String targetStudentDescription;
 
-    double baseTuitionFee;
+    Double baseTuitionFee;
 
-    boolean isActive;
+    Boolean isActive;
 }

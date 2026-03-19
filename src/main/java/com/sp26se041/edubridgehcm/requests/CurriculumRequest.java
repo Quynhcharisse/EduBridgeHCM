@@ -28,7 +28,7 @@ public class CurriculumRequest {
 
     int enrollmentYear;
 
-    boolean isPublishNow;
+    Boolean publishNow;
 
     List<SubjectOptionRequest> subjectOptions;
 
@@ -39,7 +39,7 @@ public class CurriculumRequest {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class SubjectOptionRequest {
 
-        boolean isMandatory; // môn học bắt buộc hay tùy chọn
+        Boolean isMandatory; // môn học bắt buộc hay tùy chọn
 
         String name;
 
