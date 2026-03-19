@@ -1,76 +1,86 @@
-    package com.sp26se041.edubridgehcm.models;
+package com.sp26se041.edubridgehcm.models;
 
-    import com.sp26se041.edubridgehcm.enums.CurriculumType;
-    import com.sp26se041.edubridgehcm.enums.LearningMethod;
-    import com.sp26se041.edubridgehcm.enums.Status;
-    import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
-    import jakarta.persistence.Column;
-    import jakarta.persistence.Entity;
-    import jakarta.persistence.EnumType;
-    import jakarta.persistence.Enumerated;
-    import jakarta.persistence.GeneratedValue;
-    import jakarta.persistence.GenerationType;
-    import jakarta.persistence.Id;
-    import jakarta.persistence.JoinColumn;
-    import jakarta.persistence.ManyToOne;
-    import jakarta.persistence.Table;
-    import lombok.AccessLevel;
-    import lombok.AllArgsConstructor;
-    import lombok.Builder;
-    import lombok.Data;
-    import lombok.NoArgsConstructor;
-    import lombok.experimental.FieldDefaults;
-    import org.hibernate.annotations.Type;
+import com.sp26se041.edubridgehcm.enums.CurriculumType;
+import com.sp26se041.edubridgehcm.enums.LearningMethod;
+import com.sp26se041.edubridgehcm.enums.Status;
+import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+import lombok.ToString;
+import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.Type;
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    @Entity
-    @Table(name = "curriculum")
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    public class Curriculum {
+import java.util.List;
 
-        @Id
-        @GeneratedValue(strategy = GenerationType.IDENTITY)
-        Integer id;
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Entity
+@Table(name = "curriculum")
+@FieldDefaults(level = AccessLevel.PRIVATE)
+public class Curriculum {
 
-        String name;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    Integer id;
 
-        String description;
+    String name;
 
-        @Enumerated(EnumType.STRING)
-        @Column(name = "curriculum_type")
-        CurriculumType curriculumType;
+    String description;
 
-        @Type(JsonBinaryType.class)
-        @Column(name = "subjects_jsonb", columnDefinition = "jsonb")
-        Object subjectsJsonb;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "curriculum_type")
+    CurriculumType curriculumType;
 
-        @Enumerated(EnumType.STRING)
-        @Column(name = "learning_method")
-        LearningMethod methodLearning;
+    @Type(JsonBinaryType.class)
+    @Column(name = "subjects_jsonb", columnDefinition = "jsonb")
+    Object subjectsJsonb;
 
-        @Column(name = "enrollment_year")
-        int enrollmentYear;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "learning_method")
+    LearningMethod methodLearning;
 
-        @Column(name = "group_code")
-        String groupCode;
+    @Column(name = "enrollment_year")
+    int enrollmentYear;
 
-        long version;
+    @Column(name = "group_code")
+    String groupCode;
 
-        @Column(name = "is_latest")
-        boolean isLatest;
+    long version;
 
-        @Enumerated(EnumType.STRING)
-        @Column(name = "curriculum_status")
-        Status curriculumStatus;
+    @Column(name = "is_latest")
+    boolean isLatest;
 
-        @ManyToOne
-        @JoinColumn(name = "school_id")
-        School school;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "curriculum_status")
+    Status curriculumStatus;
 
-        @ManyToOne
-        @JoinColumn(name = "parent_id")
-        Curriculum parent; // liên kết các phiên bản của cùng một chương trình đào tạo
-    }
+    @ManyToOne
+    @JoinColumn(name = "school_id")
+    School school;
+
+    @ManyToOne
+    @JoinColumn(name = "parent_id")
+    Curriculum parent; // liên kết các phiên bản của cùng một chương trình đào tạo
+
+    @OneToMany(mappedBy = "curriculum")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<Program> programs; // Danh sách các Program sử dụng phiên bản khung này
+}

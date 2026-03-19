@@ -27,11 +27,10 @@ import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateReques
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
 import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
-import com.sp26se041.edubridgehcm.requests.CreateProgramRequest;
 import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
+import com.sp26se041.edubridgehcm.requests.ProgramRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateProgramRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
@@ -78,7 +77,9 @@ public class SchoolServiceImpl implements SchoolService {
     private final AccountRepo accountRepo;
 
     private final CounsellorRepo counsellorRepo;
+
     private final OpenDayEventRepo openDayEventRepo;
+
     private final CurriculumRepo curriculumRepo;
 
     @Override
@@ -634,7 +635,6 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     private Curriculum evolveFromExisting(Curriculum existing, CurriculumRequest request, long version) {
-        // Clone các thuộc tính định danh, cập nhật nội dung mới
         return Curriculum.builder()
                 .name(existing.getName())
                 .groupCode(existing.getGroupCode())
@@ -642,7 +642,7 @@ public class SchoolServiceImpl implements SchoolService {
                 .methodLearning(existing.getMethodLearning())
                 .enrollmentYear(existing.getEnrollmentYear())
                 .school(existing.getSchool())
-                // Nội dung thay đổi
+                .parent(existing) // Lưu vết: Bản này "đẻ" ra từ bản existing
                 .description(request.getDescription())
                 .subjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()))
                 .version(version)
@@ -677,35 +677,49 @@ public class SchoolServiceImpl implements SchoolService {
 
     private String validationUpsertCurriculum(CurriculumRequest request) {
 
-        if (request.getCurriculumId() > 0) {
-            if (!curriculumRepo.existsById(request.getCurriculumId())) return "Curriculum not found";
+        if (request.getCurriculumId() != null && request.getCurriculumId() > 0) {
+            Curriculum existing = curriculumRepo.findById(request.getCurriculumId()).orElse(null);
+            if (existing == null) {
+                return "Curriculum not found";
+            }
+
+            // QUAN TRỌNG: Kiểm tra tính bất biến nếu đã có Program sử dụng
+            // Bạn cần khai báo thêm method countByCurriculumId trong ProgramRepository
+            int linkedPrograms = programRepo.countByCurriculumId(existing.getId());
+
+            if (linkedPrograms > 0) {
+                // Không cho phép đổi Năm học nếu đã có Program trỏ vào
+                if (existing.getEnrollmentYear() != request.getEnrollmentYear()) {
+                    return String.format("Cannot change enrollment year because %d programs are using this curriculum.", linkedPrograms);
+                }
+
+                // Không cho phép đổi Loại chương trình
+                if (!existing.getCurriculumType().name().equals(request.getCurriculumType())) {
+                    return "Cannot change curriculum type for a curriculum already linked to programs.";
+                }
+            }
         }
 
+        // 2. Validate các trường bắt buộc
         if (request.getSubTypeName() == null || request.getSubTypeName().isBlank()) {
             return "Sub-type name is required";
         }
 
-        // Kiểm tra năm học
-        // Cho phép nhập cũ 5 năm và tương lai 2 năm để đảm bảo tính thực tế và tránh lỗi nhập liệu
-        if (request.getEnrollmentYear() < Year.now().getValue() - 5 || request.getEnrollmentYear() > Year.now().getValue() + 2) {
-            return String.format("Invalid enrollment year. Must be between %d and %d.", Year.now().getValue() - 5, Year.now().getValue() + 2);
+        // 3. Kiểm tra năm học (Logic 5 năm cũ - 2 năm tương lai của bạn rất tốt)
+        int currentYear = Year.now().getValue();
+        if (request.getEnrollmentYear() < currentYear - 5 || request.getEnrollmentYear() > currentYear + 2) {
+            return String.format("Invalid enrollment year. Must be between %d and %d.", currentYear - 5, currentYear + 2);
         }
 
-        // Kiểm tra Curriculum Type
+        // 4. Kiểm tra Enum (Dùng helper để tránh lặp lại try-catch nếu có nhiều enum)
         try {
             CurriculumType.valueOf(request.getCurriculumType());
-        } catch (Exception e) {
-            return "Invalid Curriculum Type. Supported types: MOET, INTEGRATED, etc.";
-        }
-
-        // Kiểm tra Learning Method
-        try {
             LearningMethod.valueOf(request.getMethodLearning());
-        } catch (Exception e) {
-            return "Invalid Learning Method. Supported methods: STEM_STEAM, BLENDED, TRADITIONAL, etc.";
+        } catch (IllegalArgumentException e) {
+            return "Invalid Curriculum Type or Learning Method.";
         }
 
-        // Kiểm tra danh sách môn học
+        // 5. Kiểm tra danh sách môn học
         if (request.getSubjectOptions() == null || request.getSubjectOptions().isEmpty()) {
             return "At least one subject is required in the curriculum.";
         }
@@ -714,16 +728,13 @@ public class SchoolServiceImpl implements SchoolService {
             if (opt.getName() == null || opt.getName().isBlank()) {
                 return "Subject name is required.";
             }
-
-            // Kiểm tra độ dài mô tả
-            if (opt.getDescription() == null) {
+            if (opt.getDescription() == null || opt.getDescription().isBlank()) {
                 return "Subject description is required.";
             }
         }
 
-        // Check logic: Phải có ít nhất 1 môn bắt buộc (isMandatory = true)
-        // để đảm bảo khung chương trình có giá trị cốt lõi
-        boolean hasMandatory = request.getSubjectOptions().stream().anyMatch(o -> o.isMandatory());
+        // 6. Check logic môn học bắt buộc
+        boolean hasMandatory = request.getSubjectOptions().stream().anyMatch(CurriculumRequest.SubjectOptionRequest::isMandatory);
         if (!hasMandatory) {
             return "The curriculum must have at least one mandatory subject.";
         }
@@ -769,22 +780,143 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("isLatest", curriculum.isLatest());
         data.put("curriculumStatus", curriculum.getCurriculumStatus().name());
         data.put("subjects", curriculum.getSubjectsJsonb());
+        data.put("programCount", curriculum.getPrograms() != null ? curriculum.getPrograms().size() : 0);
         return data;
     }
 
+
     @Override
-    public ResponseEntity<ResponseObject> createProgram(CreateProgramRequest request) {
+    public ResponseEntity<ResponseObject> upsertProgram(ProgramRequest request) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        // actor campus co phai la primary campus ko
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
+        }
+
+        String error = validationUpsertProgram(request);
+
+        if (error != null && !error.isBlank()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+        }
+
+        Program program;
+
+        if (request.getProgramId() == null) {
+            program = new Program();
+
+        } else {
+
+            program = programRepo.findById(request.getProgramId()).orElse(null);
+
+            if (program == null) {
+                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Program not found", null);
+            }
+        }
+
+        Curriculum curriculum = curriculumRepo.findById(request.getCurriculumId()).orElse(null);
+
+        if (curriculum == null || !curriculum.getSchool().getId().equals(actorCampus.getSchool().getId())) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Curriculum is invalid", null);
+        }
+
+        // Đồng bộ dữ liệu (Gom chung cho cả Create/Update để tránh lặp code)
+        program.setCurriculum(curriculum);
+        program.setGraduationStandard(request.getGraduationStandard());
+        program.setTargetStudentDescription(request.getTargetStudentDescription());
+        program.setBaseTuitionFee(request.getBaseTuitionFee());
+        program.setActive(request.isActive());
+
+        programRepo.save(program);
+
+        return ResponseBuilder.build(HttpStatus.OK, (request.getProgramId() == null) ? "Create Program success" : "Update Program success", null);
+    }
+
+    private String validationUpsertProgram(ProgramRequest request) {
+
+        if (request == null) {
+            return "Request is required";
+        }
+
+        if (request.getCurriculumId() == null) {
+            return "Curriculum ID is not found";
+        }
+
+        Curriculum curriculum = curriculumRepo.findById(request.getCurriculumId()).orElse(null);
+        if (curriculum == null) return "Curriculum not found";
+
+        if (curriculum.getCurriculumStatus() == Status.CUR_ARCHIVED) {
+            return "Cannot use an archived curriculum for a program";
+        }
+
+        if (request.getProgramId() != null) {
+
+            Program exstingProgram = programRepo.findById(request.getProgramId()).orElse(null);
+
+            if (exstingProgram != null) {
+                // Nếu Program đã có lớp học/đợt tuyển sinh, KHÔNG cho phép đổi Curriculum
+                int offeringCount = programRepo.countOfferingsById(exstingProgram.getId());
+
+                if (offeringCount > 0 && !exstingProgram.getCurriculum().getId().equals(request.getCurriculumId())) {
+                    return "Cannot change curriculum because this program has active offerings/enrollments.";
+                }
+            }
+        }
+
+        if (request.getBaseTuitionFee() < 0) return "Tuition fee cannot be negative";
+
+        if (request.getGraduationStandard() == null || request.getGraduationStandard().isBlank()) {
+            return "Graduation standard is required";
+        }
+
+        if (request.getTargetStudentDescription() == null || request.getTargetStudentDescription().isBlank()) {
+            return "Target student description is required";
+        }
+
         return null;
     }
 
     @Override
-    public ResponseEntity<ResponseObject> viewProgramList() {
-        return null;
-    }
+    public ResponseEntity<ResponseObject> viewProgramList(int page, int pageSize) {
 
-    @Override
-    public ResponseEntity<ResponseObject> updateProgram(UpdateProgramRequest request) {
-        return null;
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        Pageable pageable = PaginationUtil.buildPageRequest(page, pageSize);
+
+        Page<Program> programs = programRepo.findByCurriculum_School_Id(actorCampus.getSchool().getId(), pageable);
+
+        List<Map<String, Object>> data = programs.stream()
+                .map(program ->
+                        {
+                            Map<String, Object> programData = new HashMap<>();
+                            programData.put("id", program.getId());
+                            programData.put("curriculumName", program.getCurriculum().getName());
+                            programData.put("enrollmentYear", program.getCurriculum().getEnrollmentYear());
+                            programData.put("curriculumType", program.getCurriculum().getCurriculumType());
+                            programData.put("graduationStandard", program.getGraduationStandard());
+                            programData.put("targetStudentDescription", program.getTargetStudentDescription());
+                            programData.put("baseTuitionFee", program.getBaseTuitionFee());
+                            programData.put("isActive", program.isActive() ? Status.PRO_ACTIVE : Status.PRO_INACTIVE);
+                            return programData;
+                        }
+                )
+
+                .toList();
+
+        return ResponseBuilder.build(HttpStatus.OK, "View program list successfully", data);
     }
 
     @Override

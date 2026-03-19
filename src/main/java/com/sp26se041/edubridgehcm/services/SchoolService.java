@@ -6,11 +6,10 @@ import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateReques
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
 import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
-import com.sp26se041.edubridgehcm.requests.CreateProgramRequest;
+import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
+import com.sp26se041.edubridgehcm.requests.ProgramRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateProgramRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import org.springframework.http.ResponseEntity;
 
@@ -36,11 +35,9 @@ public interface SchoolService {
 
     ResponseEntity<ResponseObject> viewCurriculumList(int page, int pageSize);
 
-    ResponseEntity<ResponseObject> createProgram(CreateProgramRequest request);
+    ResponseEntity<ResponseObject> viewProgramList(int page, int pageSize);
 
-    ResponseEntity<ResponseObject> viewProgramList();
-
-    ResponseEntity<ResponseObject> updateProgram(UpdateProgramRequest request);
+    ResponseEntity<ResponseObject> upsertProgram(ProgramRequest request);
 
     ResponseEntity<ResponseObject> createCampusProgramOffering(CreateCampusProgramOfferingRequest request);
 
