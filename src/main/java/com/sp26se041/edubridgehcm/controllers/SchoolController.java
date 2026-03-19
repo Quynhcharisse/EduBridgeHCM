@@ -43,8 +43,8 @@ public class SchoolController {
 
     @GetMapping("/campus/list")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewCampusList() {
-        return schoolService.viewCampusList();
+    public ResponseEntity<ResponseObject> viewCampusList(@RequestParam int page, @RequestParam int pageSize) {
+        return schoolService.viewCampusList(page, pageSize);
     }
 
     @PostMapping("/campaign/template")
@@ -79,8 +79,8 @@ public class SchoolController {
 
     @GetMapping("/curriculum/list")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewCurriculumList() {
-        return schoolService.viewCurriculumList();
+    public ResponseEntity<ResponseObject> viewCurriculumList(@RequestParam int page, @RequestParam int pageSize) {
+        return schoolService.viewCurriculumList(page, pageSize);
     }
 
     @PutMapping("/curriculum")
@@ -115,8 +115,8 @@ public class SchoolController {
 
     @GetMapping("{campusId}/campaign/offering/list")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(@PathVariable int campusId) {
-        return schoolService.viewCampusProgramOfferingList(campusId);
+    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(@PathVariable int campusId, @RequestParam int page, @RequestParam int pageSize) {
+        return schoolService.viewCampusProgramOfferingList(campusId, page, pageSize);
     }
 
     @PutMapping("/campaign/offering/list")

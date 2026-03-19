@@ -211,22 +211,38 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> viewCampusList() {
+    public ResponseEntity<ResponseObject> viewCampusList(int page, int pageSize) {
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
-        List<Campus> campusList = actorCampus.getIsPrimaryBranch()
-                ? campusRepo.findBySchoolId(actorCampus.getSchool().getId())
-                : List.of(actorCampus);
+        Pageable pageable;
+        try {
+            pageable = PaginationUtil.buildPageRequest(page, pageSize);
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
 
-        List<Map<String, Object>> data = campusList.stream()
-                .map(this::buildCampusData)
-                .collect(Collectors.toList());
+        PageResponse<Map<String, Object>> pageResponse;
+        if (actorCampus.getIsPrimaryBranch()) {
+            Page<Campus> campusPage = campusRepo.findBySchoolIdOrderByIsPrimaryBranchDescIdDesc(actorCampus.getSchool().getId(), pageable);
+            pageResponse = PaginationUtil.buildPageResponse(campusPage, this::buildCampusData);
+        } else {
+            List<Campus> selfCampus = List.of(actorCampus);
+            pageResponse = PageResponse.<Map<String, Object>>builder()
+                    .items(selfCampus.stream().map(this::buildCampusData).toList())
+                    .currentPage(0)
+                    .pageSize(selfCampus.size())
+                    .totalItems(selfCampus.size())
+                    .totalPages(1)
+                    .hasNext(false)
+                    .hasPrevious(false)
+                    .build();
+        }
 
-        return ResponseBuilder.build(HttpStatus.OK, "View campus list successfully", data);
+        return ResponseBuilder.build(HttpStatus.OK, "View campus list successfully", pageResponse);
     }
 
     private Map<String, Object> buildCampusData(Campus campus) {
@@ -665,7 +681,7 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> viewCurriculumList() {
+    public ResponseEntity<ResponseObject> viewCurriculumList(int page, int pageSize) {
 
         Campus actorCampus = extractActorCampus();
 
@@ -673,12 +689,19 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "User session invalid or school not found", null);
         }
 
-        List<Map<String, Object>> data = curriculumRepo.findBySchoolIdOrderByEnrollmentYearDescVersionDesc(Objects.requireNonNull(extractActorCampus()).getSchool().getId())
-                .stream()
-                .map(this::buildCurriculumData)
-                .collect(Collectors.toList());
+        Pageable pageable;
+        try {
+            pageable = PaginationUtil.buildPageRequest(page, pageSize);
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
 
-        return ResponseBuilder.build(HttpStatus.OK, "View Curriculum list successfully", data);
+        Page<Curriculum> curriculumPage = curriculumRepo.findBySchoolIdOrderByEnrollmentYearDescVersionDesc(actorCampus.getSchool().getId(), pageable);
+
+        PageResponse<Map<String, Object>> pageResponse =
+                PaginationUtil.buildPageResponse(curriculumPage, this::buildCurriculumData);
+
+        return ResponseBuilder.build(HttpStatus.OK, "View Curriculum list successfully", pageResponse);
     }
 
     private Map<String, Object> buildCurriculumData(Curriculum curriculum) {
@@ -921,7 +944,7 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(int campusId) {
+    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(int campusId, int page, int pageSize) {
 
         Campus actorCampus = extractActorCampus();
 
@@ -929,31 +952,37 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
+        Pageable pageable;
+        try {
+            pageable = PaginationUtil.buildPageRequest(page, pageSize);
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
+
         Integer requestedCampusId = campusId <= 0 ? null : campusId;
 
-        List<CampusProgramOffering> offeringList;
+        Page<CampusProgramOffering> offeringPage;
         if (actorCampus.getIsPrimaryBranch()) {
             if (requestedCampusId == null) {
-                offeringList = campusProgramOfferingRepo.findByAdmissionCampaignSchoolId(actorCampus.getSchool().getId());
+                offeringPage = campusProgramOfferingRepo.findByAdmissionCampaignSchoolIdOrderByIdDesc(actorCampus.getSchool().getId(), pageable);
             } else {
                 Campus campus = campusRepo.findByIdAndSchoolId(requestedCampusId, actorCampus.getSchool().getId()).orElse(null);
                 if (campus == null) {
                     return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus is out of your scope", null);
                 }
-                offeringList = campusProgramOfferingRepo.findByCampusId(campus.getId());
+                offeringPage = campusProgramOfferingRepo.findByCampusIdOrderByIdDesc(campus.getId(), pageable);
             }
         } else {
             if (requestedCampusId != null && !requestedCampusId.equals(actorCampus.getId())) {
                 return ResponseBuilder.build(HttpStatus.FORBIDDEN, "You can only view your campus data", null);
             }
-            offeringList = campusProgramOfferingRepo.findByCampusId(actorCampus.getId());
+            offeringPage = campusProgramOfferingRepo.findByCampusIdOrderByIdDesc(actorCampus.getId(), pageable);
         }
 
-        List<Map<String, Object>> payload = offeringList.stream()
-                .map(this::buildOfferingData)
-                .collect(Collectors.toList());
+        PageResponse<Map<String, Object>> pageResponse =
+                PaginationUtil.buildPageResponse(offeringPage, this::buildOfferingData);
 
-        return ResponseBuilder.build(HttpStatus.OK, "View campus offering list successfully", payload);
+        return ResponseBuilder.build(HttpStatus.OK, "View campus offering list successfully", pageResponse);
     }
 
     @Override
