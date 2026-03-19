@@ -82,4 +82,9 @@ public class School {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     List<PaymentTransaction> paymentTransactionList;
+
+    @OneToMany(mappedBy = "school")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<Curriculum> curriculumList;
 }

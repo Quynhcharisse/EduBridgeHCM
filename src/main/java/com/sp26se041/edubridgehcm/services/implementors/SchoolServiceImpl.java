@@ -1,6 +1,8 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.BoardingType;
+import com.sp26se041.edubridgehcm.enums.CurriculumType;
+import com.sp26se041.edubridgehcm.enums.LearningMethod;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
@@ -8,13 +10,16 @@ import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
 import com.sp26se041.edubridgehcm.models.Counsellor;
+import com.sp26se041.edubridgehcm.models.Curriculum;
 import com.sp26se041.edubridgehcm.models.OpenDayEvent;
 import com.sp26se041.edubridgehcm.models.Program;
+import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
+import com.sp26se041.edubridgehcm.repositories.CurriculumRepo;
 import com.sp26se041.edubridgehcm.repositories.OpenDayEventRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
@@ -22,17 +27,21 @@ import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateReques
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
 import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
+import com.sp26se041.edubridgehcm.requests.CreateProgramRequest;
+import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateProgramRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
+import com.sp26se041.edubridgehcm.utils.CurriculumNamingUtil;
 import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -44,6 +53,9 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Year;
+import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -67,6 +79,7 @@ public class SchoolServiceImpl implements SchoolService {
 
     private final CounsellorRepo counsellorRepo;
     private final OpenDayEventRepo openDayEventRepo;
+    private final CurriculumRepo curriculumRepo;
 
     @Override
     @Transactional
@@ -87,7 +100,7 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         String error = validateCreateCampus(request);
-        if (error != null) {
+        if (error != null && !error.isBlank()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
@@ -197,22 +210,38 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> viewCampusList() {
+    public ResponseEntity<ResponseObject> viewCampusList(int page, int pageSize) {
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
-        List<Campus> campusList = actorCampus.getIsPrimaryBranch()
-                ? campusRepo.findBySchoolId(actorCampus.getSchool().getId())
-                : List.of(actorCampus);
+        Pageable pageable;
+        try {
+            pageable = PaginationUtil.buildPageRequest(page, pageSize);
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
 
-        List<Map<String, Object>> data = campusList.stream()
-                .map(this::buildCampusData)
-                .collect(Collectors.toList());
+        PageResponse<Map<String, Object>> pageResponse;
+        if (actorCampus.getIsPrimaryBranch()) {
+            Page<Campus> campusPage = campusRepo.findBySchoolIdOrderByIsPrimaryBranchDescIdDesc(actorCampus.getSchool().getId(), pageable);
+            pageResponse = PaginationUtil.buildPageResponse(campusPage, this::buildCampusData);
+        } else {
+            List<Campus> selfCampus = List.of(actorCampus);
+            pageResponse = PageResponse.<Map<String, Object>>builder()
+                    .items(selfCampus.stream().map(this::buildCampusData).toList())
+                    .currentPage(0)
+                    .pageSize(selfCampus.size())
+                    .totalItems(selfCampus.size())
+                    .totalPages(1)
+                    .hasNext(false)
+                    .hasPrevious(false)
+                    .build();
+        }
 
-        return ResponseBuilder.build(HttpStatus.OK, "View campus list successfully", data);
+        return ResponseBuilder.build(HttpStatus.OK, "View campus list successfully", pageResponse);
     }
 
     private Map<String, Object> buildCampusData(Campus campus) {
@@ -343,7 +372,7 @@ public class SchoolServiceImpl implements SchoolService {
             return "End date must be after start date";
         }
 
-        return "";
+        return null;
     }
 
     @Override
@@ -449,6 +478,10 @@ public class SchoolServiceImpl implements SchoolService {
     @Transactional
     public ResponseEntity<ResponseObject> changeAdmissionCampaignStatus(Integer id, Status targetStatus) {
 
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
         //kiểm tra Actor & Quyền (Tương tự Create/Update)
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null || !actorCampus.getIsPrimaryBranch()) {
@@ -513,6 +546,245 @@ public class SchoolServiceImpl implements SchoolService {
                 .toList();
 
         return ResponseBuilder.build(HttpStatus.OK, "View campaign template list successfully", data);
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<ResponseObject> upsertCurriculum(CurriculumRequest request) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        // actor campus co phai la primary campus ko
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
+        }
+
+        String error = validationUpsertCurriculum(request);
+
+        if (error != null && !error.isBlank()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+        }
+
+        Curriculum targetCurriculum;
+
+        if (request.getCurriculumId() == null) {
+            // LUỒNG CREATE: Tạo mới hoàn toàn (Mặc định là DRAFT hoặc theo publishNow)
+            targetCurriculum = buildNewCurriculum(request, actorCampus.getSchool(), Long.parseLong(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))));
+        } else {
+            // LUỒNG UPDATE: Tìm bản ghi cũ
+            Curriculum existing = curriculumRepo.findById(request.getCurriculumId()).orElse(null);
+            if (existing == null) {
+                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Curriculum not found", null);
+            }
+
+            if (Status.CUR_DRAFT.equals(existing.getCurriculumStatus())) {
+                // Trường hợp sửa bản DRAFT: Ghi đè trực tiếp
+                targetCurriculum = existing;
+                applyRequestToCurriculum(targetCurriculum, request, Long.parseLong(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))));
+            } else {
+                // Trường hợp sửa bản ACTIVE: Tiến hóa sang bản mới
+                processArchivingOldVersions(CurriculumNamingUtil.generateGroupCode(request), request.getEnrollmentYear());
+                targetCurriculum = evolveFromExisting(existing, request, Long.parseLong(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))));
+            }
+        }
+
+        // 4. Đồng bộ trạng thái Latest & Status nếu người dùng muốn Publish ngay
+        if (request.isPublishNow()) {
+            processArchivingOldVersions(CurriculumNamingUtil.generateGroupCode(request), request.getEnrollmentYear());
+            targetCurriculum.setLatest(true);
+            targetCurriculum.setCurriculumStatus(Status.CUR_ACTIVE);
+        }
+
+        curriculumRepo.save(targetCurriculum);
+        String message = request.getCurriculumId() <= 0 ? "Created curriculum successfully" : "Updated curriculum successfully";
+        return ResponseBuilder.build(HttpStatus.OK, message, null);
+    }
+
+    private void processArchivingOldVersions(String groupCode, int year) {
+        List<Curriculum> oldLatests = curriculumRepo.findByGroupCodeAndEnrollmentYearAndIsLatestTrue(groupCode, year);
+        for (Curriculum old : oldLatests) {
+            old.setLatest(false);
+            old.setCurriculumStatus(Status.CUR_ARCHIVED);
+        }
+        curriculumRepo.saveAll(oldLatests);
+    }
+
+    private Curriculum buildNewCurriculum(CurriculumRequest request, School school, long version) {
+        return Curriculum.builder()
+                .name(CurriculumNamingUtil.generateName(request))
+                .groupCode(CurriculumNamingUtil.generateGroupCode(request))
+                .curriculumType(CurriculumType.valueOf(request.getCurriculumType()))
+                .methodLearning(LearningMethod.valueOf(request.getMethodLearning()))
+                .enrollmentYear(request.getEnrollmentYear())
+                .description(request.getDescription())
+                .subjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()))
+                .version(version)
+                .school(school)
+                .isLatest(false) // Mặc định là false, sẽ set true nếu publishNow = true
+                .curriculumStatus(Status.CUR_DRAFT)
+                .build();
+    }
+
+    private Curriculum evolveFromExisting(Curriculum existing, CurriculumRequest request, long version) {
+        // Clone các thuộc tính định danh, cập nhật nội dung mới
+        return Curriculum.builder()
+                .name(existing.getName())
+                .groupCode(existing.getGroupCode())
+                .curriculumType(existing.getCurriculumType())
+                .methodLearning(existing.getMethodLearning())
+                .enrollmentYear(existing.getEnrollmentYear())
+                .school(existing.getSchool())
+                // Nội dung thay đổi
+                .description(request.getDescription())
+                .subjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()))
+                .version(version)
+                .isLatest(true)
+                .curriculumStatus(Status.CUR_ACTIVE)
+                .build();
+    }
+
+    private void applyRequestToCurriculum(Curriculum curriculum, CurriculumRequest request, long version) {
+        curriculum.setDescription(request.getDescription());
+        curriculum.setSubjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()));
+        curriculum.setVersion(version);
+    }
+
+    // define cấu trúc subjectsJsonb theo format jsonb
+    private List<Map<String, Object>> buildSubjectsJsonb(List<CurriculumRequest.SubjectOptionRequest> request) {
+
+        if (request == null) return Collections.emptyList();
+
+        return request.stream()
+                .map(
+                        opt -> {
+                            Map<String, Object> data = new HashMap<>();
+                            data.put("name", opt.getName());
+                            data.put("description", opt.getDescription());
+                            data.put("isMandatory", opt.isMandatory());
+                            return data;
+                        }
+                )
+                .collect(Collectors.toList());
+    }
+
+    private String validationUpsertCurriculum(CurriculumRequest request) {
+
+        if (request.getCurriculumId() > 0) {
+            if (!curriculumRepo.existsById(request.getCurriculumId())) return "Curriculum not found";
+        }
+
+        if (request.getSubTypeName() == null || request.getSubTypeName().isBlank()) {
+            return "Sub-type name is required";
+        }
+
+        // Kiểm tra năm học
+        // Cho phép nhập cũ 5 năm và tương lai 2 năm để đảm bảo tính thực tế và tránh lỗi nhập liệu
+        if (request.getEnrollmentYear() < Year.now().getValue() - 5 || request.getEnrollmentYear() > Year.now().getValue() + 2) {
+            return String.format("Invalid enrollment year. Must be between %d and %d.", Year.now().getValue() - 5, Year.now().getValue() + 2);
+        }
+
+        // Kiểm tra Curriculum Type
+        try {
+            CurriculumType.valueOf(request.getCurriculumType());
+        } catch (Exception e) {
+            return "Invalid Curriculum Type. Supported types: MOET, INTEGRATED, etc.";
+        }
+
+        // Kiểm tra Learning Method
+        try {
+            LearningMethod.valueOf(request.getMethodLearning());
+        } catch (Exception e) {
+            return "Invalid Learning Method. Supported methods: STEM_STEAM, BLENDED, TRADITIONAL, etc.";
+        }
+
+        // Kiểm tra danh sách môn học
+        if (request.getSubjectOptions() == null || request.getSubjectOptions().isEmpty()) {
+            return "At least one subject is required in the curriculum.";
+        }
+
+        for (CurriculumRequest.SubjectOptionRequest opt : request.getSubjectOptions()) {
+            if (opt.getName() == null || opt.getName().isBlank()) {
+                return "Subject name is required.";
+            }
+
+            // Kiểm tra độ dài mô tả
+            if (opt.getDescription() == null) {
+                return "Subject description is required.";
+            }
+        }
+
+        // Check logic: Phải có ít nhất 1 môn bắt buộc (isMandatory = true)
+        // để đảm bảo khung chương trình có giá trị cốt lõi
+        boolean hasMandatory = request.getSubjectOptions().stream().anyMatch(o -> o.isMandatory());
+        if (!hasMandatory) {
+            return "The curriculum must have at least one mandatory subject.";
+        }
+
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewCurriculumList(int page, int pageSize) {
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "User session invalid or school not found", null);
+        }
+
+        Pageable pageable;
+        try {
+            pageable = PaginationUtil.buildPageRequest(page, pageSize);
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
+
+        Page<Curriculum> curriculumPage = curriculumRepo.findBySchoolIdOrderByEnrollmentYearDescVersionDesc(actorCampus.getSchool().getId(), pageable);
+
+        PageResponse<Map<String, Object>> pageResponse =
+                PaginationUtil.buildPageResponse(curriculumPage, this::buildCurriculumData);
+
+        return ResponseBuilder.build(HttpStatus.OK, "View Curriculum list successfully", pageResponse);
+    }
+
+    private Map<String, Object> buildCurriculumData(Curriculum curriculum) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", curriculum.getId());
+        data.put("name", curriculum.getName());
+        data.put("description", curriculum.getDescription());
+        data.put("curriculumType", curriculum.getCurriculumType());
+        data.put("methodLearning", curriculum.getMethodLearning());
+        data.put("enrollmentYear", curriculum.getEnrollmentYear());
+        data.put("groupCode", curriculum.getGroupCode());
+        data.put("version", curriculum.getVersion());
+        data.put("versionDisplay", CurriculumNamingUtil.formatLongVersion(curriculum.getVersion()));
+        data.put("isLatest", curriculum.isLatest());
+        data.put("curriculumStatus", curriculum.getCurriculumStatus().name());
+        data.put("subjects", curriculum.getSubjectsJsonb());
+        return data;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> createProgram(CreateProgramRequest request) {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewProgramList() {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> updateProgram(UpdateProgramRequest request) {
+        return null;
     }
 
     @Override
@@ -584,7 +856,7 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(int campusId) {
+    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(int campusId, int page, int pageSize) {
 
         Campus actorCampus = extractActorCampus();
 
@@ -592,31 +864,42 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
+        Pageable pageable;
+        try {
+            pageable = PaginationUtil.buildPageRequest(page, pageSize);
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
+
         Integer requestedCampusId = campusId <= 0 ? null : campusId;
 
-        List<CampusProgramOffering> offeringList;
+        Page<CampusProgramOffering> offeringPage;
         if (actorCampus.getIsPrimaryBranch()) {
             if (requestedCampusId == null) {
-                offeringList = campusProgramOfferingRepo.findByAdmissionCampaignSchoolId(actorCampus.getSchool().getId());
+                offeringPage = campusProgramOfferingRepo.findByAdmissionCampaignSchoolIdOrderByIdDesc(actorCampus.getSchool().getId(), pageable);
             } else {
                 Campus campus = campusRepo.findByIdAndSchoolId(requestedCampusId, actorCampus.getSchool().getId()).orElse(null);
                 if (campus == null) {
                     return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus is out of your scope", null);
                 }
-                offeringList = campusProgramOfferingRepo.findByCampusId(campus.getId());
+                offeringPage = campusProgramOfferingRepo.findByCampusIdOrderByIdDesc(campus.getId(), pageable);
             }
         } else {
             if (requestedCampusId != null && !requestedCampusId.equals(actorCampus.getId())) {
                 return ResponseBuilder.build(HttpStatus.FORBIDDEN, "You can only view your campus data", null);
             }
-            offeringList = campusProgramOfferingRepo.findByCampusId(actorCampus.getId());
+            offeringPage = campusProgramOfferingRepo.findByCampusIdOrderByIdDesc(actorCampus.getId(), pageable);
         }
 
-        List<Map<String, Object>> payload = offeringList.stream()
-                .map(this::buildOfferingData)
-                .collect(Collectors.toList());
+        PageResponse<Map<String, Object>> pageResponse =
+                PaginationUtil.buildPageResponse(offeringPage, this::buildOfferingData);
 
-        return ResponseBuilder.build(HttpStatus.OK, "View campus offering list successfully", payload);
+        return ResponseBuilder.build(HttpStatus.OK, "View campus offering list successfully", pageResponse);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> updateCampusProgramOffering(UpdateCampusProgramOfferingRequest request) {
+        return null;
     }
 
     @Override
@@ -699,7 +982,6 @@ public class SchoolServiceImpl implements SchoolService {
         if (Duration.between(request.getStartTime(), request.getEndTime()).toMinutes() < 30) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Event duration must be at least 30 minutes", null);
         }
-
         boolean isConflict = openDayEventRepo
                 .existsByCampusIdAndEventDateAndStartTimeLessThanAndEndTimeGreaterThan(
                         actorCampus.getId(),
@@ -715,8 +997,8 @@ public class SchoolServiceImpl implements SchoolService {
                     null
             );
         }
-
         OpenDayEvent openDayEvent =  openDayEventRepo.save(
+
                 OpenDayEvent.builder()
                         .title(request.getTitle())
                         .description(request.getDescription())
@@ -746,9 +1028,9 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         Pageable pageable;
-        try{
+        try {
             pageable = PaginationUtil.buildPageRequest(currentPage, pageSize);
-        } catch (IllegalArgumentException e){
+        } catch (IllegalArgumentException e) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
         }
 
@@ -774,7 +1056,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("campusId", openDayEvent.getCampus() != null ? openDayEvent.getCampus().getId() : null);
         data.put("campusAddress", openDayEvent.getCampus() != null ? openDayEvent.getCampus().getAddress() : "N/A");
 
-        data.put("status",  openDayEvent.getStatus());
+        data.put("status", openDayEvent.getStatus());
         data.put("createdAt", openDayEvent.getCreatedAt());
         data.put("updatedAt", openDayEvent.getUpdatedAt());
 

@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum LearningMode {
+
     //cách học/khung thời gian học (day school, half day, boarding...)
     DAY_SCHOOL("day school"),
     BOARDING("boarding"),

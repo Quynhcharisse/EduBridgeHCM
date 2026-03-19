@@ -6,7 +6,11 @@ import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateReques
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
 import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
+import com.sp26se041.edubridgehcm.requests.CreateProgramRequest;
+import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateProgramRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -38,8 +42,8 @@ public class SchoolController {
 
     @GetMapping("/campus/list")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewCampusList() {
-        return schoolService.viewCampusList();
+    public ResponseEntity<ResponseObject> viewCampusList(@RequestParam int page, @RequestParam int pageSize) {
+        return schoolService.viewCampusList(page, pageSize);
     }
 
     @PostMapping("/campaign/template")
@@ -66,6 +70,37 @@ public class SchoolController {
         return schoolService.viewAdmissionCampaignTemplate(year);
     }
 
+    @PostMapping("/curriculum")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> upsertCurriculum(@RequestBody CurriculumRequest request) {
+        return schoolService.upsertCurriculum(request);
+    }
+
+    @GetMapping("/curriculum/list")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> viewCurriculumList(@RequestParam int page, @RequestParam int pageSize) {
+        return schoolService.viewCurriculumList(page, pageSize);
+    }
+
+
+    @PostMapping("/program")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> createProgram(@RequestBody CreateProgramRequest request) {
+        return schoolService.createProgram(request);
+    }
+
+    @GetMapping("/program/list")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> viewProgramList() {
+        return schoolService.viewProgramList();
+    }
+
+    @PutMapping("/program")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> updateProgram(@RequestBody UpdateProgramRequest request) {
+        return schoolService.updateProgram(request);
+    }
+
     @PostMapping("/campaign/offering")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> createCampusProgramOffering(@RequestBody CreateCampusProgramOfferingRequest request) {
@@ -74,8 +109,14 @@ public class SchoolController {
 
     @GetMapping("{campusId}/campaign/offering/list")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(@PathVariable int campusId) {
-        return schoolService.viewCampusProgramOfferingList(campusId);
+    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(@PathVariable int campusId, @RequestParam int page, @RequestParam int pageSize) {
+        return schoolService.viewCampusProgramOfferingList(campusId, page, pageSize);
+    }
+
+    @PutMapping("/campaign/offering/list")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> updateCampusProgramOffering(@RequestBody UpdateCampusProgramOfferingRequest request) {
+        return schoolService.updateCampusProgramOffering(request);
     }
 
     @PostMapping("/counsellor")
@@ -91,7 +132,6 @@ public class SchoolController {
     }
 
     // Open day event
-
     @PostMapping("/event")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> createOpenDayEvent(@RequestBody CreateOpenDayEventRequest request) {
@@ -103,5 +143,4 @@ public class SchoolController {
     public ResponseEntity<ResponseObject> viewOpenDayEventList(@RequestParam int page, @RequestParam int pageSize) {
         return schoolService.viewOpenDayEventList(page, pageSize);
     }
-
 }
