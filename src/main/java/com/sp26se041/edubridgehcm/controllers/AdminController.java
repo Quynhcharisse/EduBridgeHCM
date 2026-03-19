@@ -5,6 +5,7 @@ import com.sp26se041.edubridgehcm.requests.UpdateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AdminService;
+import com.sp26se041.edubridgehcm.services.CounsellorService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminController {
 
     private final AdminService adminService;
+    private final CounsellorService counsellorService;
 
     @PostMapping("/school/registrations/verify")
     @PreAuthorize("hasRole('ADMIN')")
@@ -60,4 +62,5 @@ public class AdminController {
     public ResponseEntity<ResponseObject> viewServicePackageFeeList() {
         return adminService.viewServicePackageFeeList();
     }
+
 }

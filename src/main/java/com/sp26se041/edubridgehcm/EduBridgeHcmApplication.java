@@ -2,6 +2,7 @@ package com.sp26se041.edubridgehcm;
 
 import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.Gender;
+import com.sp26se041.edubridgehcm.enums.PersonalityTypeGroup;
 import com.sp26se041.edubridgehcm.enums.Relationship;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
@@ -9,12 +10,15 @@ import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Parent;
+import com.sp26se041.edubridgehcm.models.PersonalityType;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.ParentRepo;
+import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
+import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
@@ -23,6 +27,8 @@ import org.springframework.context.annotation.Bean;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -39,6 +45,7 @@ public class EduBridgeHcmApplication {
     private final CampusRepo campusRepo;
 
     private final CounsellorRepo counsellorRepo;
+    private final PersonalityTypeRepo personalityTypeRepo;
 
     public static void main(String[] args) {
         SpringApplication.run(EduBridgeHcmApplication.class, args);
@@ -50,6 +57,7 @@ public class EduBridgeHcmApplication {
             initAdmin();
             initParent();
             initPrimaryCampusAndCounsellor();
+            initPersonalityTypes();
         };
     }
 
@@ -216,6 +224,1518 @@ public class EduBridgeHcmApplication {
                                 .foundingDate(LocalDate.of(2020, 1, 1))
                                 .build()
                 ));
+    }
+
+    // Init Personality type
+    private void initPersonalityTypes(){
+        if (!personalityTypeRepo.existsByCode("INTJ")) {
+            buildINTJ();
+        }
+        if (!personalityTypeRepo.existsByCode("INTP")) {
+            buildINTP();
+        }
+        if(!personalityTypeRepo.existsByCode("ENTJ")){
+            buildENTJ();
+        }
+        if(!personalityTypeRepo.existsByCode("ENTP")){
+            buildENTP();
+        }
+        if(!personalityTypeRepo.existsByCode("INFJ")){
+            buildINFJ();
+        }
+        if(!personalityTypeRepo.existsByCode("INFP")){
+            buildINFP();
+        }
+        if(!personalityTypeRepo.existsByCode("ENFJ")){
+            buildENFJ();
+        }
+        if(!personalityTypeRepo.existsByCode("ENFP")){
+            buildENFP();
+        }
+        if(!personalityTypeRepo.existsByCode("ISTJ")){
+            buildISTJ();
+        }
+        if(!personalityTypeRepo.existsByCode("ISFJ")){
+            buildISFJ();
+        }
+        if(!personalityTypeRepo.existsByCode("ESTJ")){
+            buildESTJ();
+        }
+        if(!personalityTypeRepo.existsByCode("ESFJ")){
+            buildESFJ();
+        }
+        if(!personalityTypeRepo.existsByCode("ISTP")){
+            buildISTP();
+        }
+        if(!personalityTypeRepo.existsByCode("ISFP")){
+            buildISFP();
+        }
+        if(!personalityTypeRepo.existsByCode("ESTP")){
+            buildESTP();
+        }
+        if(!personalityTypeRepo.existsByCode("ESFP")){
+            buildESFP();
+        }
+    }
+
+    private void buildINTJ(){
+        PersonalityType personalityType = PersonalityType.builder()
+                .code("INTJ")
+                .name("Kiến trúc sư")
+                .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773847205/INTJ_ejk78m.png")
+                .traits(List.of(CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Introversion")
+                                .description("Ưa thích hướng nội nên thường có xu hướng thích sự yên tĩnh, chỉ thích tương tác với những người bạn thân thiết. Việc tiếp xúc xã hội với những người không quen khiến họ tổn thất nhiều năng lượng")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("iNtuition")
+                                .description("Dùng trực giác nhiều hơn là cảm nhận cụ thể, vì vậy họ tập trung sự chú ý vào bức tranh toàn cảnh hơn là những chi tiết nhỏ nhặt, cũng như là những điều có thể xảy ra trong tương lai hơn là chú ý vào thực tại")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Thinking")
+                                .description("Suy nghĩ lý trí hơn là cảm xúc, xu hướng coi trọng các tiêu chí khách quan hơn là sở thích cá nhân. Khi đưa ra một quyết định thì thường dựa vào sự logic hơn là yếu tố xã hội")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Judgement")
+                                .description("Họ đánh giá một cách rất nguyên tắc và khả năng dự đoán của mình, sớm lập kế hoặch và tuân thủ theo nó thay vì là những quyết định tự phát, linh hoạt")
+                                .build()))
+                .strengths(List.of(
+                        "Đam mê tìm hiểu kiến thức: INTJ thường có trí tuệ vượt trội và khả năng suy nghĩ sắc bén.  họ sẵn sàng nghiên cứu bất cứ điều gì cần thiết để đạt được mục tiêu. Họ làm việc chăm chỉ để nâng cao kỹ năng và mở rộng quan điểm của mình.",
+                        "Tầm nhìn chiến lược: INTJ có khả năng nhìn xa trước và định hình mục tiêu lớn. Họ có khả năng xây dựng kế hoạch chiến lược để đạt được mục tiêu đó, có tầm nhìn toàn diện về các khía cạnh của một dự án hoặc vấn đề.",
+                        "Tư duy sáng tạo: INTJ thường có khả năng tư duy sáng tạo và đưa ra những giải pháp đột phá. Họ có khả năng kết nối các ý tưởng và thông tin không liên quan để tạo ra những giải pháp mới và hiệu quả.",
+                        "Sự độc lập: INTJ là những người tự tin và độc lập. Họ tin tưởng vào khả năng của mình và không sợ đối mặt với những quyết định khó khăn. Họ có khả năng làm việc độc lập và tự chịu trách nhiệm với công việc của mình.",
+                        "Tư duy logic: INTJ có khả năng suy nghĩ logic và phân tích chi tiết. Họ là những nhà phân tích giỏi, có khả năng nhìn nhận và giải quyết vấn đề một cách có hệ thống và logic.",
+                        "Tính kiên nhẫn và kiên trì: INTJ thường có tính kiên nhẫn và kiên trì trong việc đạt được mục tiêu. Họ có khả năng tập trung và làm việc một cách kiên định để hoàn thành công việc một cách chính xác và hiệu quả."
+                ))
+                .weaknesses(List.of(
+                        "Khó gần gũi và kém trong giao tiếp xã hội: INTJ thường có xu hướng ít quan tâm đến các hoạt động xã hội và không thoải mái trong các tình huống giao tiếp hàng ngày. Họ có thể có khó khăn trong việc thiết lập và duy trì quan hệ xã hội sâu sắc.",
+                        "Thiếu sự nhạy cảm và sự đồng cảm: Do tập trung vào logic và suy nghĩ, INTJ có thể thiếu sự nhạy cảm và sự đồng cảm đôi khi. Họ có thể có khó khăn trong việc đồng cảm hiểu cảm xúc của người khác.",
+                        "Có thể quá tự tin và cứng đầu: INTJ có xu hướng tin vào khả năng của mình và có thể trở nên quá tự tin và cứng đầu trong quan điểm của mình. Điều này có thể làm cho họ khó khăn trong việc lắng nghe ý kiến khác và mở rộng quan điểm.",
+                        "Cẩn trọng và thiếu sự linh hoạt: INTJ thường có xu hướng cẩn trọng và có thể đòi hỏi nhiều thông tin trước khi đưa ra quyết định. Điều này có thể làm cho họ chậm trong việc đưa ra quyết định và có thể thiếu sự linh hoạt trong điều chỉnh kế hoạch khi cần thiết.",
+                        "Dễ căng thẳng và áp lực: Với tính cách quyết đoán và định hình mục tiêu cao, INTJ có thể dễ căng thẳng và cảm thấy áp lực nếu không đạt được những kết quả mong muốn. Họ cũng có thể tự áp lực và khó thư giãn trong quá trình làm việc."
+                ))
+                .sources(List.of(
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("mbti.vn")
+                                .url("https://mbti.vn")
+                                .build(),
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("16personalities")
+                                .url("https://www.16personalities.com/vi")
+                                .build()
+                ))
+                .recommendedCareers(List.of(
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Nhà lãnh đạo/Quản lý")
+                                .explainText("INTJ thường có tư duy chiến lược và khả năng lãnh đạo tự nhiên. Với khả năng tư duy logic và quản lý thông tin, họ có thể thích hợp với vai trò lãnh đạo trong các tổ chức và doanh nghiệp.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Kỹ sư/Khoa học gia")
+                                .explainText("Người INTJ thường có khả năng phân tích và tiếp cận các vấn đề phức tạp. Với sự hướng nội và trực giác của mình, họ có thể làm việc trong lĩnh vực kỹ thuật, nghiên cứu khoa học hoặc phát triển công nghệ.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Kiến trúc sư/Thiết kế")
+                                .explainText("Sự sáng tạo và tư duy chi tiết của INTJ có thể phù hợp với lĩnh vực thiết kế và kiến trúc. Họ có khả năng đưa ra ý tưởng độc đáo và đáp ứng yêu cầu kỹ thuật và thẩm mỹ.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Luật sư/Nhà tư vấn")
+                                .explainText("INTJ có khả năng suy luận logic và phân tích chi tiết, điều này có thể làm cho họ trở thành những luật sư hoặc nhà tư vấn hiệu quả. Họ có khả năng xử lý thông tin phức tạp và áp dụng quy định pháp lý vào thực tế.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Quản lý dự án")
+                                .explainText("Với tính cách tổ chức và định hướng vào mục tiêu, INTJ có thể là những quản lý dự án xuất sắc. Họ có khả năng lập kế hoạch, quản lý tài nguyên và đưa ra quyết định một cách logic và hiệu quả.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Chuyên gia tư vấn/Phân tích")
+                                .explainText("INTJ có khả năng nắm bắt các khía cạnh phức tạp của vấn đề và tư duy logic để phân tích.")
+                                .build()
+                ))
+                .description("Những người mang tính cách INTJ (Kiến Trúc Sư) là những cá nhân đầy tò mò trí tuệ, mang trong mình khát khao học hỏi sâu sắc. Các INTJ trân trọng sức sáng tạo, lý trí thẳng thắn và tinh thần tự hoàn thiện. Họ luôn nỗ lực phát triển năng lực trí tuệ của mình và thường bị thôi thúc bởi ham muốn mạnh mẽ chinh phục mọi chủ đề có thể khơi gợi hứng thú.")
+                .quote(CreatePersonalityTypeRequest.QuoteInfo.builder()
+                        .author("Blaise Pascal")
+                        .content("Suy nghĩ tạo nên sự vĩ đại của con người. Con người là một cây sậy – loài sinh vật yếu ớt nhất trong tự nhiên – nhưng lại là một cây sậy biết suy nghĩ.")
+                        .build()
+                )
+                .personalityTypeGroup(PersonalityTypeGroup.ANALYST)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        personalityTypeRepo.save(personalityType);
+    }
+
+    private void buildINTP(){
+        PersonalityType personalityType = PersonalityType.builder()
+                .code("INTP")
+                .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773847244/INTP_d5xivc.png")
+                .name("Nhà lý luận")
+                .traits(List.of(CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Introversion")
+                                .description("INTP có xu hướng tập trung vào nội tâm và tận hưởng thời gian một mình. Họ cần thời gian để nghỉ ngơi và tái tạo năng lượng sau khi tiếp xúc với nhiều người.")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("iNtuition")
+                                .description("INTP thích tập trung vào ý tưởng và khám phá các khả năng tiềm ẩn. Họ có khả năng nhìn xa và suy nghĩ trừu tượng, thích tìm hiểu vấn đề từ nhiều góc độ.")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Thinking")
+                                .description("Suy nghĩ lý trí hơn là cảm xúc, xu hướng coi trọng các tiêu chí khách quan hơn là sở thích cá nhân. Khi đưa ra một quyết định thì thường dựa vào sự logic hơn là yếu tố xã hội.")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Perception")
+                                .description("INTP thường có tính linh hoạt và mở lòng đón nhận thông tin mới. Họ thích duy trì sự linh hoạt trong quyết định và thường đánh giá tùy thuộc vào tình huống cụ thể.")
+                                .build()))
+                .strengths(List.of(
+                        "Tư duy logic: INTP có khả năng suy nghĩ logic và phân tích sắc bén. Họ có khả năng tách rời các thành phần, nhận biết quy tắc và mô hình và áp dụng logic vào giải quyết vấn đề.",
+                        "Sáng tạo: INTP thường có khả năng sáng tạo cao. Họ có khả năng tưởng tượng và tạo ra các ý tưởng mới, đặc biệt trong lĩnh vực tri thức và công nghệ.",
+                        "Năng lực nghiên cứu: INTP là những người ham tìm hiểu và có sự nghiên cứu sâu về các chủ đề mà họ quan tâm. Họ thích khám phá tri thức mới và đưa ra những phân tích sắc bén về các vấn đề phức tạp.",
+                        "Giải quyết vấn đề: INTP là những nhà giải quyết vấn đề xuất sắc. Họ có khả năng phân tích một tình huống, tìm ra các giải pháp sáng tạo và áp dụng tư duy logic để tìm ra lời giải hiệu quả.",
+                        "Độc lập: INTP có tính độc lập và tự chủ. Họ thường làm việc tốt khi có không gian riêng để nghĩ và đưa ra quyết định theo cách của mình.",
+                        "Suy nghĩ chi tiết: INTP có khả năng nhìn nhận chi tiết và phân tích kỹ lưỡng. Họ có khả năng nhận ra các mô hình và quy luật ẩn trong thông tin.",
+                        "Kiến thức đa dạng: INTP với sự tiếp thu và hiểu rõ về nhiều lĩnh vực khác nhau. Họ thường có kiến thức đa dạng và có khả năng kết nối các kiến thức từ các lĩnh vực khác nhau."
+                ))
+                .weaknesses(List.of(
+                        "Hướng nội quá mức: INTP có thể trở nên quá hướng nội, dẫn đến việc tránh giao tiếp xã hội và cảm thấy không thoải mái khi phải đối mặt với các tình huống xã hội.",
+                        "Thiếu quyết đoán: INTP mất khá nhiều thời gian để đưa ra quyết định, do cần phải suy nghĩ sâu và xem xét tất cả các khả năng trước khi đưa ra lựa chọn cuối cùng.",
+                        "Tích lũy tri thức nhưng thiếu thực hiện: INTP thường có xu hướng tìm hiểu và thu thập tri thức nhưng có thể gặp khó khăn trong việc thực hiện những ý tưởng và kế hoạch của mình.",
+                        "Quên thực tế: INTP có thể quá tập trung vào suy nghĩ và tri thức trừu tượng, dẫn đến việc bỏ qua các chi tiết thực tế và cần có người khác giúp họ nhớ những việc cần làm trong cuộc sống hàng ngày.",
+                        "Thiếu sự quan tâm đến cảm xúc: INTP thường ít quan tâm đến cảm xúc của bản thân và người khác. Họ có thể trở nên khó hiểu và thiếu sự nhạy cảm đối với cảm xúc của người khác.",
+                        "Thiếu tổ chức: INTP gặp chút khó khăn trong việc tổ chức và quản lý thời gian. Họ có xu hướng đánh giá các ưu tiên dựa trên hứng thú cá nhân và có thể bị phân tán trong công việc.",
+                        "Thiếu khả năng thích ứng: INTP có thể khó khăn trong việc thích ứng với thay đổi và tình huống mới. Họ có xu hướng ưa thích sự ổn định và không thích thay đổi đột ngột."
+                ))
+                .sources(List.of(
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("mbti.vn")
+                                .url("https://mbti.vn")
+                                .build(),
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("16personalities")
+                                .url("https://www.16personalities.com/vi")
+                                .build()
+                ))
+                .recommendedCareers(List.of(
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Nhà nghiên cứu/Kỹ sư")
+                                .explainText("Với khả năng phân tích và tư duy logic, INTP thích tìm hiểu và nghiên cứu về các vấn đề phức tạp. Các ngành nghiên cứu khoa học, kỹ thuật và công nghệ thông tin có thể phù hợp với tính cách này.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Lập trình viên/Phát triển phần mềm")
+                                .explainText("INTP có khả năng tư duy logic và khám phá, điều này làm cho họ có kỹ năng tổ chức và giải quyết vấn đề tốt. Công việc trong lĩnh vực lập trình và phát triển phần mềm có thể phù hợp với INTP.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Kiến trúc sư")
+                                .explainText("Tính cách INTP thường thích tạo ra những giải pháp sáng tạo và hiểu rõ về cấu trúc và thiết kế. Vì vậy, nghề kiến trúc và thiết kế có thể là sự lựa chọn thích hợp.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Nghệ sĩ/Âm nhạc")
+                                .explainText("INTP cũng có khả năng sáng tạo và tư duy nghệ thuật. Với sự khao khát khám phá và tự do sáng tạo, nghề nghiệp liên quan đến nghệ thuật, âm nhạc và thiết kế đồ họa có thể hợp với tính cách này.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Tư vấn/Truyền thông")
+                                .explainText("Với khả năng phân tích và suy luận, INTP có thể làm việc trong lĩnh vực tư vấn và truyền thông. Họ có thể đưa ra các quan điểm và ý kiến phân tích sắc bén trong việc giải quyết vấn đề và tư vấn cho người khác.")
+                                .build()
+                ))
+                .description("Những người mang tính cách INTP (Nhà Lý Luận) tự hào về góc nhìn khác biệt và đầu óc nhiệt huyết của mình. Họ không thể ngăn mình bị cuốn hút bởi những bí ẩn của vũ trụ – đó có lẽ cũng là lý do tại sao nhiều triết gia và nhà khoa học kiệt xuất trong lịch sử thường thuộc kiểu tính cách INTP. Do xu hướng tập trung vào các ý tưởng hơn là các hoạt động xã hội, họ thường thích ở một mình để mặc sức đắm chìm trong những suy nghĩ không giới hạn. Họ cũng vô cùng sáng tạo và can đảm đưa ra những phương thức tư duy mới lạ, không ngại khác biệt với số đông.")
+                .quote(CreatePersonalityTypeRequest.QuoteInfo.builder()
+                        .author("Albert Einstein")
+                        .content("Điều quan trọng là không ngừng đặt câu hỏi. Sự tò mò có lý do tồn tại của riêng nó.")
+                        .build()
+                )
+                .personalityTypeGroup(PersonalityTypeGroup.ANALYST)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        personalityTypeRepo.save(personalityType);
+    }
+
+    private void buildENTJ(){
+        PersonalityType personalityType = PersonalityType.builder()
+                .code("ENTJ")
+                .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773847464/ENTJ_vouhfp.png")
+                .name("Chỉ huy")
+                .traits(List.of(CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Extraversion")
+                                .description("Ưa thích hướng ngoại, cảm giác được thúc đẩy và giàu năng lượng dành cho những người xung quanh")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("iNtuition")
+                                .description("Dùng trực giác nhiều hơn là cảm nhận cụ thể, vì vậy họ tập trung sự chú ý vào bức tranh toàn cảnh hơn là những chi tiết nhỏ nhặt, cũng như là những điều có thể xảy ra trong tương lai hơn là chú ý vào thực tại")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Thinking")
+                                .description("Suy nghĩ lý trí hơn là cảm xúc, xu hướng coi trọng các tiêu chí khách quan hơn là sở thích cá nhân. Khi đưa ra một quyết định thì thường dựa vào sự logic hơn là yếu tố xã hội;")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Judgement")
+                                .description("Họ đánh giá một cách rất nguyên tắc và khả năng dự đoán của mình, sớm lập kế hoạch và tuân thủ theo nó thay vì là những quyết định tự phát, linh hoạt.")
+                                .build()))
+                .strengths(List.of(
+                        "Lãnh đạo xuất sắc: ENTJ thường có khả năng lãnh đạo mạnh mẽ và tự tin. Họ có khả năng thúc đẩy, hướng dẫn nhóm một cách hiệu quả.",
+                        "Tầm nhìn chiến lược: ENTJ có khả năng nhìn xa, xây dựng tầm nhìn chiến lược. Họ thường đặt ra mục tiêu rõ ràng và phát triển kế hoạch để đạt được chúng.",
+                        "Quyết đoán: ENTJ thường đưa ra quyết định nhanh chóng và tự tin. Họ dám đối mặt với rủi ro, thách thức, giúp họ đạt được mục tiêu.",
+                        "Tổ chức và quản lý: ENTJ có khả năng quản lý và tổ chức công việc, nhân lực một cách hiệu quả. Họ biết cách sử dụng tài nguyên để đạt được kết quả tốt nhất.",
+                        "Tư duy logic và phân tích: Họ có khả năng tư duy logic, phân tích, đánh giá một cách sắc bén. Họ thường xác định được các khả năng và giải pháp có cơ sở logic.",
+                        "Tự tin và quyết tâm: ENTJ thường tự tin trong hành động và quyết tâm đạt được mục tiêu của mình.",
+                        "Hiệu suất cao và chủ động: Họ thường làm việc chăm chỉ và hiệu suất cao. Họ có tinh thần chủ động trong việc đạt được thành công.",
+                        "Thích thử thách và cạnh tranh: ENTJ thường hứng thú với thử thách và cạnh tranh. Điều này thúc đẩy họ để phấn đấu và phát triển.",
+                        "Tinh thần trách nhiệm: Họ thường đặt sự trách nhiệm cao trong các nhiệm vụ và cam kết của mình.",
+                        "Kỹ năng giao tiếp tốt: Họ thường có khả năng giao tiếp tốt, sử dụng lời nói mạnh mẽ và thuyết phục để truyền đạt ý kiến."
+                ))
+                .weaknesses(List.of(
+                        "Khó chấp nhận ý kiến khác: Do tính cách quyết đoán và tự tin, ENTJ có thể khó khăn trong việc chấp nhận ý kiến, các quan điểm khác. Họ có thể thiên về kiểu tư duy hoặc đúng hoặc sai, làm cho việc làm việc trong nhóm trở nên khó khăn đôi khi.",
+                        "Thiếu nhạy cảm tình cảm: ENTJ thường tập trung vào logic và phân tích hơn là cảm xúc. Điều này có thể khiến họ thiếu nhạy cảm, khó khăn trong việc đồng cảm và hiểu cảm xúc của người khác.",
+                        "Thiếu kiên nhẫn: Tính cách quyết đoán của họ có thể khiến họ thiếu kiên nhẫn với những việc mất thời gian hoặc không thể đạt được kết quả ngay lập tức.",
+                        "Áp đặt quá nhiều: Với tư duy mạnh mẽ và quyết đoán, ENTJ có thể áp đặt quá nhiều ý kiến, quyết định của mình lên người khác mà không tạo ra sự tham gia hay tôn trọng ý kiến của người khác.",
+                        "Khó nắm bắt cảm xúc: Họ thường không thoải mái khi phải giải quyết và thể hiện cảm xúc của mình. Điều này có thể khiến họ trở nên khó hiểu và khó gần.",
+                        "Thiếu linh hoạt: Tính cách quyết đoán, quản lý có thể khiến họ thiếu linh hoạt trong việc thích nghi với những tình huống không ngờ và thay đổi.",
+                        "Áp lực cá nhân: Họ có thể tự gây áp lực lên bản thân bằng cách đặt ra những tiêu chuẩn cao cả về thành công và hiệu suất.",
+                        "Khó khăn trong việc thể hiện tình cảm: Tính cách lý trí và tập trung vào logic làm cho họ khó khăn trong việc thể hiện giải quyết tình cảm cá nhân.",
+                        "Khó tận hưởng hiện tại: Vì tầm nhìn xa, quyết định đạt được mục tiêu dài hạn, họ có thể dễ dàng bị cuốn vào tương lai và quên đi tận hưởng hiện tại."
+                ))
+                .sources(List.of(
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("mbti.vn")
+                                .url("https://mbti.vn")
+                                .build(),
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("16personalities")
+                                .url("https://www.16personalities.com/vi")
+                                .build()
+                ))
+                .recommendedCareers(List.of(
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Quản lý và Lãnh đạo")
+                                .explainText("ENTJ tự nhiên nổi bật trong vai trò quản lý và lãnh đạo. Họ có khả năng tổ chức, hướng dẫn và định hướng nhóm, làm việc tốt trong các vị trí quản lý cấp cao.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Doanh nhân và Khởi nghiệp")
+                                .explainText("ENTJ thường có tầm nhìn chiến lược, sự quyết đoán cần thiết cho việc xây dựng và quản lý doanh nghiệp.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Tư vấn chiến lược")
+                                .explainText("Họ có khả năng phân tích sắc bén và tầm nhìn chiến lược, làm cho họ phù hợp với việc tư vấn chiến lược và quản lý dự án.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Luật sư và Chính trị gia")
+                                .explainText("Tính cách quyết đoán và khả năng thuyết phục tốt khiến ENTJ phù hợp với việc trở thành luật sư hoặc tham gia trong lĩnh vực chính trị.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Tài chính và Quản lý rủi ro")
+                                .explainText("Tính cách phân tích khả năng quyết định nhanh giúp ENTJ trong các ngành liên quan đến tài chính, đầu tư và quản lý rủi ro.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Kế hoạch hóa sự kiện và Quản lý dự án")
+                                .explainText("ENTJ có khả năng tổ chức và quản lý tốt, làm cho họ phù hợp với việc kế hoạch, tổ chức sự kiện, quản lý dự án.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Công nghệ thông tin và Kỹ thuật")
+                                .explainText("Họ thường có tư duy logic sắc bén, phù hợp với việc làm việc trong lĩnh vực công nghệ thông tin và kỹ thuật.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Quảng cáo và Tiếp thị")
+                                .explainText("Tính cách quyết đoán khả năng thúc đẩy làm cho họ phù hợp với việc tham gia trong lĩnh vực quảng cáo và tiếp thị.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Y học và Quản lý y tế")
+                                .explainText("Khả năng quản lý và tổ chức tốt của ENTJ có thể được áp dụng trong lĩnh vực y học và quản lý y tế.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Giáo dục và Đào tạo")
+                                .explainText("ENTJ thường thích làm việc với kiến thức có khả năng lãnh đạo, làm cho họ phù hợp với việc giảng dạy và đào tạo.")
+                                .build()
+                ))
+                .description("Những người mang tính cách ENTJ (Chỉ Huy) là lãnh đạo bẩm sinh. Sở hữu sự lôi cuốn và tự tin, họ thể hiện quyền lực theo cách lôi kéo mọi người hướng đến cùng một mục tiêu chung. Tuy nhiên, họ cũng nổi bật với lý trí sắc bén đến mức có thể bị xem là “tàn nhẫn” khi quyết tâm sử dụng ý chí, động lực và trí tuệ để đạt mọi mục tiêu đề ra. Mặt khác, họ cực kỳ tự hào về đạo đức làm việc và tinh thần kỷ luật của mình, dù đôi lúc sự quyết liệt này khiến mọi người xung quanh cảm thấy quá áp lực.")
+                .quote(CreatePersonalityTypeRequest.QuoteInfo.builder()
+                        .author("Thời gian của bạn là hữu hạn, đừng lãng phí nó để sống cuộc đời của kẻ khác.")
+                        .content("Steve Jobs")
+                        .build()
+                )
+                .personalityTypeGroup(PersonalityTypeGroup.ANALYST)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        personalityTypeRepo.save(personalityType);
+    }
+
+    private void buildENTP(){
+        PersonalityType personalityType = PersonalityType.builder()
+                .code("ENTP")
+                .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773880050/ENTP_twdi72.png")
+                .name("Người tranh luận")
+                .traits(List.of(CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Extraversion")
+                                .description("Ưa thích hướng ngoại, cảm giác được thúc đẩy và giàu năng lượng dành cho những người xung quanh")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("iNtuition")
+                                .description("Dùng trực giác nhiều hơn là cảm nhận cụ thể, vì vậy họ tập trung sự chú ý vào bức tranh toàn cảnh hơn là những chi tiết nhỏ nhặt, cũng như là những điều có thể xảy ra trong tương lai hơn là chú ý vào thực tại")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Thinking")
+                                .description("Suy nghĩ lý trí hơn là cảm xúc, xu hướng coi trọng các tiêu chí khách quan hơn là sở thích cá nhân. Khi đưa ra một quyết định thì thường dựa vào sự logic hơn là yếu tố xã hội")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Perception")
+                                .description("Họ không vội đánh giá hay sớm ra một quyết định phán xét quan trọng nào đó , thay vào đó luôn nhìn nhận một cách linh hoạt vấn đề và có thể thay đổi tùy hoàn cảnh")
+                                .build()))
+                .strengths(List.of(
+                        "Những cá nhân mang tính cách ENTP thường có sự nhanh nhẹn và độc đáo, đây là những ưu điểm quan trọng giúp họ thể hiện sự xuất sắc trong các lĩnh vực như tranh luận, học thuật và chính trị. Tuy nhiên, khả năng này cũng giúp họ thành công trong nhiều lĩnh vực khác, đặc biệt là trong những ngành đòi hỏi khả năng thách thức ý tưởng hiện tại và tham gia vào các cuộc tranh luận.",
+                        "ENTP thường mang tới tinh thần lý tưởng, thường làm việc với kế hoạch toàn diện hoặc ý tưởng sáng tạo.",
+                        "Sự cởi mở, linh hoạt và khả năng hòa nhập vào các cuộc trò chuyện là những đặc điểm thường thấy ở ENTP.",
+                        "Họ thích phát triển và đẩy mạnh mối quan hệ cá nhân, đánh giá cao sự quan trọng của những mối quan hệ này.",
+                        "ENTP được biết đến với khả năng tận dụng cơ hội. Khả năng đặc biệt của họ để kết nối các khái niệm không liên quan ban đầu, kết hợp với sự linh hoạt và thực hiện kế hoạch giúp họ khai thác tiềm năng trong nhiều khía cạnh của cuộc sống.",
+                        "Khả năng hiểu biết sâu sắc về cách thức hoạt động của mọi thứ và các mối quan hệ, cũng như khả năng đề xuất cách cải thiện chúng, là đặc điểm của ENTP. Họ không thích phán đoán mà thay vào đó thường thể hiện tính cởi mở với tài năng giao tiếp thông qua khả năng ngôn ngữ linh hoạt và trí tuệ sắc bén. Với tinh thần sáng tạo không ngừng,  khả năng giao tiếp xuất sắc, họ thường đóng vai trò là nguồn động viên và thúc đẩy tinh thần đồng đội."
+                ))
+                .weaknesses(List.of(
+                        "Những người mang kiểu tính cách ENTP cần phải cẩn trọng khi quản lý cuộc tranh luận của mình, vì thường xuyên tiến độ thực tế được coi trọng hơn sự thật tường minh. Mặc dù họ nhận thức rõ điều này, nhưng cũng cần hiểu rằng niềm vui cá nhân của họ có thể gây tổn thương cho người khác.",
+                        "Đôi khi, tính thẳng thắn của ENTP có thể gây ra sự tổn thương không mong muốn. Họ thường thể hiện ý kiến một cách trực tiếp, không thích sự mập mờ trong giao tiếp, đặc biệt khi cần phải thực hiện một nhiệm vụ. Do đó, dù ENTP thường được tôn trọng, họ không luôn nhận được sự thiện cảm đặc biệt. Trong xã hội, sự tập trung vào tình cảm, tình nhạy cảm và khả năng đối mặt với những sự thật khó nghe thường được đánh giá cao, điều này có thể gây ra khó khăn và thất bại cho nhiều ENTP.",
+                        "Những người có kiểu tính cách ENTP thường chú trọng vào lý trí và có thể bỏ qua giá trị của cảm xúc. Kết quả là, họ có khả năng xuất sắc trong tư duy logic, nhưng có thể gặp khó khăn trong việc hiểu và xử lý cảm xúc.",
+                        "Sự tự tin và khả năng hài hước của ENTP thường thu hút sự chú ý, nhưng đôi khi họ có thể gây tổn thương cho những người thuộc các nhóm tính cách khác một cách không cố ý. Nhất là đối với nhóm có khuynh hướng Cảm nhận (F), họ có thể dễ bị ảnh hưởng bởi việc chỉ trích và tranh cãi, trong khi ENTP thường có khả năng vượt trội trong lĩnh vực này.",
+                        "ENTP thường có thể bị phân tâm trong công việc, đôi khi họ có thể xao lạc quan hệ cá nhân khi họ tập trung vào việc tham gia vào dự án hoặc ý tưởng mới.",
+                        "Nhưng nhờ tính cách mang tính đa dạng và linh hoạt của mình, ENTP có khả năng hòa đổng với các yếu tố mạnh của họ để đối phó với những điểm yếu nếu có sự phát triển phù hợp."
+                ))
+                .sources(List.of(
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("mbti.vn")
+                                .url("https://mbti.vn")
+                                .build(),
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("16personalities")
+                                .url("https://www.16personalities.com/vi")
+                                .build()
+                ))
+                .recommendedCareers(List.of(
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Khoa học và Nghiên cứu")
+                                .explainText("ENTP thích khám phá và tìm hiểu. Các lĩnh vực như khoa học, nghiên cứu, công nghệ, sáng tạo mới có thể phù hợp với khả năng suy nghĩ sâu sắc và khao khát tìm hiểu của họ.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Lĩnh vực Sáng tạo")
+                                .explainText("ENTP có sự sáng tạo và trí tưởng tượng phong phú, vì vậy các ngành như thiết kế đồ họa, truyền thông quảng cáo, âm nhạc, nghệ thuật kịch nghệ, viết lách có thể là lựa chọn thú vị cho họ.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Kinh doanh và Quản lý dự án")
+                                .explainText("Khả năng lãnh đạo và khả năng kết nối ý tưởng của ENTP thích hợp cho lĩnh vực quản lý dự án và kinh doanh, đặc biệt trong các ngành yêu cầu tư duy chiến lược và sáng tạo trong giải quyết vấn đề.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Lĩnh vực Kỹ thuật và Công nghệ thông tin")
+                                .explainText("ENTP thường có khả năng tư duy logic và sự quan tâm đối với các hệ thống phức tạp. Lĩnh vực kỹ thuật, phát triển phần mềm, công nghệ thông tin có thể phù hợp với khả năng này.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Luật và Chính trị")
+                                .explainText("ENTP có sự năng động và khả năng tham gia vào tranh luận tốt. Lĩnh vực luật và chính trị có thể cho phép họ áp dụng khả năng thuyết phục và tư duy phản biện của mình.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Giáo dục và Đào tạo")
+                                .explainText("ENTP thường thích truyền đạt kiến thức và tạo ra sự khám phá. Các vai trò trong giảng dạy, huấn luyện, hoặc phát triển chương trình đào tạo có thể phù hợp với họ.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Tư vấn và Nghiên cứu thị trường")
+                                .explainText("Khả năng phân tích thông tin, giao tiếp tốt và sự tò mò của ENTP có thể giúp họ trong việc làm tư vấn hoặc nghiên cứu thị trường.")
+                                .build()
+                ))
+                .description("Nhanh trí và táo bạo, những người mang tính cách ENTP (Người Tranh Luận) không ngại thách thức hiện trạng. Thật ra, họ hầu như không ngại bất đồng với bất cứ ai hoặc bất cứ quan điểm nào. Ít điều gì khiến ENTP phấn khích hơn việc tranh luận – và nếu chủ đề thuộc dạng gây tranh cãi, thì càng tốt. Tuy nhiên, sẽ là sai lầm nếu nghĩ rằng ENTP khó chịu hoặc cố ý thích gây hấn. Người có tính cách này thường sở hữu vốn hiểu biết sâu rộng, tính tò mò cao và khiếu hài hước hơi “gai góc,” và họ có thể mang đến nhiều niềm vui cho mọi người. Họ đơn giản chỉ có cách vui đùa hơi khác biệt, thường xuyên đi kèm với những cuộc tranh luận sôi nổi.")
+                .quote(CreatePersonalityTypeRequest.QuoteInfo.builder()
+                        .author("Thomas J. Watson")
+                        .content("Hãy đi theo con đường của những người tư duy độc lập, dám chấp nhận rủi ro. Hãy để ý tưởng của bạn đối mặt với những tranh cãi.")
+                        .build()
+                )
+                .personalityTypeGroup(PersonalityTypeGroup.ANALYST)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        personalityTypeRepo.save(personalityType);
+    }
+
+    private void buildINFJ(){
+        PersonalityType personalityType = PersonalityType.builder()
+                .code("INFJ")
+                .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773880254/INFJ_drmjm3.png")
+                .name("Người bênh vực")
+                .traits(List.of(CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Introverted")
+                                .description("Ưa thích hướng nội nên thường có xu hướng thích sự yên tĩnh, chỉ thích tương tác với những người bạn thân thiết. Việc tiếp xúc xã hội với những người không quen khiến họ tổn thất nhiều năng lượng.")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("iNtuitive")
+                                .description("INFJ có khả năng nhìn xa trước, nhận biết sự kết nối giữa các ý tưởng, sự việc và mô hình tổng thể. Họ dễ dàng nhìn thấy các khía cạnh ẩn và có cái nhìn rộng lớn về tương lai.")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Feeling")
+                                .description("INFJ quan tâm đến cảm xúc của người khác và đặt lòng tin vào giá trị cá nhân, e ngại gây tổn thương cho người khác và tôn trọng những giá trị đạo đức và đồng cảm.")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Judgement")
+                                .description("INFJ đánh giá một cách rất nguyên tắc. Họ thích có kế hoạch và sắp xếp công việc một cách có tổ chức.")
+                                .build()))
+                .strengths(List.of(
+                        "Sâu sắc và nhạy bén: INFJ có thể nhìn thấu bên trong vấn đề và nhìn nhận sự phức tạp của nó. Họ có khả năng cảm nhận, hiểu cảm xúc, nhu cầu và suy nghĩ của người khác, giúp tạo ra sự kết nối sâu sắc và ý thức đến những khía cạnh tâm lý của con người.",
+                        "Trực giác mạnh mẽ: INFJ có khả năng nhìn xa trước và đọc hiểu những tình huống phức tạp mà người khác có thể không nhận thấy. Họ thường có trực giác tốt và khả năng đưa ra những quyết định thông minh dựa trên những hiểu biết ẩn trong bản thân.",
+                        "Sự quan tâm và trợ giúp: INFJ thường là những người quan tâm đến người khác và có khả năng tạo ra môi trường thoải mái cho mọi người xung quanh. Họ thường sẵn lòng lắng nghe và giúp đỡ người khác, đồng thời có khả năng đưa ra lời khuyên và hỗ trợ để giải quyết các vấn đề.",
+                        "Sự sáng tạo: INFJ thường có một trí tưởng tượng mạnh mẽ và tài năng sáng tạo. Họ có khả năng suy nghĩ ngoại biên và tìm kiếm giải pháp sáng tạo cho các vấn đề phức tạp. INFJ thường có óc tưởng tượng giàu sức mạnh và có thể tạo ra những ý tưởng độc đáo và đột phá.",
+                        "Trung thành và đáng tin cậy: INFJ là những người rất trung thành với những nguyên tắc và giá trị cá nhân của mình. Họ cam kết với mối quan hệ và sẵn lòng đặt lợi ích của người khác lên hàng đầu."
+                ))
+                .weaknesses(List.of(
+                        "Dễ bị áp lực: INFJ có xu hướng đặt nhiều áp lực lên bản thân, thường cảm thấy trách nhiệm với những nguyên tắc và mục tiêu mà họ đã đặt ra. Dẫn đến việc họ thường bị căng thẳng, lo lắng và căng thẳng tinh thần.",
+                        "Quá nhạy cảm: INFJ có khả năng cảm nhận mạnh mẽ và có thể bị ảnh hưởng bởi cảm xúc của người khác. Vi thế, họ dễ bị quá tải cảm xúc và khó khăn trong việc lấy lợi ích của bản thân.",
+                        "Dễ bị kiểm soát: Vì INFJ có xu hướng lo lắng về ý kiến, cảm xúc của người khác, họ có thể dễ dàng bị ảnh hưởng và kiểm soát bởi ý kiến mong đợi của người khác. Điều này có thể khiến họ khó khăn trong việc tự khẳng định và đáp ứng nhu cầu của bản thân.",
+                        "Khó chấp nhận sự thay đổi: INFJ có xu hướng ưa thích sự ổn định và sự sắp xếp. Họ có thể cảm thấy bất an hoặc không thoải mái khi đối mặt với sự thay đổi lớn và khó khăn trong việc thích ứng với những tình huống mới.",
+                        "Quá phụ thuộc vào người khác: INFJ có thể dễ dàng rơi vào mẫu mực quá phụ thuộc và đặt quá nhiều kỳ vọng vào người khác. Khiến họ cảm thấy thất vọng và cảm thấy không thể tự mình đáp ứng nhu cầu và mong đợi của mình."
+                ))
+                .sources(List.of(
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("mbti.vn")
+                                .url("https://mbti.vn")
+                                .build(),
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("16personalities")
+                                .url("https://www.16personalities.com/vi")
+                                .build()
+                ))
+                .recommendedCareers(List.of(
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Tư vấn và trị liệu")
+                                .explainText("INFJ có khả năng lắng nghe sâu sắc và đồng cảm, điều này có thể phù hợp với các ngành tư vấn tâm lý, tư vấn sự nghiệp, tư vấn hôn nhân gia đình, trị liệu hướng nội. INFJ có khả năng giúp đỡ tạo môi trường an toàn cho người khác để khám phá và phát triển bản thân.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Giáo dục")
+                                .explainText("INFJ có sư nhạy bén trong truyền đạt thông điệp và tạo môi trường học tập lành mạnh. Các ngành giáo dục, giảng dạy, huấn luyện, hoặc làm việc trong các tổ chức phi lợi nhuận liên quan đến giáo dục có thể phù hợp với INFJ.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Sáng tạo và nghệ thuật")
+                                .explainText("INFJ thường có cái nhìn sâu sắc và tầm nhìn nghệ thuật. Các ngành nghề sáng tạo như viết lách, thiết kế đồ họa, nhiếp ảnh, âm nhạc, diễn xuất hoặc làm việc trong các lĩnh vực nghệ thuật có thể phù hợp với INFJ. INFJ có khả năng thể hiện cảm xúc và ý nghĩa sâu sắc thông qua nghệ thuật.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Quan hệ công chúng và truyền thông")
+                                .explainText("INFJ có khả năng tạo mối quan hệ mạnh mẽ và sử dụng ngôn từ một cách ảnh hưởng. Các ngành quan hệ công chúng, truyền thông, truyền thông xã hội, hoặc làm việc trong các tổ chức phi lợi nhuận có thể phù hợp với INFJ. INFJ có khả năng xây dựng và quản lý hệ thống giao tiếp hiệu quả để tạo ảnh hưởng và tạo sự thay đổi tích cực.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Y tế và chăm sóc")
+                                .explainText("INFJ thường có sự quan tâm và chăm sóc đối với người khác. Các ngành y tế, chăm sóc sức khỏe, tâm lý học, công việc xã hội, hoặc làm việc trong các tổ chức phi lợi nhuận liên quan đến sức khỏe và chăm sóc có thể phù hợp với INFJ. INFJ có khả năng lắng nghe hiểu về nhu cầu của người khác, có thể tạo môi trường hỗ trợ.")
+                                .build()
+                ))
+                .description("Lý tưởng và nguyên tắc, những người thuộc loại tính cách INFJ (Người Bênh Vực) không muốn chỉ lướt qua cuộc đời – họ muốn đứng lên và tạo ra sự thay đổi. Đối với những cá nhân giàu lòng trắc ẩn này, thành công không được đo bằng tiền bạc hay địa vị, mà bằng việc tìm kiếm sự trọn vẹn, giúp đỡ người khác và trở thành một nguồn năng lượng tích cực cho thế giới. Mặc dù họ có mục tiêu cao cả và tham vọng, nhưng INFJ không phải là những kẻ mơ mộng hão huyền. Những người có tính cách này rất coi trọng sự liêm chính, và họ hiếm khi nào thấy hài lòng cho đến khi làm được điều mà họ cho là đúng đắn. Với tính cách thấu đáo, họ tiến bước trên hành trình cuộc đời bằng việc luôn ghi nhớ những giá trị cốt lõi của riêng mình, tránh xa việc chạy theo số đông hay chuẩn mực của xã hội, mà bám chặt vào chính trực giác và trí tuệ bên trong.")
+                .quote(CreatePersonalityTypeRequest.QuoteInfo.builder()
+                        .author("Johann Wolfgang Von Goethe")
+                        .content("Hãy đối xử với mọi người như thể đang tự đối xử với chính bản thân họ, và bạn sẽ giúp họ thực hiện điều đó dễ dàng hơn.")
+                        .build()
+                )
+                .personalityTypeGroup(PersonalityTypeGroup.DIPLOMAT)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        personalityTypeRepo.save(personalityType);
+    }
+
+    private void buildINFP(){
+        PersonalityType personalityType = PersonalityType.builder()
+                .code("INFP")
+                .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773881624/INFP_cfpu7s.png")
+                .name("Người hòa giải")
+                .traits(List.of(CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Introverted")
+                                .description("INFP thường hướng nội, tìm kiếm năng lượng và trí tuệ từ bên trong. Họ thích trầm tư và có xu hướng tự nhìn vào bên trong để hiểu bản thân và thế giới xung quanh.")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("iNtuitive")
+                                .description("INFP có xu hướng sử dụng trực giác để tìm hiểu thông tin và cảm nhận thế giới. Họ dễ dàng nhận biết các mô hình, liên hệ và ý nghĩa ẩn sau các sự kiện.")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Feeling")
+                                .description("INFP đặt trọng tâm vào cảm xúc và giá trị cá nhân. Họ có khả năng nhạy cảm với cảm xúc của người khác và có khả năng hiểu và chia sẻ những cảm xúc sâu sắc của bản thân.")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Perception")
+                                .description("INFP có xu hướng duy trì tư duy mở và linh hoạt. Họ thích giữ mở các tùy chọn và tránh quyết định cuối cùng. INFP thích tìm hiểu, khám phá và duy trì tư duy mở đối với các khía cạnh của cuộc sống.")
+                                .build()))
+                .strengths(List.of(
+                        "Tình cảm và sâu sắc: INFP có khả năng hiểu và cảm nhận sâu sắc về cảm xúc của người khác. Họ thường rất nhạy cảm và chân thành trong việc hiểu và chia sẻ những cảm xúc của mình và của người khác.",
+                        "Cực kì sáng tạo và đổi mới: INFP thường có trí tưởng tượng sáng tạo và khả năng tưởng tượng phong phú. Họ thường tìm kiếm các ý tưởng mới, với khả năng nhìn thấy các khía cạnh ẩn sau các vấn đề và thường tạo ra những giải pháp sáng tạo.",
+                        "Đam mê và tận tụy: INFP đam mê sâu sắc đối với những giá trị và mục tiêu cá nhân của mình. Họ có thể dành nhiều thời gian, năng lượng để theo đuổi những gì họ tin tưởng và quan tâm.",
+                        "Ý thức xã hội và nhân văn: INFP có một lòng yêu thương và quan tâm đến xã hội. Họ thường mong muốn góp phần vào cộng đồng và làm việc vì lợi ích chung. INFP thường có sự nhạy cảm đối với những nỗi đau, khó khăn của người khác và thường muốn giúp đỡ.",
+                        "Tôn trọng giá trị cá nhân: INFP thường rất tôn trọng giá trị cá nhân và đạo đức của mình. Họ thường dễ bị ảnh hưởng bởi những nguyên tắc và tiêu chuẩn của mình và sẵn lòng làm việc để sống theo những giá trị đó."
+                ))
+                .weaknesses(List.of(
+                        "Dễ bị xao lạc và stress: Với sự nhạy cảm cao và khả năng cảm nhận sâu sắc, INFP có thể dễ bị ảnh hưởng bởi môi trường xung quanh và cảm xúc của người khác. Điều này có thể khiến họ dễ bị stress và gặp khó khăn trong việc đối mặt với áp lực và xung đột.",
+                        "Quá lý tưởng hóa và khó chấp nhận thực tế: INFP thường có xu hướng nhìn nhận thế giới theo cách lý tưởng và khó chấp nhận thực tế không hoàn hảo. Điều này có thể dẫn đến sự thất vọng, khó khăn trong việc đối mặt với thực tế.",
+                        "Thiếu kiên nhẫn và quyết đoán: Vì tính cách hướng nội và sự linh hoạt trong tư duy, INFP có thể gặp khó khăn trong việc đưa ra quyết định và thực hiện hành động một cách quyết đoán. Họ có thể mất nhiều thời gian để xem xét tất cả các tùy chọn và dễ bị lạc trong quá trình ra quyết định.",
+                        "Dễ cảm thấy bị bỏ rơi và cô đơn: INFP thường có nhu cầu sâu sắc trong việc được kết nối với người khác và tìm kiếm sự đồng cảm. Khi cảm thấy không được chấp nhận hoặc không thể hiểu, họ có thể cảm thấy bị bỏ rơi và cô đơn.",
+                        "Khó khăn trong việc đặt giới hạn và tự bảo vệ: INFP thường có xu hướng đặt nhu cầu của người khác trước nhu cầu cá nhân. Họ có thể gặp khó khăn trong việc thiết lập giới hạn cá nhân, nói \"không\" và tự bảo vệ mình, dẫn đến việc làm việc quá sức và cảm thấy kiệt sức."
+                ))
+                .sources(List.of(
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("mbti.vn")
+                                .url("https://mbti.vn")
+                                .build(),
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("16personalities")
+                                .url("https://www.16personalities.com/vi")
+                                .build()
+                ))
+                .recommendedCareers(List.of(
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Tư vấn tâm lý hoặc tư vấn sinh viên")
+                                .explainText("INFPs có khả năng lắng nghe, thấu hiểu và cung cấp hỗ trợ cho người khác. Công việc tư vấn tâm lý hoặc tư vấn sinh viên có thể phù hợp với khả năng này.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Công việc xã hội")
+                                .explainText("INFPs thường quan tâm đến vấn đề xã hội và mong muốn thay đổi tích cực trong cộng đồng. Công việc trong lĩnh vực công tác xã hội, quản lý dự án phi lợi nhuận hoặc làm việc với tổ chức từ thiện có thể phù hợp với tính cách này.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Nhà văn hoặc biên tập viên")
+                                .explainText("INFPs thường có khả năng sáng tạo và cảm nhận sâu sắc về các giá trị và tính cách con người. Công việc như viết sách, biên tập nội dung hoặc làm việc trong lĩnh vực truyền thông có thể phù hợp với sở thích của INFPs.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Lĩnh vực nghệ thuật")
+                                .explainText("Với sự sáng tạo và cảm nhận sâu sắc, INFPs có thể phù hợp với lĩnh vực nghệ thuật như nghệ sĩ hội họa, diễn viên, nhạc sĩ, nhà thiết kế đồ họa, hoặc người làm thiết kế thời trang.")
+                                .build()
+                ))
+                .description("Là những người lý tưởng và đồng cảm, những người có tính cách INFP luôn khao khát những mối quan hệ sâu sắc, ý nghĩa, và họ cảm thấy được kêu gọi để giúp đỡ người khác. Do bản chất nhanh chóng và cạnh tranh của xã hội chúng ta, đôi khi họ có thể cảm thấy cô đơn hoặc vô hình, trôi dạt trong một thế giới dường như không đánh giá cao những đặc điểm làm nên sự độc đáo của họ. Tuy nhiên, chính vì người INFP tràn đầy sự nhạy cảm phong phú và óc sáng tạo sâu sắc mà họ có tiềm năng độc đáo để kết nối sâu sắc và khởi xướng những thay đổi tích cực.")
+                .quote(CreatePersonalityTypeRequest.QuoteInfo.builder()
+                        .author("J. R. R. Tolkien")
+                        .content("Tất cả vàng đều không lấp lánh; không phải những kẻ lang thang nào cũng lạc đường; cây cổ thụ cứng cáp sẽ không bao giờ lụi tàn; những rễ sâu không ngại băng giá.")
+                        .build()
+                )
+                .personalityTypeGroup(PersonalityTypeGroup.DIPLOMAT)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        personalityTypeRepo.save(personalityType);
+    }
+
+    private void buildENFJ(){
+        PersonalityType personalityType = PersonalityType.builder()
+                .code("ENFJ")
+                .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773882974/ENFJ_vqsgmc.png")
+                .name("Nhân vật chính")
+                .traits(List.of(CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Extraversion")
+                                .description("Ưa thích hướng ngoại, cảm giác được thúc đẩy và giàu năng lượng dành cho những người xung quanh")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("iNtuition")
+                                .description("Dùng trực giác nhiều hơn là cảm nhận cụ thể, vì vậy họ tập trung sự chú ý vào bức tranh toàn cảnh hơn là những chi tiết nhỏ nhặt, cũng như là những điều có thể xảy ra trong tương lai hơn là chú ý vào thực tại")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Feeling")
+                                .description("Đưa ra quyết định dựa vào cảm nhận, trạng thái cảm xúc tình cảm, giá trị cá nhân hơn là dựa vào các yếu tố khách quan hoặc quy luật logic")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Judgement")
+                                .description("Họ đánh giá một cách rất nguyên tắc và khả năng dự đoán của mình, sớm lập kế hoạch và tuân thủ theo nó thay vì là những quyết định tự phát, linh hoạt.")
+                                .build()))
+                .strengths(List.of(
+                        "Tận tâm và hướng ngoại: ENFJ là những người năng động và sẵn sàng góp phần vào xã hội. Họ thường cam kết với người khác và luôn sẵn lòng giúp đỡ, tạo ra môi trường ấm áp và hỗ trợ.",
+                        "Tạo ra mối quan hệ sâu sắc: ENFJ có khả năng xây dựng mối quan hệ mạnh mẽ và ý nghĩa. Họ hiểu và cảm thông với cảm xúc của người khác, giúp họ kết nối với người khác một cách tự nhiên.",
+                        "Lãnh đạo: ENFJ thường có khả năng lãnh đạo một cách tự nhiên và hiệu quả. Họ thường truyền cảm hứng, động viên và hướng dẫn người khác theo hướng tích cực.",
+                        "Đam mê và tận tâm: Họ thường rất tận tâm với những dự án mà họ tham gia. Sự đam mê này thường thể hiện trong cách họ đầu tư thời gian, năng lượng vào việc tạo ra sự thay đổi tích cực.",
+                        "Giải quyết xung đột và hòa hợp: ENFJ thường có khả năng giải quyết xung đột trong môi trường. Họ cố gắng hiểu và giải quyết mâu thuẫn một cách thoả đáng.",
+                        "Tư duy sáng tạo và trực giác: ENFJ thường có khả năng thấy được mặt sáng tạo trong những tình huống khác người. Họ thường xem xét các khả năng mới và thúc đẩy ý tưởng.",
+                        "Tổ chức và kế hoạch: Mặc dù họ thích sự linh hoạt, ENFJ vẫn có khả năng tổ chức, thực hiện kế hoạch. Họ thường tạo ra sự cân bằng giữa tình cảm và công việc."
+                ))
+                .weaknesses(List.of(
+                        "Làm theo cảm xúc: ENFJ thường dựa vào cảm xúc khi đưa ra quyết định, đôi khi bỏ qua logic và thực tế. Điều này có thể dẫn đến việc họ đưa ra những quyết định không cân nhắc hoặc không tốt cho bản thân.",
+                        "Kén chọn bạn bè: Mặc dù ENFJ dễ kết bạn với mọi người, họ lại khá kén chọn trong việc xây dựng mối quan hệ thân thiết. Điều này có thể dẫn đến sự cô đơn hoặc khó khăn trong việc tìm ra những người bạn thực sự đáng tin cậy.",
+                        "Quan tâm đến người khác: ENFJ thường dành quá nhiều thời gian và năng lượng để chăm sóc và hỗ trợ người khác, đặc biệt là trong mối quan hệ. Điều này có thể khiến họ bỏ qua chính bản thân mình và cảm thấy kiệt sức.",
+                        "Né tránh xung đột: ENFJ thường tránh xung đột, chiều theo người khác để duy trì hòa bình. Điều này có thể dẫn đến việc họ không thể hiện ý kiến riêng và bị thiệt hại trong mối quan hệ.",
+                        "Tự thất vọng: Vì ENFJ có kỳ vọng cao đối với bản thân và người khác, họ có thể tự thất vọng nếu không đạt được những mục tiêu hoặc kết quả như mong đợi. Điều này có thể gây ra cảm giác bất an.",
+                        "Dễ bị áp đặt: Do mong muốn duy trì hòa bình và hài hòa, ENFJ có thể dễ dàng bị áp đặt ý kiến hoặc quan điểm của người khác, mất đi tính cá nhân.",
+                        "Khó khăn trong việc thiết lập giới hạn: Họ thường không muốn từ chối người khác và có thể gặp khó khăn trong việc thiết lập giới hạn cá nhân, dẫn đến việc họ làm việc quá sức.",
+                        "Sợ mất mối quan hệ: ENFJ thường có sự sợ hãi về việc mất đi mối quan hệ hoặc không được người khác đánh giá cao, điều này có thể dẫn đến việc họ đồng tình với những thứ mà họ thực sự không tán thành."
+                ))
+                .sources(List.of(
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("mbti.vn")
+                                .url("https://mbti.vn")
+                                .build(),
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("16personalities")
+                                .url("https://www.16personalities.com/vi")
+                                .build()
+                ))
+                .recommendedCareers(List.of(
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Tư vấn và Tâm lý học")
+                                .explainText("Sự đồng cảm sâu sắc của ENFJ và khả năng lắng nghe tốt làm cho họ phù hợp trong lĩnh vực tư vấn tâm lý, tư vấn sự nghiệp hoặc tâm lý học.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Giáo dục và Đào tạo")
+                                .explainText("ENFJ có khả năng truyền đạt kiến thức một cách hiệu quả và tạo môi trường học tập tích cực. Họ có thể trở thành giáo viên, huấn luyện viên hoặc giảng dạy trong các khóa học đào tạo.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Tổ chức sự kiện và Quản lý dự án")
+                                .explainText("ENFJ có khả năng tổ chức và quản lý sự kiện, dự án hoặc chương trình. Họ có thể làm việc trong lĩnh vực quản lý sự kiện, quản lý dự án hoặc sản xuất.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Y tế và Chăm sóc sức khỏe")
+                                .explainText("ENFJ thường thích chăm sóc người khác và có thể làm việc trong lĩnh vực y tế, y tá, tư vấn dinh dưỡng hoặc chăm sóc sức khỏe tinh thần.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Truyền thông và Quan hệ công chúng")
+                                .explainText("ENFJ có khả năng giao tiếp xuất sắc và có thể làm việc trong lĩnh vực truyền thông, quan hệ công chúng, truyền hình, truyền thông xã hội hoặc biên kịch.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Nhân sự và Phát triển nguồn nhân lực")
+                                .explainText("ENFJ có khả năng xây dựng môi trường làm việc tích cực. Họ có thể làm trong lĩnh vực nhân sự, phát triển nguồn nhân lực hoặc đào tạo nhân viên.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Từ thiện và Tình nguyện")
+                                .explainText("ENFJ thường thích giúp đỡ cộng đồng và có thể làm việc trong các tổ chức từ thiện, hoạt động tình nguyện hoặc làm việc trong các dự án xã hội.")
+                                .build()
+
+                ))
+                .description("ENFJ là những nhà lãnh đạo bẩm sinh, điều này lý giải tại sao nhiều chính trị gia, huấn luyện viên và giáo viên lại thuộc tính cách này. Niềm đam mê và sức lôi cuốn của họ có khả năng truyền cảm hứng cho mọi người, không chỉ trong sự nghiệp mà còn trong mọi phương diện đời sống – bao gồm cả các mối quan hệ. Ít điều gì mang đến cho ENFJ niềm hạnh phúc và mãn nguyện hơn việc giúp những người thân yêu vươn tới phiên bản tốt nhất của chính họ.")
+                .quote(CreatePersonalityTypeRequest.QuoteInfo.builder()
+                        .author("Malala Yousafzai")
+                        .content("Khi cả thế giới im lặng, một giọng nói cất lên cũng đủ trở nên mạnh mẽ.")
+                        .build()
+                )
+                .personalityTypeGroup(PersonalityTypeGroup.DIPLOMAT)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        personalityTypeRepo.save(personalityType);
+    }
+
+    private void buildENFP(){
+        PersonalityType personalityType = PersonalityType.builder()
+                .code("ENFP")
+                .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773886707/ENFP_qusyl1.png")
+                .name("Nhà hoạt động")
+                .traits(List.of(CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Extraversion")
+                                .description("Ưa thích hướng ngoại, cảm giác được thúc đẩy và giàu năng lượng dành cho những người xung quanh")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("iNtuition")
+                                .description("Dùng trực giác nhiều hơn là cảm nhận cụ thể, vì vậy họ tập trung sự chú ý vào bức tranh toàn cảnh hơn là những chi tiết nhỏ nhặt, cũng như là những điều có thể xảy ra trong tương lai hơn là chú ý vào thực tại")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Feeling")
+                                .description("Đưa ra quyết định dựa vào cảm nhận, trạng thái cảm xúc tình cảm, giá trị cá nhân hơn là dựa vào các yếu tố khách quan hoặc quy luật logic")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Perception")
+                                .description("Họ không vội đánh giá hay sớm ra một quyết định phán xét quan trọng nào đó , thay vào đó luôn nhìn nhận một cách linh hoạt vấn đề và có thể thay đổi tùy hoàn cảnh.")
+                                .build()))
+                .strengths(List.of(
+                        "Sáng tạo và tưởng tượng phong phú: ENFP có khả năng tạo ra những ý tưởng độc đáo và tưởng tượng phong phú. Sự sáng tạo của họ có thể đóng một vai trò quan trọng trong việc giải quyết vấn đề và tạo ra các giải pháp mới.",
+                        "Khả năng giao tiếp xuất sắc: ENFP thường có khả năng giao tiếp tốt, thông minh và dễ dàng giao lưu với mọi người. Họ có thể để lại ẩn ý mà người khác không thấy được và kết nối với người khác một cách nhanh chóng.",
+                        "Sự cam kết với con người và giá trị cá nhân: ENFP thường cam kết chân thành đến các mối quan hệ và giá trị cá nhân của họ. Họ có thể đổi mới và thấy độc đáo trong người khác, đồng thời khuyến khích sự phát triển và tôn trọng các giá trị riêng của mỗi người.",
+                        "Đam mê và nhiệt huyết: ENFP thường có đam mê mạnh mẽ và nhiệt huyết với những việc họ quan tâm. Họ có thể đến nơi xa, cố gắng và đầy tự động để đạt được mục tiêu của mình.",
+                        "Kỹ năng xử lý tốt các mối quan hệ xã hội: ENFP có khả năng kết nối tốt với người khác, tự tin và thân thiện. Họ thường được người khác yêu thích vì khả năng nghe và hỗ trợ chu đáo.",
+                        "Tinh thần khiên hướng xã hội: ENFP thường quan tâm đến xã hội và có tinh thần khiên  hướng xã hội. Họ muốn đóng góp và thay đổi cho xã hội vì một tương lai tốt đẹp hơn.",
+                        "Linh hoạt và đa dạng: ENFP thường linh hoạt và có khả năng thích nghi tốt trong các tình huống khác nhau. Họ thường đa dạng về kỹ năng và sự quan tâm."
+                ))
+                .weaknesses(List.of(
+                        "Khẩu chiến và không kiên nhẫn: ENFP có thể có sự dễ bị động tâm và căng thẳng trong các tình huống căng thẳng hoặc áp lực. Họ có thể nhanh chóng mất kiên nhẫn  và thay đổi quan điểm.",
+                        "Dễ bị phân tâm: Do sự tư duy đa dạng và ham thích thử nghiệm. Sự phân tâm và mất phương hướng đôi khi là điểm yếu của ENFP. Không giống như những người ngoại hướng khác, họ cần thời gian để cân nhắc và đảm bảo họ đang hướng đúng theo giá trị của mình. Một số ENFP có khả năng cân bằng bản thân khá tốt, trong khi một số khác có thể từ bỏ dự án một cách dễ dàng nếu họ nhận thấy có cơ hội tiềm năng khác.",
+                        "Không kiên định trong quyết định: ENFP đôi khi có thể đưa ra các phán đoán sai lầm nghiêm trọng. Dù có khả năng sử dụng trực giác để nhận thức sự thật về một người hoặc tình huống, đôi khi họ có thể rơi vào các kết luận sai lầm.",
+                        "Cảm xúc không ổn định: Các ENFP có thể có sự biến đổi cảm xúc đa dạng và không ổn định trong một khoảng thời gian ngắn.",
+                        "Thiếu quy tắc và kiểm soát: ENFP có thể có thế dễ dàng bị ảnh hưởng bởi cảm xúc và có thể thiếu quy tắc và kiểm soát trong việc đưa ra quyết định."
+                ))
+                .sources(List.of(
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("mbti.vn")
+                                .url("https://mbti.vn")
+                                .build(),
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("16personalities")
+                                .url("https://www.16personalities.com/vi")
+                                .build()
+                ))
+                .recommendedCareers(List.of(
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Nghệ thuật và Sáng tạo")
+                                .explainText("Nghệ thuật sân khấu, hội họa, âm nhạc, vũ đạo, viết lách, thiết kế đồ họa.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Giáo dục và Huấn luyện")
+                                .explainText("Giảng dạy, đào tạo, huấn luyện viên, tư vấn giáo dục.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Truyền thông xã hội")
+                                .explainText("Biên tập viên, nhà báo, quản lý truyền thông, quảng cáo, PR.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Sản xuất nội dung sáng tạo")
+                                .explainText("Youtuber, người tạo nội dung trên mạng xã hội, podcaster.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Nghiên cứu xã hội và Hành vi con người")
+                                .explainText("Tâm lý học, xã hội học, nhân học, tư vấn tâm lý.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Tư vấn và Tổ chức sự kiện")
+                                .explainText("Tư vấn tâm lý, tư vấn hướng nghiệp, tổ chức sự kiện, quản lý dự án.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Y tế và Chăm sóc sức khỏe tinh thần")
+                                .explainText("Tư vấn tâm lý, tư vấn hướng dẫn dinh dưỡng, nhân viên chăm sóc sức khỏe tinh thần.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Kinh doanh sáng tạo")
+                                .explainText("Khởi nghiệp, quản lý dự án, quản lý sản phẩm, quản lý nhân sự.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Lĩnh vực xã hội và Phi lợi nhuận")
+                                .explainText("Công tác xã hội, quản lý dự án phi lợi nhuận, tổ chức sự kiện từ thiện.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Công nghệ thông tin và Phát triển phần mềm")
+                                .explainText("Thiết kế giao diện người dùng, phát triển ứng dụng, quản lý dự án công nghệ thông tin.")
+                                .build()
+                ))
+                .description("Những người thuộc loại tính cách ENFP (Nhà Hoạt Động) đích thực là những tâm hồn tự do: hướng ngoại, nhiệt tình và cởi mở. Với thái độ sống sôi nổi, ENFP luôn nổi bật giữa đám đông. Dù họ có thể trở thành “linh hồn” của bữa tiệc, họ không chỉ quan tâm đến niềm vui nhất thời. Các cá nhân này ẩn chứa một chiều sâu nội tâm đầy xúc cảm, khao khát xây dựng những kết nối giàu ý nghĩa với người khác.")
+                .quote(CreatePersonalityTypeRequest.QuoteInfo.builder()
+                        .author("Oriah Mountain Dreamer")
+                        .content("Tôi không quan tâm bạn mưu sinh bằng cách nào. Tôi muốn biết bạn khao khát điều gì – và liệu bạn có dám ước mơ để đạt được khát khao đó hay không.")
+                        .build()
+                )
+                .personalityTypeGroup(PersonalityTypeGroup.DIPLOMAT)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        personalityTypeRepo.save(personalityType);
+    }
+
+    private void buildISTJ(){
+        PersonalityType personalityType = PersonalityType.builder()
+                .code("ISTJ")
+                .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773888419/ISTJ_zivr61.png")
+                .name("Nhà tổ chức")
+                .traits(List.of(CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Introverted")
+                                .description("ISTJ có xu hướng tập trung vào bản thân và thường cảm thấy thoải mái khi ở một mình. Họ cần thời gian một mình để tái tạo năng lượng và xử lý thông tin.")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Sensing")
+                                .description("ISTJ lấy thông tin từ thực tế và các chi tiết cụ thể. Họ tin tưởng vào kinh nghiệm, sự thực tế, thích làm việc với những gì có sẵn và tổ chức công việc theo cách có trật tự.")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Thinking")
+                                .description("ISTJ dựa vào logic và lý thuyết để đưa ra quyết định. Họ có xu hướng phân tích thông tin một cách khách quan và chọn lựa dựa trên cơ sở logic thay vì cảm xúc.")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Judgement")
+                                .description("ISTJ có khuynh hướng định rõ các mục tiêu và xây dựng kế hoạch để đạt được chúng. Họ thích sự cụ thể, có trật tự và thích hoàn thành công việc một cách sớm nhất có thể.")
+                                .build()))
+                .strengths(List.of(
+                        "Tổ chức và trật tự: ISTJ có khả năng sắp xếp công việc, quản lý thời gian và tạo ra một môi trường có trật tự. Họ thường rất hiệu quả trong việc hoàn thành nhiệm vụ và đạt được kết quả.",
+                        "Đáng tin cậy: ISTJ là những người đáng tin cậy và trung thành. Họ luôn tuân thủ cam kết luôn hoàn thành công việc một cách chính xác và đúng hẹn.",
+                        "Tận tâm và trách nhiệm: ISTJ đặt mức độ trách nhiệm cao luôn cam kết với nhiệm vụ và trách nhiệm của mình. Họ là người làm việc chăm chỉ không ngại đưa ra nỗ lực để đạt được mục tiêu.",
+                        "Kiên nhẫn: ISTJ có khả năng kiên nhẫn và sẵn lòng đầu tư thời gian và công sức để hoàn thành công việc một cách tỉ mỉ. Họ có thể chịu được áp lực, không dễ bị phân tâm trong quá trình làm việc.",
+                        "Suy nghĩ logic: ISTJ sử dụng lý thuyết và logic để đưa ra quyết định. Họ có khả năng phân tích thông tin một cách khách quan và đưa ra những quyết định dựa trên cơ sở logic.",
+                        "Sự nhạy bén với chi tiết: ISTJ thường chú ý đến chi tiết và không bỏ qua những thông tin quan trọng. Điều này giúp họ làm việc một cách chính xác và đảm bảo chất lượng công việc.",
+                        "Tư duy thực tế: ISTJ có cái nhìn thực tế và tiếp cận vấn đề từ góc độ thực tế. Họ tìm hiểu và áp dụng những phương pháp, giải pháp thực tế để giải quyết các tình huống."
+                ))
+                .weaknesses(List.of(
+                        "Khó thích nghi với thay đổi: ISTJ thường có khó khăn trong việc thích nghi với những thay đổi đột ngột hoặc không được thông báo trước. Họ có xu hướng ưa thích sự ổn định và sự không thay đổi.",
+                        "Quá chú trọng chi tiết: ISTJ trở nên quá chú trọng vào các chi tiết nhỏ, dẫn đến việc mất đi cái nhìn tổng thể hoặc tốn nhiều thời gian và năng lượng cho những chi tiết không quan trọng.",
+                        "Khó chấp nhận ý kiến mới: ISTJ có thể có sự khó khăn trong việc chấp nhận ý kiến và quan điểm khác. Họ có xu hướng tin tưởng vào cách làm truyền thống và khá khó thay đổi quan điểm của mình.",
+                        "Thích tuân thủ quá mức: ISTJ có xu hướng tuân thủ quá mức vào quy tắc, quy trình và nguyên tắc, đôi khi không linh hoạt trong việc tìm ra giải pháp sáng tạo hoặc khác biệt.",
+                        "Ít linh hoạt và thích cố định: ISTJ có thể thiếu sự linh hoạt trong quan điểm và phong cách làm việc, đôi khi khó thích nghi với các phương pháp mới hay cách tiếp cận khác.",
+                        "Khó hiểu và khó thể hiện cảm xúc: ISTJ gặp khó khăn trong việc hiểu và thể hiện cảm xúc cá nhân. Họ có xu hướng trữ tình và không chia sẻ cảm xúc của mình một cách rõ ràng.",
+                        "Quá chú trọng quá khứ: ISTJ có thể dành quá nhiều thời gian suy nghĩ về quá khứ và không dễ dàng tiếp nhận hoặc thích ứng với tương lai."
+                ))
+                .sources(List.of(
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("mbti.vn")
+                                .url("https://mbti.vn")
+                                .build(),
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("16personalities")
+                                .url("https://www.16personalities.com/vi")
+                                .build()
+                ))
+                .recommendedCareers(List.of(
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Kế toán")
+                                .explainText("ISTJ có tính cẩn thận, tỉ mỉ, tuân thủ quy tắc, điều này phù hợp với công việc kế toán và xử lý thông tin tài chính.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Quản lý dự án")
+                                .explainText("Khả năng tổ chức, lập kế hoạch và kiểm soát của ISTJ là lợi thế trong vai trò quản lý dự án.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Quản lý nguồn nhân lực")
+                                .explainText("Tính trung thực, trách nhiệm và sự cẩn thận của ISTJ làm cho họ trở thành người quản lý nhân sự hiệu quả.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Y tá hoặc kỹ thuật viên y tế")
+                                .explainText("ISTJ có khả năng làm việc chính xác và tuân thủ quy trình y tế, điều này phù hợp với vai trò y tá hoặc kỹ thuật viên y tế.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Kỹ sư")
+                                .explainText("ISTJ có kỹ năng tư duy logic và phân tích, điều này phù hợp với lĩnh vực kỹ thuật và công nghệ.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Luật sư")
+                                .explainText("ISTJ có tính cẩn thận và khả năng tư duy phân tích, điều này phù hợp với lĩnh vực luật pháp.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Kiểm toán viên")
+                                .explainText("Tính trung thực, tỉ mỉ và khả năng phân tích của ISTJ làm cho họ phù hợp với vai trò kiểm toán viên.")
+                                .build()
+                ))
+                .description("Những người mang kiểu tính cách ISTJ (Nhà tổ chức) luôn nói điều họ nghĩ và giữ đúng lời hứa. Khi họ cam kết làm gì đó, họ sẽ dốc lòng hoàn thành. Vốn tôn trọng trật tự và truyền thống, ISTJ thường hứng thú với những tổ chức, môi trường làm việc và hình thức giáo dục có tôn ti và quy định rõ ràng.")
+                .quote(CreatePersonalityTypeRequest.QuoteInfo.builder()
+                        .author("Denzel Washington")
+                        .content("Tôi sẽ thật sự lo sợ khi không vận dụng được bất kỳ khả năng trời phú nào. Sự trì hoãn và lười biếng sẽ càng làm tôi sợ hãi hơn bao giờ hết.")
+                        .build()
+                )
+                .personalityTypeGroup(PersonalityTypeGroup.SENTINEL)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        personalityTypeRepo.save(personalityType);
+    }
+
+    private void buildISFJ(){
+        PersonalityType personalityType = PersonalityType.builder()
+                .code("ISFJ")
+                .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773889721/ISFJ_ajuhe7.png")
+                .name("Người bảo vệ")
+                .traits(List.of(CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Introversion")
+                                .description("ISFJ có xu hướng tìm kiếm và sạc năng lượng từ bên trong. Họ thích thời gian một mình để nạp lại năng lượng để tập trung vào nội tâm của mình.")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Sensing")
+                                .description("ISFJ tập trung vào thông tin cụ thể và chi tiết trong thế giới hiện tại. Họ lưu ý đến những sự thật, dữ liệu và thông tin mà họ thu thập thông qua các giác quan.")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Feeling")
+                                .description("ISFJ đặt trọng tâm vào giá trị cá nhân và cảm xúc trong quyết định của mình. Họ quan tâm đến tình cảm nhu cầu của người khác, thường sẵn lòng cống hiến và chăm sóc cho người thân yêu.")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Judging")
+                                .description("ISFJ có xu hướng quyết định theo cách kỷ luật và theo quy tắc. Họ thích có kế hoạch, tổ chức và sự ổn định. Để đưa ra các quyết định nhóm tính cách này thường dựa trên những thông tin cụ thể và nhận thức của họ về giá trị cá nhân.")
+                                .build()))
+                .strengths(List.of(
+                        ""
+                ))
+                .weaknesses(List.of(
+                        "Hỗ trợ: Tính cách ISFJ thực sự thích giúp đỡ người khác. Họ vui vẻ chia sẻ kiến thức, sự chú ý, chuyên môn của mình với bất kỳ ai cần. Những người có kiểu tính cách này cố gắng đạt được các tình huống đôi bên cùng có lợi, chọn làm việc theo nhóm thay vì cạnh tranh bất cứ khi nào có thể.",
+                        "Đáng tin cậy: Thay vì làm việc một cách rời rạc, hào hứng khiến mọi thứ chỉ hoàn thành một nửa, ISFJ rất tỉ mỉ và cẩn thận. Họ thực hiện một cách tiếp cận ổn định, đảm bảo rằng mọi thứ được thực hiện theo tiêu chuẩn cao nhất và thường vượt xa những gì được yêu cầu.",
+                        "Quan sát: Các ISFJ có biệt tài chú ý đến mọi thứ, đặc biệt là về người khác. Họ chú ý đến những chi tiết nhỏ nhất về những gì ai đó nói và làm, mang đến cho họ những hiểu biết bất ngờ về cuộc sống và cảm xúc của người khác.",
+                        "Nhiệt tình: Khi đạt được mục tiêu, ISFJ áp dụng tất cả năng lực của họ vào điều gì đó mà họ tin rằng sẽ tạo ra sự khác biệt thực sự, tích cực trong cuộc sống.",
+                        "Chăm chỉ: Những ISFJ không chỉ hoàn thành công việc của họ và tự hào về điều đó. Những người có kiểu tính cách này thường hình thành một tình cảm gắn bó với các dự án và tổ chức mà họ đã cống hiến hết mình, họ sẽ không nghỉ ngơi cho đến khi hoàn thành phần của mình.",
+                        "Thực tế: Tính cách ISFJ khi quyết định hoàn thành bất cứ điều gì, họ thường tìm kiếm phương pháp thiết thực nhất để đạt được nó bằng cách xem xét các sự kiện và chi tiết."
+                ))
+                .sources(List.of(
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("mbti.vn")
+                                .url("https://mbti.vn")
+                                .build(),
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("16personalities")
+                                .url("https://www.16personalities.com/vi")
+                                .build()
+                ))
+                .recommendedCareers(List.of(
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Y tá, điều dưỡng")
+                                .explainText("ISFJ có khả năng chăm sóc người khác và quan tâm tới sức khỏe và sự trị liệu. Công việc y tá, điều dưỡng đảm bảo cho họ thực hiện vai trò chăm sóc và hỗ trợ cho các bệnh nhân.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Giáo viên")
+                                .explainText("ISFJ có sự tương tác tốt và sẵn lòng hỗ trợ. Việc làm giáo viên cho phép họ chia sẻ kiến thức và hướng dẫn học sinh, đồng thời tạo ra một môi trường học tập thuận lợi.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Luật sư")
+                                .explainText("ISFJ thường trung thành và tuân thủ quy tắc. Việc làm luật sư áp dụng kiến thức pháp lý và giúp đỡ người khác trong việc giải quyết các vấn đề pháp lý là môi trường khá phù hợp với họ.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Quản lý sự kiện")
+                                .explainText("ISFJ có khả năng tổ chức tốt và chú trọng vào chi tiết. Công việc quản lý sự kiện yêu cầu kỹ năng lập kế hoạch, tổ chức và điều phối các hoạt động sự kiện.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Ngân hàng và tài chính")
+                                .explainText("ISFJ với tính quản lý rủi ro và tinh thần trách nhiệm lên hàng đầu và luôn sẵn lòng đáp ứng các yêu cầu, quy định. Việc quản lý tài sản, xử lý giao dịch, đảm bảo tuân thủ quy tắc và luật pháp là rất quan trọng.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Tư vấn sức khỏe tâm thần")
+                                .explainText("ISFJ thường lắng nghe và đồng cảm với người khác. Việc làm tư vấn viên sức khỏe tâm thần thích hợp cho họ hỗ trợ, cung cấp lời khuyên cho những người đang trải qua khó khăn tâm lý.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Quản lý nhân sự")
+                                .explainText("Sự chăm chỉ và sắp xếp công việc một cách cẩn thận. Công việc quản lý nhân sự cho phép họ quản lý và phát triển nguồn nhân lực trong tổ chức.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Nhân viên hành chính")
+                                .explainText("ISFJ có khả năng làm việc tỉ mỉ, xử lý công việc văn phòng. Công việc nhân viên hành chính đòi hỏi sự tổ chức, sắp xếp và hiệu quả trong việc quản lý các công việc văn phòng hàng ngày.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Tổ chức phi lợi nhuận")
+                                .explainText("ISFJ thường có ý thức xã hội cao mong muốn đóng góp cho cộng đồng. Làm việc trong các tổ chức phi lợi nhuận phù hợp cho ISFJ thực hiện sứ mệnh xã hội và hỗ trợ những người khó khăn.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Chuyên viên tư vấn")
+                                .explainText("ISFJ có xu hướng tư vấn và hỗ trợ người khác trong các vấn đề cá nhân và tâm lý. Công việc tư vấn có thể bao gồm tư vấn học tập, tư vấn sức khỏe hoặc tư vấn sự nghiệp.")
+                                .build()
+                ))
+                .description("Đây là kiểu tính cách năng lực và hành động với rất nhiều tài năng đa dạng. Dù nhạy cảm và giàu lòng trắc ẩn, ISFJ vẫn sở hữu đầu óc phân tích xuất sắc và khả năng chú ý đến chi tiết. Và mặc dù tính cách có phần dè dặt, họ lại thường có kỹ năng giao tiếp tốt và các mối quan hệ xã hội bền vững. Những con người này thực sự còn hơn cả tổng hòa các đặc điểm riêng lẻ, và những thế mạnh đa dạng của họ tỏa sáng ngay trong những khía cạnh bình thường nhất của cuộc sống hàng ngày.")
+                .quote(CreatePersonalityTypeRequest.QuoteInfo.builder()
+                        .author("Brian Tracy")
+                        .content("Tình yêu chỉ lớn lên bằng sự sẻ chia. Bạn chỉ có thể có được nhiều hơn cho bản thân bằng cách trao đi cho người khác.")
+                        .build()
+                )
+                .personalityTypeGroup(PersonalityTypeGroup.SENTINEL)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        personalityTypeRepo.save(personalityType);
+    }
+
+    private void buildESTJ(){
+        PersonalityType personalityType = PersonalityType.builder()
+                .code("ESTJ")
+                .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773891122/ESTJ_cjrmyf.png")
+                .name("Người điều hành")
+                .traits(List.of(CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Extraversion")
+                                .description("Ưa thích hướng ngoại, cảm giác được thúc đẩy và giàu năng lượng dành cho những người xung quanh")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Sensing")
+                                .description("Dùng cảm nhận cụ thể nhiều hơn là trực giác, vì vậy họ tập trung sự chú ý vào những chi tiết nhỏ nhặt hơn là bức tranh toàn cảnh, cũng như là những điều xảy ra ngay tại thực tại hơn là những thứ có thể đến trong tương lai")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Thinking")
+                                .description("Suy nghĩ lý trí hơn là cảm xúc, xu hướng coi trọng các tiêu chí khách quan hơn là sở thích cá nhân. Khi đưa ra một quyết định thì thường dựa vào sự logic hơn là yếu tố xã hội")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Judgement")
+                                .description("Họ đánh giá một cách rất nguyên tắc và khả năng dự đoán của mình, sớm lập kế hoạch và tuân thủ theo nó thay vì là những quyết định tự phát, linh hoạt")
+                                .build()))
+                .strengths(List.of(
+                        "ESTJ luôn khao khát tạo ra một hệ thống tổ chức hoàn hảo, đảm bảo rằng mọi hoạt động diễn ra suôn sẻ trong môi trường xung quanh. Điều này đặc biệt rõ ràng trong vai trò của họ là những nhà quản lý xuất sắc. Với khả năng giao tiếp xuất sắc, họ có thể truyền đạt ý tưởng, hướng dẫn, hỗ trợ và thiết lập các quy trình làm việc hiệu quả cho mọi người và hệ thống xã hội",
+                        "Tận tâm và trách nhiệm: ESTJ rất tận tâm và có trách nhiệm. Họ sẵn sàng làm mọi thứ có thể để thực hiện lời hứa của mình.",
+                        "Sự thẳng thắn: Những người ESTJ có ý chí mạnh mẽ và không ngại bảo vệ và thể hiện ý kiến của mình, ngay cả khi đối mặt với những đối thủ mạnh mẽ. Ví dụ, nếu một cấp dưới không đủ năng lực hoặc đơn giản là lười biếng, ESTJ sẽ không ngần ngại thể hiện sự phẫn nộ. Họ tuân thủ nguyên tắc của mình, ngay cả khi mọi người đối nghịch.",
+                        "ESTJ có đầu óc tỉnh táo, hiếm khi gặp vấn đề với cảm xúc của mình, họ để những cảm giác tiêu cực trôi qua.",
+                        "Sự kiên nhẫn, trung thành và đáng tin cậy: Họ thể hiện tính ngay thẳng và trung thực, xây dựng sự tin tưởng. Hứa gì làm nấy, điều này khiến họ trở thành một  thành viên đáng tin cậy trong tổ chức, cộng đồng và gia đình.",
+                        "Tính tổ chức và lãnh đạo: ESTJ là những tổ chức viên xuất sắc, luôn cam kết tuân theo tiêu chuẩn và sự trung thực rõ ràng. Họ là những nhà lãnh đạo đáng tin cậy. Họ không gặp khó khăn khi giao nhiệm vụ cho người khác một cách khách quan công bằng, điều này khiến họ trở thành những nhà quản trị xuất sắc.",
+                        "Các ESTJ thích tạo ra trật tự, vì họ biết rằng sự hỗn loạn có thể tạo ra sự không đoán trước được. Họ luôn cố gắng thiết lập sự thống nhất và trật tự trong môi trường bằng cách xây dựng các cấu trúc, vai trò và quy tắc rõ ràng."
+                ))
+                .weaknesses(List.of(
+                        "Khó linh hoạt: ESTJ có thể tỏ ra cứng đầu và khó thay đổi quan điểm khi họ đã đưa ra một quyết định. Điều này có thể gây ra xung đột trong tình huống yêu cầu sự linh hoạt và thích nghi.",
+                        "Áp đặt ý kiến: Họ có thể có xu hướng áp đặt ý kiến cá nhân lên người khác mà không tôn trọng ý kiến và quan điểm của họ. Điều này có thể khiến mối quan hệ bị căng thẳng.",
+                        "Quá chú trọng đến chi tiết: ESTJ thường quá chú trọng vào chi tiết, khó có cái nhìn tổng quan. Điều này có thể làm cho họ mất thời gian và tạo ra mất cân bằng trong quản lý thời gian.",
+                        "Thiếu linh hoạt trong tư duy: Họ có thể khó thích nghi với những tình huống mới hoặc không quen thuộc, và thiếu khả năng tư duy sáng tạo trong việc giải quyết vấn đề.",
+                        "Xu hướng cảm xúc bên trong: Mặc dù họ có thể không thể hiện cảm xúc mở rộ, nhưng ESTJ cũng có thể bị ảnh hưởng bởi cảm xúc bên trong, dẫn đến sự căng thẳng và áp lực.",
+                        "Khó thể hiện tình cảm: Họ khó thể hiện tình cảm một cách mở cửa và nhấn mạnh vào việc thể hiện tình cảm thông qua việc hành động thay vì lời nói.",
+                        "Khó chấp nhận thay đổi: ESTJ có thể không thoải mái với sự thay đổi và khó lòng chấp nhận môi trường hoặc tình huống mới.",
+                        "Tự ái và kiêu căng: Một số ESTJ đôi khi hay tự ái và kiêu căng, tin rằng họ luôn đúng và không chấp nhận ý kiến khác."
+                ))
+                .sources(List.of(
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("mbti.vn")
+                                .url("https://mbti.vn")
+                                .build(),
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("16personalities")
+                                .url("https://www.16personalities.com/vi")
+                                .build()
+                ))
+                .recommendedCareers(List.of(
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Quản lý")
+                                .explainText("ESTJ thường là người lãnh đạo tự nhiên và có khả năng quản lý tốt. Họ thích điều hành, lập kế hoạch và đảm bảo mọi thứ diễn ra theo đúng trật tự.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Kế toán và Tài chính")
+                                .explainText("Với tính chính xác, sự tập trung vào chi tiết, ESTJ phù hợp trong lĩnh vực kế toán, tài chính, kiểm toán.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Y tế")
+                                .explainText("Trong lĩnh vực y tế, ESTJ có thể làm việc trong quản lý cơ sở y tế, quản lý bệnh viện hoặc các vị trí liên quan đến quản lý y tế.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Luật sư")
+                                .explainText("Tính trung thực và đáng tin cậy của ESTJ thường hợp với ngành luật, đặc biệt là trong việc thực thi luật pháp.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Hành chính và Quản trị nhân sự")
+                                .explainText("ESTJ có khả năng quản lý và làm việc với con người, nên họ phù hợp trong lĩnh vực quản trị nhân sự, hành chính.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Ngành công nghiệp thực phẩm và đồ uống")
+                                .explainText("Công việc trong ngành thực phẩm và đồ uống, đặc biệt là trong quản lý nhà hàng hoặc dịch vụ thực phẩm, cũng phù hợp với tính cách ESTJ.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Quản lý dự án")
+                                .explainText("Sự tổ chức và khả năng quản lý tốt của ESTJ khiến họ có thể thành công trong việc quản lý dự án luôn đảm bảo tiến độ thực hiện.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Quân đội và Cảnh sát")
+                                .explainText("ESTJ thường có khả năng lãnh đạo và tuân thủ quy tắc, nên họ thường phù hợp với ngành quân đội,  lĩnh vực an ninh.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Quản lý chuỗi cung ứng")
+                                .explainText("Với khả năng quản lý tình huống và tập trung vào chi tiết, ESTJ có thể làm việc trong lĩnh vực quản lý chuỗi cung ứng.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Ngành công nghiệp sản xuất")
+                                .explainText("Trong ngành công nghiệp sản xuất, ESTJ có thể thích nghi tốt với quá trình sản xuất và quản lý hiệu suất.")
+                                .build()
+                ))
+                .description("Những người thuộc loại tính cách ESTJ (Người điều hành) là hiện thân của truyền thống và trật tự, dựa vào nhận thức về điều đúng, sai và lẽ phải để gắn kết gia đình và cộng đồng. Trân trọng giá trị của sự trung thực và tận tụy, ESTJs thường trở thành những người cố vấn dày dạn kinh nghiệm, luôn lập kế hoạch cẩn thận và dẫn dắt mọi người qua những thời điểm khó khăn. Họ vui vẻ dẫn đầu những con đường gian nan, và không bỏ cuộc ngay cả khi tình thế trở nên áp lực.")
+                .quote(CreatePersonalityTypeRequest.QuoteInfo.builder()
+                        .author("Edmund Burke")
+                        .content("Trật tự tốt là nền tảng của mọi thứ.")
+                        .build()
+                )
+                .personalityTypeGroup(PersonalityTypeGroup.SENTINEL)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        personalityTypeRepo.save(personalityType);
+    }
+
+    private void buildESFJ(){
+        PersonalityType personalityType = PersonalityType.builder()
+                .code("ESFJ")
+                .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773892586/ESFJ_krr1bp.png")
+                .name("Lãnh sự")
+                .traits(List.of(CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Extraversion")
+                                .description("ESFJ thích giao tiếp và tương tác với người khác. Họ thường có năng lượng từ việc tiếp xúc xã hội và thể hiện sự quan tâm đến người khác.")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Sensing")
+                                .description("ESFJ tập trung vào thực tế và các chi tiết cụ thể của cuộc sống. Họ nhạy bén với những điều xảy ra xung quanh và thường tìm kiếm sự ổn định và an ninh.")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Feeling")
+                                .description("ESFJ dựa vào cảm giác và giá trị cá nhân để đưa ra quyết định. Họ quan tâm đến cảm xúc của người khác và thường sẵn lòng giúp đỡ người khác.")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Judgement")
+                                .description("ESFJ có xu hướng tổ chức và có kế hoạch. Họ thích sắp xếp công việc và thời gian một cách có hệ thống, và thường muốn hoàn thành công việc theo lịch trình.")
+                                .build()))
+                .strengths(List.of(
+                        "Tận tâm và trung thành: ESFJ là những người có sự tận tâm và đáng tin cậy đối với gia đình và bạn bè. Họ sẵn lòng cống hiến thời gian và năng lượng để giúp đỡ người khác và duy trì các mối quan hệ.",
+                        "Khéo léo trong giao tiếp: ESFJ là những người tương tác xã hội giỏi và có khả năng giao tiếp tốt. Họ thường nhạy bén với cảm xúc và nhu cầu của người khác, và biết cách diễn đạt ý kiến một cách rõ ràng và tôn trọng.",
+                        "Tận hưởng chăm sóc người khác: ESFJ có thiên hướng chăm sóc và quan tâm đến người khác. Họ thích đáp ứng nhu cầu của người khác và sẵn lòng hỗ trợ, đồng thời cung cấp sự ủng hộ và an ủi khi cần thiết.",
+                        "Tổ chức và trách nhiệm: ESFJ thường có khả năng tổ chức công việc và sắp xếp thời gian hiệu quả. Họ rất đáng tin cậy và có trách nhiệm, thường hoàn thành công việc theo đúng lịch trình và đạt được mục tiêu đề ra.",
+                        "Đội ngũ và hợp tác: ESFJ thích làm việc trong nhóm và hợp tác với người khác. Họ giỏi trong việc xây dựng môi trường làm việc đoàn kết, khích lệ sự đoàn kết và sự cộng tác hiệu quả giữa các thành viên trong nhóm.",
+                        "Quan tâm đến chi tiết: ESFJ thường chú trọng đến các chi tiết và sự cẩn thận. Họ có khả năng nhận ra những thông tin nhỏ nhặt và biết đánh giá các tình huống một cách cụ thể và chi tiết."
+                ))
+                .weaknesses(List.of(
+                        "Thiếu quyết đoán: ESFJ có thể có khả năng thiếu quyết đoán trong việc ra quyết định. Do đó, họ có thể mất nhiều thời gian để xem xét tất cả các lựa chọn có sẵn trước khi đưa ra một quyết định cuối cùng.",
+                        "Thiếu linh hoạt: ESFJ có xu hướng muốn duy trì sự ổn định và tuân theo các qui tắc và nguyên tắc cụ thể. Họ có thể có khó khăn trong việc thay đổi kế hoạch hoặc thích nghi với những tình huống không được dự định trước.",
+                        "Nhạy cảm với ý kiến của người khác: ESFJ thường quan tâm đến cảm xúc và ý kiến của người khác. Họ có thể dễ bị ảnh hưởng bởi ý kiến và chỉ trích từ người khác, và có thể gặp khó khăn trong việc tự tin và khám phá ý kiến của mình.",
+                        "Thiếu sự cân bằng giữa việc chăm sóc người khác và bản thân:  ESFJ thích chăm sóc và giúp đỡ người khác, nhưng đôi khi có thể quên bản thân và không dành đủ thời gian, sự quan tâm đến bản thân. Điều này có thể gây căng thẳng, thiếu cân bằng trong cuộc sống của họ.",
+                        "Dễ căng thẳng trong tình huống áp lực: ESFJ có thể cảm thấy áp lực khi đối mặt với tình huống căng thẳng và khó khăn. Họ có thể dễ bị quá tải và cảm thấy căng thẳng, đặc biệt khi cần phải đáp ứng nhu cầu của nhiều người cùng một lúc.",
+                        "Thiếu khả năng tự động quản lý: Do tập trung vào việc chăm sóc người khác, ESFJ có thể thiếu khả năng tự quản lý và chăm sóc bản thân. Họ có thể gặp khó khăn trong việc thiết lập giới hạn và biên giới cá nhân, dẫn đến mất cân bằng giữa việc chăm sóc người khác và chăm sóc bản thân."
+                ))
+                .sources(List.of(
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("mbti.vn")
+                                .url("https://mbti.vn")
+                                .build(),
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("16personalities")
+                                .url("https://www.16personalities.com/vi")
+                                .build()
+                ))
+                .recommendedCareers(List.of(
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Y tá, điều dưỡng hoặc công việc liên quan đến y tế")
+                                .explainText("ESFJ có sự chăm sóc và quan tâm đến sức khỏe và phục hồi của người khác, và có thể làm việc tốt trong lĩnh vực y tế như y tá, điều dưỡng, hay các chuyên gia chăm sóc y tế khác.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Giáo viên hoặc người huấn luyện")
+                                .explainText("ESFJ có khả năng giao tiếp tốt và quan tâm đến sự phát triển và giáo dục của người khác. Họ có thể làm việc tốt như giáo viên, huấn luyện viên, hay các chủ nhiệm lớp.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Quản lý sự kiện")
+                                .explainText("ESFJ có khả năng tổ chức và quản lý các sự kiện xã hội. Họ có thể làm việc trong lĩnh vực quản lý sự kiện, tổ chức hội thảo, hay làm sự kiện.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Quản lý nguồn nhân lực")
+                                .explainText("ESFJ có khả năng tương tác tốt với người khác và có sự quan tâm đến cảm xúc và nhu cầu của nhân viên. Họ có thể làm việc trong lĩnh vực quản lý nguồn nhân lực hoặc phát triển nhân viên.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Nhân viên chăm sóc khách hàng hoặc khách sạn")
+                                .explainText("ESFJ có khả năng giao tiếp tốt và quan tâm đến nhu cầu của khách hàng. Họ có thể làm việc trong lĩnh vực dịch vụ khách hàng hoặc quản lý khách sạn.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Tư vấn, hỗ trợ tâm lý hoặc xã hội")
+                                .explainText("ESFJ có khả năng đồng cảm và quan tâm đến cảm xúc và nhu cầu của người khác. Họ có thể làm việc trong lĩnh vực tư vấn, hỗ trợ tâm lý, hoặc tư vấn xã hội.")
+                                .build()
+                ))
+                .description("Đối với những người mang tính cách ESFJ (Người lãnh sự), cuộc sống ý nghĩa nhất là khi họ được đồng hành cùng những người khác. Họ là nền tảng của nhiều cộng đồng, mở rộng tấm lòng và ngôi nhà của mình cho bạn bè, người thân và láng giềng. " +
+                        "Điều này không có nghĩa là họ là thánh nhân hay họ thích mọi người. Thực tế, họ thường gần gũi hơn với những ai có giá trị và quan điểm tương đồng. Nhưng bất kể niềm tin của người khác ra sao, ESFJ vẫn trân trọng sức mạnh của cách cư xử nhã nhặn và lòng hiếu khách, và họ cảm thấy có trách nhiệm dành sự quan tâm cho những người xung quanh. Rộng lượng và đáng tin cậy, họ luôn sẵn sàng thực hiện – cả những việc lớn và nhỏ – để gắn kết gia đình và cộng đồng.")
+                .quote(CreatePersonalityTypeRequest.QuoteInfo.builder()
+                        .author("Deborah Day")
+                        .content("Hãy khuyến khích, nâng đỡ và tiếp sức cho nhau. Bởi nguồn năng lượng tích cực lan tỏa đến một người cũng sẽ ảnh hưởng đến tất cả chúng ta.")
+                        .build()
+                )
+                .personalityTypeGroup(PersonalityTypeGroup.SENTINEL)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        personalityTypeRepo.save(personalityType);
+    }
+
+    private void buildISTP(){
+        PersonalityType personalityType = PersonalityType.builder()
+                .code("ISTP")
+                .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773895503/ISTP_ncvn4z.png")
+                .name("Bậc thầy")
+                .traits(List.of(CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Introversion")
+                                .description("Ưa thích hướng nội nên thường có xu hướng thích sự yên tĩnh, chỉ thích tương tác với những người bạn thân thiết. Việc tiếp xúc xã hội với những người không quen khiến họ tổn thất nhiều năng lượng")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Sensing")
+                                .description("Dùng cảm nhận cụ thể nhiều hơn là trực giác, vì vậy họ tập trung sự chú ý vào những chi tiết nhỏ nhặt hơn là bức tranh toàn cảnh, cũng như là những điều xảy ra ngay tại thực tại hơn là những thứ có thể đến trong tương lai")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Thinking")
+                                .description("Suy nghĩ lý trí hơn là cảm xúc, xu hướng coi trọng các tiêu chí khách quan hơn là sở thích cá nhân. Khi đưa ra một quyết định thì thường dựa vào sự logic hơn là yếu tố xã hội")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Perception")
+                                .description("Họ không vội đánh giá hay sớm ra một quyết định phán xét quan trọng nào đó , thay vào đó luôn nhìn nhận một cách linh hoạt vấn đề và có thể thay đổi tùy hoàn cảnh")
+                                .build()))
+                .strengths(List.of(
+                        "Kỹ năng thực hành: ISTP có khả năng áp dụng kiến thức và kỹ năng của mình vào thực tế. Họ thích làm việc với tay và có khả năng thực hiện các nhiệm vụ cụ thể và thiết thực. Kỹ năng thực hành của họ giúp họ giải quyết các vấn đề và thách thức một cách hiệu quả.",
+                        "Khéo léo và linh hoạt: ISTP có sự khéo léo và linh hoạt trong việc tìm ra giải pháp sáng tạo cho các vấn đề. Họ thường có khả năng tìm ra các phương pháp và cách tiế approach mới mẻ trong việc giải quyết vấn đề. Khả năng linh hoạt của họ giúp họ thích nghi nhanh chóng với môi trường và tình huống mới.",
+                        "Độc lập và quyết đoán: ISTP tỏ ra tự tin và quyết đoán trong việc đưa ra quyết định và đảm nhận trách nhiệm. Họ thường tin tưởng vào khả năng của mình và không sợ đối mặt với những thách thức khó khăn. Tính độc lập của họ giúp họ làm việc hiệu quả mà không cần sự giám sát quá nhiều.",
+                        "Tính cẩn thận và sự chính xác: ISTP thường có khả năng nhìn nhận chi tiết và chú trọng đến các thông tin cụ thể. Họ là những người cẩn thận trong công việc và thích làm việc với độ chính xác cao. Sự chú ý đến chi tiết giúp họ đảm bảo sự hoàn thiện và hiệu quả trong công việc của mình.",
+                        "Sự khách quan và logic: ISTP có xu hướng tiếp cận vấn đề một cách khách quan và logic. Họ dựa vào dữ liệu và sự thật để đưa ra quyết định và giải quyết vấn đề. Sự khách quan và logic giúp họ duy trì một quan điểm khách quan và xây dựng giải pháp dựa trên sự thật và sự công bằng."
+                ))
+                .weaknesses(List.of(
+                        "Thiếu quan tâm đến chi tiết nhỏ: Do tính cách tự do và linh hoạt, ISTPs có thể thiếu sự quan tâm đến các chi tiết nhỏ và chỉ tập trung vào các khía cạnh quan trọng hơn. Điều này có thể dẫn đến việc bỏ qua hoặc xem nhẹ các chi tiết quan trọng trong công việc hoặc các tác vụ hàng ngày.",
+                        "Khó thích nghi với môi trường xã hội: Do tính hướng nội và sự không quan tâm đến quy tắc xã hội, ISTPs có thể gặp khó khăn trong việc thích nghi với một môi trường xã hội mới. Họ có thể cảm thấy không thoải mái trong các tình huống xã hội phức tạp và có thể tránh tiếp xúc quá nhiều với người lạ.",
+                        "Không thích giải quyết xung đột: ISTPs thường không thích đối đầu với xung đột và thường tránh các tình huống căng thẳng hoặc tranh luận mạnh. Họ có thể tỏ ra khá lạnh lùng hoặc xa cách trong việc giải quyết xung đột, điều này có thể gây khó khăn trong việc giao tiếp và giải quyết mâu thuẫn.",
+                        "Dễ cảm thấy buồn chán: ISTPs có thể dễ cảm thấy buồn chán hoặc thiếu hứng thú nếu không có những thử thách và hoạt động mới mẻ. Họ cần sự kích thích và tính thử thách để duy trì sự tập trung và sự hứng thú trong công việc và cuộc sống hàng ngày.",
+                        "Khó thể hiện lòng biết ơn: Do tính khép kín và không quan tâm đến các quy tắc xã hội, ISTPs có thể có khó khăn trong việc thể hiện lòng biết ơn và trân trọng đối với người khác. Họ có thể không thường xuyên bày tỏ sự cảm kích và có thể bị hiểu lầm là không quan tâm hoặc lạnh lùng."
+                ))
+                .sources(List.of(
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("mbti.vn")
+                                .url("https://mbti.vn")
+                                .build(),
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("16personalities")
+                                .url("https://www.16personalities.com/vi")
+                                .build()
+                ))
+                .recommendedCareers(List.of(
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Kỹ sư hoặc kỹ thuật viên")
+                                .explainText("Với kỹ năng kỹ thuật và khả năng giải quyết vấn đề, ISTP có thể thành công trong các vai trò kỹ sư hoặc kỹ thuật viên. Công việc này bao gồm thiết kế, xây dựng, bảo trì và sửa chữa các hệ thống, máy móc hoặc cơ cấu kỹ thuật.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Công nhân kỹ thuật")
+                                .explainText("ISTP có thể trở thành các công nhân kỹ thuật chuyên về xây dựng, điện, cơ khí hoặc tự động hóa. Công việc này liên quan đến việc thực hiện và sửa chữa các công việc vật lý, sử dụng công cụ và thiết bị kỹ thuật")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Kỹ thuật viên sửa chữa")
+                                .explainText("ISTP có khả năng phân tích và sửa chữa vấn đề. Với kiến thức kỹ thuật và khả năng làm việc với công cụ, ISTP có thể trở thành kỹ thuật viên sửa chữa trong lĩnh vực như ô tô, máy móc, thiết bị điện tử hoặc thiết bị y tế")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Lập trình viên")
+                                .explainText("Với tính tò mò và khả năng tư duy logic, ISTP có thể phù hợp với công việc lập trình. Họ có thể tham gia vào việc phát triển phần mềm hoặc phần cứng, sửa lỗi và tối ưu hóa hệ thống")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Chuyên gia kỹ thuật hoặc tư vấn")
+                                .explainText("ISTP có thể sử dụng kiến thức và kỹ năng kỹ thuật của mình để trở thành chuyên gia hoặc tư vấn trong lĩnh vực cụ thể như công nghệ thông tin, xây dựng hoặc thiết kế sản phẩm")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Thợ mộc hoặc thợ làm mẫu")
+                                .explainText("ISTP có khả năng thực hiện công việc thủ công chi tiết và tạo ra các sản phẩm vật lý. Công việc như thợ mộc, thợ làm mẫu hoặc nghệ sĩ chế tạo có thể phù hợp với sự sáng tạo và kỹ năng thực hành của ISTP")
+                                .build()
+                ))
+                .description("ISTP ưa tiếp cận vấn đề một cách trực tiếp, tìm kiếm những giải pháp giản đơn và rõ ràng hơn là phân tích vòng vo. Những người có tính cách này dựa nhiều vào kinh nghiệm trực tiếp và phương pháp thử-sai khi thực hiện ý tưởng và dự án của mình. Và khi làm việc, họ thường thích làm theo nhịp độ riêng, theo cách của mình và không muốn bị làm phiền không cần thiết.")
+                .quote(CreatePersonalityTypeRequest.QuoteInfo.builder()
+                        .author("Harrison Ford")
+                        .content("Tôi muốn sống một cuộc đời khác biệt. Tôi không muốn phải đến cùng một nơi mỗi ngày, gặp cùng một người và làm cùng một công việc. Tôi muốn được trải nghiệm những thử thách thú vị.")
+                        .build()
+                )
+                .personalityTypeGroup(PersonalityTypeGroup.EXPLORER)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        personalityTypeRepo.save(personalityType);
+    }
+
+    private void buildISFP(){
+        PersonalityType personalityType = PersonalityType.builder()
+                .code("ISFP")
+                .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773897251/ISFP_w1fnoe.png")
+                .name("Nhà phiêu lưu")
+                .traits(List.of(CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Introversion")
+                                .description("Ưa thích hướng nội nên thường có xu hướng thích sự yên tĩnh, chỉ thích tương tác với những người bạn thân thiết. Việc tiếp xúc xã hội với những người không quen khiến họ tổn thất nhiều năng lượng")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Sensing")
+                                .description("Dùng cảm nhận cụ thể nhiều hơn là trực giác, vì vậy họ tập trung sự chú ý vào những chi tiết nhỏ nhặt hơn là bức tranh toàn cảnh, cũng như là những điều xảy ra ngay tại thực tại hơn là những thứ có thể đến trong tương lai")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Feeling")
+                                .description("Đưa ra quyết định dựa vào cảm nhận, trạng thái cảm xúc tình cảm, giá trị cá nhân hơn là dựa vào các yếu tố khách quan hoặc quy luật logic")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Perception")
+                                .description("Họ không vội đánh giá hay sớm ra một quyết định phán xét quan trọng nào đó , thay vào đó luôn nhìn nhận một cách linh hoạt vấn đề và có thể thay đổi tùy hoàn cảnh")
+                                .build()))
+                .strengths(List.of(
+                        "Sáng tạo: ISFP thường có khả năng sáng tạo cao. Họ có khả năng nhìn thấy các khía cạnh độc đáo và thường tạo ra những ý tưởng mới mẻ và sáng tạo trong các lĩnh vực như nghệ thuật, thiết kế, âm nhạc và thể hiện bản thân thông qua sự sáng tạo.",
+                        "Nhạy cảm: ISFP thường có khả năng đọc hiểu và đồng cảm với cảm xúc của người khác. Họ có sự nhạy cảm đặc biệt đối với cảm xúc và nhu cầu của người khác, thường là những người lắng nghe tốt và hỗ trợ cho người khác trong những thời điểm khó khăn.",
+                        "Tận hưởng và quan tâm đến hiện tại: ISFP có khả năng tận hưởng và thưởng thức những khoảnh khắc hiện tại. Họ có khả năng sống trong thực tại và có thể nhìn thấy những niềm vui nhỏ nhặt trong cuộc sống. Sự quan tâm đến hiện tại giúp ISFP thực sự trải nghiệm, đánh giá cao những thứ xung quanh mình.",
+                        "Linh hoạt và thích ứng: ISFP thường là những người thích linh hoạt, dễ thích nghi với môi trường và tình huống mới. Họ thường có khả năng thích ứng nhanh chóng và tìm cách thích nghi với thay đổi và khó khăn.",
+                        "Kỹ năng thẩm mỹ: ISFP thường có mắt thẩm mỹ tốt và khả năng đánh giá cao về mỹ thuật, màu sắc, âm nhạc và thiết kế. Họ có khả năng tạo ra những tác phẩm nghệ thuật độc đáo và đẹp mắt.",
+                        "Sự nhạy bén với chi tiết: ISFP thường có khả năng nhìn thấy và đánh giá chi tiết một cách tỉ mỉ. Họ thường lưu ý đến những thông tin nhỏ nhặt và có khả năng nhìn thấy mọi khía cạnh của một tình huống hoặc vấn đề."
+                ))
+                .weaknesses(List.of(
+                        "Dễ cảm thấy bị áp lực: ISFP thường có xu hướng cảm thấy áp lực trong môi trường có quá nhiều yêu cầu hoặc đòi hỏi. Họ có thể trở nên căng thẳng, không thoải mái khi phải đối mặt với áp lực và sự căng thẳng quá mức.",
+                        "Khó khăn trong việc ra quyết định: ISFP có thể gặp khó khăn trong việc ra quyết định vì họ dựa vào cảm xúc và giá trị cá nhân. Đôi khi, điều này có thể khiến họ mất thời gian để đưa ra quyết định hoặc cảm thấy bất định vì sự lưỡng lự giữa các lựa chọn.",
+                        "Nhạy cảm và dễ bị tổn thương: ISFP là người có sự nhạy cảm đặc biệt đối với ý kiến và phản hồi của người khác. Họ dễ bị tổn thương và chú ý nhiều đến những chỉ trích hoặc phê phán. Điều này có thể ảnh hưởng đến sự tự tin và khả năng tự định giá của họ.",
+                        "Thiếu kiên nhẫn với chi tiết và công việc rườm rà: ISFP thường có xu hướng mất kiên nhẫn và không thích làm việc với những công việc đòi hỏi sự chi tiết và kỷ luật cao. Họ có thể cảm thấy bị mất hứng thú và không kiên nhẫn khi phải làm việc với những chi tiết nhỏ mà họ không quan tâm.",
+                        "Khó khăn trong việc thích nghi với thay đổi: Mặc dù ISFP có khả năng linh hoạt, nhưng họ có thể gặp khó khăn khi phải thích nghi với những thay đổi lớn và bất ngờ. Họ cảm thấy không thoải mái và cần thời gian để điều chỉnh và thích ứng với môi trường hoặc tình huống mới.",
+                        "Thiếu quyết đoán: ISFP thường có xu hướng hoài nghi và chần chừ trong việc đưa ra quyết định quan trọng. Họ có thể dành quá nhiều thời gian."
+                ))
+                .sources(List.of(
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("mbti.vn")
+                                .url("https://mbti.vn")
+                                .build(),
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("16personalities")
+                                .url("https://www.16personalities.com/vi")
+                                .build()
+                ))
+                .recommendedCareers(List.of(
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Nghệ sĩ")
+                                .explainText("ISFP có tài năng sáng tạo và khả năng thể hiện bản thân thông qua nghệ thuật. Công việc như họa sĩ, nhạc sĩ, diễn viên, nhà thiết kế, người mẫu hay nhiếp ảnh gia có thể phù hợp với ISFP")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Nhân viên y tế")
+                                .explainText("ISFP có lòng quan tâm và sẵn lòng chăm sóc người khác. Công việc như điều dưỡng, kỹ thuật viên y tế, nhân viên chăm sóc tại bệnh viện hoặc trung tâm y tế cộng đồng có thể phù hợp với ISFP")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Ngành thẩm mỹ và làm đẹp")
+                                .explainText("ISFP có khả năng thẩm mỹ và sự nhạy cảm với cái đẹp. Công việc như thợ làm tóc, thợ làm móng, chuyên viên trang điểm hoặc nhân viên spa có thể phù hợp với ISFP")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Du lịch và dịch vụ khách hàng")
+                                .explainText("ISFP thường thích khám phá và trải nghiệm. Công việc hướng dẫn du lịch, tổ chức sự kiện, lễ tân hoặc quản lý dịch vụ khách hàng có thể phù hợp với ISFP")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Thiết kế nội thất và trang trí")
+                                .explainText("ISFP có khả năng nhạy bén với màu sắc, không gian và tỷ lệ. Công việc như kiến trúc sư, thiết kế nội thất, trang trí sân khấu hoặc trang trí nội thất có thể phù hợp với ISFP")
+                                .build()
+                ))
+                .description("Những người mang tính cách ISFP (Nhà phiêu lưu) là những nghệ sĩ đích thực – không nhất thiết theo nghĩa thông thường, mà bởi họ xem chính cuộc sống là một bức tranh để thể hiện bản thân. Mỗi ISFP đều mang chất riêng độc đáo, và cách họ sống, từ trang phục cho tới các sở thích, đều phản ánh cá tính ấy. Với tinh thần khám phá và khả năng tìm thấy niềm vui trong cuộc sống thường ngày, ISFP có thể là những người thú vị nhất mà bạn từng gặp.")
+                .quote(CreatePersonalityTypeRequest.QuoteInfo.builder()
+                        .author("Bob Dylan")
+                        .content("Trong một ngày, tôi thay đổi liên tục. Buổi sáng, tôi là một người, và đến lúc đi ngủ, tôi đã chắc chắn mình là một người khác.")
+                        .build()
+                )
+                .personalityTypeGroup(PersonalityTypeGroup.EXPLORER)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        personalityTypeRepo.save(personalityType);
+    }
+
+    private void buildESTP(){
+        PersonalityType personalityType = PersonalityType.builder()
+                .code("ESTP")
+                .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773898668/ESTP_cdsih3.png")
+                .name("Doanh nhân")
+                .traits(List.of(CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Extraversion")
+                                .description("Ưa thích hướng ngoại, cảm giác được thúc đẩy và giàu năng lượng dành cho những người xung quanh")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Sensing")
+                                .description("Dùng cảm nhận cụ thể nhiều hơn là trực giác, vì vậy họ tập trung sự chú ý vào những chi tiết nhỏ nhặt hơn là bức tranh toàn cảnh, cũng như là những điều xảy ra ngay tại thực tại hơn là những thứ có thể đến trong tương lai")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Thinking")
+                                .description("Suy nghĩ lý trí hơn là cảm xúc, xu hướng coi trọng các tiêu chí khách quan hơn là sở thích cá nhân. Khi đưa ra một quyết định thì thường dựa vào sự logic hơn là yếu tố xã hội")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Perception")
+                                .description("Họ không vội đánh giá hay sớm ra một quyết định phán xét quan trọng nào đó , thay vào đó luôn nhìn nhận một cách linh hoạt vấn đề và có thể thay đổi tùy hoàn cảnh")
+                                .build()))
+                .strengths(List.of(
+                        "Thích thách thức: ESTP thường yêu thích những tình huống thách thức, hoạt động đầy kích thích. Họ tìm kiếm cơ hội để thử thách bản thân và vượt qua giới hạn.",
+                        "Linh hoạt và thích nghi: Họ là những người linh hoạt, dễ thích nghi với môi trường và tình huống mới. Khả năng thích nghi này giúp họ tự tin đối mặt với những khả năng xử lý tình huống không ngờ.",
+                        "Kỹ năng xã hội: ESTP thường dễ dàng tạo ra mối quan hệ và tương tác với người khác. Họ thường thích giao tiếp có khả năng thấu hiểu người khác, điều này giúp họ tạo ra môi trường thú vị.",
+                        "Giải quyết vấn đề thực tế: Họ tập trung vào thực tế và có khả năng thấy vấn đề từ góc độ cụ thể. Điều này giúp họ giải quyết các vấn đề hiện tại một cách hiệu quả, thường dựa vào logic và kinh nghiệm.",
+                        "Làm việc nhóm tốt: Với tính cách hướng ngoại khả năng thích nghi, ESTP thường thể hiện khả năng làm việc trong nhóm tốt. Họ dễ dàng hợp tác với các thành viên khác và có thể đóng góp đáng kể vào công việc nhóm.",
+                        "Khả năng thuyết phục: ESTP thường có tài trong việc thuyết phục người khác. Họ sử dụng logic, sự thực tế để thuyết phục người nghe và thường biết cách tạo ra các lý do thú vị để ủng hộ quan điểm của mình.",
+                        "Tích cực và năng động: Họ thường có năng lượng tích cực, sẵn sàng tham gia vào các hoạt động sôi động."
+                ))
+                .weaknesses(List.of(
+                        "Thiếu kiên nhẫn: Do tính chất năng động, ESTP có thể thiếu kiên nhẫn với những nhiệm vụ đòi hỏi sự kiên trì và công phu. Họ thường muốn thấy kết quả nhanh chóng, có thể mất kiên nhẫn với những việc kéo dài.",
+                        "Ít quan tâm đến hậu quả dài hạn: Do tập trung vào hiện tại, ESTP có thể thiếu khả năng đánh giá tốt về hậu quả dài hạn của hành động của họ. Họ có thể tỏ ra thiếu suy nghĩ về tương lai và những tác động xa hơn.",
+                        "Thiếu phân tích sâu sắc: Do tập trung vào thông tin cụ thể và logic hiện tại, ESTP có thể bỏ lỡ những khía cạnh phức tạp, tầm nhìn rộng hơn của một vấn đề. Họ có thể không quan tâm đến các khía cạnh tinh tế hoặc ý nghĩa sâu xa.",
+                        "Dễ tạo ra xung đột: Vì tính cách cạnh tranh và thích thách thức, ESTP có thể tạo ra xung đột trong các môi trường có nhiều quan điểm khác nhau. Sự thiếu kiên nhẫn dẫn đến khó kiểm soát cảm xúc có thể dẫn đến các tình huống mâu thuẫn.",
+                        "Thiếu quan tâm đến các giá trị trừu tượng: ESTP thường tập trung vào thực tế, thông tin có thể cảm nhận được, dẫn đến việc họ có thể thiếu quan tâm đến các giá trị trừu tượng như tình bạn, lòng khoan dung.",
+                        "Không chắc chắn trong quyết định dựa trên cảm xúc: Mặc dù họ thường dựa vào logic, ESTP cũng có thể bị cuốn theo cảm xúc và tạo ra quyết định không suy nghĩ kỹ lưỡng, dẫn đến những hậu quả không mong muốn."
+                ))
+                .sources(List.of(
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("mbti.vn")
+                                .url("https://mbti.vn")
+                                .build(),
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("16personalities")
+                                .url("https://www.16personalities.com/vi")
+                                .build()
+                ))
+                .recommendedCareers(List.of(
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Kinh doanh")
+                                .explainText("ESTP có sự linh hoạt, khả năng giao tiếp tốt và sự tự tin. Họ có thể thành công trong các vị trí quản lý, kinh doanh bất động sản, quản lý sử dụng nguồn lực, doanh nghiệp khởi nghiệp")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Bán hàng và tiếp thị")
+                                .explainText("Tính cách hướng ngoại khả năng tương tác xuất sắc của ESTP làm cho họ trở thành người bán hàng, nhân viên tiếp thị hoặc chuyên viên kinh doanh hiệu quả")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Kỹ thuật và Công nghệ")
+                                .explainText("ESTP có khả năng thực hành tốt tình yêu với việc giải quyết vấn đề. Họ có thể làm việc trong các lĩnh vực kỹ thuật như kỹ sư cơ khí, điện, điện tử hoặc lập trình viên")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Thể thao")
+                                .explainText("Sức khỏe tốt và đam mê với hoạt động thể thao khiến ESTP phù hợp với việc trở thành vận động viên, HLV thể thao, hay làm việc trong quản lý sự kiện thể thao.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Y tế cấp cứu")
+                                .explainText("ESTP có khả năng phản ứng nhanh chóng trong tình huống khẩn cấp, điều này phù hợp với vai trò trong ngành y tế cấp cứu hoặc chăm sóc y tế khẩn cấp")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Kỹ năng thực hành")
+                                .explainText("Nghề thợ thủ công, thợ sửa chữa, thợ làm bánh, hoặc ngành thực phẩm có thể phù hợp với ESTP vì họ thích làm việc với tay và thấy hứng thú trong việc tạo ra sản phẩm thực tế")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Quân đội và lực lượng an ninh")
+                                .explainText("Khả năng quản lý tình huống, đưa ra quyết định nhanh chóng sẵn sàng đối mặt với thử thách khiến ESTP trở thành ứng viên phù hợp cho các vị trí trong lực lượng quân đội, cảnh sát, hay bảo vệ")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Giáo dục thể chất")
+                                .explainText("Với sự đam mê với thể thao và hoạt động thể chất, ESTP có thể trở thành giáo viên thể dục hoặc huấn luyện viên thể thao")
+                                .build()
+                ))
+                .description("Những người mang tính cách ESTP (Doanh Nhân) lúc nào cũng tràn đầy năng lượng bộc phát và nhiệt huyết. Họ thường có xu hướng cạnh tranh, và tin rằng tư duy cạnh tranh là cần thiết để thành công trong cuộc sống. Với thái độ hành động mạnh mẽ, họ hiếm khi nào lãng phí thời gian nghĩ ngợi về quá khứ. Thực tế, họ rất giỏi trong việc giữ sự tập trung vào hiện tại – đến mức họ hiếm khi để ý đến thời gian trôi qua trong ngày.")
+                .quote(CreatePersonalityTypeRequest.QuoteInfo.builder()
+                        .author("Helen Keller")
+                        .content("Cuộc đời hoặc là một chuyến phiêu lưu táo bạo, hoặc chẳng còn nghĩa lý gì.")
+                        .build()
+                )
+                .personalityTypeGroup(PersonalityTypeGroup.EXPLORER)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        personalityTypeRepo.save(personalityType);
+    }
+
+    private void buildESFP(){
+        PersonalityType personalityType = PersonalityType.builder()
+                .code("ESFP")
+                .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773899766/ESFP_amzuua.png")
+                .name("Người trình diễn")
+                .traits(List.of(CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Extraversion")
+                                .description("Ưa thích hướng ngoại, cảm giác được thúc đẩy và giàu năng lượng dành cho những người xung quanh")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Sensing")
+                                .description("Dùng cảm nhận cụ thể nhiều hơn là trực giác, vì vậy họ tập trung sự chú ý vào những chi tiết nhỏ nhặt hơn là bức tranh toàn cảnh, cũng như là những điều xảy ra ngay tại thực tại hơn là những thứ có thể đến trong tương lai")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Feeling")
+                                .description("Đưa ra quyết định dựa vào cảm nhận, trạng thái cảm xúc tình cảm, giá trị cá nhân hơn là dựa vào các yếu tố khách quan hoặc quy luật logic")
+                                .build(),
+                        CreatePersonalityTypeRequest.TraitInfo.builder()
+                                .name("Perception")
+                                .description("Họ không vội đánh giá hay sớm ra một quyết định phán xét quan trọng nào đó, thay vào đó luôn nhìn nhận một cách linh hoạt vấn đề và có thể thay đổi tùy hoàn cảnh")
+                                .build()))
+                .strengths(List.of(
+                        "Tương tác xã hội tốt: ESFP thường rất thoải mái trong các tình huống xã hội và dễ dàng tạo mối quan hệ với người khác. Họ có khả năng kết nối nhanh chóng và tạo niềm vui cho nhóm xung quanh.",
+                        "Linh hoạt và sáng tạo: ESFP thường rất linh hoạt trong cách tiếp cận cuộc sống. Họ có sự đa dạng và khả năng tìm cách sáng tạo giải pháp cho các vấn đề xuất hiện trong cuộc sống hàng ngày.",
+                        "Khả năng thích nghi: Họ thích tùy chỉnh và thích nghi với môi trường và tình huống mới. Điều này giúp họ thích ứng tốt trong nhiều tình huống khác nhau.",
+                        "Quan tâm đến cảm xúc: ESFP thường có sự đồng cảm với cảm xúc của người khác. Họ thường là người lắng nghe tốt  có khả năng hiểu và chia sẻ cảm xúc.",
+                        "Hiện thực và thiết thực: Họ thường tập trung vào hiện tại, những gì thực tế. Điều này giúp họ xử lý thông tin một cách cụ thể, thường dễ dàng thấy vấn đề và tìm cách giải quyết.",
+                        "Năng lượng tích cực: ESFP thường mang đến năng lượng tích cực, sự hứng thú cho môi trường xung quanh, làm cho cuộc sống trở nên sôi động và thú vị."
+                ))
+                .weaknesses(List.of(
+                        "Khó tập trung: Do họ thích tận hưởng cuộc sống trong hiện tại và có xu hướng dễ bị xao lãng bởi các sự kiện, ESFP có thể thiếu sự tập trung vào nhiệm vụ hay công việc chi tiết.",
+                        "Thiếu kế hoạch: Họ thường ưa thích để mọi thứ diễn ra tự nhiên và không thích áp đặt kế hoạch cụ thể. Điều này có thể dẫn đến việc họ gặp khó khăn trong việc quản lý thời gian.",
+                        "Thiếu kiên nhẫn: ESFP có thể dễ dàng bị mất hứng thú nếu công việc trở nên đơn điệu hoặc không còn gì thú vị. Điều này có thể làm cho họ thiếu kiên nhẫn trong việc hoàn thành những nhiệm vụ dài hơi hoặc khó khăn.",
+                        "Quan tâm ngoại hình: Một số ESFP có thể quá quan tâm đến hình ảnh cũng như ấn tượng mà họ để lại cho người khác, dẫn đến việc họ đặt quá nhiều sự chú ý vào ngoại hình và việc làm theo những gì người khác mong đợi.",
+                        "Khó khăn trong quản lý xung đột: Do tính cách cảm xúc và thích tận hưởng, ESFP có thể gặp khó khăn trong việc giải quyết xung đột một cách hiệu quả. Họ có thể dễ cảm thấy bị tổn thương và mất lòng tin trong tình huống này.",
+                        "Thiếu kỷ luật: ESFP có thể thiếu khả năng tự kỷ luật, họ thường thích tự do hơn là tuân thủ các quy tắc và lịch trình cố định."
+                ))
+                .sources(List.of(
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("mbti.vn")
+                                .url("https://mbti.vn")
+                                .build(),
+                        CreatePersonalityTypeRequest.SourceInfo.builder()
+                                .title("16personalities")
+                                .url("https://www.16personalities.com/vi")
+                                .build()
+                ))
+                .recommendedCareers(List.of(
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Nghệ thuật")
+                                .explainText("ESFP thường có đam mê cho các hoạt động nghệ thuật như âm nhạc, diễn xuất, nhảy múa. Các ngành nghệ thuật này cho phép họ thể hiện sự sáng tạo của mình.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Du lịch và Dịch vụ")
+                                .explainText("ESFP có thể học hỏi, tự phát triển qua việc giao tiếp với những người khác cũng như thám hiểu các địa danh và văn hóa khác nhau.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Giảng dạy hoặc đào tạo")
+                                .explainText("Trong việc chia sẻ kiến thức với người khác, ESFP có thể tự do thể hiện ý kiến của mình và tác động lên người họ dạy.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Dịch vụ xã hội")
+                                .explainText("ESFP thường có sự nhạy bén đối với các vấn đề xã hội và hòa nhập với các tổ chức phi chính phủ hoặc từ thiện.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Thượng mại và Bán hàng")
+                                .explainText("Sự giao tiếp tốt của ESFP có thể giúp họ thành công trong việc bán hàng, quảng cáo và quan hệ khách hàng.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Quản lý sự kiện")
+                                .explainText("Khả năng tổ chức và giao tiếp của ESFP có thể giúp họ thành công trong lĩnh vực tổ chức sự kiện.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Dịch vụ y tế")
+                                .explainText("Ngành y tế yêu cầu sự quan tâm đến người khác và kỹ năng tương tác xã hội, điều đó phù hợp với tính cách ESFP.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Nhà hàng và Nhà phê bình ẩm thực")
+                                .explainText("ESFP có thể thể hiện sự sáng tạo và đam mê trong việc thử nghiệm các món ăn mới hoặc tạo ra các trải nghiệm ẩm thực mới mẻ.")
+                                .build(),
+                        CreatePersonalityTypeRequest.CareerInfo.builder()
+                                .name("Phần mềm và Thiết kế trang web")
+                                .explainText("Nếu có sự kết hợp giữa sự sáng tạo của ESFP và kỹ năng công nghệ, họ có thể thành công trong lĩnh vực thiết kế trang web hoặc phần mềm.")
+                                .build()
+                ))
+                .description("Nếu bạn thấy ai đó bất chợt cất tiếng hát và nhảy múa, đó chính là những người mang tính cách ESFP (Người Trình Diễn). Họ dễ dàng hòa mình vào không khí sôi động của khoảnh khắc và muốn mọi người cũng cảm nhận được điều đó. Không có kiểu tính cách nào khác nhiệt tình và hào phóng về thời gian lẫn năng lượng trong việc khích lệ người khác như họ, và không ai làm điều đó với phong cách cuốn hút đến vậy.")
+                .quote(CreatePersonalityTypeRequest.QuoteInfo.builder()
+                        .author("Elton John")
+                        .content("Sống cho từng khoảnh khắc mà không hề do dự.")
+                        .build()
+                )
+                .personalityTypeGroup(PersonalityTypeGroup.EXPLORER)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        personalityTypeRepo.save(personalityType);
     }
 
 }

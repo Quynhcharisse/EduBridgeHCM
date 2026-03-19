@@ -3,11 +3,13 @@ package com.sp26se041.edubridgehcm.controllers;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.ParentService;
+import com.sp26se041.edubridgehcm.services.WebSocketService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -25,13 +27,11 @@ public class ParentController {
 
     private final SimpMessagingTemplate simpMessagingTemplate;
     private final ParentService parentService;
+    private final WebSocketService webSocketService;
 
     @MessageMapping("/private-message")
     public void privateMessage(ChatMessage message) {
-
-
-        String error = parentService.createChatMessage(message);
-
+        String error = webSocketService.createChatMessage(message);
         if (error != null && !error.isBlank()) {
             ChatMessage systemMessage = ChatMessage.builder()
                     .senderName("System")
@@ -47,30 +47,38 @@ public class ParentController {
             );
             return;
         }
-
         simpMessagingTemplate.convertAndSendToUser(
                 message.getReceiverName(),
                 "/private",
                 message
         );
-
         simpMessagingTemplate.convertAndSendToUser(
                 message.getSenderName(),
                 "/private",
                 message
         );
     }
-    @GetMapping("/conversations")
-    public ResponseEntity<?> getConversations(@RequestParam (required = false) Long cursorId){
-        return ResponseEntity.ok(parentService.getConversations(cursorId));
-    }
 
     @GetMapping("/messages/history/{parentEmail}/{counsellorEmail}")
     public ResponseEntity<ResponseObject> getChatHistory(@PathVariable String parentEmail, @PathVariable String counsellorEmail, @RequestParam (required = false) Long cursorId) {
-        return parentService.getHistoryMessages(parentEmail, counsellorEmail, cursorId);
+        return webSocketService.getChatHistory(parentEmail, counsellorEmail, cursorId);
     }
+
     @PutMapping("/messages/read/{conversationId}/{username}")
     public ResponseEntity<ResponseObject> readMessages(@PathVariable Long conversationId, @PathVariable String username) {
-        return parentService.markConversationAsRead(conversationId, username);
+        return webSocketService.markConversationAsRead(conversationId, username);
+    }
+
+    @GetMapping("/conversations")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<?> getConversations(@RequestParam (required = false) Long cursorId){
+        return parentService.getConversations(cursorId);
+    }
+
+    //Personality Type
+    @GetMapping("/personality/type")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<ResponseObject> getPersonalityTypes() {
+        return parentService.getPersonalityTypes();
     }
 }
