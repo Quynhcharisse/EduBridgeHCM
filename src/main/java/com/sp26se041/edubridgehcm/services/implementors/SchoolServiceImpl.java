@@ -760,8 +760,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         Page<Curriculum> curriculumPage = curriculumRepo.findBySchoolIdOrderByEnrollmentYearDescVersionDesc(actorCampus.getSchool().getId(), pageable);
 
-        PageResponse<Map<String, Object>> pageResponse =
-                PaginationUtil.buildPageResponse(curriculumPage, this::buildCurriculumData);
+        PageResponse<Map<String, Object>> pageResponse = PaginationUtil.buildPageResponse(curriculumPage, this::buildCurriculumData);
 
         return ResponseBuilder.build(HttpStatus.OK, "View Curriculum list successfully", pageResponse);
     }
@@ -780,10 +779,25 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("isLatest", curriculum.isLatest());
         data.put("curriculumStatus", curriculum.getCurriculumStatus().name());
         data.put("subjects", curriculum.getSubjectsJsonb());
-        data.put("programCount", curriculum.getPrograms() != null ? curriculum.getPrograms().size() : 0);
+
+        int programCount = (curriculum.getPrograms() != null) ? curriculum.getPrograms().size() : 0;
+        data.put("programCount", programCount);
+        data.put("canEditIdentity", programCount == 0);
+
+        // Thêm danh sách tên Program để hiển thị Tooltip/Modal
+        if (programCount > 0) {
+            List<String> linkedProgramNames = curriculum.getPrograms().stream()
+                    // Lấy tên Program (thường map từ Graduation Standard hoặc một field name riêng của Program)
+                    .map(p -> "Program: " + p.getGraduationStandard())
+                    .collect(Collectors.toList());
+            data.put("linkedProgramNames", linkedProgramNames);
+
+        } else {
+
+            data.put("linkedProgramNames", Collections.emptyList());
+        }
         return data;
     }
-
 
     @Override
     public ResponseEntity<ResponseObject> upsertProgram(ProgramRequest request) {
