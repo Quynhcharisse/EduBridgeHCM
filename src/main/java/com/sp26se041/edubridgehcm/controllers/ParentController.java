@@ -72,7 +72,7 @@ public class ParentController {
     @GetMapping("/conversations")
     @PreAuthorize("hasRole('PARENT')")
     public ResponseEntity<?> getConversations(@RequestParam (required = false) Long cursorId){
-        return ResponseEntity.ok(parentService.getConversations(cursorId));
+        return parentService.getConversations(cursorId);
     }
 
     //Personality Type

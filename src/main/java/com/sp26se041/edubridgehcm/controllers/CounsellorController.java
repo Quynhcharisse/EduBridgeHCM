@@ -41,9 +41,7 @@ public class CounsellorController {
     @GetMapping("/conversations")
     @PreAuthorize("hasRole('COUNSELLOR')")
     public ResponseEntity<?> getConversations(@RequestParam (required = false) Long cursorId){
-        return ResponseEntity.ok(counsellorService.getConversations(cursorId));
+        return counsellorService.getConversations(cursorId);
     }
-
-
 
 }
