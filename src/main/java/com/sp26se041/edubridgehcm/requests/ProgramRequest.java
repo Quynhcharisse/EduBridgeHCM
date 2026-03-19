@@ -12,6 +12,17 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class UpdateProgramRequest {
-    int id;
+public class ProgramRequest {
+
+    Integer programId;
+
+    Integer curriculumId;
+
+    String graduationStandard;
+
+    String targetStudentDescription;
+
+    double baseTuitionFee;
+
+    boolean isActive;
 }

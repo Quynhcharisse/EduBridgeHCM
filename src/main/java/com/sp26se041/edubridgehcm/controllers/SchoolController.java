@@ -6,11 +6,10 @@ import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateReques
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
 import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
-import com.sp26se041.edubridgehcm.requests.CreateProgramRequest;
 import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
+import com.sp26se041.edubridgehcm.requests.ProgramRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateProgramRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -82,23 +81,16 @@ public class SchoolController {
         return schoolService.viewCurriculumList(page, pageSize);
     }
 
+    @GetMapping("/program/list")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> viewProgramList(int page, int pageSize) {
+        return schoolService.viewProgramList(page, pageSize);
+    }
 
     @PostMapping("/program")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> createProgram(@RequestBody CreateProgramRequest request) {
-        return schoolService.createProgram(request);
-    }
-
-    @GetMapping("/program/list")
-    @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewProgramList() {
-        return schoolService.viewProgramList();
-    }
-
-    @PutMapping("/program")
-    @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> updateProgram(@RequestBody UpdateProgramRequest request) {
-        return schoolService.updateProgram(request);
+    public ResponseEntity<ResponseObject> upsertProgram(@RequestBody ProgramRequest request) {
+        return schoolService.upsertProgram(request);
     }
 
     @PostMapping("/campaign/offering")

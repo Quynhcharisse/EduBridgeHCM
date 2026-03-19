@@ -28,6 +28,10 @@ public enum Status {
     CUR_ACTIVE("active"),    // Đang áp dụng cho khóa học
     CUR_ARCHIVED("archived"), // Lưu trữ (phiên bản cũ đã bị thay thế)
 
+    //With status for program
+    PRO_ACTIVE("active"),    // Đang áp dụng cho khóa học
+    PRO_INACTIVE("inactive"), // Không còn áp dụng cho khóa học nhưng vẫn giữ lại để tham chiếu lịch sử
+
     //With status consultation appointment
     CONSULTATION_PENDING("pending"),
     CONSULTATION_CONFIRMED("confirmed"),

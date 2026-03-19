@@ -56,6 +56,5 @@ public class Program {
     @Column(name = "base_tuition_fee")
     double baseTuitionFee;
 
-    @Enumerated(EnumType.STRING)
-    Status status;
+    boolean isActive;
 }
