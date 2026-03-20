@@ -39,6 +39,7 @@ import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.CurriculumNamingUtil;
 import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
+import io.hypersistence.utils.common.StringUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -59,6 +60,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -111,29 +113,9 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Boarding type is invalid. Accepted values: NONE, FULL_BOARDING, SEMI_BOARDING, BOTH", null);
         }
 
-        Account acc = accountRepo.save(Account.builder()
-                .email(normalize(request.getEmail()))
-                .role(Role.SCHOOL)
-                .status(Status.ACCOUNT_ACTIVE)
-                .registerDate(LocalDate.now())
-                .firstLogin(false)
-                .isRestricted(false)
-                .build());
+        Account acc = accountRepo.save(Account.builder().email(normalize(request.getEmail())).role(Role.SCHOOL).status(Status.ACCOUNT_ACTIVE).registerDate(LocalDate.now()).firstLogin(false).isRestricted(false).build());
 
-        Campus campus = campusRepo.save(Campus.builder()
-                .school(actorCampus.getSchool())
-                .account(acc)
-                .name(normalize(request.getName()))
-                .address(normalize(request.getAddress()))
-                .phoneNumber(normalize(request.getPhone()))
-                .city(normalize(request.getCity()))
-                .district(normalize(request.getDistrict()))
-                .latitude(request.getLatitude())
-                .longitude(request.getLongitude())
-                .boardingType(boardingType)
-                .status(Status.VERIFIED)
-                .isPrimaryBranch(false)
-                .build());
+        Campus campus = campusRepo.save(Campus.builder().school(actorCampus.getSchool()).account(acc).name(normalize(request.getName())).address(normalize(request.getAddress())).phoneNumber(normalize(request.getPhone())).city(normalize(request.getCity())).district(normalize(request.getDistrict())).latitude(request.getLatitude()).longitude(request.getLongitude()).boardingType(boardingType).status(Status.VERIFIED).isPrimaryBranch(false).build());
 
         Map<String, Object> data = new HashMap<>();
         data.put("campus", buildCampusData(campus));
@@ -231,15 +213,7 @@ public class SchoolServiceImpl implements SchoolService {
             pageResponse = PaginationUtil.buildPageResponse(campusPage, this::buildCampusData);
         } else {
             List<Campus> selfCampus = List.of(actorCampus);
-            pageResponse = PageResponse.<Map<String, Object>>builder()
-                    .items(selfCampus.stream().map(this::buildCampusData).toList())
-                    .currentPage(0)
-                    .pageSize(selfCampus.size())
-                    .totalItems(selfCampus.size())
-                    .totalPages(1)
-                    .hasNext(false)
-                    .hasPrevious(false)
-                    .build();
+            pageResponse = PageResponse.<Map<String, Object>>builder().items(selfCampus.stream().map(this::buildCampusData).toList()).currentPage(0).pageSize(selfCampus.size()).totalItems(selfCampus.size()).totalPages(1).hasNext(false).hasPrevious(false).build();
         }
 
         return ResponseBuilder.build(HttpStatus.OK, "View campus list successfully", pageResponse);
@@ -302,15 +276,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
-        AdmissionCampaign admissionCampaign = AdmissionCampaign.builder()
-                .school(actorCampus.getSchool())
-                .name(normalize(request.getName()))
-                .description(normalize(request.getDescription()))
-                .year(request.getYear())
-                .startDate(request.getStartDate())
-                .endDate(request.getEndDate())
-                .status(Status.OPEN)
-                .build();
+        AdmissionCampaign admissionCampaign = AdmissionCampaign.builder().school(actorCampus.getSchool()).name(normalize(request.getName())).description(normalize(request.getDescription())).year(request.getYear()).startDate(request.getStartDate()).endDate(request.getEndDate()).status(Status.OPEN).build();
         admissionCampaignRepo.save(admissionCampaign);
 
         return ResponseBuilder.build(HttpStatus.CREATED, "Create campaign template successfully", null);
@@ -353,8 +319,7 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         // Đồng bộ Năm và Ngày (Bạn đã làm rất tốt bước này)
-        if (request.getStartDate().getYear() != request.getYear() ||
-                request.getEndDate().getYear() != request.getYear()) {
+        if (request.getStartDate().getYear() != request.getYear() || request.getEndDate().getYear() != request.getYear()) {
             return "Start date and end date must be within the year " + request.getYear();
         }
 
@@ -529,9 +494,7 @@ public class SchoolServiceImpl implements SchoolService {
         int schoolId = actorCampus.getSchool().getId();
 
         if (year > 0) {
-            AdmissionCampaign campaign = admissionCampaignRepo
-                    .findFirstBySchoolIdAndYearOrderByIdDesc(schoolId, year)
-                    .orElse(null);
+            AdmissionCampaign campaign = admissionCampaignRepo.findFirstBySchoolIdAndYearOrderByIdDesc(schoolId, year).orElse(null);
 
             if (campaign == null) {
                 return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campaign template not found", null);
@@ -542,9 +505,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         List<AdmissionCampaign> campaignList = admissionCampaignRepo.findBySchoolIdOrderByYearDesc(schoolId);
 
-        List<Map<String, Object>> data = campaignList.stream()
-                .map(this::buildCampaignData)
-                .toList();
+        List<Map<String, Object>> data = campaignList.stream().map(this::buildCampaignData).toList();
 
         return ResponseBuilder.build(HttpStatus.OK, "View campaign template list successfully", data);
     }
@@ -576,46 +537,115 @@ public class SchoolServiceImpl implements SchoolService {
 
         Curriculum targetCurriculum;
 
-        if (request.getCurriculumId() == null || request.getCurriculumId() <= 0) {
-            // LUỒNG CREATE: Tạo mới hoàn toàn (Mặc định là DRAFT hoặc theo publishNow)
-            targetCurriculum = buildNewCurriculum(request, actorCampus.getSchool(), Long.parseLong(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))));
+        long currentVersion = Long.parseLong(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
+
+        boolean isNew = request.getCurriculumId() == null || request.getCurriculumId() <= 0;
+
+        if (isNew) {
+
+            targetCurriculum = buildNewCurriculum(request, actorCampus.getSchool(), currentVersion);
         } else {
-            // LUỒNG UPDATE: Tìm bản ghi cũ
-            Curriculum existing = curriculumRepo.findById(request.getCurriculumId()).orElse(null);
-            if (existing == null) {
+
+            Curriculum existingCurriculum = curriculumRepo.findById(request.getCurriculumId()).orElse(null);
+
+            if (existingCurriculum == null) {
                 return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Curriculum not found", null);
             }
 
-            if (Status.CUR_DRAFT.equals(existing.getCurriculumStatus())) {
-                // Trường hợp sửa bản DRAFT: Ghi đè trực tiếp
-                targetCurriculum = existing;
-                applyRequestToCurriculum(targetCurriculum, request, Long.parseLong(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))));
+            if (Status.CUR_DRAFT.equals(existingCurriculum.getCurriculumStatus())) {
+                targetCurriculum = existingCurriculum;
+                applyRequestToCurriculum(targetCurriculum, request, currentVersion);
             } else {
-                // Trường hợp sửa bản ACTIVE: Tiến hóa sang bản mới
-                processArchivingOldVersions(CurriculumNamingUtil.generateGroupCode(request), request.getEnrollmentYear());
-                targetCurriculum = evolveFromExisting(existing, request, Long.parseLong(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))));
+                // Sửa bản ACTIVE: Tạo bản sao (Clone) ở dạng DRAFT để không ảnh hưởng dữ liệu đang chạy
+                targetCurriculum = evolveFromExisting(existingCurriculum, request, currentVersion);
             }
         }
 
-        // 4. Đồng bộ trạng thái Latest & Status nếu người dùng muốn Publish ngay
-        if (Boolean.TRUE.equals(request.getPublishNow())) {
-            processArchivingOldVersions(CurriculumNamingUtil.generateGroupCode(request), request.getEnrollmentYear());
-            targetCurriculum.setLatest(true);
-            targetCurriculum.setCurriculumStatus(Status.CUR_ACTIVE);
-        }
+        targetCurriculum.setCurriculumStatus(Status.CUR_DRAFT);
+        demoteLatestStatus(targetCurriculum.getGroupCode(), targetCurriculum.getEnrollmentYear());
+        targetCurriculum.setLatest(true);
 
         curriculumRepo.save(targetCurriculum);
-        String message = request.getCurriculumId() == null || request.getCurriculumId() <= 0 ? "Created curriculum successfully" : "Updated curriculum successfully";
-        return ResponseBuilder.build(HttpStatus.OK, message, null);
+        return ResponseBuilder.build(HttpStatus.OK, isNew ? "Created draft successfully" : "Updated draft successfully", null);
     }
 
-    private void processArchivingOldVersions(String groupCode, int year) {
-        List<Curriculum> oldLatests = curriculumRepo.findByGroupCodeAndEnrollmentYearAndIsLatestTrue(groupCode, year);
-        for (Curriculum old : oldLatests) {
-            old.setLatest(false);
-            old.setCurriculumStatus(Status.CUR_ARCHIVED);
+    private void demoteLatestStatus(String groupCode, int enrollmentYear) {
+        // 1. Tìm tất cả các bản ghi đang mang cờ isLatest = true trong nhóm này
+        List<Curriculum> latestVersions = curriculumRepo.findAllByGroupCodeAndEnrollmentYearAndIsLatestTrue(groupCode, enrollmentYear);
+
+        if (!latestVersions.isEmpty()) {
+            latestVersions.forEach(c -> c.setLatest(false));
+
+            curriculumRepo.saveAll(latestVersions);
+
+            curriculumRepo.flush();
         }
-        curriculumRepo.saveAll(oldLatests);
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<ResponseObject> activateCurriculum(int id) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        // actor campus co phai la primary campus ko
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
+        }
+
+        // 2. Tìm bản ghi muốn kích hoạt
+        Curriculum target = curriculumRepo.findById(id).orElse(null);
+        if (target == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Curriculum not found", null);
+        }
+
+        // 1. Nếu đã ACTIVE rồi thì thôi
+        if (Status.CUR_ACTIVE.equals(target.getCurriculumStatus())) {
+            return ResponseBuilder.build(HttpStatus.OK, "This curriculum is already active", null);
+        }
+
+        // 2. Chặn ARCHIVED (Bạn đã làm tốt)
+        if (Status.CUR_ARCHIVED.equals(target.getCurriculumStatus())) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot activate an archived curriculum", null);
+        }
+
+        // 1. Kiểm tra tính hợp lệ của thời điểm nhấn nút (EnrollmentYear)
+        int currentYear = Year.now().getValue();
+        if (target.getEnrollmentYear() < currentYear - 1) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot activate curriculum for a past enrollment year.", null);
+        }
+
+        // 2. Kiểm tra trùng lặp nội dung với bản ACTIVE hiện tại
+        Curriculum currentActive = curriculumRepo.findByGroupCodeAndEnrollmentYearAndCurriculumStatus(
+                target.getGroupCode(), target.getEnrollmentYear(), Status.CUR_ACTIVE);
+
+        if (currentActive != null) {
+            // So sánh nội dung quan trọng: Subjects và Description
+            boolean isSameContent = Objects.equals(target.getSubjectsJsonb(), currentActive.getSubjectsJsonb())
+                    && Objects.equals(target.getDescription(), currentActive.getDescription())
+                    && Objects.equals(target.getMethodLearning(), currentActive.getMethodLearning());
+
+            if (isSameContent) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "This draft has no changes compared to the current Active version. Activation canceled.", null);
+            }
+        }
+
+        // 5. THỰC HIỆN PUBLISH (Chuyển DRAFT -> ACTIVE)
+        target.setCurriculumStatus(Status.CUR_ACTIVE);
+        target.setLatest(true);
+        target.setVersion(Long.parseLong(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))));
+
+        curriculumRepo.save(target);
+        return ResponseBuilder.build(HttpStatus.OK, "Publish curriculum successful", null);
     }
 
     private Curriculum buildNewCurriculum(CurriculumRequest request, School school, long version) {
@@ -629,117 +659,136 @@ public class SchoolServiceImpl implements SchoolService {
                 .subjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()))
                 .version(version)
                 .school(school)
-                .isLatest(false) // Mặc định là false, sẽ set true nếu publishNow = true
-                .curriculumStatus(Status.CUR_DRAFT)
-                .build();
+                .isLatest(false)
+                .curriculumStatus(Status.CUR_DRAFT).build();
+    }
+
+    // bảng update đối vs draft
+    private void applyRequestToCurriculum(Curriculum curriculum, CurriculumRequest request, long version) {
+
+        curriculum.setDescription(request.getDescription());
+        curriculum.setSubjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()));
+        curriculum.setMethodLearning(LearningMethod.valueOf(request.getMethodLearning()));
+        curriculum.setVersion(version);
+
+        // Kiểm tra xem request có đòi thay đổi định danh (Identity) không
+        boolean isIdentityChanging = curriculum.getEnrollmentYear() != request.getEnrollmentYear()
+                || !curriculum.getCurriculumType().name().equals(request.getCurriculumType())
+                || !curriculum.getGroupCode().equals(CurriculumNamingUtil.generateGroupCode(request));
+
+        if (isIdentityChanging) {
+            // Chỉ khi có ý định đổi Identity mới tốn tài nguyên kiểm tra DB
+            // Nếu curriculum.getId() == null (bản clone mới), không cần kiểm tra hasLinkedPrograms
+            boolean hasLinkedPrograms = curriculum.getId() != null && programRepo.existsByCurriculumId(curriculum.getId());
+            if (!hasLinkedPrograms) {
+                curriculum.setName(CurriculumNamingUtil.generateName(request));
+                curriculum.setGroupCode(CurriculumNamingUtil.generateGroupCode(request));
+                curriculum.setEnrollmentYear(request.getEnrollmentYear());
+                curriculum.setCurriculumType(CurriculumType.valueOf(request.getCurriculumType()));
+            }
+        }
     }
 
     private Curriculum evolveFromExisting(Curriculum existing, CurriculumRequest request, long version) {
-        return Curriculum.builder()
+
+        Curriculum clone = Curriculum.builder()
                 .name(existing.getName())
                 .groupCode(existing.getGroupCode())
                 .curriculumType(existing.getCurriculumType())
-                .methodLearning(existing.getMethodLearning())
                 .enrollmentYear(existing.getEnrollmentYear())
                 .school(existing.getSchool())
-                .parent(existing) // Lưu vết: Bản này "đẻ" ra từ bản existing
-                .description(request.getDescription())
-                .subjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()))
-                .version(version)
-                .isLatest(true)
-                .curriculumStatus(Status.CUR_ACTIVE)
+                .parent(existing)
+                .isLatest(false)
+                .curriculumStatus(Status.CUR_DRAFT)
                 .build();
+
+        // tận dụng hàm apply để gán các thông tin thay đổi từ request
+        applyRequestToCurriculum(clone, request, version);
+        return clone;
     }
 
-    private void applyRequestToCurriculum(Curriculum curriculum, CurriculumRequest request, long version) {
-        curriculum.setDescription(request.getDescription());
-        curriculum.setSubjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()));
-        curriculum.setVersion(version);
-    }
 
     // define cấu trúc subjectsJsonb theo format jsonb
     private List<Map<String, Object>> buildSubjectsJsonb(List<CurriculumRequest.SubjectOptionRequest> request) {
-
         if (request == null) return Collections.emptyList();
 
-        return request.stream()
-                .map(
-                        opt -> {
-                            Map<String, Object> data = new HashMap<>();
-                            data.put("name", opt.getName());
-                            data.put("description", opt.getDescription());
-                            data.put("isMandatory", Boolean.TRUE.equals(opt.getIsMandatory()));
-                            return data;
-                        }
-                )
-                .collect(Collectors.toList());
+        return request.stream().map(opt -> {
+            return Map.<String, Object>of(
+                    "name", Objects.requireNonNullElse(opt.getName(), ""),
+                    "description", Objects.requireNonNullElse(opt.getDescription(), ""),
+                    "isMandatory", Boolean.TRUE.equals(opt.getIsMandatory())
+            );
+        }).collect(Collectors.toList());
     }
 
     private String validationUpsertCurriculum(CurriculumRequest request) {
 
+        // 1. Kiểm tra tồn tại bản ghi và tính bất biến (Immutability)
+        Curriculum existing = null;
         if (request.getCurriculumId() != null && request.getCurriculumId() > 0) {
-            Curriculum existing = curriculumRepo.findById(request.getCurriculumId()).orElse(null);
-            if (existing == null) {
-                return "Curriculum not found";
-            }
+            existing = curriculumRepo.findById(request.getCurriculumId()).orElse(null);
+            if (existing == null) return "Curriculum not found";
 
-            // QUAN TRỌNG: Kiểm tra tính bất biến nếu đã có Program sử dụng
-            // Bạn cần khai báo thêm method countByCurriculumId trong ProgramRepository
+            // Kiểm tra Program liên kết để chặn đổi thông tin định danh
             int linkedPrograms = programRepo.countByCurriculumId(existing.getId());
-
             if (linkedPrograms > 0) {
-                // Không cho phép đổi Năm học nếu đã có Program trỏ vào
                 if (existing.getEnrollmentYear() != request.getEnrollmentYear()) {
                     return String.format("Cannot change enrollment year because %d programs are using this curriculum.", linkedPrograms);
                 }
-
-                // Không cho phép đổi Loại chương trình
                 if (!existing.getCurriculumType().name().equals(request.getCurriculumType())) {
                     return "Cannot change curriculum type for a curriculum already linked to programs.";
                 }
             }
         }
 
-        // 2. Validate các trường bắt buộc
-        if (request.getSubTypeName() == null || request.getSubTypeName().isBlank()) {
-            return "Sub-type name is required";
+        // 2. Kiểm tra trùng lặp định danh (Business Identity Check)
+        // Tránh việc tạo 2 bản ghi khác ID nhưng cùng (Type + Year + SubType) dẫn đến trùng GroupCode
+        String newGroupCode = CurriculumNamingUtil.generateGroupCode(request);
+
+        // Nếu tạo mới, hoặc sửa bản cũ mà thay đổi thông tin định danh (Identity)
+        boolean isIdentityChanged = (existing == null) ||
+                (!existing.getGroupCode().equals(newGroupCode)) ||
+                (existing.getEnrollmentYear() != request.getEnrollmentYear());
+
+        // 3. Validate các trường bắt buộc & Enum
+        if (StringUtils.isBlank(request.getSubTypeName())) {
+            return "Sub-type name is required (e.g., Cambridge, Global).";
         }
 
-        // 3. Kiểm tra năm học (Logic 5 năm cũ - 2 năm tương lai của bạn rất tốt)
-        int currentYear = Year.now().getValue();
-        if (request.getEnrollmentYear() < currentYear - 5 || request.getEnrollmentYear() > currentYear + 2) {
-            return String.format("Invalid enrollment year. Must be between %d and %d.", currentYear - 5, currentYear + 2);
-        }
-
-        // 4. Kiểm tra Enum (Dùng helper để tránh lặp lại try-catch nếu có nhiều enum)
         try {
             CurriculumType.valueOf(request.getCurriculumType());
             LearningMethod.valueOf(request.getMethodLearning());
-        } catch (IllegalArgumentException e) {
-            return "Invalid Curriculum Type or Learning Method.";
+        } catch (Exception e) {
+            return "Invalid Curriculum Type or Learning Method selected.";
         }
 
-        // 5. Kiểm tra danh sách môn học
+        // 4. Validate Năm học (5 năm cũ - 2 năm tương lai)
+        int currentYear = Year.now().getValue();
+        if (request.getEnrollmentYear() < currentYear - 5 || request.getEnrollmentYear() > currentYear + 2) {
+            return String.format("Invalid enrollment year. Allowed range: %d to %d.", currentYear - 5, currentYear + 2);
+        }
+
+        // 5. Validate Nội dung môn học (Subjects)
         if (request.getSubjectOptions() == null || request.getSubjectOptions().isEmpty()) {
-            return "At least one subject is required in the curriculum.";
+            return "The curriculum must contain at least one subject.";
         }
 
-        for (CurriculumRequest.SubjectOptionRequest opt : request.getSubjectOptions()) {
-            if (opt.getName() == null || opt.getName().isBlank()) {
-                return "Subject name is required.";
+        // Kiểm tra từng môn học trong danh sách
+        for (var opt : request.getSubjectOptions()) {
+            if (StringUtils.isBlank(opt.getName())) {
+                return "Subject name cannot be empty.";
             }
-            if (opt.getDescription() == null || opt.getDescription().isBlank()) {
-                return "Subject description is required.";
-            }
-            if (opt.getIsMandatory() == null) {
-                return "Subject mandatory flag is required.";
+            if (StringUtils.isBlank(opt.getDescription())) {
+                return "Description for subject '" + opt.getName() + "' is required.";
             }
         }
 
-        // 6. Check logic môn học bắt buộc
-        boolean hasMandatory = request.getSubjectOptions().stream().anyMatch(opt -> Boolean.TRUE.equals(opt.getIsMandatory()));
+        // Chốt chặn nghiệp vụ: Phải có ít nhất 1 môn bắt buộc
+        boolean hasMandatory = request.getSubjectOptions().stream()
+                .anyMatch(o -> Boolean.TRUE.equals(o.getIsMandatory()));
+
         if (!hasMandatory) {
-            return "The curriculum must have at least one mandatory subject.";
+            return "The curriculum must have at least one mandatory (required) subject.";
         }
 
         return null;
@@ -782,6 +831,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("isLatest", curriculum.isLatest());
         data.put("curriculumStatus", curriculum.getCurriculumStatus().name());
         data.put("subjects", curriculum.getSubjectsJsonb());
+        data.put("status", curriculum.getCurriculumStatus().name());
 
         int programCount = (curriculum.getPrograms() != null) ? curriculum.getPrograms().size() : 0;
         data.put("programCount", programCount);
@@ -791,8 +841,7 @@ public class SchoolServiceImpl implements SchoolService {
         if (programCount > 0) {
             List<String> linkedProgramNames = curriculum.getPrograms().stream()
                     // Lấy tên Program (thường map từ Graduation Standard hoặc một field name riêng của Program)
-                    .map(p -> "Program: " + p.getGraduationStandard())
-                    .collect(Collectors.toList());
+                    .map(p -> "Program: " + p.getGraduationStandard()).collect(Collectors.toList());
             data.put("linkedProgramNames", linkedProgramNames);
 
         } else {
@@ -919,21 +968,18 @@ public class SchoolServiceImpl implements SchoolService {
 
         Page<Program> programs = programRepo.findByCurriculum_School_Id(actorCampus.getSchool().getId(), pageable);
 
-        List<Map<String, Object>> data = programs.stream()
-                .map(program ->
-                        {
-                            Map<String, Object> programData = new HashMap<>();
-                            programData.put("id", program.getId());
-                            programData.put("curriculumName", program.getCurriculum().getName());
-                            programData.put("enrollmentYear", program.getCurriculum().getEnrollmentYear());
-                            programData.put("curriculumType", program.getCurriculum().getCurriculumType());
-                            programData.put("graduationStandard", program.getGraduationStandard());
-                            programData.put("targetStudentDescription", program.getTargetStudentDescription());
-                            programData.put("baseTuitionFee", program.getBaseTuitionFee());
-                            programData.put("isActive", program.isActive() ? Status.PRO_ACTIVE : Status.PRO_INACTIVE);
-                            return programData;
-                        }
-                )
+        List<Map<String, Object>> data = programs.stream().map(program -> {
+                    Map<String, Object> programData = new HashMap<>();
+                    programData.put("id", program.getId());
+                    programData.put("curriculumName", program.getCurriculum().getName());
+                    programData.put("enrollmentYear", program.getCurriculum().getEnrollmentYear());
+                    programData.put("curriculumType", program.getCurriculum().getCurriculumType());
+                    programData.put("graduationStandard", program.getGraduationStandard());
+                    programData.put("targetStudentDescription", program.getTargetStudentDescription());
+                    programData.put("baseTuitionFee", program.getBaseTuitionFee());
+                    programData.put("isActive", program.isActive() ? Status.PRO_ACTIVE : Status.PRO_INACTIVE);
+                    return programData;
+                })
 
                 .toList();
 
@@ -990,20 +1036,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Application status must be OPEN, PAUSED, FULL, or CLOSED", null);
         }
 
-        CampusProgramOffering offering = campusProgramOfferingRepo.save(CampusProgramOffering.builder()
-                .campus(targetCampus)
-                .admissionCampaign(campaign)
-                .program(program)
-                .quota(request.getQuota())
-                .remainingQuota(request.getQuota())
-                .learningMode(request.getLearningMode())
-                .priceAdjustmentPercentage(0)
-                .tuitionFee(tuitionFee)
-                .applicationStatus(applicationStatus)
-                .openDate(openDate)
-                .closeDate(closeDate)
-                .status(Status.OPEN)
-                .build());
+        CampusProgramOffering offering = campusProgramOfferingRepo.save(CampusProgramOffering.builder().campus(targetCampus).admissionCampaign(campaign).program(program).quota(request.getQuota()).remainingQuota(request.getQuota()).learningMode(request.getLearningMode()).priceAdjustmentPercentage(0).tuitionFee(tuitionFee).applicationStatus(applicationStatus).openDate(openDate).closeDate(closeDate).status(Status.OPEN).build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Create campus offering successfully", buildOfferingData(offering));
     }
@@ -1044,8 +1077,7 @@ public class SchoolServiceImpl implements SchoolService {
             offeringPage = campusProgramOfferingRepo.findByCampusIdOrderByIdDesc(actorCampus.getId(), pageable);
         }
 
-        PageResponse<Map<String, Object>> pageResponse =
-                PaginationUtil.buildPageResponse(offeringPage, this::buildOfferingData);
+        PageResponse<Map<String, Object>> pageResponse = PaginationUtil.buildPageResponse(offeringPage, this::buildOfferingData);
 
         return ResponseBuilder.build(HttpStatus.OK, "View campus offering list successfully", pageResponse);
     }
@@ -1127,44 +1159,21 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Start time must be earlier than end time", null);
         }
 
-        if (request.getEventDate().isEqual(LocalDate.now())
-                && request.getStartTime().isBefore(LocalTime.now())) {
+        if (request.getEventDate().isEqual(LocalDate.now()) && request.getStartTime().isBefore(LocalTime.now())) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Start time must be later than current time for today's event", null);
         }
 
         if (Duration.between(request.getStartTime(), request.getEndTime()).toMinutes() < 30) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Event duration must be at least 30 minutes", null);
         }
-        boolean isConflict = openDayEventRepo
-                .existsByCampusIdAndEventDateAndStartTimeLessThanAndEndTimeGreaterThan(
-                        actorCampus.getId(),
-                        request.getEventDate(),
-                        request.getEndTime(),
-                        request.getStartTime()
-                );
+        boolean isConflict = openDayEventRepo.existsByCampusIdAndEventDateAndStartTimeLessThanAndEndTimeGreaterThan(actorCampus.getId(), request.getEventDate(), request.getEndTime(), request.getStartTime());
 
         if (isConflict) {
-            return ResponseBuilder.build(
-                    HttpStatus.CONFLICT,
-                    "Open day event time conflicts with another event in this campus",
-                    null
-            );
+            return ResponseBuilder.build(HttpStatus.CONFLICT, "Open day event time conflicts with another event in this campus", null);
         }
-        OpenDayEvent openDayEvent =  openDayEventRepo.save(
+        OpenDayEvent openDayEvent = openDayEventRepo.save(
 
-                OpenDayEvent.builder()
-                        .title(request.getTitle())
-                        .description(request.getDescription())
-                        .bannerUrl(request.getBannerUrl())
-                        .eventDate(request.getEventDate())
-                        .startTime(request.getStartTime())
-                        .endTime(request.getEndTime())
-                        .status(Status.EVENT_UPCOMING)
-                        .createdAt(LocalDateTime.now())
-                        .updatedAt(LocalDateTime.now())
-                        .campus(actorCampus)
-                        .build()
-        );
+                OpenDayEvent.builder().title(request.getTitle()).description(request.getDescription()).bannerUrl(request.getBannerUrl()).eventDate(request.getEventDate()).startTime(request.getStartTime()).endTime(request.getEndTime()).status(Status.EVENT_UPCOMING).createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).campus(actorCampus).build());
         return ResponseBuilder.build(HttpStatus.OK, "Create open day event successfully", buildOpenDayEvent(openDayEvent));
     }
 
@@ -1189,8 +1198,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         Page<OpenDayEvent> openDayEventPage = openDayEventRepo.findByCampusId(actorCampus.getId(), pageable);
 
-        PageResponse<Map<String, Object>> pageResponse =
-                PaginationUtil.buildPageResponse(openDayEventPage, this::buildOpenDayEvent);
+        PageResponse<Map<String, Object>> pageResponse = PaginationUtil.buildPageResponse(openDayEventPage, this::buildOpenDayEvent);
 
         return ResponseBuilder.build(HttpStatus.OK, "View open day event list successfully", pageResponse);
     }
@@ -1282,9 +1290,7 @@ public class SchoolServiceImpl implements SchoolService {
             return null;
         }
 
-        String enumKey = normalized.toUpperCase(Locale.ROOT)
-                .replace('-', '_')
-                .replace(' ', '_');
+        String enumKey = normalized.toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
 
         try {
             return BoardingType.valueOf(enumKey);
@@ -1304,9 +1310,7 @@ public class SchoolServiceImpl implements SchoolService {
             return Status.OPEN;
         }
 
-        String enumKey = normalized.toUpperCase(Locale.ROOT)
-                .replace('-', '_')
-                .replace(' ', '_');
+        String enumKey = normalized.toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
 
         Status parsed;
         try {
@@ -1315,8 +1319,7 @@ public class SchoolServiceImpl implements SchoolService {
             return null;
         }
 
-        if (parsed != Status.OPEN && parsed != Status.PAUSED
-                && parsed != Status.FULL && parsed != Status.CLOSED) {
+        if (parsed != Status.OPEN && parsed != Status.PAUSED && parsed != Status.FULL && parsed != Status.CLOSED) {
             return null;
         }
 
@@ -1343,19 +1346,9 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, validationError, null);
         }
 
-        Account account = accountRepo.save(Account.builder()
-                .email(normalize(request.getEmail()))
-                .role(Role.COUNSELLOR)
-                .status(Status.ACCOUNT_ACTIVE)
-                .registerDate(LocalDate.now())
-                .firstLogin(true)
-                .build());
+        Account account = accountRepo.save(Account.builder().email(normalize(request.getEmail())).role(Role.COUNSELLOR).status(Status.ACCOUNT_ACTIVE).registerDate(LocalDate.now()).firstLogin(true).build());
 
-        Counsellor counsellor = counsellorRepo.save(Counsellor.builder()
-                .account(account)
-                .campus(actorCampus)
-                .employeeCode(UUID.randomUUID())
-                .build());
+        Counsellor counsellor = counsellorRepo.save(Counsellor.builder().account(account).campus(actorCampus).employeeCode(UUID.randomUUID()).build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Create counsellor successfully", buildCounsellorData(counsellor));
     }
@@ -1403,11 +1396,9 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
         }
 
-        Page<Counsellor> counsellorPage =
-                counsellorRepo.findByCampusId(actorCampus.getId(), pageable);
+        Page<Counsellor> counsellorPage = counsellorRepo.findByCampusId(actorCampus.getId(), pageable);
 
-        PageResponse<Map<String, Object>> pageResponse =
-                PaginationUtil.buildPageResponse(counsellorPage, this::buildCounsellorData);
+        PageResponse<Map<String, Object>> pageResponse = PaginationUtil.buildPageResponse(counsellorPage, this::buildCounsellorData);
 
         return ResponseBuilder.build(HttpStatus.OK, "View counsellor list successfully", pageResponse);
     }
