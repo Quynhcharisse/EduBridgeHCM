@@ -1,8 +1,10 @@
+
 package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.CurriculumType;
 import com.sp26se041.edubridgehcm.enums.LearningMethod;
+import com.sp26se041.edubridgehcm.enums.LearningMode;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
@@ -273,7 +275,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         String error = validationCreateAdmissionCampaignTemplate(request, actorCampus);
 
-        if (!error.isEmpty()) {
+        if (error != null && !error.isBlank()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
@@ -477,7 +479,7 @@ public class SchoolServiceImpl implements SchoolService {
             }
         }
 
-        campaign.setStatus(targetStatus);
+        campaign.setStatus(targetStatus.equals(Status.FULL) ? Status.CLOSED : Status.OPEN);
         admissionCampaignRepo.save(campaign);
 
         return ResponseBuilder.build(HttpStatus.OK, "Status updated to " + targetStatus + " successfully", null);
@@ -708,7 +710,6 @@ public class SchoolServiceImpl implements SchoolService {
         applyRequestToCurriculum(clone, request, version);
         return clone;
     }
-
 
     // define cấu trúc subjectsJsonb theo format jsonb
     private List<Map<String, Object>> buildSubjectsJsonb(List<CurriculumRequest.SubjectOptionRequest> request) {
@@ -1030,88 +1031,145 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         Campus actorCampus = extractActorCampus();
-
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
-        if (request == null || request.getAdmissionCampaignId() == null || request.getProgramId() == null || request.getLearningMode() == null || request.getQuota() <= 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campaign, program, learning mode and quota are required", null);
+        String error = validateCreateCampusProgramOffering(request, actorCampus);
+
+        if (error != null) {
+
+            if (error.contains("already has the same program offering")) {
+                return ResponseBuilder.build(HttpStatus.CONFLICT, error, null);
+            }
+
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
+        // Lấy lại các entity đã validate để tạo offering
         AdmissionCampaign campaign = admissionCampaignRepo.findById(request.getAdmissionCampaignId()).orElse(null);
-        if (campaign == null || !campaign.getSchool().getId().equals(actorCampus.getSchool().getId())) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campaign is out of your school scope", null);
-        }
 
-        if (campaign.getStatus() == Status.CLOSED || campaign.getStatus() == Status.EXPIRED) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot add offering to closed/expired campaign", null);
+        if (campaign == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campaign not found", null);
         }
 
         Program program = programRepo.findByIdAndCurriculum_School_Id(request.getProgramId(), actorCampus.getSchool().getId());
+
         if (program == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Program not found", null);
         }
 
+        Campus targetCampus = resolveTargetCampus(actorCampus, request.getCampusId());
+
+        if (targetCampus == null) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus is out of your scope", null);
+        }
+
+        Status applicationStatus = parseApplicationStatus(request.getApplicationStatus());
+
+        if (applicationStatus == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Application status must be OPEN, PAUSED, FULL, or CLOSED", null);
+        }
+
+        if (applicationStatus == null) {
+            throw new IllegalArgumentException("Application status is required or invalid");
+        }
+
+        campusProgramOfferingRepo.save(CampusProgramOffering.builder()
+                .campus(targetCampus)
+                .admissionCampaign(campaign)
+                .program(program)
+                .quota(request.getQuota())
+                .remainingQuota((parseApplicationStatus(request.getApplicationStatus()) == Status.FULL) ? 0 : request.getQuota())
+                .learningMode(request.getLearningMode())
+                .priceAdjustmentPercentage(0)
+                .tuitionFee(request.getTuitionFee())
+                .applicationStatus(applicationStatus)
+                .openDate((request.getOpenDate() != null) ? request.getOpenDate() : campaign.getStartDate())
+                .closeDate((request.getCloseDate() != null) ? request.getCloseDate() : campaign.getEndDate())
+                .status(Status.OPEN)
+                .build());
+
+        return ResponseBuilder.build(HttpStatus.OK, "Create campus offering successfully", null);
+    }
+
+    private String validateCreateCampusProgramOffering(CreateCampusProgramOfferingRequest request, Campus actorCampus) {
+
+        if (request == null || request.getAdmissionCampaignId() == null || request.getProgramId() == null || request.getLearningMode() == null || request.getQuota() <= 0) {
+            return "Campaign, program, learning mode and quota are required";
+        }
+
+        AdmissionCampaign campaign = admissionCampaignRepo.findById(request.getAdmissionCampaignId()).orElse(null);
+        if (campaign == null || !campaign.getSchool().getId().equals(actorCampus.getSchool().getId())) {
+            return "Campaign is out of your school scope";
+        }
+
+        if (campaign.getStatus() == Status.CLOSED || campaign.getStatus() == Status.EXPIRED) {
+            return "Cannot add offering to closed/expired campaign";
+        }
+
+        Program program = programRepo.findByIdAndCurriculum_School_Id(request.getProgramId(), actorCampus.getSchool().getId());
+
+        if (program == null) {
+            return "Program not found";
+        }
+
         if (!program.isActive()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Program is inactive", null);
+            return "Program is inactive";
         }
 
         if (program.getCurriculum().getCurriculumStatus() != Status.CUR_ACTIVE) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Program curriculum must be active", null);
+            return "Program curriculum must be active";
         }
 
         if (campaign.getYear() != program.getCurriculum().getEnrollmentYear()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campaign year must match curriculum enrollment year", null);
+            return "Campaign year must match curriculum enrollment year";
         }
 
         Campus targetCampus = resolveTargetCampus(actorCampus, request.getCampusId());
+
         if (targetCampus == null) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus is out of your scope", null);
+            return "Campus is out of your scope";
         }
 
         BigDecimal tuitionFee = request.getTuitionFee();
 
         if (tuitionFee == null || tuitionFee.signum() < 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tuition fee must be >= 0", null);
+            return "Tuition fee must be >= 0";
         }
 
-        LocalDate openDate = request.getOpenDate() != null ? request.getOpenDate() : campaign.getStartDate();
-        LocalDate closeDate = request.getCloseDate() != null ? request.getCloseDate() : campaign.getEndDate();
+        AdmissionCampaign finalCampaign = campaign;
+
+        LocalDate openDate = request.getOpenDate() != null ? request.getOpenDate() : finalCampaign.getStartDate();
+
+        LocalDate closeDate = request.getCloseDate() != null ? request.getCloseDate() : finalCampaign.getEndDate();
+
         if (closeDate.isBefore(openDate)) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Close date must be after or equal to open date", null);
+            return "Close date must be after or equal to open date";
         }
 
-        if (openDate.isBefore(campaign.getStartDate()) || closeDate.isAfter(campaign.getEndDate())) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Offering open/close date must be within campaign date range", null);
+        if (openDate.isBefore(finalCampaign.getStartDate()) || closeDate.isAfter(finalCampaign.getEndDate())) {
+            return "Offering open/close date must be within campaign date range";
         }
 
         Status applicationStatus = parseApplicationStatus(request.getApplicationStatus());
+
         if (applicationStatus == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Application status must be OPEN, PAUSED, FULL, or CLOSED", null);
+            return "Application status must be OPEN, PAUSED, FULL, or CLOSED";
         }
 
         boolean duplicatedOffering = campusProgramOfferingRepo.existsByAdmissionCampaignIdAndCampusIdAndProgramIdAndLearningMode(
-                campaign.getId(),
+                finalCampaign.getId(),
                 targetCampus.getId(),
                 program.getId(),
                 request.getLearningMode()
         );
 
         if (duplicatedOffering) {
-            return ResponseBuilder.build(HttpStatus.CONFLICT, "This campus already has the same program offering in this campaign", null);
+            return "This campus already has the same program offering in this campaign";
         }
 
-        int remainingQuota = applicationStatus == Status.FULL ? 0 : request.getQuota();
-
-        CampusProgramOffering offering;
-        try {
-            offering = campusProgramOfferingRepo.save(CampusProgramOffering.builder().campus(targetCampus).admissionCampaign(campaign).program(program).quota(request.getQuota()).remainingQuota(remainingQuota).learningMode(request.getLearningMode()).priceAdjustmentPercentage(0).tuitionFee(tuitionFee).applicationStatus(applicationStatus).openDate(openDate).closeDate(closeDate).status(Status.OPEN).build());
-        } catch (DataIntegrityViolationException e) {
-            return ResponseBuilder.build(HttpStatus.CONFLICT, "This campus already has the same program offering in this campaign", null);
-        }
-
-        return ResponseBuilder.build(HttpStatus.OK, "Create campus offering successfully", buildOfferingData(offering));
+        return null;
     }
 
     @Override
@@ -1162,121 +1220,123 @@ public class SchoolServiceImpl implements SchoolService {
         if (AccountRestrictionUtil.isRestrictedActor()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
         }
-
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
-
-        if (request == null || request.getId() == null || request.getId() <= 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Offering id is required", null);
-        }
-
         CampusProgramOffering offering = campusProgramOfferingRepo.findById(request.getId()).orElse(null);
-        if (offering == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Offering not found", null);
-        }
-
-        if (!offering.getAdmissionCampaign().getSchool().getId().equals(actorCampus.getSchool().getId())) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Offering is out of your school scope", null);
-        }
-
-        if (!actorCampus.getIsPrimaryBranch() && !offering.getCampus().getId().equals(actorCampus.getId())) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "You can only update your campus offering", null);
-        }
-
-        int usedQuota = Math.max(0, offering.getQuota() - offering.getRemainingQuota());
-
-        AdmissionCampaign targetCampaign = offering.getAdmissionCampaign();
-        if (request.getAdmissionCampaignId() != null && !request.getAdmissionCampaignId().equals(targetCampaign.getId())) {
+        int usedQuota = (offering != null) ? Math.max(0, offering.getQuota() - offering.getRemainingQuota()) : 0;
+        AdmissionCampaign targetCampaign = offering != null ? offering.getAdmissionCampaign() : null;
+        if (request.getAdmissionCampaignId() != null && (targetCampaign == null || !request.getAdmissionCampaignId().equals(targetCampaign.getId()))) {
             targetCampaign = admissionCampaignRepo.findById(request.getAdmissionCampaignId()).orElse(null);
-            if (targetCampaign == null || !targetCampaign.getSchool().getId().equals(actorCampus.getSchool().getId())) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Target campaign is invalid", null);
-            }
         }
-
-        Campus targetCampus = offering.getCampus();
-        if (request.getCampusId() != null && !request.getCampusId().equals(targetCampus.getId())) {
+        Campus targetCampus = offering != null ? offering.getCampus() : null;
+        if (request.getCampusId() != null && (targetCampus == null || !request.getCampusId().equals(targetCampus.getId()))) {
             targetCampus = resolveTargetCampus(actorCampus, request.getCampusId());
-            if (targetCampus == null) {
-                return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus is out of your scope", null);
-            }
         }
-
-        Program targetProgram = offering.getProgram();
-        if (request.getProgramId() != null && !request.getProgramId().equals(targetProgram.getId())) {
+        Program targetProgram = offering != null ? offering.getProgram() : null;
+        if (request.getProgramId() != null && (targetProgram == null || !request.getProgramId().equals(targetProgram.getId()))) {
             targetProgram = programRepo.findByIdAndCurriculum_School_Id(request.getProgramId(), actorCampus.getSchool().getId());
-            if (targetProgram == null) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Target program is invalid", null);
+        }
+        LearningMode targetLearningMode = request.getLearningMode() != null ? request.getLearningMode() : (offering != null ? offering.getLearningMode() : null);
+        Integer targetQuota = request.getQuota() != null ? request.getQuota() : (offering != null ? offering.getQuota() : null);
+        Status targetApplicationStatus = request.getApplicationStatus() != null
+                ? parseApplicationStatus(request.getApplicationStatus())
+                : (offering != null ? offering.getApplicationStatus() : null);
+        LocalDate targetOpenDate = request.getOpenDate() != null ? request.getOpenDate()
+                : (offering != null && offering.getOpenDate() != null ? offering.getOpenDate() : (targetCampaign != null ? targetCampaign.getStartDate() : null));
+        LocalDate targetCloseDate = request.getCloseDate() != null ? request.getCloseDate()
+                : (offering != null && offering.getCloseDate() != null ? offering.getCloseDate() : (targetCampaign != null ? targetCampaign.getEndDate() : null));
+        String error = validateUpdateCampusProgramOffering(request, actorCampus, offering, targetCampaign, targetCampus, targetProgram, usedQuota, targetApplicationStatus, targetQuota, targetOpenDate, targetCloseDate, targetLearningMode);
+        if (error != null) {
+            if (error.contains("already has the same program offering")) {
+                return ResponseBuilder.build(HttpStatus.CONFLICT, error, null);
             }
+            if (error.contains("out of your school scope") || error.contains("out of your scope") || error.contains("only update your campus offering")) {
+                return ResponseBuilder.build(HttpStatus.FORBIDDEN, error, null);
+            }
+            if (error.contains("not found")) {
+                return ResponseBuilder.build(HttpStatus.NOT_FOUND, error, null);
+            }
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
+        int targetRemainingQuota = targetApplicationStatus == Status.FULL ? 0 : (targetQuota - usedQuota);
+        offering.setAdmissionCampaign(targetCampaign);
+        offering.setCampus(targetCampus);
+        offering.setProgram(targetProgram);
+        offering.setLearningMode(targetLearningMode);
+        offering.setQuota(targetQuota);
+        offering.setRemainingQuota(targetRemainingQuota);
+        BigDecimal targetTuition = request.getTuitionFee() != null ? request.getTuitionFee() : offering.getTuitionFee();
+        offering.setTuitionFee(targetTuition);
+        offering.setOpenDate(targetOpenDate);
+        offering.setCloseDate(targetCloseDate);
+        offering.setApplicationStatus(targetApplicationStatus);
+        try {
+            campusProgramOfferingRepo.save(offering);
+        } catch (DataIntegrityViolationException e) {
+            return ResponseBuilder.build(HttpStatus.CONFLICT, "This campus already has the same program offering in this campaign", null);
+        }
+        return ResponseBuilder.build(HttpStatus.OK, "Update campus offering successfully", buildOfferingData(offering));
+    }
 
+    // Validation cho updateCampusProgramOffering
+    private String validateUpdateCampusProgramOffering(UpdateCampusProgramOfferingRequest request, Campus actorCampus, CampusProgramOffering offering, AdmissionCampaign targetCampaign, Campus targetCampus, Program targetProgram, int usedQuota, Status targetApplicationStatus, Integer targetQuota, LocalDate targetOpenDate, LocalDate targetCloseDate, LearningMode targetLearningMode) {
+        if (request == null || request.getId() == null || request.getId() <= 0) {
+            return "Offering id is required";
+        }
+        if (offering == null) {
+            return "Offering not found";
+        }
+        if (!offering.getAdmissionCampaign().getSchool().getId().equals(actorCampus.getSchool().getId())) {
+            return "Offering is out of your school scope";
+        }
+        if (!actorCampus.getIsPrimaryBranch() && !offering.getCampus().getId().equals(actorCampus.getId())) {
+            return "You can only update your campus offering";
+        }
+        if (targetProgram == null) {
+            return "Target program is invalid";
+        }
         if (!targetProgram.isActive()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Program is inactive", null);
+            return "Program is inactive";
         }
-
         if (targetProgram.getCurriculum().getCurriculumStatus() != Status.CUR_ACTIVE) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Program curriculum must be active", null);
+            return "Program curriculum must be active";
         }
-
         if (targetCampaign.getStatus() == Status.CLOSED || targetCampaign.getStatus() == Status.EXPIRED) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot move offering to closed/expired campaign", null);
+            return "Cannot move offering to closed/expired campaign";
         }
-
         if (targetCampaign.getYear() != targetProgram.getCurriculum().getEnrollmentYear()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campaign year must match curriculum enrollment year", null);
+            return "Campaign year must match curriculum enrollment year";
         }
-
-        var targetLearningMode = request.getLearningMode() != null ? request.getLearningMode() : offering.getLearningMode();
-
         boolean identityChanged = !targetCampaign.getId().equals(offering.getAdmissionCampaign().getId())
                 || !targetCampus.getId().equals(offering.getCampus().getId())
                 || !targetProgram.getId().equals(offering.getProgram().getId())
                 || targetLearningMode != offering.getLearningMode();
-
         if (usedQuota > 0 && identityChanged) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot change campaign/campus/program/mode after applications have been received", null);
+            return "Cannot change campaign/campus/program/mode after applications have been received";
         }
-
-        Integer targetQuota = request.getQuota() != null ? request.getQuota() : offering.getQuota();
-        if (targetQuota <= 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Quota must be greater than 0", null);
+        if (targetQuota == null || targetQuota <= 0) {
+            return "Quota must be greater than 0";
         }
-
         if (targetQuota < usedQuota) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Quota cannot be smaller than registered quantity", null);
+            return "Quota cannot be smaller than registered quantity";
         }
-
-        BigDecimal targetTuition = request.getTuitionFee() != null ? request.getTuitionFee() : offering.getTuitionFee();
-        if (targetTuition == null || targetTuition.signum() < 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tuition fee must be >= 0", null);
+        if (targetOpenDate == null || targetCloseDate == null) {
+            return "Open date and close date are required";
         }
-
-        LocalDate targetOpenDate = request.getOpenDate() != null ? request.getOpenDate()
-                : (offering.getOpenDate() != null ? offering.getOpenDate() : targetCampaign.getStartDate());
-        LocalDate targetCloseDate = request.getCloseDate() != null ? request.getCloseDate()
-                : (offering.getCloseDate() != null ? offering.getCloseDate() : targetCampaign.getEndDate());
-
         if (targetCloseDate.isBefore(targetOpenDate)) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Close date must be after or equal to open date", null);
+            return "Close date must be after or equal to open date";
         }
-
         if (targetOpenDate.isBefore(targetCampaign.getStartDate()) || targetCloseDate.isAfter(targetCampaign.getEndDate())) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Offering open/close date must be within campaign date range", null);
+            return "Offering open/close date must be within campaign date range";
         }
-
-        Status targetApplicationStatus = request.getApplicationStatus() != null
-                ? parseApplicationStatus(request.getApplicationStatus())
-                : offering.getApplicationStatus();
-
         if (targetApplicationStatus == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Application status must be OPEN, PAUSED, FULL, or CLOSED", null);
+            return "Application status must be OPEN, PAUSED, FULL, or CLOSED";
         }
-
         if (targetApplicationStatus == Status.OPEN && targetQuota == usedQuota) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot set OPEN status when remaining quota is zero", null);
+            return "Cannot set OPEN status when remaining quota is zero";
         }
-
         boolean duplicatedOffering = campusProgramOfferingRepo.existsByAdmissionCampaignIdAndCampusIdAndProgramIdAndLearningModeAndIdNot(
                 targetCampaign.getId(),
                 targetCampus.getId(),
@@ -1285,167 +1345,15 @@ public class SchoolServiceImpl implements SchoolService {
                 offering.getId()
         );
         if (duplicatedOffering) {
-            return ResponseBuilder.build(HttpStatus.CONFLICT, "This campus already has the same program offering in this campaign", null);
+            return "This campus already has the same program offering in this campaign";
         }
-
-        int targetRemainingQuota = targetApplicationStatus == Status.FULL ? 0 : (targetQuota - usedQuota);
-
-        offering.setAdmissionCampaign(targetCampaign);
-        offering.setCampus(targetCampus);
-        offering.setProgram(targetProgram);
-        offering.setLearningMode(targetLearningMode);
-        offering.setQuota(targetQuota);
-        offering.setRemainingQuota(targetRemainingQuota);
-        offering.setTuitionFee(targetTuition);
-        offering.setOpenDate(targetOpenDate);
-        offering.setCloseDate(targetCloseDate);
-        offering.setApplicationStatus(targetApplicationStatus);
-
-        try {
-            campusProgramOfferingRepo.save(offering);
-        } catch (DataIntegrityViolationException e) {
-            return ResponseBuilder.build(HttpStatus.CONFLICT, "This campus already has the same program offering in this campaign", null);
+        BigDecimal targetTuition = request.getTuitionFee() != null ? request.getTuitionFee() : offering.getTuitionFee();
+        if (targetTuition == null || targetTuition.signum() < 0) {
+            return "Tuition fee must be >= 0";
         }
-
-        return ResponseBuilder.build(HttpStatus.OK, "Update campus offering successfully", buildOfferingData(offering));
+        return null;
     }
 
-    @Override
-    public ResponseEntity<ResponseObject> createOpenDayEvent(CreateOpenDayEventRequest request) {
-
-        if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
-        }
-
-        Campus actorCampus = extractActorCampus();
-
-        if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
-        }
-
-        if (request == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Request body is required", null);
-        }
-
-        if (request.getTitle() == null || request.getTitle().isBlank()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Title is required", null);
-        }
-
-        String title = request.getTitle().trim();
-        if (title.length() < 5 || title.length() > 255) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Title must be between 5 and 255 characters", null);
-        }
-
-        if (request.getDescription() == null || request.getDescription().isBlank()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Description is required", null);
-        }
-
-        String description = request.getDescription().trim();
-        if (description.length() < 20 || description.length() > 2000) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Description must be between 20 and 2000 characters", null);
-        }
-
-        if (request.getBannerUrl() == null || request.getBannerUrl().isBlank()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Banner URL is required", null);
-        }
-
-        String bannerUrl = request.getBannerUrl().trim();
-        if (bannerUrl.length() > 1000) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Banner URL must not exceed 1000 characters", null);
-        }
-
-        if (!(bannerUrl.startsWith("http://") || bannerUrl.startsWith("https://"))) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Banner URL must be a valid URL", null);
-        }
-
-        if (request.getEventDate() == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Event date is required", null);
-        }
-
-        if (request.getEventDate().isBefore(LocalDate.now())) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Event date must be today or in the future", null);
-        }
-
-        if (request.getStartTime() == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Start time is required", null);
-        }
-
-        if (request.getEndTime() == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "End time is required", null);
-        }
-
-        if (request.getCampusId() <= 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campus ID must be greater than 0", null);
-        }
-
-        if (!request.getStartTime().isBefore(request.getEndTime())) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Start time must be earlier than end time", null);
-        }
-
-        if (request.getEventDate().isEqual(LocalDate.now()) && request.getStartTime().isBefore(LocalTime.now())) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Start time must be later than current time for today's event", null);
-        }
-
-        if (Duration.between(request.getStartTime(), request.getEndTime()).toMinutes() < 30) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Event duration must be at least 30 minutes", null);
-        }
-        boolean isConflict = openDayEventRepo.existsByCampusIdAndEventDateAndStartTimeLessThanAndEndTimeGreaterThan(actorCampus.getId(), request.getEventDate(), request.getEndTime(), request.getStartTime());
-
-        if (isConflict) {
-            return ResponseBuilder.build(HttpStatus.CONFLICT, "Open day event time conflicts with another event in this campus", null);
-        }
-        OpenDayEvent openDayEvent = openDayEventRepo.save(
-
-                OpenDayEvent.builder().title(request.getTitle()).description(request.getDescription()).bannerUrl(request.getBannerUrl()).eventDate(request.getEventDate()).startTime(request.getStartTime()).endTime(request.getEndTime()).status(Status.EVENT_UPCOMING).createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).campus(actorCampus).build());
-        return ResponseBuilder.build(HttpStatus.OK, "Create open day event successfully", buildOpenDayEvent(openDayEvent));
-    }
-
-    @Override
-    public ResponseEntity<ResponseObject> viewOpenDayEventList(int currentPage, int pageSize) {
-
-        if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
-        }
-
-        Campus actorCampus = extractActorCampus();
-        if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
-        }
-
-        Pageable pageable;
-        try {
-            pageable = PaginationUtil.buildPageRequest(currentPage, pageSize);
-        } catch (IllegalArgumentException e) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
-        }
-
-        Page<OpenDayEvent> openDayEventPage = openDayEventRepo.findByCampusId(actorCampus.getId(), pageable);
-
-        PageResponse<Map<String, Object>> pageResponse = PaginationUtil.buildPageResponse(openDayEventPage, this::buildOpenDayEvent);
-
-        return ResponseBuilder.build(HttpStatus.OK, "View open day event list successfully", pageResponse);
-    }
-
-    private Map<String, Object> buildOpenDayEvent(OpenDayEvent openDayEvent) {
-
-        Map<String, Object> data = new HashMap<>();
-        data.put("title", openDayEvent.getTitle());
-        data.put("description", openDayEvent.getDescription());
-        data.put("bannerUrl", openDayEvent.getBannerUrl());
-        data.put("eventDate", openDayEvent.getEventDate());
-        data.put("startTime", openDayEvent.getStartTime());
-        data.put("endTime", openDayEvent.getEndTime());
-
-        data.put("campusName", openDayEvent.getCampus() != null ? openDayEvent.getCampus().getName() : "N/A");
-        data.put("campusId", openDayEvent.getCampus() != null ? openDayEvent.getCampus().getId() : null);
-        data.put("campusAddress", openDayEvent.getCampus() != null ? openDayEvent.getCampus().getAddress() : "N/A");
-
-        data.put("status", openDayEvent.getStatus());
-        data.put("createdAt", openDayEvent.getCreatedAt());
-        data.put("updatedAt", openDayEvent.getUpdatedAt());
-
-        return data;
-    }
 
     private Campus extractActorCampus() {
         Account account = AuthRequestUtil.extractAuthenticatedAccount();
@@ -1666,6 +1574,143 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("campusId", counsellor.getCampus().getId());
         data.put("campusName", counsellor.getCampus().getName());
         data.put("account", buildAccountData(counsellor.getAccount()));
+        return data;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> createOpenDayEvent(CreateOpenDayEventRequest request) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        if (request == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Request body is required", null);
+        }
+
+        if (request.getTitle() == null || request.getTitle().isBlank()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Title is required", null);
+        }
+
+        String title = request.getTitle().trim();
+        if (title.length() < 5 || title.length() > 255) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Title must be between 5 and 255 characters", null);
+        }
+
+        if (request.getDescription() == null || request.getDescription().isBlank()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Description is required", null);
+        }
+
+        String description = request.getDescription().trim();
+        if (description.length() < 20 || description.length() > 2000) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Description must be between 20 and 2000 characters", null);
+        }
+
+        if (request.getBannerUrl() == null || request.getBannerUrl().isBlank()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Banner URL is required", null);
+        }
+
+        String bannerUrl = request.getBannerUrl().trim();
+        if (bannerUrl.length() > 1000) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Banner URL must not exceed 1000 characters", null);
+        }
+
+        if (!(bannerUrl.startsWith("http://") || bannerUrl.startsWith("https://"))) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Banner URL must be a valid URL", null);
+        }
+
+        if (request.getEventDate() == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Event date is required", null);
+        }
+
+        if (request.getEventDate().isBefore(LocalDate.now())) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Event date must be today or in the future", null);
+        }
+
+        if (request.getStartTime() == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Start time is required", null);
+        }
+
+        if (request.getEndTime() == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "End time is required", null);
+        }
+
+        if (request.getCampusId() <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campus ID must be greater than 0", null);
+        }
+
+        if (!request.getStartTime().isBefore(request.getEndTime())) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Start time must be earlier than end time", null);
+        }
+
+        if (request.getEventDate().isEqual(LocalDate.now()) && request.getStartTime().isBefore(LocalTime.now())) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Start time must be later than current time for today's event", null);
+        }
+
+        if (Duration.between(request.getStartTime(), request.getEndTime()).toMinutes() < 30) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Event duration must be at least 30 minutes", null);
+        }
+        boolean isConflict = openDayEventRepo.existsByCampusIdAndEventDateAndStartTimeLessThanAndEndTimeGreaterThan(actorCampus.getId(), request.getEventDate(), request.getEndTime(), request.getStartTime());
+
+        if (isConflict) {
+            return ResponseBuilder.build(HttpStatus.CONFLICT, "Open day event time conflicts with another event in this campus", null);
+        }
+        OpenDayEvent openDayEvent = openDayEventRepo.save(
+
+                OpenDayEvent.builder().title(request.getTitle()).description(request.getDescription()).bannerUrl(request.getBannerUrl()).eventDate(request.getEventDate()).startTime(request.getStartTime()).endTime(request.getEndTime()).status(Status.EVENT_UPCOMING).createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).campus(actorCampus).build());
+        return ResponseBuilder.build(HttpStatus.OK, "Create open day event successfully", buildOpenDayEvent(openDayEvent));
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewOpenDayEventList(int currentPage, int pageSize) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        Pageable pageable;
+        try {
+            pageable = PaginationUtil.buildPageRequest(currentPage, pageSize);
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
+
+        Page<OpenDayEvent> openDayEventPage = openDayEventRepo.findByCampusId(actorCampus.getId(), pageable);
+
+        PageResponse<Map<String, Object>> pageResponse = PaginationUtil.buildPageResponse(openDayEventPage, this::buildOpenDayEvent);
+
+        return ResponseBuilder.build(HttpStatus.OK, "View open day event list successfully", pageResponse);
+    }
+
+    private Map<String, Object> buildOpenDayEvent(OpenDayEvent openDayEvent) {
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("title", openDayEvent.getTitle());
+        data.put("description", openDayEvent.getDescription());
+        data.put("bannerUrl", openDayEvent.getBannerUrl());
+        data.put("eventDate", openDayEvent.getEventDate());
+        data.put("startTime", openDayEvent.getStartTime());
+        data.put("endTime", openDayEvent.getEndTime());
+
+        data.put("campusName", openDayEvent.getCampus() != null ? openDayEvent.getCampus().getName() : "N/A");
+        data.put("campusId", openDayEvent.getCampus() != null ? openDayEvent.getCampus().getId() : null);
+        data.put("campusAddress", openDayEvent.getCampus() != null ? openDayEvent.getCampus().getAddress() : "N/A");
+
+        data.put("status", openDayEvent.getStatus());
+        data.put("createdAt", openDayEvent.getCreatedAt());
+        data.put("updatedAt", openDayEvent.getUpdatedAt());
+
         return data;
     }
 }
