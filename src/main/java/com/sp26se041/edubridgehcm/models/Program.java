@@ -1,10 +1,7 @@
 package com.sp26se041.edubridgehcm.models;
 
-import com.sp26se041.edubridgehcm.enums.Status;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -22,6 +19,7 @@ import lombok.ToString;
 import lombok.experimental.FieldDefaults;
 import org.jspecify.annotations.NullMarked;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -54,7 +52,7 @@ public class Program {
     String targetStudentDescription;
 
     @Column(name = "base_tuition_fee")
-    double baseTuitionFee;
+    BigDecimal baseTuitionFee;
 
     boolean isActive;
 }

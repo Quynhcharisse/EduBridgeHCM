@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import java.math.BigDecimal;
 
 @Data
 @NoArgsConstructor
@@ -22,7 +23,7 @@ public class ProgramRequest {
 
     String targetStudentDescription;
 
-    Double baseTuitionFee;
+    BigDecimal baseTuitionFee;
 
     Boolean isActive;
 }
