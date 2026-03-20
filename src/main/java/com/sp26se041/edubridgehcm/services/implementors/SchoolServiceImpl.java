@@ -955,7 +955,9 @@ public class SchoolServiceImpl implements SchoolService {
 
             boolean isCurriculumChanging = !existingProgram.getCurriculum().getId().equals(request.getCurriculumId());
             int offeringCount = programRepo.countOfferingsById(existingProgram.getId());
-            int effectiveOfferingCount = programRepo.countEffectiveOfferingsById(existingProgram.getId(), List.of(Status.OPEN, Status.PAUSED), List.of(Status.OPEN, Status.PAUSED, Status.FULL));
+            int effectiveOfferingCount = programRepo.countEffectiveOfferingsById(existingProgram.getId(),
+                    List.of(Status.OPEN, Status.PAUSED),
+                    List.of(Status.OPEN, Status.PAUSED, Status.FULL));
 
             if (offeringCount > 0 && isCurriculumChanging) {
                 return "Cannot change curriculum because this program has active offerings/enrollments.";
