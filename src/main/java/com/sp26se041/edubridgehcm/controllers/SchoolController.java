@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -73,6 +74,13 @@ public class SchoolController {
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> upsertCurriculum(@RequestBody CurriculumRequest request) {
         return schoolService.upsertCurriculum(request);
+    }
+
+    // publish (Chỉ dành cho Campus chính)
+    @PatchMapping("/{id}/activate/curriculum")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> activate(@PathVariable int id) {
+        return schoolService.activateCurriculum(id);
     }
 
     @GetMapping("/curriculum/list")

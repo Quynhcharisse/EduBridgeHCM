@@ -12,5 +12,7 @@ public interface ProgramRepo extends JpaRepository<Program, Integer> {
     int countOfferingsById(Integer programId);
 
     Page<Program> findByCurriculum_School_Id(int schoolId, Pageable pageable);
+
+    boolean existsByCurriculumId(int id);
 }
 

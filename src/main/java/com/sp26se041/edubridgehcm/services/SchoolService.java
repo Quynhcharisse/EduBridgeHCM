@@ -33,6 +33,8 @@ public interface SchoolService {
 
     ResponseEntity<ResponseObject> upsertCurriculum(CurriculumRequest request);
 
+    ResponseEntity<ResponseObject> activateCurriculum(int id);
+
     ResponseEntity<ResponseObject> viewCurriculumList(int page, int pageSize);
 
     ResponseEntity<ResponseObject> viewProgramList(int page, int pageSize);
