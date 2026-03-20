@@ -59,4 +59,14 @@ public class CurriculumNamingUtil {
         // 4. Trả về định dạng dễ đọc (Ví dụ: 18/03/2026 22:45)
         return dateTime.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
     }
+
+    public static String extractSubTypeNameFromName(String name) {
+        if (name == null || !name.startsWith("Hệ ")) return "";
+        int start = "Hệ ".length();
+        int end = name.indexOf(" - Khối");
+        if (end > start) {
+            return name.substring(start, end).trim();
+        }
+        return "";
+    }
 }

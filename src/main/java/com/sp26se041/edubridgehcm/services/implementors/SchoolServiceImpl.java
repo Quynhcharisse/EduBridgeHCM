@@ -41,6 +41,7 @@ import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import io.hypersistence.utils.common.StringUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -671,16 +672,17 @@ public class SchoolServiceImpl implements SchoolService {
         curriculum.setMethodLearning(LearningMethod.valueOf(request.getMethodLearning()));
         curriculum.setVersion(version);
 
-        // Kiểm tra xem request có đòi thay đổi định danh (Identity) không
+        // Chỉ generate lại tên curriculum từ các trường thành phần, tuyệt đối không lấy từ request.getName()
+        // Không setName ở bất kỳ nơi nào khác ngoài đây và buildNewCurriculum
         boolean isIdentityChanging = curriculum.getEnrollmentYear() != request.getEnrollmentYear()
                 || !curriculum.getCurriculumType().name().equals(request.getCurriculumType())
                 || !curriculum.getGroupCode().equals(CurriculumNamingUtil.generateGroupCode(request));
 
         if (isIdentityChanging) {
-            // Chỉ khi có ý định đổi Identity mới tốn tài nguyên kiểm tra DB
-            // Nếu curriculum.getId() == null (bản clone mới), không cần kiểm tra hasLinkedPrograms
+            // Chỉ khi có ý định đổi Identity mới kiểm tra DB
             boolean hasLinkedPrograms = curriculum.getId() != null && programRepo.existsByCurriculumId(curriculum.getId());
             if (!hasLinkedPrograms) {
+                // Luôn generate lại tên từ các trường thành phần
                 curriculum.setName(CurriculumNamingUtil.generateName(request));
                 curriculum.setGroupCode(CurriculumNamingUtil.generateGroupCode(request));
                 curriculum.setEnrollmentYear(request.getEnrollmentYear());
@@ -821,6 +823,7 @@ public class SchoolServiceImpl implements SchoolService {
         Map<String, Object> data = new HashMap<>();
         data.put("id", curriculum.getId());
         data.put("name", curriculum.getName());
+        data.put("subTypeName", CurriculumNamingUtil.extractSubTypeNameFromName(curriculum.getName()));
         data.put("description", curriculum.getDescription());
         data.put("curriculumType", curriculum.getCurriculumType());
         data.put("methodLearning", curriculum.getMethodLearning());
@@ -869,45 +872,41 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
         }
 
-        String error = validationUpsertProgram(request);
+        String error = validationUpsertProgram(request, actorCampus);
 
         if (error != null && !error.isBlank()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
-        Program program;
+        boolean isNew = request.getProgramId() == null || request.getProgramId() <= 0;
+        Program program = isNew ? new Program() : programRepo.findByIdAndCurriculum_School_Id(request.getProgramId(), actorCampus.getSchool().getId());
 
-        if (request.getProgramId() == null) {
-            program = new Program();
-
-        } else {
-
-            program = programRepo.findById(request.getProgramId()).orElse(null);
-
-            if (program == null) {
-                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Program not found", null);
-            }
+        if (!isNew && program == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Program not found in your school scope", null);
         }
 
         Curriculum curriculum = curriculumRepo.findById(request.getCurriculumId()).orElse(null);
-
         if (curriculum == null || !curriculum.getSchool().getId().equals(actorCampus.getSchool().getId())) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Curriculum is invalid", null);
         }
 
         // Đồng bộ dữ liệu (Gom chung cho cả Create/Update để tránh lặp code)
         program.setCurriculum(curriculum);
-        program.setGraduationStandard(request.getGraduationStandard());
-        program.setTargetStudentDescription(request.getTargetStudentDescription());
+        program.setGraduationStandard(normalize(request.getGraduationStandard()));
+        program.setTargetStudentDescription(normalize(request.getTargetStudentDescription()));
         program.setBaseTuitionFee(request.getBaseTuitionFee());
         program.setActive(Boolean.TRUE.equals(request.getIsActive()));
 
-        programRepo.save(program);
+        try {
+            programRepo.save(program);
+        } catch (DataIntegrityViolationException e) {
+            return ResponseBuilder.build(HttpStatus.CONFLICT, "Graduation standard already exists in this curriculum", null);
+        }
 
-        return ResponseBuilder.build(HttpStatus.OK, (request.getProgramId() == null) ? "Create Program success" : "Update Program success", null);
+        return ResponseBuilder.build(isNew ? HttpStatus.CREATED : HttpStatus.OK, isNew ? "Create Program success" : "Update Program success", null);
     }
 
-    private String validationUpsertProgram(ProgramRequest request) {
+    private String validationUpsertProgram(ProgramRequest request, Campus actorCampus) {
 
         if (request == null) {
             return "Request is required";
@@ -918,39 +917,83 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         Curriculum curriculum = curriculumRepo.findById(request.getCurriculumId()).orElse(null);
-        if (curriculum == null) return "Curriculum not found";
-
-        if (curriculum.getCurriculumStatus() == Status.CUR_ARCHIVED) {
-            return "Cannot use an archived curriculum for a program";
+        if (curriculum == null || !curriculum.getSchool().getId().equals(actorCampus.getSchool().getId())) {
+            return "Curriculum is invalid";
         }
 
-        if (request.getProgramId() != null) {
+        if (curriculum.getCurriculumStatus() != Status.CUR_ACTIVE) {
+            return "Only active curriculum can be used for a program";
+        }
 
-            Program exstingProgram = programRepo.findById(request.getProgramId()).orElse(null);
+        String graduationStandard = normalize(request.getGraduationStandard());
+        if (graduationStandard == null) {
+            return "Graduation standard is required";
+        }
 
-            if (exstingProgram != null) {
-                // Nếu Program đã có lớp học/đợt tuyển sinh, KHÔNG cho phép đổi Curriculum
-                int offeringCount = programRepo.countOfferingsById(exstingProgram.getId());
+        if (graduationStandard.length() > 2000) {
+            return "Graduation standard exceeds 2000 characters";
+        }
 
-                if (offeringCount > 0 && !exstingProgram.getCurriculum().getId().equals(request.getCurriculumId())) {
-                    return "Cannot change curriculum because this program has active offerings/enrollments.";
-                }
+        String targetStudentDescription = normalize(request.getTargetStudentDescription());
+        if (targetStudentDescription == null) {
+            return "Target student description is required";
+        }
+
+        if (targetStudentDescription.length() > 2000) {
+            return "Target student description exceeds 2000 characters";
+        }
+
+        boolean isUpdate = request.getProgramId() != null && request.getProgramId() > 0;
+
+        if (isUpdate) {
+
+            Program existingProgram = programRepo.findByIdAndCurriculum_School_Id(request.getProgramId(), actorCampus.getSchool().getId());
+
+            if (existingProgram == null) {
+                return "Program not found in your school scope";
+            }
+
+            boolean isCurriculumChanging = !existingProgram.getCurriculum().getId().equals(request.getCurriculumId());
+            int offeringCount = programRepo.countOfferingsById(existingProgram.getId());
+            int effectiveOfferingCount = programRepo.countEffectiveOfferingsById(existingProgram.getId(),
+                    List.of(Status.OPEN, Status.PAUSED),
+                    List.of(Status.OPEN, Status.PAUSED, Status.FULL));
+
+            if (offeringCount > 0 && isCurriculumChanging) {
+                return "Cannot change curriculum because this program has active offerings/enrollments.";
+            }
+
+            if (effectiveOfferingCount > 0 && existingProgram.isActive() && Boolean.FALSE.equals(request.getIsActive())) {
+                return "Cannot deactivate a program that still has effective offerings.";
+            }
+
+            boolean duplicatedWhenUpdate = programRepo.existsByCurriculum_School_IdAndCurriculum_IdAndGraduationStandardIgnoreCaseAndIdNot(
+                    actorCampus.getSchool().getId(),
+                    request.getCurriculumId(),
+                    graduationStandard,
+                    existingProgram.getId()
+            );
+
+            if (duplicatedWhenUpdate) {
+                return "Graduation standard already exists in this curriculum";
+            }
+        } else {
+            boolean duplicatedWhenCreate = programRepo.existsByCurriculum_School_IdAndCurriculum_IdAndGraduationStandardIgnoreCase(
+                    actorCampus.getSchool().getId(),
+                    request.getCurriculumId(),
+                    graduationStandard
+            );
+
+            if (duplicatedWhenCreate) {
+                return "Graduation standard already exists in this curriculum";
             }
         }
 
         if (request.getBaseTuitionFee() == null) return "Tuition fee is required";
 
-        if (request.getBaseTuitionFee() < 0) return "Tuition fee cannot be negative";
+        if (request.getBaseTuitionFee().compareTo(BigDecimal.ZERO) < 0) return "Tuition fee cannot be negative";
 
         if (request.getIsActive() == null) return "Active flag is required";
-
-        if (request.getGraduationStandard() == null || request.getGraduationStandard().isBlank()) {
-            return "Graduation standard is required";
-        }
-
-        if (request.getTargetStudentDescription() == null || request.getTargetStudentDescription().isBlank()) {
-            return "Target student description is required";
-        }
 
         return null;
     }
@@ -964,26 +1007,18 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
-        Pageable pageable = PaginationUtil.buildPageRequest(page, pageSize);
+        Pageable pageable;
+        try {
+            pageable = PaginationUtil.buildPageRequest(page, pageSize);
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
 
         Page<Program> programs = programRepo.findByCurriculum_School_Id(actorCampus.getSchool().getId(), pageable);
 
-        List<Map<String, Object>> data = programs.stream().map(program -> {
-                    Map<String, Object> programData = new HashMap<>();
-                    programData.put("id", program.getId());
-                    programData.put("curriculumName", program.getCurriculum().getName());
-                    programData.put("enrollmentYear", program.getCurriculum().getEnrollmentYear());
-                    programData.put("curriculumType", program.getCurriculum().getCurriculumType());
-                    programData.put("graduationStandard", program.getGraduationStandard());
-                    programData.put("targetStudentDescription", program.getTargetStudentDescription());
-                    programData.put("baseTuitionFee", program.getBaseTuitionFee());
-                    programData.put("isActive", program.isActive() ? Status.PRO_ACTIVE : Status.PRO_INACTIVE);
-                    return programData;
-                })
+        PageResponse<Map<String, Object>> pageResponse = PaginationUtil.buildPageResponse(programs, this::buildProgramData);
 
-                .toList();
-
-        return ResponseBuilder.build(HttpStatus.OK, "View program list successfully", data);
+        return ResponseBuilder.build(HttpStatus.OK, "View program list successfully", pageResponse);
     }
 
     @Override
@@ -1009,9 +1044,25 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campaign is out of your school scope", null);
         }
 
-        Program program = programRepo.findById(request.getProgramId()).orElse(null);
+        if (campaign.getStatus() == Status.CLOSED || campaign.getStatus() == Status.EXPIRED) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot add offering to closed/expired campaign", null);
+        }
+
+        Program program = programRepo.findByIdAndCurriculum_School_Id(request.getProgramId(), actorCampus.getSchool().getId());
         if (program == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Program not found", null);
+        }
+
+        if (!program.isActive()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Program is inactive", null);
+        }
+
+        if (program.getCurriculum().getCurriculumStatus() != Status.CUR_ACTIVE) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Program curriculum must be active", null);
+        }
+
+        if (campaign.getYear() != program.getCurriculum().getEnrollmentYear()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campaign year must match curriculum enrollment year", null);
         }
 
         Campus targetCampus = resolveTargetCampus(actorCampus, request.getCampusId());
@@ -1025,10 +1076,14 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tuition fee must be >= 0", null);
         }
 
-        LocalDate openDate = request.getOpenDate();
-        LocalDate closeDate = request.getCloseDate();
-        if (openDate != null && closeDate != null && closeDate.isBefore(openDate)) {
+        LocalDate openDate = request.getOpenDate() != null ? request.getOpenDate() : campaign.getStartDate();
+        LocalDate closeDate = request.getCloseDate() != null ? request.getCloseDate() : campaign.getEndDate();
+        if (closeDate.isBefore(openDate)) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Close date must be after or equal to open date", null);
+        }
+
+        if (openDate.isBefore(campaign.getStartDate()) || closeDate.isAfter(campaign.getEndDate())) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Offering open/close date must be within campaign date range", null);
         }
 
         Status applicationStatus = parseApplicationStatus(request.getApplicationStatus());
@@ -1036,7 +1091,25 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Application status must be OPEN, PAUSED, FULL, or CLOSED", null);
         }
 
-        CampusProgramOffering offering = campusProgramOfferingRepo.save(CampusProgramOffering.builder().campus(targetCampus).admissionCampaign(campaign).program(program).quota(request.getQuota()).remainingQuota(request.getQuota()).learningMode(request.getLearningMode()).priceAdjustmentPercentage(0).tuitionFee(tuitionFee).applicationStatus(applicationStatus).openDate(openDate).closeDate(closeDate).status(Status.OPEN).build());
+        boolean duplicatedOffering = campusProgramOfferingRepo.existsByAdmissionCampaignIdAndCampusIdAndProgramIdAndLearningMode(
+                campaign.getId(),
+                targetCampus.getId(),
+                program.getId(),
+                request.getLearningMode()
+        );
+
+        if (duplicatedOffering) {
+            return ResponseBuilder.build(HttpStatus.CONFLICT, "This campus already has the same program offering in this campaign", null);
+        }
+
+        int remainingQuota = applicationStatus == Status.FULL ? 0 : request.getQuota();
+
+        CampusProgramOffering offering;
+        try {
+            offering = campusProgramOfferingRepo.save(CampusProgramOffering.builder().campus(targetCampus).admissionCampaign(campaign).program(program).quota(request.getQuota()).remainingQuota(remainingQuota).learningMode(request.getLearningMode()).priceAdjustmentPercentage(0).tuitionFee(tuitionFee).applicationStatus(applicationStatus).openDate(openDate).closeDate(closeDate).status(Status.OPEN).build());
+        } catch (DataIntegrityViolationException e) {
+            return ResponseBuilder.build(HttpStatus.CONFLICT, "This campus already has the same program offering in this campaign", null);
+        }
 
         return ResponseBuilder.build(HttpStatus.OK, "Create campus offering successfully", buildOfferingData(offering));
     }
@@ -1083,8 +1156,158 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
+    @Transactional
     public ResponseEntity<ResponseObject> updateCampusProgramOffering(UpdateCampusProgramOfferingRequest request) {
-        return null;
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        if (request == null || request.getId() == null || request.getId() <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Offering id is required", null);
+        }
+
+        CampusProgramOffering offering = campusProgramOfferingRepo.findById(request.getId()).orElse(null);
+        if (offering == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Offering not found", null);
+        }
+
+        if (!offering.getAdmissionCampaign().getSchool().getId().equals(actorCampus.getSchool().getId())) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Offering is out of your school scope", null);
+        }
+
+        if (!actorCampus.getIsPrimaryBranch() && !offering.getCampus().getId().equals(actorCampus.getId())) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "You can only update your campus offering", null);
+        }
+
+        int usedQuota = Math.max(0, offering.getQuota() - offering.getRemainingQuota());
+
+        AdmissionCampaign targetCampaign = offering.getAdmissionCampaign();
+        if (request.getAdmissionCampaignId() != null && !request.getAdmissionCampaignId().equals(targetCampaign.getId())) {
+            targetCampaign = admissionCampaignRepo.findById(request.getAdmissionCampaignId()).orElse(null);
+            if (targetCampaign == null || !targetCampaign.getSchool().getId().equals(actorCampus.getSchool().getId())) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Target campaign is invalid", null);
+            }
+        }
+
+        Campus targetCampus = offering.getCampus();
+        if (request.getCampusId() != null && !request.getCampusId().equals(targetCampus.getId())) {
+            targetCampus = resolveTargetCampus(actorCampus, request.getCampusId());
+            if (targetCampus == null) {
+                return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus is out of your scope", null);
+            }
+        }
+
+        Program targetProgram = offering.getProgram();
+        if (request.getProgramId() != null && !request.getProgramId().equals(targetProgram.getId())) {
+            targetProgram = programRepo.findByIdAndCurriculum_School_Id(request.getProgramId(), actorCampus.getSchool().getId());
+            if (targetProgram == null) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Target program is invalid", null);
+            }
+        }
+
+        if (!targetProgram.isActive()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Program is inactive", null);
+        }
+
+        if (targetProgram.getCurriculum().getCurriculumStatus() != Status.CUR_ACTIVE) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Program curriculum must be active", null);
+        }
+
+        if (targetCampaign.getStatus() == Status.CLOSED || targetCampaign.getStatus() == Status.EXPIRED) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot move offering to closed/expired campaign", null);
+        }
+
+        if (targetCampaign.getYear() != targetProgram.getCurriculum().getEnrollmentYear()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campaign year must match curriculum enrollment year", null);
+        }
+
+        var targetLearningMode = request.getLearningMode() != null ? request.getLearningMode() : offering.getLearningMode();
+
+        boolean identityChanged = !targetCampaign.getId().equals(offering.getAdmissionCampaign().getId())
+                || !targetCampus.getId().equals(offering.getCampus().getId())
+                || !targetProgram.getId().equals(offering.getProgram().getId())
+                || targetLearningMode != offering.getLearningMode();
+
+        if (usedQuota > 0 && identityChanged) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot change campaign/campus/program/mode after applications have been received", null);
+        }
+
+        Integer targetQuota = request.getQuota() != null ? request.getQuota() : offering.getQuota();
+        if (targetQuota <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Quota must be greater than 0", null);
+        }
+
+        if (targetQuota < usedQuota) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Quota cannot be smaller than registered quantity", null);
+        }
+
+        BigDecimal targetTuition = request.getTuitionFee() != null ? request.getTuitionFee() : offering.getTuitionFee();
+        if (targetTuition == null || targetTuition.signum() < 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tuition fee must be >= 0", null);
+        }
+
+        LocalDate targetOpenDate = request.getOpenDate() != null ? request.getOpenDate()
+                : (offering.getOpenDate() != null ? offering.getOpenDate() : targetCampaign.getStartDate());
+        LocalDate targetCloseDate = request.getCloseDate() != null ? request.getCloseDate()
+                : (offering.getCloseDate() != null ? offering.getCloseDate() : targetCampaign.getEndDate());
+
+        if (targetCloseDate.isBefore(targetOpenDate)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Close date must be after or equal to open date", null);
+        }
+
+        if (targetOpenDate.isBefore(targetCampaign.getStartDate()) || targetCloseDate.isAfter(targetCampaign.getEndDate())) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Offering open/close date must be within campaign date range", null);
+        }
+
+        Status targetApplicationStatus = request.getApplicationStatus() != null
+                ? parseApplicationStatus(request.getApplicationStatus())
+                : offering.getApplicationStatus();
+
+        if (targetApplicationStatus == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Application status must be OPEN, PAUSED, FULL, or CLOSED", null);
+        }
+
+        if (targetApplicationStatus == Status.OPEN && targetQuota == usedQuota) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot set OPEN status when remaining quota is zero", null);
+        }
+
+        boolean duplicatedOffering = campusProgramOfferingRepo.existsByAdmissionCampaignIdAndCampusIdAndProgramIdAndLearningModeAndIdNot(
+                targetCampaign.getId(),
+                targetCampus.getId(),
+                targetProgram.getId(),
+                targetLearningMode,
+                offering.getId()
+        );
+        if (duplicatedOffering) {
+            return ResponseBuilder.build(HttpStatus.CONFLICT, "This campus already has the same program offering in this campaign", null);
+        }
+
+        int targetRemainingQuota = targetApplicationStatus == Status.FULL ? 0 : (targetQuota - usedQuota);
+
+        offering.setAdmissionCampaign(targetCampaign);
+        offering.setCampus(targetCampus);
+        offering.setProgram(targetProgram);
+        offering.setLearningMode(targetLearningMode);
+        offering.setQuota(targetQuota);
+        offering.setRemainingQuota(targetRemainingQuota);
+        offering.setTuitionFee(targetTuition);
+        offering.setOpenDate(targetOpenDate);
+        offering.setCloseDate(targetCloseDate);
+        offering.setApplicationStatus(targetApplicationStatus);
+
+        try {
+            campusProgramOfferingRepo.save(offering);
+        } catch (DataIntegrityViolationException e) {
+            return ResponseBuilder.build(HttpStatus.CONFLICT, "This campus already has the same program offering in this campaign", null);
+        }
+
+        return ResponseBuilder.build(HttpStatus.OK, "Update campus offering successfully", buildOfferingData(offering));
     }
 
     @Override
@@ -1257,22 +1480,54 @@ public class SchoolServiceImpl implements SchoolService {
         return data;
     }
 
+    private Map<String, Object> buildProgramData(Program program) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", program.getId());
+        data.put("graduationStandard", program.getGraduationStandard());
+        data.put("targetStudentDescription", program.getTargetStudentDescription());
+        data.put("baseTuitionFee", program.getBaseTuitionFee());
+        data.put("isActive", program.isActive());
+        data.put("programStatus", program.isActive() ? Status.PRO_ACTIVE : Status.PRO_INACTIVE);
+
+        Curriculum curriculum = program.getCurriculum();
+        data.put("curriculumId", curriculum.getId());
+        data.put("curriculumName", curriculum.getName());
+        data.put("curriculumType", curriculum.getCurriculumType());
+        data.put("enrollmentYear", curriculum.getEnrollmentYear());
+        data.put("curriculumStatus", curriculum.getCurriculumStatus());
+        data.put("schoolId", curriculum.getSchool().getId());
+        data.put("offeringCount", program.getCampusProgramOfferingList().size());
+        return data;
+    }
+
     private Map<String, Object> buildOfferingData(CampusProgramOffering offering) {
         Map<String, Object> data = new HashMap<>();
         data.put("id", offering.getId());
         data.put("campusId", offering.getCampus().getId());
         data.put("campusName", offering.getCampus().getName());
+        data.put("city", offering.getCampus().getCity());
+        data.put("district", offering.getCampus().getDistrict());
+        data.put("boardingType", offering.getCampus().getBoardingType());
+        data.put("latitude", offering.getCampus().getLatitude());
+        data.put("longitude", offering.getCampus().getLongitude());
         data.put("campaignId", offering.getAdmissionCampaign().getId());
         data.put("campaignName", offering.getAdmissionCampaign().getName());
+        data.put("campaignYear", offering.getAdmissionCampaign().getYear());
         data.put("programId", offering.getProgram().getId());
+        data.put("programName", offering.getProgram().getGraduationStandard());
+        data.put("curriculumId", offering.getProgram().getCurriculum().getId());
+        data.put("curriculumType", offering.getProgram().getCurriculum().getCurriculumType());
+        data.put("enrollmentYear", offering.getProgram().getCurriculum().getEnrollmentYear());
         data.put("quota", offering.getQuota());
         data.put("remainingQuota", offering.getRemainingQuota());
         data.put("learningMode", offering.getLearningMode());
         data.put("tuitionFee", offering.getTuitionFee());
+        data.put("baseTuitionFee", offering.getProgram().getBaseTuitionFee());
         data.put("applicationStatus", offering.getApplicationStatus());
         data.put("openDate", offering.getOpenDate());
         data.put("closeDate", offering.getCloseDate());
         data.put("status", offering.getStatus());
+        data.put("schoolId", offering.getAdmissionCampaign().getSchool().getId());
         return data;
     }
 
