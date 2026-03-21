@@ -1,46 +1,14 @@
 
 package com.sp26se041.edubridgehcm.services.implementors;
 
-import com.sp26se041.edubridgehcm.enums.BoardingType;
-import com.sp26se041.edubridgehcm.enums.CurriculumType;
-import com.sp26se041.edubridgehcm.enums.LearningMethod;
-import com.sp26se041.edubridgehcm.enums.LearningMode;
-import com.sp26se041.edubridgehcm.enums.Role;
-import com.sp26se041.edubridgehcm.enums.Status;
-import com.sp26se041.edubridgehcm.models.Account;
-import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
-import com.sp26se041.edubridgehcm.models.Campus;
-import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
-import com.sp26se041.edubridgehcm.models.Counsellor;
-import com.sp26se041.edubridgehcm.models.Curriculum;
-import com.sp26se041.edubridgehcm.models.OpenDayEvent;
-import com.sp26se041.edubridgehcm.models.Program;
-import com.sp26se041.edubridgehcm.models.School;
-import com.sp26se041.edubridgehcm.repositories.AccountRepo;
-import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
-import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
-import com.sp26se041.edubridgehcm.repositories.CampusRepo;
-import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
-import com.sp26se041.edubridgehcm.repositories.CurriculumRepo;
-import com.sp26se041.edubridgehcm.repositories.OpenDayEventRepo;
-import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
-import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
-import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
-import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
-import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
-import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
-import com.sp26se041.edubridgehcm.requests.ProgramRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.enums.*;
+import com.sp26se041.edubridgehcm.models.*;
+import com.sp26se041.edubridgehcm.repositories.*;
+import com.sp26se041.edubridgehcm.requests.*;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
-import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
-import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
-import com.sp26se041.edubridgehcm.utils.CurriculumNamingUtil;
-import com.sp26se041.edubridgehcm.utils.PaginationUtil;
-import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
+import com.sp26se041.edubridgehcm.utils.*;
 import io.hypersistence.utils.common.StringUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -52,19 +20,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.Year;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -385,7 +343,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "The campaign is currently active (OPEN). Please switch to PAUSED before updating the information.", null);
         }
 
-        String error = validationUpdateAdmissionCampaignTemplate(request);
+        String error = validationUpdateAdmissionCampaignTemplate(request, admissionCampaign);
 
         if (!error.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
@@ -400,7 +358,7 @@ public class SchoolServiceImpl implements SchoolService {
         return ResponseBuilder.build(HttpStatus.OK, "Update campaign template successfully", null);
     }
 
-    private String validationUpdateAdmissionCampaignTemplate(UpdateAdmissionCampaignTemplateRequest request) {
+    private String validationUpdateAdmissionCampaignTemplate(UpdateAdmissionCampaignTemplateRequest request, AdmissionCampaign admissionCampaign) {
 
         if (request == null) {
             return "Request is required";
@@ -424,10 +382,17 @@ public class SchoolServiceImpl implements SchoolService {
             return "Start date and end date are required";
         }
 
+        // 1. Lấy ngày hiện tại trong DB để so sánh
+        LocalDate oldStart = admissionCampaign.getStartDate();
         // 3. Logic thời gian
         // StartDate cho phép lùi 1 ngày
-        if (request.getStartDate().isBefore(LocalDate.now().minusDays(1))) {
-            return "Start date cannot be in the past";
+
+        // 2. Logic StartDate: Chỉ chặn nếu người dùng THAY ĐỔI ngày bắt đầu sang một ngày quá khứ mới
+        // Nếu họ giữ nguyên ngày cũ (dù là quá khứ), thì cho phép qua.
+        if (!request.getStartDate().equals(oldStart)) {
+            if (request.getStartDate().isBefore(LocalDate.now().minusDays(1))) {
+                return "Start date cannot be in the past";
+            }
         }
 
         // EndDate phải từ hôm nay trở đi
@@ -440,7 +405,16 @@ public class SchoolServiceImpl implements SchoolService {
             return "End date must be after start date";
         }
 
-        return "";
+        List<CampusProgramOffering> offeringList = campusProgramOfferingRepo.findByAdmissionCampaignId(admissionCampaign.getId());
+
+        Optional<CampusProgramOffering> checkOffering = offeringList.stream()
+                .filter(o -> o.getOpenDate().isBefore(request.getStartDate())
+                        || o.getCloseDate().isAfter(request.getEndDate()))
+                .findFirst();
+
+        return checkOffering.map(campusProgramOffering -> "Cannot update: The program offering '" + campusProgramOffering.getProgram().getCurriculum().getName() +
+                "' has dates outside the new campaign range.").orElse("");
+
     }
 
     @Override
@@ -458,29 +432,45 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         //Tìm Campaign
-        AdmissionCampaign campaign = admissionCampaignRepo.findById(id).orElse(null);
+        AdmissionCampaign campaign = admissionCampaignRepo.findById(id)
+                .filter(c -> c.getSchool().getId().equals(actorCampus.getSchool().getId()))
+                .orElse(null);
+
         if (campaign == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campaign not found", null);
 
         if (campaign.getStatus().equals(targetStatus)) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campaign is already in status " + targetStatus.name(), null);
         }
 
-        if (campaign.getStatus().equals(Status.CLOSED)) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Cannot change status of a closed campaign", null);
-        }
-
-        if (campaign.getStatus().equals(Status.EXPIRED) && targetStatus.equals(Status.OPEN)) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot open an expired campaign. Please switch to PAUSED to update the end date first.", null);
+        if (campaign.getStatus().equals(Status.CLOSED) || campaign.getStatus().equals(Status.EXPIRED)) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Cannot change status of a closed or expired campaign", null);
         }
 
         if (targetStatus.equals(Status.OPEN)) {
             if (LocalDate.now().isAfter(campaign.getEndDate())) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "The end date is in the past. Please update the campaign duration before opening.", null);
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "End date passed. Update campaign duration first.", null);
             }
         }
 
-        campaign.setStatus(targetStatus.equals(Status.FULL) ? Status.CLOSED : Status.OPEN);
+        campaign.setStatus(targetStatus);
         admissionCampaignRepo.save(campaign);
+
+        // 6. XỬ LÝ CASCADE ĐỒNG BỘ CHO CÁC NGÀNH HỌC (OFFERINGS)
+        List<CampusProgramOffering> offerings = campusProgramOfferingRepo.findByAdmissionCampaignId(id);
+
+        if (targetStatus.equals(Status.CLOSED) || targetStatus.equals(Status.PAUSED)) {
+            // Nếu Cha dừng/đóng -> Toàn bộ con dừng/đóng theo
+            for (CampusProgramOffering offering : offerings) {
+                offering.setApplicationStatus(targetStatus);
+            }
+        } else if (targetStatus.equals(Status.OPEN)) {
+            // Nếu Cha mở lại -> Chỉ mở lại những ngành đang bị PAUSED (không mở lại ngành đã FULL/CLOSED)
+            for (CampusProgramOffering offering : offerings) {
+                if (offering.getApplicationStatus().equals(Status.PAUSED)) {
+                    offering.setApplicationStatus(Status.OPEN);
+                }
+            }
+        }
 
         return ResponseBuilder.build(HttpStatus.OK, "Status updated to " + targetStatus + " successfully", null);
     }
@@ -1089,7 +1079,8 @@ public class SchoolServiceImpl implements SchoolService {
         return ResponseBuilder.build(HttpStatus.OK, "Create campus offering successfully", null);
     }
 
-    private String validateCreateCampusProgramOffering(CreateCampusProgramOfferingRequest request, Campus actorCampus) {
+    private String validateCreateCampusProgramOffering(CreateCampusProgramOfferingRequest request, Campus
+            actorCampus) {
 
         if (request == null || request.getAdmissionCampaignId() == null || request.getProgramId() == null || request.getLearningMode() == null || request.getQuota() <= 0) {
             return "Campaign, program, learning mode and quota are required";
@@ -1277,7 +1268,10 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     // Validation cho updateCampusProgramOffering
-    private String validateUpdateCampusProgramOffering(UpdateCampusProgramOfferingRequest request, Campus actorCampus, CampusProgramOffering offering, AdmissionCampaign targetCampaign, Campus targetCampus, Program targetProgram, int usedQuota, Status targetApplicationStatus, Integer targetQuota, LocalDate targetOpenDate, LocalDate targetCloseDate, LearningMode targetLearningMode) {
+    private String validateUpdateCampusProgramOffering(UpdateCampusProgramOfferingRequest request, Campus
+            actorCampus, CampusProgramOffering offering, AdmissionCampaign targetCampaign, Campus targetCampus, Program
+                                                               targetProgram, int usedQuota, Status targetApplicationStatus, Integer targetQuota, LocalDate
+                                                               targetOpenDate, LocalDate targetCloseDate, LearningMode targetLearningMode) {
         if (request == null || request.getId() == null || request.getId() <= 0) {
             return "Offering id is required";
         }

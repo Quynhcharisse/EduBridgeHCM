@@ -6,6 +6,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
+
 public interface CampusProgramOfferingRepo extends JpaRepository<CampusProgramOffering, Integer> {
 
     Page<CampusProgramOffering> findByCampusIdOrderByIdDesc(Integer campusId, Pageable pageable);
@@ -15,5 +17,7 @@ public interface CampusProgramOfferingRepo extends JpaRepository<CampusProgramOf
     boolean existsByAdmissionCampaignIdAndCampusIdAndProgramIdAndLearningMode(Integer admissionCampaignId, Integer campusId, Integer programId, LearningMode learningMode);
 
     boolean existsByAdmissionCampaignIdAndCampusIdAndProgramIdAndLearningModeAndIdNot(Integer admissionCampaignId, Integer campusId, Integer programId, LearningMode learningMode, Integer id);
+
+    List<CampusProgramOffering> findByAdmissionCampaignId(Integer id);
 }
 
