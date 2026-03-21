@@ -1071,10 +1071,6 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Application status must be OPEN, PAUSED, FULL, or CLOSED", null);
         }
 
-        if (applicationStatus == null) {
-            throw new IllegalArgumentException("Application status is required or invalid");
-        }
-
         campusProgramOfferingRepo.save(CampusProgramOffering.builder()
                 .campus(targetCampus)
                 .admissionCampaign(campaign)
