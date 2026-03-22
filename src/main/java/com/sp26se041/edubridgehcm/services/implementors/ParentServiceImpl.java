@@ -281,10 +281,6 @@ public class ParentServiceImpl implements ParentService {
         result.put("id", studentProfile.getId());
         result.put("studentName", studentProfile.getStudentName());
         result.put("gender", studentProfile.getGender());
-        result.put("parentName",  studentProfile.getParent().getName());
-        result.put("parentPhoneNumber", studentProfile.getParent().getPhone());
-        result.put("parentIdCard", studentProfile.getParent().getIdCardNumber());
-        result.put("parentEmail", studentProfile.getParent().getAccount().getEmail());
         result.put("personalityTypeCode", studentProfile.getPersonalityTypeName());
         result.put("favouriteJob", studentProfile.getFavouriteJob());
         result.put("academicProfileMetadata", studentProfile.getAcademicProfileMetadata());
