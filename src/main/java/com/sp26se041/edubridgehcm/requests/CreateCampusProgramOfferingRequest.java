@@ -26,8 +26,6 @@ public class CreateCampusProgramOfferingRequest {
 
     BigDecimal tuitionFee;
 
-    String applicationStatus;
-
     Float priceAdjustmentPercentage;
 
     LocalDate openDate;
