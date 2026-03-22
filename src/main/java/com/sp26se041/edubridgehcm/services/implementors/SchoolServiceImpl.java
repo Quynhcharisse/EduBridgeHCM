@@ -1117,22 +1117,16 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus is out of your scope", null);
         }
 
-        Status applicationStatus = parseApplicationStatus(request.getApplicationStatus());
-
-        if (applicationStatus == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Application status must be OPEN, PAUSED, FULL, or CLOSED", null);
-        }
-
         campusProgramOfferingRepo.save(CampusProgramOffering.builder()
                 .campus(targetCampus)
                 .admissionCampaign(campaign)
                 .program(program)
                 .quota(request.getQuota())
-                .remainingQuota((parseApplicationStatus(request.getApplicationStatus()) == Status.FULL) ? 0 : request.getQuota())
+                .remainingQuota(request.getQuota())
                 .learningMode(request.getLearningMode())
                 .priceAdjustmentPercentage(adjustmentPercent)
                 .tuitionFee(finalTuition)
-                .applicationStatus(applicationStatus)
+                .applicationStatus(Status.OPEN)
                 .openDate((request.getOpenDate() != null) ? request.getOpenDate() : campaign.getStartDate())
                 .closeDate((request.getCloseDate() != null) ? request.getCloseDate() : campaign.getEndDate())
                 .status(Status.OPEN)
@@ -1156,12 +1150,13 @@ public class SchoolServiceImpl implements SchoolService {
             return "Learning mode are required";
         }
 
-        if (request.getLearningMode().equals(LearningMode.BOARDING)
-                || request.getLearningMode().equals(LearningMode.DAY_SCHOOL)
-                || request.getLearningMode().equals(LearningMode.SEMI_BOARDING)
-                || request.getLearningMode().equals(LearningMode.HALF_DAY)) {
+        if (!request.getLearningMode().equals(LearningMode.BOARDING)
+                && !request.getLearningMode().equals(LearningMode.DAY_SCHOOL)
+                && !request.getLearningMode().equals(LearningMode.SEMI_BOARDING)
+                && !request.getLearningMode().equals(LearningMode.HALF_DAY)) {
             return "Selected learning mode is not supported for this offering";
         }
+
 
         if (request.getQuota() <= 0) {
             return "Quota are required";
@@ -1221,12 +1216,6 @@ public class SchoolServiceImpl implements SchoolService {
 
         if (openDate.isBefore(campaign.getStartDate()) || closeDate.isAfter(campaign.getEndDate())) {
             return "Offering open/close date must be within campaign date range";
-        }
-
-        Status applicationStatus = parseApplicationStatus(request.getApplicationStatus());
-
-        if (applicationStatus == null) {
-            return "Application status must be OPEN, PAUSED, FULL, or CLOSED";
         }
 
         if (campusProgramOfferingRepo.existsByAdmissionCampaignIdAndCampusIdAndProgramIdAndLearningMode(
@@ -1319,9 +1308,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         String error = validateUpdateCampusProgramOffering(request, actorCampus,
                 offering, targetCampaign, targetCampus, targetProgram, usedQuota,
-                request.getApplicationStatus() != null
-                        ? Objects.requireNonNull(parseApplicationStatus(request.getApplicationStatus()))
-                        : offering.getApplicationStatus(), request.getQuota() != null ? request.getQuota() : offering.getQuota(),
+                offering.getApplicationStatus(), request.getQuota() != null ? request.getQuota() : offering.getQuota(),
                 request.getOpenDate() != null ? request.getOpenDate()
                         : offering.getOpenDate(), request.getCloseDate() != null ? request.getCloseDate()
                         : offering.getCloseDate(),
@@ -1340,13 +1327,12 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
-        int targetRemainingQuota = request.getApplicationStatus() != null
-                ? Objects.requireNonNull(parseApplicationStatus(request.getApplicationStatus())).ordinal()
-                : offering.getApplicationStatus() == Status.FULL ? 0 : (request.getQuota() != null ? request.getQuota() : offering.getQuota() - usedQuota);
+        int targetRemainingQuota = offering.getApplicationStatus() == Status.FULL ? 0 : (request.getQuota() != null ? request.getQuota() : offering.getQuota() - usedQuota);
 
         assert targetCampaign != null;
         offering.setAdmissionCampaign(targetCampaign);
         assert targetCampus != null;
+
         offering.setCampus(targetCampus);
         offering.setProgram(targetProgram);
         offering.setLearningMode(request.getLearningMode() != null ? request.getLearningMode() : offering.getLearningMode());
@@ -1358,15 +1344,14 @@ public class SchoolServiceImpl implements SchoolService {
                 : offering.getOpenDate());
         offering.setCloseDate(request.getCloseDate() != null ? request.getCloseDate()
                 : offering.getCloseDate());
-        offering.setApplicationStatus(request.getApplicationStatus() != null
-                ? Objects.requireNonNull(parseApplicationStatus(request.getApplicationStatus()))
-                : offering.getApplicationStatus());
+
         try {
             campusProgramOfferingRepo.save(offering);
         } catch (DataIntegrityViolationException e) {
             return ResponseBuilder.build(HttpStatus.CONFLICT, "This campus already has the same program offering in this campaign", null);
         }
-        return ResponseBuilder.build(HttpStatus.OK, "Update campus offering successfully", buildOfferingData(offering));
+
+        return ResponseBuilder.build(HttpStatus.OK, "Update campus offering successfully", null);
     }
 
     // Validation cho updateCampusProgramOffering
@@ -1374,61 +1359,93 @@ public class SchoolServiceImpl implements SchoolService {
             actorCampus, CampusProgramOffering offering, AdmissionCampaign targetCampaign, Campus targetCampus, Program
                                                                targetProgram, int usedQuota, Status targetApplicationStatus, Integer targetQuota, LocalDate
                                                                targetOpenDate, LocalDate targetCloseDate, LearningMode targetLearningMode) {
+
         if (request == null || request.getId() == null || request.getId() <= 0) {
             return "Offering id is required";
         }
+
         if (offering == null) {
             return "Offering not found";
         }
+
         if (!offering.getAdmissionCampaign().getSchool().getId().equals(actorCampus.getSchool().getId())) {
             return "Offering is out of your school scope";
         }
+
         if (!actorCampus.getIsPrimaryBranch() && !offering.getCampus().getId().equals(actorCampus.getId())) {
             return "You can only update your campus offering";
         }
+
         if (targetProgram == null) {
             return "Target program is invalid";
         }
+
         if (!targetProgram.isActive()) {
             return "Program is inactive";
         }
+
         if (targetProgram.getCurriculum().getCurriculumStatus() != Status.CUR_ACTIVE) {
             return "Program curriculum must be active";
         }
+
         if (targetCampaign.getStatus() == Status.CLOSED || targetCampaign.getStatus() == Status.EXPIRED) {
             return "Cannot move offering to closed/expired campaign";
         }
+
         if (targetCampaign.getYear() != targetProgram.getCurriculum().getEnrollmentYear()) {
             return "Campaign year must match curriculum enrollment year";
         }
+
         boolean identityChanged = !targetCampaign.getId().equals(offering.getAdmissionCampaign().getId())
                 || !targetCampus.getId().equals(offering.getCampus().getId())
                 || !targetProgram.getId().equals(offering.getProgram().getId())
                 || targetLearningMode != offering.getLearningMode();
+
         if (usedQuota > 0 && identityChanged) {
             return "Cannot change campaign/campus/program/mode after applications have been received";
         }
+
         if (targetQuota == null || targetQuota <= 0) {
             return "Quota must be greater than 0";
         }
+
         if (targetQuota < usedQuota) {
             return "Quota cannot be smaller than registered quantity";
         }
+
         if (targetOpenDate == null || targetCloseDate == null) {
             return "Open date and close date are required";
         }
+
         if (targetCloseDate.isBefore(targetOpenDate)) {
             return "Close date must be after or equal to open date";
         }
+
         if (targetOpenDate.isBefore(targetCampaign.getStartDate()) || targetCloseDate.isAfter(targetCampaign.getEndDate())) {
             return "Offering open/close date must be within campaign date range";
         }
+
         if (targetApplicationStatus == null) {
             return "Application status must be OPEN, PAUSED, FULL, or CLOSED";
         }
+        // Không cho phép chuyển từ FULL hoặc CLOSED về trạng thái khác
+        Status currentStatus = offering.getApplicationStatus();
+
+        if ((currentStatus == Status.FULL || currentStatus == Status.CLOSED)
+                && targetApplicationStatus != currentStatus) {
+            return "Cannot change status from FULL or CLOSED to another status";
+        }
+
+        // Không cho phép chuyển về OPEN nếu quota đã đủ
         if (targetApplicationStatus == Status.OPEN && targetQuota == usedQuota) {
             return "Cannot set OPEN status when remaining quota is zero";
         }
+
+        // Chỉ cho phép chuyển trạng thái theo luồng hợp lệ
+        if (currentStatus == Status.PAUSED && (targetApplicationStatus == Status.FULL || targetApplicationStatus == Status.CLOSED)) {
+            return "Cannot set status to FULL or CLOSED from PAUSED directly";
+        }
+
         boolean duplicatedOffering = campusProgramOfferingRepo.existsByAdmissionCampaignIdAndCampusIdAndProgramIdAndLearningModeAndIdNot(
                 targetCampaign.getId(),
                 targetCampus.getId(),
@@ -1436,13 +1453,17 @@ public class SchoolServiceImpl implements SchoolService {
                 targetLearningMode,
                 offering.getId()
         );
+
         if (duplicatedOffering) {
             return "This campus already has the same program offering in this campaign";
         }
+
         BigDecimal targetTuition = request.getTuitionFee() != null ? request.getTuitionFee() : offering.getTuitionFee();
+
         if (targetTuition.signum() < 0) {
             return "Tuition fee must be >= 0";
         }
+
         return null;
     }
 

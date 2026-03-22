@@ -31,8 +31,6 @@ public class UpdateCampusProgramOfferingRequest {
 
     BigDecimal tuitionFee;
 
-    String applicationStatus;
-
     LocalDate openDate;
 
     LocalDate closeDate;
