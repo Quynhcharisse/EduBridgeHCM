@@ -3,7 +3,6 @@ package com.sp26se041.edubridgehcm.services.implementors;
 import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.CurriculumType;
 import com.sp26se041.edubridgehcm.enums.LearningMethod;
-import com.sp26se041.edubridgehcm.enums.LearningMode;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
@@ -41,7 +40,10 @@ import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.CurriculumNamingUtil;
 import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
-import io.hypersistence.utils.common.StringUtils;
+import com.sp26se041.edubridgehcm.validations.school.AdmissionCampaignValidation;
+import com.sp26se041.edubridgehcm.validations.school.CampusProgramOfferingValidation;
+import com.sp26se041.edubridgehcm.validations.school.CurriculumValidation;
+import com.sp26se041.edubridgehcm.validations.school.ProgramValidation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -65,7 +67,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -277,7 +278,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
         }
 
-        String error = validationCreateAdmissionCampaignTemplate(request, actorCampus);
+        String error = AdmissionCampaignValidation.validationCreateAdmissionCampaignTemplate(request, actorCampus, admissionCampaignRepo);
 
         if (error != null && !error.isBlank()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
@@ -287,65 +288,6 @@ public class SchoolServiceImpl implements SchoolService {
         admissionCampaignRepo.save(admissionCampaign);
 
         return ResponseBuilder.build(HttpStatus.CREATED, "Create campaign template successfully", null);
-    }
-
-    private String validationCreateAdmissionCampaignTemplate(CreateAdmissionCampaignTemplateRequest request, Campus actorCampus) {
-
-        if (request == null) {
-            return "Request is required";
-        }
-
-        if (normalize(request.getName()) == null) {
-            return "Name is required";
-        }
-
-        if (normalize(request.getName()).length() > 100) {
-            return "Name is too long. Maximum length is 100 characters";
-        }
-
-        if (normalize(request.getDescription()) == null) {
-            return "Description is required";
-        }
-
-        if (request.getYear() <= 0) {
-            return "Year is required";
-        }
-
-        // 2. Kiểm tra Năm (Year)
-        if (request.getYear() < LocalDate.now().getYear()) {
-            return "Cannot create a campaign for a past year";
-        }
-
-        if (admissionCampaignRepo.existsBySchoolIdAndYear(actorCampus.getSchool().getId(), request.getYear())) {
-            return "A campaign template for the year already exists";
-        }
-
-        // 3. Kiểm tra Ngày tháng (Dates)
-        if (request.getStartDate() == null || request.getEndDate() == null) {
-            return "Start date and end date are required";
-        }
-
-        // Đồng bộ Năm và Ngày (Bạn đã làm rất tốt bước này)
-        if (request.getStartDate().getYear() != request.getYear() || request.getEndDate().getYear() != request.getYear()) {
-            return "Start date and end date must be within the year " + request.getYear();
-        }
-
-        // Check quá khứ cho StartDate (cho phép lùi 1 ngày)
-        if (request.getStartDate().isBefore(LocalDate.now().minusDays(1))) {
-            return "Start date cannot be in the past";
-        }
-
-        // Check quá khứ cho EndDate
-        if (request.getEndDate().isBefore(LocalDate.now())) {
-            return "End date must be in the future";
-        }
-
-        // Check mối quan hệ End - Start (Nên dùng !isAfter để bắt buộc khác ngày)
-        if (!request.getEndDate().isAfter(request.getStartDate())) {
-            return "End date must be after start date";
-        }
-
-        return null;
     }
 
     @Override
@@ -389,7 +331,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "The campaign is currently active (OPEN). Please switch to PAUSED before updating the information.", null);
         }
 
-        String error = validationUpdateAdmissionCampaignTemplate(request, admissionCampaign);
+        String error = AdmissionCampaignValidation.validationUpdateAdmissionCampaignTemplate(request, admissionCampaign, campusProgramOfferingRepo);
 
         if (!error.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
@@ -402,65 +344,6 @@ public class SchoolServiceImpl implements SchoolService {
         admissionCampaignRepo.save(admissionCampaign);
 
         return ResponseBuilder.build(HttpStatus.OK, "Update campaign template successfully", null);
-    }
-
-    private String validationUpdateAdmissionCampaignTemplate(UpdateAdmissionCampaignTemplateRequest request, AdmissionCampaign admissionCampaign) {
-
-        if (request == null) {
-            return "Request is required";
-        }
-
-        if (normalize(request.getName()) == null) {
-            return "Name is required";
-        }
-
-        if (normalize(request.getName()).length() > 100) {
-            return "Name is too long. Maximum length is 100 characters";
-        }
-
-        String description = normalize(request.getDescription());
-        if (description == null) {
-            return "Description is required";
-        }
-
-        // 2. Kiểm tra Null cho ngày tháng (BẮT BUỘC để tránh crash 500)
-        if (request.getStartDate() == null || request.getEndDate() == null) {
-            return "Start date and end date are required";
-        }
-
-        // 1. Lấy ngày hiện tại trong DB để so sánh
-        LocalDate oldStart = admissionCampaign.getStartDate();
-        // 3. Logic thời gian
-        // StartDate cho phép lùi 1 ngày
-
-        // 2. Logic StartDate: Chỉ chặn nếu người dùng THAY ĐỔI ngày bắt đầu sang một ngày quá khứ mới
-        // Nếu họ giữ nguyên ngày cũ (dù là quá khứ), thì cho phép qua.
-        if (!request.getStartDate().equals(oldStart)) {
-            if (request.getStartDate().isBefore(LocalDate.now().minusDays(1))) {
-                return "Start date cannot be in the past";
-            }
-        }
-
-        // EndDate phải từ hôm nay trở đi
-        if (request.getEndDate().isBefore(LocalDate.now())) {
-            return "End date must be a future date";
-        }
-
-        // End phải sau Start (Dùng !isAfter để đảm bảo không trùng ngày)
-        if (!request.getEndDate().isAfter(request.getStartDate())) {
-            return "End date must be after start date";
-        }
-
-        List<CampusProgramOffering> offeringList = campusProgramOfferingRepo.findByAdmissionCampaignId(admissionCampaign.getId());
-
-        Optional<CampusProgramOffering> checkOffering = offeringList.stream()
-                .filter(o -> o.getOpenDate().isBefore(request.getStartDate())
-                        || o.getCloseDate().isAfter(request.getEndDate()))
-                .findFirst();
-
-        return checkOffering.map(campusProgramOffering -> "Cannot update: The program offering '" + campusProgramOffering.getProgram().getCurriculum().getName() +
-                "' has dates outside the new campaign range.").orElse("");
-
     }
 
     @Override
@@ -568,7 +451,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
         }
 
-        String error = validationUpsertCurriculum(request);
+        String error = CurriculumValidation.validationUpsertCurriculum(request, curriculumRepo, programRepo);
 
         if (error != null && !error.isBlank()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
@@ -760,79 +643,6 @@ public class SchoolServiceImpl implements SchoolService {
         }).collect(Collectors.toList());
     }
 
-    private String validationUpsertCurriculum(CurriculumRequest request) {
-
-        // 1. Kiểm tra tồn tại bản ghi và tính bất biến (Immutability)
-        Curriculum existing = null;
-        if (request.getCurriculumId() != null && request.getCurriculumId() > 0) {
-            existing = curriculumRepo.findById(request.getCurriculumId()).orElse(null);
-            if (existing == null) return "Curriculum not found";
-
-            // Kiểm tra Program liên kết để chặn đổi thông tin định danh
-            int linkedPrograms = programRepo.countByCurriculumId(existing.getId());
-            if (linkedPrograms > 0) {
-                if (existing.getEnrollmentYear() != request.getEnrollmentYear()) {
-                    return String.format("Cannot change enrollment year because %d programs are using this curriculum.", linkedPrograms);
-                }
-                if (!existing.getCurriculumType().name().equals(request.getCurriculumType())) {
-                    return "Cannot change curriculum type for a curriculum already linked to programs.";
-                }
-            }
-        }
-
-        // 2. Kiểm tra trùng lặp định danh (Business Identity Check)
-        // Tránh việc tạo 2 bản ghi khác ID nhưng cùng (Type + Year + SubType) dẫn đến trùng GroupCode
-        String newGroupCode = CurriculumNamingUtil.generateGroupCode(request);
-
-        // Nếu tạo mới, hoặc sửa bản cũ mà thay đổi thông tin định danh (Identity)
-        boolean isIdentityChanged = (existing == null) ||
-                (!existing.getGroupCode().equals(newGroupCode)) ||
-                (existing.getEnrollmentYear() != request.getEnrollmentYear());
-
-        // 3. Validate các trường bắt buộc & Enum
-        if (StringUtils.isBlank(request.getSubTypeName())) {
-            return "Sub-type name is required (e.g., Cambridge, Global).";
-        }
-
-        try {
-            CurriculumType.valueOf(request.getCurriculumType());
-            LearningMethod.valueOf(request.getMethodLearning());
-        } catch (Exception e) {
-            return "Invalid Curriculum Type or Learning Method selected.";
-        }
-
-        // 4. Validate Năm học (5 năm cũ - 2 năm tương lai)
-        int currentYear = Year.now().getValue();
-        if (request.getEnrollmentYear() < currentYear - 5 || request.getEnrollmentYear() > currentYear + 2) {
-            return String.format("Invalid enrollment year. Allowed range: %d to %d.", currentYear - 5, currentYear + 2);
-        }
-
-        // 5. Validate Nội dung môn học (Subjects)
-        if (request.getSubjectOptions() == null || request.getSubjectOptions().isEmpty()) {
-            return "The curriculum must contain at least one subject.";
-        }
-
-        // Kiểm tra từng môn học trong danh sách
-        for (var opt : request.getSubjectOptions()) {
-            if (StringUtils.isBlank(opt.getName())) {
-                return "Subject name cannot be empty.";
-            }
-            if (StringUtils.isBlank(opt.getDescription())) {
-                return "Description for subject '" + opt.getName() + "' is required.";
-            }
-        }
-
-        // Chốt chặn nghiệp vụ: Phải có ít nhất 1 môn bắt buộc
-        boolean hasMandatory = request.getSubjectOptions().stream()
-                .anyMatch(o -> Boolean.TRUE.equals(o.getIsMandatory()));
-
-        if (!hasMandatory) {
-            return "The curriculum must have at least one mandatory (required) subject.";
-        }
-
-        return null;
-    }
-
     @Override
     public ResponseEntity<ResponseObject> viewCurriculumList(int page, int pageSize) {
 
@@ -909,7 +719,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
         }
 
-        String error = validationUpsertProgram(request, actorCampus);
+        String error = ProgramValidation.validationUpsertProgram(request, actorCampus, curriculumRepo, programRepo);
 
         if (error != null && !error.isBlank()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
@@ -942,104 +752,6 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         return ResponseBuilder.build(isNew ? HttpStatus.CREATED : HttpStatus.OK, isNew ? "Create Program success" : "Update Program success", null);
-    }
-
-    private String validationUpsertProgram(ProgramRequest request, Campus actorCampus) {
-
-        if (request == null) {
-            return "Request is required";
-        }
-
-        if (request.getCurriculumId() == null) {
-            return "Curriculum ID is not found";
-        }
-
-        Curriculum curriculum = curriculumRepo.findById(request.getCurriculumId()).orElse(null);
-        if (curriculum == null || !curriculum.getSchool().getId().equals(actorCampus.getSchool().getId())) {
-            return "Curriculum is invalid";
-        }
-
-        if (curriculum.getCurriculumStatus() != Status.CUR_ACTIVE) {
-            return "Only active curriculum can be used for a program";
-        }
-
-        if (normalize(request.getGraduationStandard()) == null) {
-            return "Graduation standard is required";
-        }
-
-        if (normalize(request.getGraduationStandard()).length() > 2000) {
-            return "Graduation standard exceeds 2000 characters";
-        }
-
-        if (normalize(request.getName()) == null) {
-            return "Name is required";
-        }
-
-        if (normalize(request.getName()).length() > 100) {
-            return "Name exceeds 100 characters";
-        }
-
-        if (normalize(request.getTargetStudentDescription()) == null) {
-            return "Target student description is required";
-        }
-
-        if (normalize(request.getTargetStudentDescription()).length() > 2000) {
-            return "Target student description exceeds 2000 characters";
-        }
-
-        boolean isUpdate = request.getProgramId() != null && request.getProgramId() > 0;
-
-        if (isUpdate) {
-
-            Program existingProgram = programRepo.findByIdAndCurriculum_School_Id(request.getProgramId(), actorCampus.getSchool().getId());
-
-            if (existingProgram == null) {
-                return "Program not found in your school scope";
-            }
-
-            boolean isCurriculumChanging = !existingProgram.getCurriculum().getId().equals(request.getCurriculumId());
-            int offeringCount = programRepo.countOfferingsById(existingProgram.getId());
-            int effectiveOfferingCount = programRepo.countEffectiveOfferingsById(existingProgram.getId(),
-                    List.of(Status.OPEN, Status.PAUSED),
-                    List.of(Status.OPEN, Status.PAUSED, Status.FULL));
-
-            if (offeringCount > 0 && isCurriculumChanging) {
-                return "Cannot change curriculum because this program has active offerings/enrollments.";
-            }
-
-            if (effectiveOfferingCount > 0 && existingProgram.isActive() && Boolean.FALSE.equals(request.getIsActive())) {
-                return "Cannot deactivate a program that still has effective offerings.";
-            }
-
-            boolean duplicatedWhenUpdate = programRepo.existsByCurriculum_School_IdAndCurriculum_IdAndGraduationStandardIgnoreCaseAndIdNot(
-                    actorCampus.getSchool().getId(),
-                    request.getCurriculumId(),
-                    normalize(request.getGraduationStandard()),
-                    existingProgram.getId()
-            );
-
-            if (duplicatedWhenUpdate) {
-                return "Graduation standard already exists in this curriculum";
-            }
-        } else {
-            boolean duplicatedWhenCreate = programRepo.existsByCurriculum_School_IdAndCurriculum_IdAndGraduationStandardIgnoreCase(
-                    actorCampus.getSchool().getId(),
-                    request.getCurriculumId(),
-                    normalize(request.getGraduationStandard())
-            );
-
-            if (duplicatedWhenCreate) {
-                return "Graduation standard already exists in this curriculum";
-            }
-        }
-
-        if (request.getBaseTuitionFee() == null) return "Tuition fee is required";
-
-        if (request.getBaseTuitionFee().compareTo(BigDecimal.ZERO) < 0) return "Tuition fee cannot be negative";
-
-        if (request.getIsActive() == null) return "Active flag is required";
-
-        return null;
     }
 
     @Override
@@ -1078,7 +790,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
-        String error = validateCreateCampusProgramOffering(request, actorCampus);
+        String error = CampusProgramOfferingValidation.validateCreateCampusProgramOffering(request, actorCampus, admissionCampaignRepo, programRepo, campusProgramOfferingRepo, campusRepo);
 
         if (error != null) {
 
@@ -1133,97 +845,6 @@ public class SchoolServiceImpl implements SchoolService {
                 .build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Create campus offering successfully", null);
-    }
-
-    private String validateCreateCampusProgramOffering(CreateCampusProgramOfferingRequest request, Campus
-            actorCampus) {
-
-        if (request == null || request.getAdmissionCampaignId() == null) {
-            return "Campaign are required";
-        }
-
-        if (request.getProgramId() == null) {
-            return "Program are required";
-        }
-
-        if (request.getLearningMode() == null) {
-            return "Learning mode are required";
-        }
-
-        if (!request.getLearningMode().equals(LearningMode.BOARDING)
-                && !request.getLearningMode().equals(LearningMode.DAY_SCHOOL)
-                && !request.getLearningMode().equals(LearningMode.SEMI_BOARDING)
-                && !request.getLearningMode().equals(LearningMode.HALF_DAY)) {
-            return "Selected learning mode is not supported for this offering";
-        }
-
-
-        if (request.getQuota() <= 0) {
-            return "Quota are required";
-        }
-
-        AdmissionCampaign campaign = admissionCampaignRepo.findById(request.getAdmissionCampaignId()).orElse(null);
-        if (campaign == null || !campaign.getSchool().getId().equals(actorCampus.getSchool().getId())) {
-            return "Campaign is out of your school scope";
-        }
-
-        if (campaign.getStatus() == Status.CLOSED || campaign.getStatus() == Status.EXPIRED) {
-            return "Cannot add offering to closed/expired campaign";
-        }
-
-        Program program = programRepo.findByIdAndCurriculum_School_Id(request.getProgramId(), actorCampus.getSchool().getId());
-
-        if (program == null) {
-            return "Program not found";
-        }
-
-        if (!program.isActive()) {
-            return "Program is inactive";
-        }
-
-        if (program.getCurriculum().getCurriculumStatus() != Status.CUR_ACTIVE) {
-            return "Program curriculum must be active";
-        }
-
-        if (campaign.getYear() != program.getCurriculum().getEnrollmentYear()) {
-            return "Campaign year must match curriculum enrollment year";
-        }
-
-        if (program.getBaseTuitionFee() == null) {
-            return "The selected program does not have a base tuition fee defined by the primary campus";
-        }
-
-        Campus targetCampus = resolveTargetCampus(actorCampus, request.getCampusId());
-
-        if (targetCampus == null) {
-            return "Campus is out of your scope";
-        }
-
-        // 6. Check % Adjustment hợp lệ (Ví dụ: không giảm quá 100%)
-        if (request.getPriceAdjustmentPercentage() != null) {
-            if (request.getPriceAdjustmentPercentage() < -100) {
-                return "Price adjustment cannot result in a negative tuition fee";
-            }
-        }
-
-        LocalDate openDate = request.getOpenDate() != null ? request.getOpenDate() : campaign.getStartDate();
-
-        LocalDate closeDate = request.getCloseDate() != null ? request.getCloseDate() : campaign.getEndDate();
-
-        if (closeDate.isBefore(openDate)) {
-            return "Close date must be after or equal to open date";
-        }
-
-        if (openDate.isBefore(campaign.getStartDate()) || closeDate.isAfter(campaign.getEndDate())) {
-            return "Offering open/close date must be within campaign date range";
-        }
-
-        if (campusProgramOfferingRepo.existsByAdmissionCampaignIdAndCampusIdAndProgramIdAndLearningMode(
-                campaign.getId(), targetCampus.getId(), program.getId(), request.getLearningMode())) {
-            return "This campus already has the same program offering for this mode in this campaign";
-        }
-
-        return null;
     }
 
     @Override
@@ -1306,13 +927,13 @@ public class SchoolServiceImpl implements SchoolService {
             targetProgram = programRepo.findByIdAndCurriculum_School_Id(request.getProgramId(), actorCampus.getSchool().getId());
         }
 
-        String error = validateUpdateCampusProgramOffering(request, actorCampus,
+        String error = CampusProgramOfferingValidation.validateUpdateCampusProgramOffering(request, actorCampus,
                 offering, targetCampaign, targetCampus, targetProgram, usedQuota,
                 offering.getApplicationStatus(), request.getQuota() != null ? request.getQuota() : offering.getQuota(),
                 request.getOpenDate() != null ? request.getOpenDate()
                         : offering.getOpenDate(), request.getCloseDate() != null ? request.getCloseDate()
                         : offering.getCloseDate(),
-                request.getLearningMode() != null ? request.getLearningMode() : offering.getLearningMode());
+                request.getLearningMode() != null ? request.getLearningMode() : offering.getLearningMode(), campusProgramOfferingRepo);
 
         if (error != null) {
             if (error.contains("already has the same program offering")) {
@@ -1338,8 +959,7 @@ public class SchoolServiceImpl implements SchoolService {
         offering.setLearningMode(request.getLearningMode() != null ? request.getLearningMode() : offering.getLearningMode());
         offering.setQuota(request.getQuota() != null ? request.getQuota() : offering.getQuota());
         offering.setRemainingQuota(targetRemainingQuota);
-        BigDecimal targetTuition = request.getTuitionFee() != null ? request.getTuitionFee() : offering.getTuitionFee();
-        offering.setTuitionFee(targetTuition);
+        offering.setTuitionFee(request.getTuitionFee() != null ? request.getTuitionFee() : offering.getTuitionFee());
         offering.setOpenDate(request.getOpenDate() != null ? request.getOpenDate()
                 : offering.getOpenDate());
         offering.setCloseDate(request.getCloseDate() != null ? request.getCloseDate()
@@ -1354,118 +974,6 @@ public class SchoolServiceImpl implements SchoolService {
         return ResponseBuilder.build(HttpStatus.OK, "Update campus offering successfully", null);
     }
 
-    // Validation cho updateCampusProgramOffering
-    private String validateUpdateCampusProgramOffering(UpdateCampusProgramOfferingRequest request, Campus
-            actorCampus, CampusProgramOffering offering, AdmissionCampaign targetCampaign, Campus targetCampus, Program
-                                                               targetProgram, int usedQuota, Status targetApplicationStatus, Integer targetQuota, LocalDate
-                                                               targetOpenDate, LocalDate targetCloseDate, LearningMode targetLearningMode) {
-
-        if (request == null || request.getId() == null || request.getId() <= 0) {
-            return "Offering id is required";
-        }
-
-        if (offering == null) {
-            return "Offering not found";
-        }
-
-        if (!offering.getAdmissionCampaign().getSchool().getId().equals(actorCampus.getSchool().getId())) {
-            return "Offering is out of your school scope";
-        }
-
-        if (!actorCampus.getIsPrimaryBranch() && !offering.getCampus().getId().equals(actorCampus.getId())) {
-            return "You can only update your campus offering";
-        }
-
-        if (targetProgram == null) {
-            return "Target program is invalid";
-        }
-
-        if (!targetProgram.isActive()) {
-            return "Program is inactive";
-        }
-
-        if (targetProgram.getCurriculum().getCurriculumStatus() != Status.CUR_ACTIVE) {
-            return "Program curriculum must be active";
-        }
-
-        if (targetCampaign.getStatus() == Status.CLOSED || targetCampaign.getStatus() == Status.EXPIRED) {
-            return "Cannot move offering to closed/expired campaign";
-        }
-
-        if (targetCampaign.getYear() != targetProgram.getCurriculum().getEnrollmentYear()) {
-            return "Campaign year must match curriculum enrollment year";
-        }
-
-        boolean identityChanged = !targetCampaign.getId().equals(offering.getAdmissionCampaign().getId())
-                || !targetCampus.getId().equals(offering.getCampus().getId())
-                || !targetProgram.getId().equals(offering.getProgram().getId())
-                || targetLearningMode != offering.getLearningMode();
-
-        if (usedQuota > 0 && identityChanged) {
-            return "Cannot change campaign/campus/program/mode after applications have been received";
-        }
-
-        if (targetQuota == null || targetQuota <= 0) {
-            return "Quota must be greater than 0";
-        }
-
-        if (targetQuota < usedQuota) {
-            return "Quota cannot be smaller than registered quantity";
-        }
-
-        if (targetOpenDate == null || targetCloseDate == null) {
-            return "Open date and close date are required";
-        }
-
-        if (targetCloseDate.isBefore(targetOpenDate)) {
-            return "Close date must be after or equal to open date";
-        }
-
-        if (targetOpenDate.isBefore(targetCampaign.getStartDate()) || targetCloseDate.isAfter(targetCampaign.getEndDate())) {
-            return "Offering open/close date must be within campaign date range";
-        }
-
-        if (targetApplicationStatus == null) {
-            return "Application status must be OPEN, PAUSED, FULL, or CLOSED";
-        }
-        // Không cho phép chuyển từ FULL hoặc CLOSED về trạng thái khác
-        Status currentStatus = offering.getApplicationStatus();
-
-        if ((currentStatus == Status.FULL || currentStatus == Status.CLOSED)
-                && targetApplicationStatus != currentStatus) {
-            return "Cannot change status from FULL or CLOSED to another status";
-        }
-
-        // Không cho phép chuyển về OPEN nếu quota đã đủ
-        if (targetApplicationStatus == Status.OPEN && targetQuota == usedQuota) {
-            return "Cannot set OPEN status when remaining quota is zero";
-        }
-
-        // Chỉ cho phép chuyển trạng thái theo luồng hợp lệ
-        if (currentStatus == Status.PAUSED && (targetApplicationStatus == Status.FULL || targetApplicationStatus == Status.CLOSED)) {
-            return "Cannot set status to FULL or CLOSED from PAUSED directly";
-        }
-
-        boolean duplicatedOffering = campusProgramOfferingRepo.existsByAdmissionCampaignIdAndCampusIdAndProgramIdAndLearningModeAndIdNot(
-                targetCampaign.getId(),
-                targetCampus.getId(),
-                targetProgram.getId(),
-                targetLearningMode,
-                offering.getId()
-        );
-
-        if (duplicatedOffering) {
-            return "This campus already has the same program offering in this campaign";
-        }
-
-        BigDecimal targetTuition = request.getTuitionFee() != null ? request.getTuitionFee() : offering.getTuitionFee();
-
-        if (targetTuition.signum() < 0) {
-            return "Tuition fee must be >= 0";
-        }
-
-        return null;
-    }
 
     @Override
     @Transactional
@@ -1507,6 +1015,58 @@ public class SchoolServiceImpl implements SchoolService {
         return ResponseBuilder.build(HttpStatus.OK, (formCount >= offering.getQuota())
                 ? "Chương trình đã đạt chỉ tiêu và được đóng tự động."
                 : "Chương trình đã được Admin chủ động đóng thành công.", buildOfferingData(offering));
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(int offeringId, Status targetStatus) {
+
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học", null);
+        }
+
+        CampusProgramOffering offering = campusProgramOfferingRepo.findById(offeringId).orElse(null);
+        if (offering == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Offering not found", null);
+        }
+
+        if (!offering.getCampus().getId().equals(actorCampus.getId())) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền cập nhật trạng thái chương trình của cơ sở khác", null);
+        }
+
+        if (offering.getStatus() == Status.CLOSED || offering.getApplicationStatus() == Status.FULL) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chương trình đã đóng hoặc đã đủ chỉ tiêu, không thể chuyển trạng thái", null);
+        }
+
+        if (targetStatus == Status.PAUSED) {
+            if (offering.getApplicationStatus() == Status.PAUSED) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chương trình đã ở trạng thái PAUSED", null);
+            }
+
+            offering.setApplicationStatus(Status.PAUSED);
+
+        } else if (targetStatus == Status.OPEN) {
+
+            if (offering.getApplicationStatus() != Status.PAUSED) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ có thể mở lại chương trình từ trạng thái PAUSED", null);
+            }
+
+            int formCount = admissionReservationFormRepo.countByCampusProgramOfferingId(offeringId);
+
+            if (formCount >= offering.getQuota()) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không thể mở lại vì đã đủ chỉ tiêu", null);
+            }
+
+            offering.setApplicationStatus(Status.OPEN);
+
+        } else {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ hỗ trợ chuyển trạng thái OPEN/PAUSED", null);
+        }
+
+        campusProgramOfferingRepo.save(offering);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Cập nhật trạng thái thành công", buildOfferingData(offering));
     }
 
     private Campus extractActorCampus() {
@@ -1621,28 +1181,6 @@ public class SchoolServiceImpl implements SchoolService {
             }
             return null;
         }
-    }
-
-    private Status parseApplicationStatus(String value) {
-        String normalized = normalize(value);
-        if (normalized == null) {
-            return Status.OPEN;
-        }
-
-        String enumKey = normalized.toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
-
-        Status parsed;
-        try {
-            parsed = Status.valueOf(enumKey);
-        } catch (IllegalArgumentException ignored) {
-            return null;
-        }
-
-        if (parsed != Status.OPEN && parsed != Status.PAUSED && parsed != Status.FULL && parsed != Status.CLOSED) {
-            return null;
-        }
-
-        return parsed;
     }
 
     @Override

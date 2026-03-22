@@ -45,6 +45,8 @@ public interface SchoolService {
 
     ResponseEntity<ResponseObject> closeCampusProgramOffering(int offeringId);
 
+    ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(int offeringId, Status targetStatus);
+
     ResponseEntity<ResponseObject> createAccountCounsellor(CreateAccountCounsellorRequest request);
 
     ResponseEntity<ResponseObject> viewAccountCounsellorList(int page, int size);

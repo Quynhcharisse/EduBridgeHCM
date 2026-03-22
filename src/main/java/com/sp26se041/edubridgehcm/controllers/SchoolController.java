@@ -121,6 +121,12 @@ public class SchoolController {
 
     @PutMapping("/{offeringId}/campus/offering/status")
     @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(@PathVariable int offeringId, @RequestParam Status targetStatus) {
+        return schoolService.changeCampusProgramOfferingStatus(offeringId, targetStatus);
+    }
+
+    @PutMapping("/{offeringId}/campus/offering/close")
+    @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> closeCampusProgramOffering(@PathVariable int offeringId) {
         return schoolService.closeCampusProgramOffering(offeringId);
     }
