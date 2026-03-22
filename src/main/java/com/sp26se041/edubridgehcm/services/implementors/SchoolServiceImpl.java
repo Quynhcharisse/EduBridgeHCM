@@ -1446,6 +1446,48 @@ public class SchoolServiceImpl implements SchoolService {
         return null;
     }
 
+    @Override
+    @Transactional
+    public ResponseEntity<ResponseObject> closeCampusProgramOffering(int offeringId) {
+
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học", null);
+        }
+
+        CampusProgramOffering offering = campusProgramOfferingRepo.findById(offeringId).orElse(null);
+
+        if (offering == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Offering not found", null);
+        }
+
+        if (!offering.getCampus().getId().equals(actorCampus.getId())) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền đóng chương trình của cơ sở khác", null);
+        }
+
+        if (offering.getStatus() == Status.CLOSED) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chương trình này đã được đóng trước đó", null);
+        }
+
+        int formCount = admissionReservationFormRepo.countByCampusProgramOfferingId(offeringId);
+
+        if (formCount >= offering.getQuota()) {
+            // Nếu đóng khi đã đủ hoặc vượt chỉ tiêu -> Hiển thị là FULL (Hết chỗ)
+            offering.setApplicationStatus(Status.FULL);
+        } else {
+            // Nếu đóng khi chưa đủ chỉ tiêu (do Admin chủ động hoặc hết hạn) -> Hiển thị là CLOSED (Đóng)
+            offering.setApplicationStatus(Status.CLOSED);
+        }
+        offering.setStatus(Status.CLOSED);
+        offering.setRemainingQuota(0);
+
+        campusProgramOfferingRepo.save(offering);
+
+        return ResponseBuilder.build(HttpStatus.OK, (formCount >= offering.getQuota())
+                ? "Chương trình đã đạt chỉ tiêu và được đóng tự động."
+                : "Chương trình đã được Admin chủ động đóng thành công.", buildOfferingData(offering));
+    }
+
     private Campus extractActorCampus() {
         Account account = AuthRequestUtil.extractAuthenticatedAccount();
         if (account == null || account.getRole() != Role.SCHOOL) {
@@ -1580,32 +1622,6 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         return parsed;
-    }
-
-    @Override
-    @Transactional
-    public ResponseEntity<ResponseObject> closeCampusProgramOffering(int offeringId) {
-
-        CampusProgramOffering offering = campusProgramOfferingRepo.findById(offeringId).orElse(null);
-
-        if (offering == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Offering not found", null);
-        }
-
-        int formCount = admissionReservationFormRepo.countByCampusProgramOfferingId(offeringId);
-
-        if (formCount >= offering.getQuota()) {
-
-            if (offering.getApplicationStatus() != Status.FULL) {
-                offering.setApplicationStatus(Status.FULL);
-                offering.setStatus(Status.CLOSED);
-                offering.setRemainingQuota(0);
-                campusProgramOfferingRepo.save(offering);
-            }
-            return ResponseBuilder.build(HttpStatus.OK, "Offering is now FULL and CLOSED", buildOfferingData(offering));
-
-        }
-        return ResponseBuilder.build(HttpStatus.OK, "Offering cannot be closed because it has not reached its quota", null);
     }
 
     @Override
