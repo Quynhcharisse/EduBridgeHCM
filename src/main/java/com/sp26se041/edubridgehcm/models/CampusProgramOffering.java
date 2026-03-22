@@ -20,6 +20,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
+import lombok.experimental.Accessors;
 import lombok.experimental.FieldDefaults;
 import org.jspecify.annotations.NullMarked;
 
@@ -30,11 +31,12 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@Builder(toBuilder = true)
 @Entity
 @Table(name = "campus_program_offering")
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @NullMarked
+@Accessors(chain = true)
 public class CampusProgramOffering {
 
     @Id
