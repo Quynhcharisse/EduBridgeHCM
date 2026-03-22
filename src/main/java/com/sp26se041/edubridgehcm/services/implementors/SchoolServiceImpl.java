@@ -1,14 +1,46 @@
-
 package com.sp26se041.edubridgehcm.services.implementors;
 
-import com.sp26se041.edubridgehcm.enums.*;
-import com.sp26se041.edubridgehcm.models.*;
-import com.sp26se041.edubridgehcm.repositories.*;
-import com.sp26se041.edubridgehcm.requests.*;
+import com.sp26se041.edubridgehcm.enums.BoardingType;
+import com.sp26se041.edubridgehcm.enums.CurriculumType;
+import com.sp26se041.edubridgehcm.enums.LearningMethod;
+import com.sp26se041.edubridgehcm.enums.LearningMode;
+import com.sp26se041.edubridgehcm.enums.Role;
+import com.sp26se041.edubridgehcm.enums.Status;
+import com.sp26se041.edubridgehcm.models.Account;
+import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
+import com.sp26se041.edubridgehcm.models.Campus;
+import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
+import com.sp26se041.edubridgehcm.models.Counsellor;
+import com.sp26se041.edubridgehcm.models.Curriculum;
+import com.sp26se041.edubridgehcm.models.OpenDayEvent;
+import com.sp26se041.edubridgehcm.models.Program;
+import com.sp26se041.edubridgehcm.models.School;
+import com.sp26se041.edubridgehcm.repositories.AccountRepo;
+import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
+import com.sp26se041.edubridgehcm.repositories.AdmissionReservationFormRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusRepo;
+import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
+import com.sp26se041.edubridgehcm.repositories.CurriculumRepo;
+import com.sp26se041.edubridgehcm.repositories.OpenDayEventRepo;
+import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
+import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
+import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
+import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
+import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
+import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
+import com.sp26se041.edubridgehcm.requests.ProgramRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
-import com.sp26se041.edubridgehcm.utils.*;
+import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
+import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
+import com.sp26se041.edubridgehcm.utils.CurriculumNamingUtil;
+import com.sp26se041.edubridgehcm.utils.PaginationUtil;
+import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import io.hypersistence.utils.common.StringUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -20,9 +52,21 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.*;
+import java.math.RoundingMode;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Year;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -44,6 +88,8 @@ public class SchoolServiceImpl implements SchoolService {
     private final OpenDayEventRepo openDayEventRepo;
 
     private final CurriculumRepo curriculumRepo;
+
+    private final AdmissionReservationFormRepo admissionReservationFormRepo;
 
     @Override
     @Transactional
@@ -883,6 +929,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         // Đồng bộ dữ liệu (Gom chung cho cả Create/Update để tránh lặp code)
         program.setCurriculum(curriculum);
+        program.setName(normalize(request.getName()));
         program.setGraduationStandard(normalize(request.getGraduationStandard()));
         program.setTargetStudentDescription(normalize(request.getTargetStudentDescription()));
         program.setBaseTuitionFee(request.getBaseTuitionFee());
@@ -916,21 +963,27 @@ public class SchoolServiceImpl implements SchoolService {
             return "Only active curriculum can be used for a program";
         }
 
-        String graduationStandard = normalize(request.getGraduationStandard());
-        if (graduationStandard == null) {
+        if (normalize(request.getGraduationStandard()) == null) {
             return "Graduation standard is required";
         }
 
-        if (graduationStandard.length() > 2000) {
+        if (normalize(request.getGraduationStandard()).length() > 2000) {
             return "Graduation standard exceeds 2000 characters";
         }
 
-        String targetStudentDescription = normalize(request.getTargetStudentDescription());
-        if (targetStudentDescription == null) {
+        if (normalize(request.getName()) == null) {
+            return "Name is required";
+        }
+
+        if (normalize(request.getName()).length() > 100) {
+            return "Name exceeds 100 characters";
+        }
+
+        if (normalize(request.getTargetStudentDescription()) == null) {
             return "Target student description is required";
         }
 
-        if (targetStudentDescription.length() > 2000) {
+        if (normalize(request.getTargetStudentDescription()).length() > 2000) {
             return "Target student description exceeds 2000 characters";
         }
 
@@ -961,7 +1014,7 @@ public class SchoolServiceImpl implements SchoolService {
             boolean duplicatedWhenUpdate = programRepo.existsByCurriculum_School_IdAndCurriculum_IdAndGraduationStandardIgnoreCaseAndIdNot(
                     actorCampus.getSchool().getId(),
                     request.getCurriculumId(),
-                    graduationStandard,
+                    normalize(request.getGraduationStandard()),
                     existingProgram.getId()
             );
 
@@ -972,7 +1025,7 @@ public class SchoolServiceImpl implements SchoolService {
             boolean duplicatedWhenCreate = programRepo.existsByCurriculum_School_IdAndCurriculum_IdAndGraduationStandardIgnoreCase(
                     actorCampus.getSchool().getId(),
                     request.getCurriculumId(),
-                    graduationStandard
+                    normalize(request.getGraduationStandard())
             );
 
             if (duplicatedWhenCreate) {
@@ -1049,6 +1102,15 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Program not found", null);
         }
 
+        BigDecimal basePrice = program.getBaseTuitionFee();
+
+        float adjustmentPercent = (request.getPriceAdjustmentPercentage() != null) ? request.getPriceAdjustmentPercentage() : 0.0f;
+
+        // 3. Calculate Final Tuition
+        // Formula: Final = Base * (1 + % / 100)
+        BigDecimal multiplier = BigDecimal.valueOf(1 + (adjustmentPercent / 100));
+        BigDecimal finalTuition = basePrice.multiply(multiplier).setScale(0, RoundingMode.HALF_UP); // Rounding for VND/Currency
+
         Campus targetCampus = resolveTargetCampus(actorCampus, request.getCampusId());
 
         if (targetCampus == null) {
@@ -1068,8 +1130,8 @@ public class SchoolServiceImpl implements SchoolService {
                 .quota(request.getQuota())
                 .remainingQuota((parseApplicationStatus(request.getApplicationStatus()) == Status.FULL) ? 0 : request.getQuota())
                 .learningMode(request.getLearningMode())
-                .priceAdjustmentPercentage(0)
-                .tuitionFee(request.getTuitionFee())
+                .priceAdjustmentPercentage(adjustmentPercent)
+                .tuitionFee(finalTuition)
                 .applicationStatus(applicationStatus)
                 .openDate((request.getOpenDate() != null) ? request.getOpenDate() : campaign.getStartDate())
                 .closeDate((request.getCloseDate() != null) ? request.getCloseDate() : campaign.getEndDate())
@@ -1082,8 +1144,27 @@ public class SchoolServiceImpl implements SchoolService {
     private String validateCreateCampusProgramOffering(CreateCampusProgramOfferingRequest request, Campus
             actorCampus) {
 
-        if (request == null || request.getAdmissionCampaignId() == null || request.getProgramId() == null || request.getLearningMode() == null || request.getQuota() <= 0) {
-            return "Campaign, program, learning mode and quota are required";
+        if (request == null || request.getAdmissionCampaignId() == null) {
+            return "Campaign are required";
+        }
+
+        if (request.getProgramId() == null) {
+            return "Program are required";
+        }
+
+        if (request.getLearningMode() == null) {
+            return "Learning mode are required";
+        }
+
+        if (request.getLearningMode().equals(LearningMode.BOARDING)
+                || request.getLearningMode().equals(LearningMode.DAY_SCHOOL)
+                || request.getLearningMode().equals(LearningMode.SEMI_BOARDING)
+                || request.getLearningMode().equals(LearningMode.HALF_DAY)) {
+            return "Selected learning mode is not supported for this offering";
+        }
+
+        if (request.getQuota() <= 0) {
+            return "Quota are required";
         }
 
         AdmissionCampaign campaign = admissionCampaignRepo.findById(request.getAdmissionCampaignId()).orElse(null);
@@ -1113,29 +1194,32 @@ public class SchoolServiceImpl implements SchoolService {
             return "Campaign year must match curriculum enrollment year";
         }
 
+        if (program.getBaseTuitionFee() == null) {
+            return "The selected program does not have a base tuition fee defined by the primary campus";
+        }
+
         Campus targetCampus = resolveTargetCampus(actorCampus, request.getCampusId());
 
         if (targetCampus == null) {
             return "Campus is out of your scope";
         }
 
-        BigDecimal tuitionFee = request.getTuitionFee();
-
-        if (tuitionFee == null || tuitionFee.signum() < 0) {
-            return "Tuition fee must be >= 0";
+        // 6. Check % Adjustment hợp lệ (Ví dụ: không giảm quá 100%)
+        if (request.getPriceAdjustmentPercentage() != null) {
+            if (request.getPriceAdjustmentPercentage() < -100) {
+                return "Price adjustment cannot result in a negative tuition fee";
+            }
         }
 
-        AdmissionCampaign finalCampaign = campaign;
+        LocalDate openDate = request.getOpenDate() != null ? request.getOpenDate() : campaign.getStartDate();
 
-        LocalDate openDate = request.getOpenDate() != null ? request.getOpenDate() : finalCampaign.getStartDate();
-
-        LocalDate closeDate = request.getCloseDate() != null ? request.getCloseDate() : finalCampaign.getEndDate();
+        LocalDate closeDate = request.getCloseDate() != null ? request.getCloseDate() : campaign.getEndDate();
 
         if (closeDate.isBefore(openDate)) {
             return "Close date must be after or equal to open date";
         }
 
-        if (openDate.isBefore(finalCampaign.getStartDate()) || closeDate.isAfter(finalCampaign.getEndDate())) {
+        if (openDate.isBefore(campaign.getStartDate()) || closeDate.isAfter(campaign.getEndDate())) {
             return "Offering open/close date must be within campaign date range";
         }
 
@@ -1145,15 +1229,9 @@ public class SchoolServiceImpl implements SchoolService {
             return "Application status must be OPEN, PAUSED, FULL, or CLOSED";
         }
 
-        boolean duplicatedOffering = campusProgramOfferingRepo.existsByAdmissionCampaignIdAndCampusIdAndProgramIdAndLearningMode(
-                finalCampaign.getId(),
-                targetCampus.getId(),
-                program.getId(),
-                request.getLearningMode()
-        );
-
-        if (duplicatedOffering) {
-            return "This campus already has the same program offering in this campaign";
+        if (campusProgramOfferingRepo.existsByAdmissionCampaignIdAndCampusIdAndProgramIdAndLearningMode(
+                campaign.getId(), targetCampus.getId(), program.getId(), request.getLearningMode())) {
+            return "This campus already has the same program offering for this mode in this campaign";
         }
 
         return null;
@@ -1207,34 +1285,48 @@ public class SchoolServiceImpl implements SchoolService {
         if (AccountRestrictionUtil.isRestrictedActor()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
         }
+
         Campus actorCampus = extractActorCampus();
+
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
+
         CampusProgramOffering offering = campusProgramOfferingRepo.findById(request.getId()).orElse(null);
-        int usedQuota = (offering != null) ? Math.max(0, offering.getQuota() - offering.getRemainingQuota()) : 0;
-        AdmissionCampaign targetCampaign = offering != null ? offering.getAdmissionCampaign() : null;
-        if (request.getAdmissionCampaignId() != null && (targetCampaign == null || !request.getAdmissionCampaignId().equals(targetCampaign.getId()))) {
+
+        if (offering == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Offering not found", null);
+        }
+
+        int usedQuota = Math.max(0, offering.getQuota() - offering.getRemainingQuota());
+
+        AdmissionCampaign targetCampaign = offering.getAdmissionCampaign();
+
+        if (request.getAdmissionCampaignId() != null && !request.getAdmissionCampaignId().equals(targetCampaign.getId())) {
             targetCampaign = admissionCampaignRepo.findById(request.getAdmissionCampaignId()).orElse(null);
         }
-        Campus targetCampus = offering != null ? offering.getCampus() : null;
-        if (request.getCampusId() != null && (targetCampus == null || !request.getCampusId().equals(targetCampus.getId()))) {
+        Campus targetCampus = offering.getCampus();
+
+        if (request.getCampusId() != null && !request.getCampusId().equals(targetCampus.getId())) {
             targetCampus = resolveTargetCampus(actorCampus, request.getCampusId());
         }
-        Program targetProgram = offering != null ? offering.getProgram() : null;
-        if (request.getProgramId() != null && (targetProgram == null || !request.getProgramId().equals(targetProgram.getId()))) {
+
+        Program targetProgram = offering.getProgram();
+
+        if (request.getProgramId() != null && !request.getProgramId().equals(targetProgram.getId())) {
             targetProgram = programRepo.findByIdAndCurriculum_School_Id(request.getProgramId(), actorCampus.getSchool().getId());
         }
-        LearningMode targetLearningMode = request.getLearningMode() != null ? request.getLearningMode() : (offering != null ? offering.getLearningMode() : null);
-        Integer targetQuota = request.getQuota() != null ? request.getQuota() : (offering != null ? offering.getQuota() : null);
-        Status targetApplicationStatus = request.getApplicationStatus() != null
-                ? parseApplicationStatus(request.getApplicationStatus())
-                : (offering != null ? offering.getApplicationStatus() : null);
-        LocalDate targetOpenDate = request.getOpenDate() != null ? request.getOpenDate()
-                : (offering != null && offering.getOpenDate() != null ? offering.getOpenDate() : (targetCampaign != null ? targetCampaign.getStartDate() : null));
-        LocalDate targetCloseDate = request.getCloseDate() != null ? request.getCloseDate()
-                : (offering != null && offering.getCloseDate() != null ? offering.getCloseDate() : (targetCampaign != null ? targetCampaign.getEndDate() : null));
-        String error = validateUpdateCampusProgramOffering(request, actorCampus, offering, targetCampaign, targetCampus, targetProgram, usedQuota, targetApplicationStatus, targetQuota, targetOpenDate, targetCloseDate, targetLearningMode);
+
+        String error = validateUpdateCampusProgramOffering(request, actorCampus,
+                offering, targetCampaign, targetCampus, targetProgram, usedQuota,
+                request.getApplicationStatus() != null
+                        ? Objects.requireNonNull(parseApplicationStatus(request.getApplicationStatus()))
+                        : offering.getApplicationStatus(), request.getQuota() != null ? request.getQuota() : offering.getQuota(),
+                request.getOpenDate() != null ? request.getOpenDate()
+                        : offering.getOpenDate(), request.getCloseDate() != null ? request.getCloseDate()
+                        : offering.getCloseDate(),
+                request.getLearningMode() != null ? request.getLearningMode() : offering.getLearningMode());
+
         if (error != null) {
             if (error.contains("already has the same program offering")) {
                 return ResponseBuilder.build(HttpStatus.CONFLICT, error, null);
@@ -1247,18 +1339,28 @@ public class SchoolServiceImpl implements SchoolService {
             }
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
-        int targetRemainingQuota = targetApplicationStatus == Status.FULL ? 0 : (targetQuota - usedQuota);
+
+        int targetRemainingQuota = request.getApplicationStatus() != null
+                ? Objects.requireNonNull(parseApplicationStatus(request.getApplicationStatus())).ordinal()
+                : offering.getApplicationStatus() == Status.FULL ? 0 : (request.getQuota() != null ? request.getQuota() : offering.getQuota() - usedQuota);
+
+        assert targetCampaign != null;
         offering.setAdmissionCampaign(targetCampaign);
+        assert targetCampus != null;
         offering.setCampus(targetCampus);
         offering.setProgram(targetProgram);
-        offering.setLearningMode(targetLearningMode);
-        offering.setQuota(targetQuota);
+        offering.setLearningMode(request.getLearningMode() != null ? request.getLearningMode() : offering.getLearningMode());
+        offering.setQuota(request.getQuota() != null ? request.getQuota() : offering.getQuota());
         offering.setRemainingQuota(targetRemainingQuota);
         BigDecimal targetTuition = request.getTuitionFee() != null ? request.getTuitionFee() : offering.getTuitionFee();
         offering.setTuitionFee(targetTuition);
-        offering.setOpenDate(targetOpenDate);
-        offering.setCloseDate(targetCloseDate);
-        offering.setApplicationStatus(targetApplicationStatus);
+        offering.setOpenDate(request.getOpenDate() != null ? request.getOpenDate()
+                : offering.getOpenDate());
+        offering.setCloseDate(request.getCloseDate() != null ? request.getCloseDate()
+                : offering.getCloseDate());
+        offering.setApplicationStatus(request.getApplicationStatus() != null
+                ? Objects.requireNonNull(parseApplicationStatus(request.getApplicationStatus()))
+                : offering.getApplicationStatus());
         try {
             campusProgramOfferingRepo.save(offering);
         } catch (DataIntegrityViolationException e) {
@@ -1338,12 +1440,11 @@ public class SchoolServiceImpl implements SchoolService {
             return "This campus already has the same program offering in this campaign";
         }
         BigDecimal targetTuition = request.getTuitionFee() != null ? request.getTuitionFee() : offering.getTuitionFee();
-        if (targetTuition == null || targetTuition.signum() < 0) {
+        if (targetTuition.signum() < 0) {
             return "Tuition fee must be >= 0";
         }
         return null;
     }
-
 
     private Campus extractActorCampus() {
         Account account = AuthRequestUtil.extractAuthenticatedAccount();
@@ -1381,6 +1482,7 @@ public class SchoolServiceImpl implements SchoolService {
     private Map<String, Object> buildProgramData(Program program) {
         Map<String, Object> data = new HashMap<>();
         data.put("id", program.getId());
+        data.put("name", program.getName());
         data.put("graduationStandard", program.getGraduationStandard());
         data.put("targetStudentDescription", program.getTargetStudentDescription());
         data.put("baseTuitionFee", program.getBaseTuitionFee());
@@ -1421,6 +1523,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("learningMode", offering.getLearningMode());
         data.put("tuitionFee", offering.getTuitionFee());
         data.put("baseTuitionFee", offering.getProgram().getBaseTuitionFee());
+        data.put("priceAdjustmentPercentage", offering.getPriceAdjustmentPercentage());
         data.put("applicationStatus", offering.getApplicationStatus());
         data.put("openDate", offering.getOpenDate());
         data.put("closeDate", offering.getCloseDate());
@@ -1481,6 +1584,32 @@ public class SchoolServiceImpl implements SchoolService {
 
     @Override
     @Transactional
+    public ResponseEntity<ResponseObject> closeCampusProgramOffering(int offeringId) {
+
+        CampusProgramOffering offering = campusProgramOfferingRepo.findById(offeringId).orElse(null);
+
+        if (offering == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Offering not found", null);
+        }
+
+        int formCount = admissionReservationFormRepo.countByCampusProgramOfferingId(offeringId);
+
+        if (formCount >= offering.getQuota()) {
+
+            if (offering.getApplicationStatus() != Status.FULL) {
+                offering.setApplicationStatus(Status.FULL);
+                offering.setStatus(Status.CLOSED);
+                offering.setRemainingQuota(0);
+                campusProgramOfferingRepo.save(offering);
+            }
+            return ResponseBuilder.build(HttpStatus.OK, "Offering is now FULL and CLOSED", buildOfferingData(offering));
+
+        }
+        return ResponseBuilder.build(HttpStatus.OK, "Offering cannot be closed because it has not reached its quota", null);
+    }
+
+    @Override
+    @Transactional
     public ResponseEntity<ResponseObject> createAccountCounsellor(CreateAccountCounsellorRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
@@ -1531,7 +1660,6 @@ public class SchoolServiceImpl implements SchoolService {
     private boolean isValidEmail(String email) {
         return email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
     }
-
 
     @Override
     public ResponseEntity<ResponseObject> viewAccountCounsellorList(int page, int size) {

@@ -101,22 +101,28 @@ public class SchoolController {
         return schoolService.upsertProgram(request);
     }
 
-    @PostMapping("/campaign/offering")
+    @PostMapping("/campus/offering")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> createCampusProgramOffering(@RequestBody CreateCampusProgramOfferingRequest request) {
         return schoolService.createCampusProgramOffering(request);
     }
 
-    @GetMapping("{campusId}/campaign/offering/list")
+    @GetMapping("{campusId}/campus/offering/list")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(@PathVariable int campusId, @RequestParam int page, @RequestParam int pageSize) {
         return schoolService.viewCampusProgramOfferingList(campusId, page, pageSize);
     }
 
-    @PutMapping("/campaign/offering/list")
+    @PutMapping("/campus/offering/list")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> updateCampusProgramOffering(@RequestBody UpdateCampusProgramOfferingRequest request) {
         return schoolService.updateCampusProgramOffering(request);
+    }
+
+    @PutMapping("/{offeringId}/campus/offering/status")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> closeCampusProgramOffering(@PathVariable int offeringId) {
+        return schoolService.closeCampusProgramOffering(offeringId);
     }
 
     @PostMapping("/counsellor")
