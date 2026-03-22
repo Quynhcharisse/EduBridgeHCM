@@ -28,6 +28,8 @@ public class CreateCampusProgramOfferingRequest {
 
     String applicationStatus;
 
+    Float priceAdjustmentPercentage;
+
     LocalDate openDate;
 
     LocalDate closeDate;

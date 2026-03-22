@@ -36,6 +36,8 @@ public class Program {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
 
+    String name;
+
     @ManyToOne
     @JoinColumn(name = "curriculum_id")
     Curriculum curriculum;

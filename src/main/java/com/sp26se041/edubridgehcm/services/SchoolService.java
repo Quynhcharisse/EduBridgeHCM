@@ -19,10 +19,6 @@ public interface SchoolService {
 
     ResponseEntity<ResponseObject> viewCampusList(int page, int pageSize);
 
-    ResponseEntity<ResponseObject> createAccountCounsellor(CreateAccountCounsellorRequest request);
-
-    ResponseEntity<ResponseObject> viewAccountCounsellorList(int page, int size);
-
     ResponseEntity<ResponseObject> createAdmissionCampaignTemplate(CreateAdmissionCampaignTemplateRequest request);
 
     ResponseEntity<ResponseObject> updateAdmissionCampaignTemplate(UpdateAdmissionCampaignTemplateRequest request);
@@ -46,6 +42,12 @@ public interface SchoolService {
     ResponseEntity<ResponseObject> viewCampusProgramOfferingList(int campusId, int page, int pageSize);
 
     ResponseEntity<ResponseObject> updateCampusProgramOffering(UpdateCampusProgramOfferingRequest request);
+
+    ResponseEntity<ResponseObject> closeCampusProgramOffering(int offeringId);
+
+    ResponseEntity<ResponseObject> createAccountCounsellor(CreateAccountCounsellorRequest request);
+
+    ResponseEntity<ResponseObject> viewAccountCounsellorList(int page, int size);
 
     ResponseEntity<ResponseObject> createOpenDayEvent(CreateOpenDayEventRequest request);
 

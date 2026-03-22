@@ -61,13 +61,13 @@ public class CampusProgramOffering {
     int quota;
 
     @Column(name = "remaining_quota")
-    int remainingQuota;
+    int remainingQuota; //(Chỉ tiêu còn lại)
 
     @Enumerated(EnumType.STRING)
     LearningMode learningMode;
 
     @Column(name = "price_adjustment_percentage")
-    float priceAdjustmentPercentage;
+    Float priceAdjustmentPercentage;
 
     @Column(name = "tuition_fee")
     BigDecimal tuitionFee;

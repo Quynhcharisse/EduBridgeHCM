@@ -19,6 +19,8 @@ public class ProgramRequest {
 
     Integer curriculumId;
 
+    String name;
+
     String graduationStandard;
 
     String targetStudentDescription;
