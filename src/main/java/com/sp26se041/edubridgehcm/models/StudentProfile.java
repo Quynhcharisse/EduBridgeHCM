@@ -44,9 +44,6 @@ public class StudentProfile {
     @Column(name = "student_name")
     String studentName;
 
-    @Column(name = "dob")
-    LocalDate dob;
-
     @Enumerated(EnumType.STRING)
     Gender gender;
 
@@ -55,13 +52,10 @@ public class StudentProfile {
     Object academicProfileMetadata;
 
     @Column(name = "personality_type")
-    int personalityTypeId;
+    String personalityTypeName;
 
     @Column(name = "favourite_job")
     String favouriteJob;
 
-    @Type(JsonBinaryType.class)
-    @Column(columnDefinition = "jsonb", name = "image_academic_profile")
-    Object imageAcademicProfile;
 
 }

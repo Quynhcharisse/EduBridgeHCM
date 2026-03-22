@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.controllers;
 
 import com.sp26se041.edubridgehcm.models.ChatMessage;
+import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.ParentService;
 import com.sp26se041.edubridgehcm.services.WebSocketService;
@@ -12,7 +13,9 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -81,4 +84,24 @@ public class ParentController {
     public ResponseEntity<ResponseObject> getPersonalityTypes() {
         return parentService.getPersonalityTypes();
     }
+
+    @GetMapping("/subject")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<ResponseObject> getSubjects() {
+        return parentService.getAllSubjects();
+    }
+
+    @PostMapping("/student")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<ResponseObject> addStudentInfo(@RequestBody AddStudentInfoRequest request){
+        return parentService.addStudentInfo(request);
+    }
+    @GetMapping("/student")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<ResponseObject> getStudentInfos(){
+        return parentService.getStudents();
+    }
+    @GetMapping("/major")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<ResponseObject> getMajors() { return parentService.getAllMajors(); }
 }

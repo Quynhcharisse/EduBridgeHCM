@@ -6,18 +6,23 @@ import com.sp26se041.edubridgehcm.enums.PersonalityTypeGroup;
 import com.sp26se041.edubridgehcm.enums.Relationship;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
+import com.sp26se041.edubridgehcm.enums.SubjectType;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.Counsellor;
+import com.sp26se041.edubridgehcm.models.Major;
 import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.PersonalityType;
 import com.sp26se041.edubridgehcm.models.School;
+import com.sp26se041.edubridgehcm.models.Subject;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
+import com.sp26se041.edubridgehcm.repositories.MajorRepo;
 import com.sp26se041.edubridgehcm.repositories.ParentRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
+import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
@@ -45,7 +50,10 @@ public class EduBridgeHcmApplication {
     private final CampusRepo campusRepo;
 
     private final CounsellorRepo counsellorRepo;
+
     private final PersonalityTypeRepo personalityTypeRepo;
+    private final MajorRepo majorRepo;
+    private final SubjectRepo subjectRepo;
 
     public static void main(String[] args) {
         SpringApplication.run(EduBridgeHcmApplication.class, args);
@@ -58,6 +66,8 @@ public class EduBridgeHcmApplication {
             initParent();
             initPrimaryCampusAndCounsellor();
             initPersonalityTypes();
+            initMajors();
+            initSubjects();
         };
     }
 
@@ -226,6 +236,80 @@ public class EduBridgeHcmApplication {
                 ));
     }
 
+    //Init Subject
+    private void initSubjects(){
+
+        if (subjectRepo.count() > 0) {
+            return;
+        }
+
+        subjectRepo.save(Subject.builder()
+                .name("Ngữ Văn")
+                .type(SubjectType.REGULAR_SUBJECT)
+                .build());
+        subjectRepo.save(Subject.builder()
+                .name("Toán")
+                .type(SubjectType.REGULAR_SUBJECT)
+                .build());
+        subjectRepo.save(Subject.builder()
+                .name("Anh Văn")
+                .type(SubjectType.FOREIGN_LANGUAGE_SUBJECT)
+                .build());
+        subjectRepo.save(Subject.builder()
+                .name("Tiếng Pháp")
+                .type(SubjectType.FOREIGN_LANGUAGE_SUBJECT)
+                .build());
+        subjectRepo.save(Subject.builder()
+                .name("Tiếng Trung Quốc")
+                .type(SubjectType.FOREIGN_LANGUAGE_SUBJECT)
+                .build());
+        subjectRepo.save(Subject.builder()
+                .name("Tiếng Nga")
+                .type(SubjectType.FOREIGN_LANGUAGE_SUBJECT)
+                .build());
+        subjectRepo.save(Subject.builder()
+                .name("Tiếng Hàn")
+                .type(SubjectType.FOREIGN_LANGUAGE_SUBJECT)
+                .build());
+        subjectRepo.save(Subject.builder()
+                .name("Tiếng Nhật")
+                .type(SubjectType.FOREIGN_LANGUAGE_SUBJECT)
+                .build());
+        subjectRepo.save(Subject.builder()
+                .name("Tiếng Đức")
+                .type(SubjectType.FOREIGN_LANGUAGE_SUBJECT)
+                .build());
+        subjectRepo.save(Subject.builder()
+                .name("Giáo dục công dân")
+                .type(SubjectType.REGULAR_SUBJECT)
+                .build());
+        subjectRepo.save(Subject.builder()
+                .name("Lịch sử và Địa lý")
+                .type(SubjectType.REGULAR_SUBJECT)
+                .build());
+        subjectRepo.save(Subject.builder()
+                .name("Khoa học tự nhiên")
+                .type(SubjectType.REGULAR_SUBJECT)
+                .build());
+        subjectRepo.save(Subject.builder()
+                .name("Công nghệ")
+                .type(SubjectType.REGULAR_SUBJECT)
+                .build());
+        subjectRepo.save(Subject.builder()
+                .name("Tin học")
+                .type(SubjectType.REGULAR_SUBJECT)
+                .build());
+        subjectRepo.save(Subject.builder()
+                .name("Giáo dục thể chất")
+                .type(SubjectType.REGULAR_SUBJECT)
+                .build());
+        subjectRepo.save(Subject.builder()
+                .name("Nghệ thuật (Âm nhạc, Mĩ thuật)")
+                .type(SubjectType.REGULAR_SUBJECT)
+                .build());
+    }
+
+
     // Init Personality type
     private void initPersonalityTypes(){
         if (!personalityTypeRepo.existsByCode("INTJ")) {
@@ -276,6 +360,94 @@ public class EduBridgeHcmApplication {
         if(!personalityTypeRepo.existsByCode("ESFP")){
             buildESFP();
         }
+    }
+
+    private void initMajors(){
+        if (majorRepo.count() > 0) {
+            return;
+        }
+
+        List<Major> majors = List.of(
+                Major.builder().code(9210206L).name("Quản lý nghệ thuật").group("Nghệ thuật").build(),
+                Major.builder().code(7210212L).name("Công nghệ âm nhạc").group("Nghệ thuật").build(),
+                Major.builder().code(7210215L).name("Quản lý âm nhạc").group("Nghệ thuật").build(),
+                Major.builder().code(7210408L).name("Nghệ thuật số").group("Nghệ thuật").build(),
+                Major.builder().code(7210412L).name("Phục chế mỹ thuật").group("Nghệ thuật").build(),
+                Major.builder().code(7210413L).name("Giám tuyển mỹ thuật").group("Nghệ thuật").build(),
+                Major.builder().code(8210210L).name("Biểu diễn nhạc cụ truyền thống").group("Nghệ thuật").build(),
+                Major.builder().code(9210102L).name("Mỹ thuật tạo hình").group("Nghệ thuật").build(),
+
+                Major.builder().code(7220214L).name("Ngôn ngữ Thái Lan").group("Nhân văn").build(),
+                Major.builder().code(9229047L).name("Di sản học").group("Nhân văn").build(),
+
+                Major.builder().code(7310110L).name("Quản lý kinh tế").group("Khoa học xã hội và hành vi").build(),
+                Major.builder().code(7310399L).name("Giới và phát triển").group("Khoa học xã hội và hành vi").build(),
+                Major.builder().code(8310205L).name("Quản lý nhà nước").group("Khoa học xã hội và hành vi").build(),
+                Major.builder().code(9310109L).name("Kinh tế và quản lý tài nguyên biển").group("Khoa học xã hội và hành vi").build(),
+
+                Major.builder().code(7310631L).name("Châu Á - Thái Bình Dương học").group("Khu vực học").build(),
+                Major.builder().code(7310639L).name("Châu Mỹ học").group("Khu vực học").build(),
+                Major.builder().code(7310640L).name("Hoa Kỳ học").group("Khu vực học").build(),
+                Major.builder().code(8310614L).name("Hàn Quốc học").group("Khu vực học").build(),
+
+                Major.builder().code(7380109L).name("Luật thương mại quốc tế").group("Pháp luật").build(),
+
+                Major.builder().code(7420204L).name("Khoa học y sinh").group("Khoa học sự sống").build(),
+
+                Major.builder().code(8440221L).name("Biến đổi khí hậu").group("Khoa học tự nhiên").build(),
+                Major.builder().code(9440306L).name("Bảo tồn thiên nhiên, môi trường và phát triển bền vững").group("Khoa học tự nhiên").build(),
+
+                Major.builder().code(7480208L).name("An ninh mạng").group("Máy tính và công nghệ thông tin").build(),
+
+                Major.builder().code(7519002L).name("Công nghệ nông nghiệp").group("Công nghệ kỹ thuật").build(),
+                Major.builder().code(9510602L).name("Quản lý năng lượng").group("Công nghệ kỹ thuật").build(),
+
+                Major.builder().code(7520107L).name("Kỹ thuật Robot").group("Kỹ thuật").build(),
+                Major.builder().code(7520215L).name("Kỹ thuật điện, điện tử").group("Kỹ thuật").build(),
+                Major.builder().code(7520605L).name("Kỹ thuật khí thiên nhiên").group("Kỹ thuật").build(),
+
+                Major.builder().code(7580109L).name("Quản lý phát triển đô thị và bất động sản").group("Kiến trúc và xây dựng").build(),
+                Major.builder().code(7580110L).name("Thiết kế đô thị").group("Kiến trúc và xây dựng").build(),
+                Major.builder().code(8580215L).name("Kỹ thuật an toàn giao thông").group("Kiến trúc và xây dựng").build(),
+                Major.builder().code(8580104L).name("Phát triển đô thị bền vững").group("Kiến trúc và xây dựng").build(),
+
+                Major.builder().code(7620210L).name("Lâm nghiệp").group("Nông, lâm nghiệp và thủy sản").build(),
+
+                Major.builder().code(8720113L).name("Dịch tễ học thực địa").group("Sức khoẻ").build(),
+                Major.builder().code(7720202L).name("Công nghệ dược phẩm").group("Sức khoẻ").build(),
+                Major.builder().code(7720402L).name("Dinh dưỡng và khoa học thực phẩm").group("Sức khoẻ").build(),
+                Major.builder().code(7720604L).name("Vật lý trị liệu").group("Sức khoẻ").build(),
+                Major.builder().code(7720605L).name("Hoạt động trị liệu").group("Sức khoẻ").build(),
+                Major.builder().code(7720606L).name("Ngôn ngữ trị liệu").group("Sức khoẻ").build(),
+                Major.builder().code(7720607L).name("Kỹ thuật y học thể dục thể thao").group("Sức khoẻ").build(),
+                Major.builder().code(7720608L).name("Dụng cụ chỉnh hình chân tay giả").group("Sức khoẻ").build(),
+                Major.builder().code(7720609L).name("Khúc xạ nhãn khoa").group("Sức khoẻ").build(),
+                Major.builder().code(7720610L).name("Kỹ thuật gây mê hồi sức").group("Sức khoẻ").build(),
+
+                Major.builder().code(7760104L).name("Dân số và phát triển").group("Dịch vụ xã hội").build(),
+                Major.builder().code(8760103L).name("Hỗ trợ giáo dục người khuyết tật").group("Dịch vụ xã hội").build(),
+
+                Major.builder().code(8810106L).name("Du lịch văn hóa").group("Du lịch, khách sạn, thể thao và dịch vụ cá nhân").build(),
+                Major.builder().code(8810201L).name("Quản trị khách sạn").group("Du lịch, khách sạn, thể thao và dịch vụ cá nhân").build(),
+                Major.builder().code(8810202L).name("Quản trị nhà hàng và dịch vụ ăn uống").group("Du lịch, khách sạn, thể thao và dịch vụ cá nhân").build(),
+                Major.builder().code(9810302L).name("Huấn luyện thể thao").group("Du lịch, khách sạn, thể thao và dịch vụ cá nhân").build(),
+
+                Major.builder().code(7850196L).name("Quản lý tài nguyên khoáng sản").group("Môi trường và bảo vệ môi trường").build(),
+                Major.builder().code(7850198L).name("Quản lý tài nguyên nước").group("Môi trường và bảo vệ môi trường").build(),
+
+                Major.builder().code(8860114L).name("An ninh mạng và phòng chống tội phạm sử dụng công nghệ cao").group("An ninh, Quốc phòng").build(),
+                Major.builder().code(7860215L).name("Chỉ huy tham mưu tác chiến không gian mạng").group("An ninh, Quốc phòng").build(),
+
+                Major.builder().code(9320108L).name("Quan hệ công chúng").group("Báo chí và thông tin").build(),
+                Major.builder().code(8320107L).name("Truyền thông quốc tế").group("Báo chí và thông tin").build(),
+
+                Major.builder().code(8340115L).name("Marketing").group("Kinh doanh và quản lý").build(),
+                Major.builder().code(8340120L).name("Kinh doanh quốc tế").group("Kinh doanh và quản lý").build(),
+
+                Major.builder().code(9460107L).name("Khoa học tính toán").group("Toán và thống kê").build()
+        );
+
+        majorRepo.saveAll(majors);
     }
 
     private void buildINTJ(){
