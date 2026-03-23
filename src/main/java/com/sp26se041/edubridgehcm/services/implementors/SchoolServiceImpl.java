@@ -803,6 +803,7 @@ public class SchoolServiceImpl implements SchoolService {
         if (request.getAdmissionCampaignId() != null && !request.getAdmissionCampaignId().equals(targetCampaign.getId())) {
             targetCampaign = admissionCampaignRepo.findById(request.getAdmissionCampaignId()).orElse(null);
         }
+
         Campus targetCampus = offering.getCampus();
 
         if (request.getCampusId() != null && !request.getCampusId().equals(targetCampus.getId())) {
@@ -818,19 +819,15 @@ public class SchoolServiceImpl implements SchoolService {
         String error = CampusProgramOfferingValidation.validateUpdateCampusProgramOffering(request, actorCampus, offering, targetCampaign, targetCampus, targetProgram, usedQuota, offering.getApplicationStatus(), request.getQuota() != null ? request.getQuota() : offering.getQuota(), request.getOpenDate() != null ? request.getOpenDate() : offering.getOpenDate(), request.getCloseDate() != null ? request.getCloseDate() : offering.getCloseDate(), request.getLearningMode() != null ? request.getLearningMode() : offering.getLearningMode(), campusProgramOfferingRepo);
 
         if (error != null) {
-            if (error.contains("already has the same program offering")) {
-                return ResponseBuilder.build(HttpStatus.CONFLICT, error, null);
-            }
-            if (error.contains("out of your school scope") || error.contains("out of your scope") || error.contains("only update your campus offering")) {
-                return ResponseBuilder.build(HttpStatus.FORBIDDEN, error, null);
-            }
-            if (error.contains("not found")) {
-                return ResponseBuilder.build(HttpStatus.NOT_FOUND, error, null);
-            }
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
-        int targetRemainingQuota = offering.getApplicationStatus() == Status.FULL ? 0 : (request.getQuota() != null ? request.getQuota() : offering.getQuota() - usedQuota);
+        // Only allow update if status is PAUSED
+        if (offering.getApplicationStatus() != Status.PAUSED) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Updates are only allowed when the program is paused.", null);
+        }
+
+        int targetRemainingQuota = request.getQuota() != null ? request.getQuota() : offering.getQuota() - usedQuota;
 
         assert targetCampaign != null;
         offering.setAdmissionCampaign(targetCampaign);
@@ -845,15 +842,10 @@ public class SchoolServiceImpl implements SchoolService {
         offering.setOpenDate(request.getOpenDate() != null ? request.getOpenDate() : offering.getOpenDate());
         offering.setCloseDate(request.getCloseDate() != null ? request.getCloseDate() : offering.getCloseDate());
 
-        try {
-            campusProgramOfferingRepo.save(offering);
-        } catch (DataIntegrityViolationException e) {
-            return ResponseBuilder.build(HttpStatus.CONFLICT, "This campus already has the same program offering in this campaign", null);
-        }
+        campusProgramOfferingRepo.save(offering);
 
         return ResponseBuilder.build(HttpStatus.OK, "Update campus offering successfully", null);
     }
-
 
     @Override
     @Transactional
@@ -871,11 +863,11 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         if (!offering.getCampus().getId().equals(actorCampus.getId())) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền đóng chương trình của cơ sở khác", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "You do not have the right to close programs at other institutions.", null);
         }
 
         if (offering.getStatus() == Status.CLOSED) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chương trình này đã được đóng trước đó", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "This program was previously closed.", null);
         }
 
         int formCount = admissionReservationFormRepo.countByCampusProgramOfferingId(offeringId);
@@ -887,12 +879,12 @@ public class SchoolServiceImpl implements SchoolService {
             // Nếu đóng khi chưa đủ chỉ tiêu (do Admin chủ động hoặc hết hạn) -> Hiển thị là CLOSED (Đóng)
             offering.setApplicationStatus(Status.CLOSED);
         }
+
         offering.setStatus(Status.CLOSED);
         offering.setRemainingQuota(0);
-
         campusProgramOfferingRepo.save(offering);
 
-        return ResponseBuilder.build(HttpStatus.OK, (formCount >= offering.getQuota()) ? "Chương trình đã đạt chỉ tiêu và được đóng tự động." : "Chương trình đã được Admin chủ động đóng thành công.", buildOfferingData(offering));
+        return ResponseBuilder.build(HttpStatus.OK, (formCount >= offering.getQuota()) ? "Chương trình đã đạt chỉ tiêu và được đóng tự động." : "Chương trình đã được Admin chủ động đóng thành công.", null);
     }
 
     @Override
@@ -905,6 +897,7 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         CampusProgramOffering offering = campusProgramOfferingRepo.findById(offeringId).orElse(null);
+
         if (offering == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Offering not found", null);
         }
@@ -913,13 +906,14 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền cập nhật trạng thái chương trình của cơ sở khác", null);
         }
 
-        if (offering.getStatus() == Status.CLOSED || offering.getApplicationStatus() == Status.FULL) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chương trình đã đóng hoặc đã đủ chỉ tiêu, không thể chuyển trạng thái", null);
+        if (offering.getStatus().equals(Status.CLOSED) || offering.getApplicationStatus().equals(Status.FULL)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "The program has closed or reached its quota; it cannot change its status.", null);
         }
 
-        if (targetStatus == Status.PAUSED) {
-            if (offering.getApplicationStatus() == Status.PAUSED) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chương trình đã ở trạng thái PAUSED", null);
+        if (targetStatus.equals(Status.PAUSED)) {
+
+            if (offering.getApplicationStatus().equals(Status.PAUSED)) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "The program is in PAUSED", null);
             }
 
             offering.setApplicationStatus(Status.PAUSED);
@@ -944,7 +938,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         campusProgramOfferingRepo.save(offering);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Cập nhật trạng thái thành công", buildOfferingData(offering));
+        return ResponseBuilder.build(HttpStatus.OK, "Paused is successful.", null);
     }
 
     private Campus extractActorCampus() {
