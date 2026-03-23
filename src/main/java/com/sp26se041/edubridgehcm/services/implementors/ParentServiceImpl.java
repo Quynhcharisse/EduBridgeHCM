@@ -63,7 +63,6 @@ public class ParentServiceImpl implements ParentService {
             if (cursorId == null) {
                 conversations = conversationRepo
                             .findTop20ByParentEmailOrderByUpdatedDateDesc(email);
-
             } else {
                     conversations = conversationRepo
                             .findTop20ByParentEmailAndIdLessThanOrderByUpdatedDateDesc(email, cursorId);
@@ -409,8 +408,7 @@ public class ParentServiceImpl implements ParentService {
             }
             Double score = subjectResult.getScore();
             if (score == null){
-                return  "Subject '" + subject.get().getName()
-                        + "' must have score";
+                return  "";
             }
             if (score < 0 || score > 10) {
                 return "Score must be between 0 and 10 for subject '"
