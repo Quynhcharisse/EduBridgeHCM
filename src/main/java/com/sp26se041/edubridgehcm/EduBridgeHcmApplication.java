@@ -299,14 +299,6 @@ public class EduBridgeHcmApplication {
                 .name("Tin học")
                 .type(SubjectType.REGULAR_SUBJECT)
                 .build());
-        subjectRepo.save(Subject.builder()
-                .name("Giáo dục thể chất")
-                .type(SubjectType.REGULAR_SUBJECT)
-                .build());
-        subjectRepo.save(Subject.builder()
-                .name("Nghệ thuật (Âm nhạc, Mĩ thuật)")
-                .type(SubjectType.REGULAR_SUBJECT)
-                .build());
     }
 
 
@@ -1284,15 +1276,15 @@ public class EduBridgeHcmApplication {
                                 .description("ISFJ có xu hướng quyết định theo cách kỷ luật và theo quy tắc. Họ thích có kế hoạch, tổ chức và sự ổn định. Để đưa ra các quyết định nhóm tính cách này thường dựa trên những thông tin cụ thể và nhận thức của họ về giá trị cá nhân.")
                                 .build()))
                 .strengths(List.of(
-                        ""
-                ))
-                .weaknesses(List.of(
                         "Hỗ trợ: Tính cách ISFJ thực sự thích giúp đỡ người khác. Họ vui vẻ chia sẻ kiến thức, sự chú ý, chuyên môn của mình với bất kỳ ai cần. Những người có kiểu tính cách này cố gắng đạt được các tình huống đôi bên cùng có lợi, chọn làm việc theo nhóm thay vì cạnh tranh bất cứ khi nào có thể.",
                         "Đáng tin cậy: Thay vì làm việc một cách rời rạc, hào hứng khiến mọi thứ chỉ hoàn thành một nửa, ISFJ rất tỉ mỉ và cẩn thận. Họ thực hiện một cách tiếp cận ổn định, đảm bảo rằng mọi thứ được thực hiện theo tiêu chuẩn cao nhất và thường vượt xa những gì được yêu cầu.",
                         "Quan sát: Các ISFJ có biệt tài chú ý đến mọi thứ, đặc biệt là về người khác. Họ chú ý đến những chi tiết nhỏ nhất về những gì ai đó nói và làm, mang đến cho họ những hiểu biết bất ngờ về cuộc sống và cảm xúc của người khác.",
                         "Nhiệt tình: Khi đạt được mục tiêu, ISFJ áp dụng tất cả năng lực của họ vào điều gì đó mà họ tin rằng sẽ tạo ra sự khác biệt thực sự, tích cực trong cuộc sống.",
                         "Chăm chỉ: Những ISFJ không chỉ hoàn thành công việc của họ và tự hào về điều đó. Những người có kiểu tính cách này thường hình thành một tình cảm gắn bó với các dự án và tổ chức mà họ đã cống hiến hết mình, họ sẽ không nghỉ ngơi cho đến khi hoàn thành phần của mình.",
                         "Thực tế: Tính cách ISFJ khi quyết định hoàn thành bất cứ điều gì, họ thường tìm kiếm phương pháp thiết thực nhất để đạt được nó bằng cách xem xét các sự kiện và chi tiết."
+                ))
+                .weaknesses(List.of(
+                      ""
                 ))
                 .sources(List.of(
                         CreatePersonalityTypeRequest.SourceInfo.builder()
