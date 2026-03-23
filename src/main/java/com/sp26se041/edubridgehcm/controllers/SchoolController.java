@@ -76,7 +76,6 @@ public class SchoolController {
         return schoolService.upsertCurriculum(request);
     }
 
-    // publish (Chỉ dành cho Campus chính)
     @PatchMapping("/{id}/activate/curriculum")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> activate(@PathVariable int id) {
@@ -85,13 +84,15 @@ public class SchoolController {
 
     @GetMapping("/curriculum/list")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewCurriculumList(@RequestParam int page, @RequestParam int pageSize) {
+    public ResponseEntity<ResponseObject> viewCurriculumList(@RequestParam(defaultValue = "0") int page,
+                                                             @RequestParam(defaultValue = "10") int pageSize) {
         return schoolService.viewCurriculumList(page, pageSize);
     }
 
     @GetMapping("/program/list")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewProgramList(int page, int pageSize) {
+    public ResponseEntity<ResponseObject> viewProgramList(@RequestParam(defaultValue = "0") int page,
+                                                          @RequestParam(defaultValue = "10") int pageSize) {
         return schoolService.viewProgramList(page, pageSize);
     }
 
@@ -109,7 +110,9 @@ public class SchoolController {
 
     @GetMapping("{campusId}/campus/offering/list")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(@PathVariable int campusId, @RequestParam int page, @RequestParam int pageSize) {
+    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(@PathVariable int campusId,
+                                                                        @RequestParam(defaultValue = "0") int page,
+                                                                        @RequestParam(defaultValue = "10") int pageSize) {
         return schoolService.viewCampusProgramOfferingList(campusId, page, pageSize);
     }
 
@@ -139,7 +142,8 @@ public class SchoolController {
 
     @GetMapping("/counsellor/list")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewAccountCounsellorList(@RequestParam int page, @RequestParam int pageSize) {
+    public ResponseEntity<ResponseObject> viewAccountCounsellorList(@RequestParam(defaultValue = "0") int page,
+                                                                    @RequestParam(defaultValue = "10") int pageSize) {
         return schoolService.viewAccountCounsellorList(page, pageSize);
     }
 
