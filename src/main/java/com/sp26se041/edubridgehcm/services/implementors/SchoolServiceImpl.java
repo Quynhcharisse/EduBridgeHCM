@@ -42,6 +42,7 @@ import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.validations.school.AdmissionCampaignValidation;
 import com.sp26se041.edubridgehcm.validations.school.CampusProgramOfferingValidation;
+import com.sp26se041.edubridgehcm.validations.school.CampusValidation;
 import com.sp26se041.edubridgehcm.validations.school.CurriculumValidation;
 import com.sp26se041.edubridgehcm.validations.school.ProgramValidation;
 import lombok.RequiredArgsConstructor;
@@ -110,7 +111,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can add new campus", null);
         }
 
-        String error = validateCreateCampus(request);
+        String error = CampusValidation.validateCreateCampus(request, accountRepo);
         if (error != null && !error.isBlank()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
@@ -130,74 +131,6 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("account", buildAccountData(acc));
 
         return ResponseBuilder.build(HttpStatus.OK, "Create campus successfully", data);
-    }
-
-    private String validateCreateCampus(CreateCampusRequest request) {
-        if (request == null) {
-            return "Request is required";
-        }
-
-        if (normalize(request.getEmail()) == null) {
-            return "Email is required";
-        }
-
-        if (normalize(request.getEmail()).length() > 100) {
-            return "Email exceeds 100 characters";
-        }
-
-        if (accountRepo.findByEmail(normalize(request.getEmail())).isPresent()) {
-            return "Email is already in use";
-        }
-
-        if (normalize(request.getName()) == null) {
-            return "Name is required";
-        }
-
-        if (normalize(request.getName()).length() > 50) {
-            return "Name exceeds 50 characters";
-        }
-
-        if (normalize(request.getAddress()) == null) {
-            return "Address is required";
-        }
-
-        if (normalize(request.getAddress()).length() > 250) {
-            return "Address exceeds 250 characters";
-        }
-
-        if (normalize(request.getPhone()) == null) {
-            return "Phone is required";
-        }
-
-        if (!normalize(request.getPhone()).matches("^(09|08|07|03)\\d{8}$")) {
-            return "Phone must start with 09, 08, 07, or 03 and contain 10 digits";
-        }
-
-        if (normalize(request.getCity()) == null) {
-            return "City is required";
-        }
-
-        if (normalize(request.getDistrict()) == null) {
-            return "District is required";
-        }
-
-        if (request.getLatitude() == null || request.getLongitude() == null) {
-            return "Latitude and longitude are required";
-        }
-
-        if (request.getLatitude() < -90 || request.getLatitude() > 90) {
-            return "Latitude must be in range [-90, 90]";
-        }
-
-        if (request.getLongitude() < -180 || request.getLongitude() > 180) {
-            return "Longitude must be in range [-180, 180]";
-        }
-
-        if (parseBoardingType(request.getBoardingType()) == null) {
-            return "Boarding type is invalid. Accepted values: NONE, FULL_BOARDING, SEMI_BOARDING, BOTH";
-        }
-
-        return null;
     }
 
     @Override
@@ -361,9 +294,7 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         //Tìm Campaign
-        AdmissionCampaign campaign = admissionCampaignRepo.findById(id)
-                .filter(c -> c.getSchool().getId().equals(actorCampus.getSchool().getId()))
-                .orElse(null);
+        AdmissionCampaign campaign = admissionCampaignRepo.findById(id).filter(c -> c.getSchool().getId().equals(actorCampus.getSchool().getId())).orElse(null);
 
         if (campaign == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campaign not found", null);
 
@@ -546,18 +477,14 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         // 2. Kiểm tra trùng lặp nội dung với bản ACTIVE hiện tại
-        Curriculum currentActive = curriculumRepo.findByGroupCodeAndEnrollmentYearAndCurriculumStatus(
-                target.getGroupCode(), target.getEnrollmentYear(), Status.CUR_ACTIVE);
+        Curriculum currentActive = curriculumRepo.findByGroupCodeAndEnrollmentYearAndCurriculumStatus(target.getGroupCode(), target.getEnrollmentYear(), Status.CUR_ACTIVE);
 
         if (currentActive != null) {
             // So sánh nội dung quan trọng: Subjects và Description
-            boolean isSameContent = Objects.equals(target.getSubjectsJsonb(), currentActive.getSubjectsJsonb())
-                    && Objects.equals(target.getDescription(), currentActive.getDescription())
-                    && Objects.equals(target.getMethodLearning(), currentActive.getMethodLearning());
+            boolean isSameContent = Objects.equals(target.getSubjectsJsonb(), currentActive.getSubjectsJsonb()) && Objects.equals(target.getDescription(), currentActive.getDescription()) && Objects.equals(target.getMethodLearning(), currentActive.getMethodLearning());
 
             if (isSameContent) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                        "This draft has no changes compared to the current Active version. Activation canceled.", null);
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "This draft has no changes compared to the current Active version. Activation canceled.", null);
             }
         }
 
@@ -571,18 +498,7 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     private Curriculum buildNewCurriculum(CurriculumRequest request, School school, long version) {
-        return Curriculum.builder()
-                .name(CurriculumNamingUtil.generateName(request))
-                .groupCode(CurriculumNamingUtil.generateGroupCode(request))
-                .curriculumType(CurriculumType.valueOf(request.getCurriculumType()))
-                .methodLearning(LearningMethod.valueOf(request.getMethodLearning()))
-                .enrollmentYear(request.getEnrollmentYear())
-                .description(request.getDescription())
-                .subjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()))
-                .version(version)
-                .school(school)
-                .isLatest(false)
-                .curriculumStatus(Status.CUR_DRAFT).build();
+        return Curriculum.builder().name(CurriculumNamingUtil.generateName(request)).groupCode(CurriculumNamingUtil.generateGroupCode(request)).curriculumType(CurriculumType.valueOf(request.getCurriculumType())).methodLearning(LearningMethod.valueOf(request.getMethodLearning())).enrollmentYear(request.getEnrollmentYear()).description(request.getDescription()).subjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions())).version(version).school(school).isLatest(false).curriculumStatus(Status.CUR_DRAFT).build();
     }
 
     // bảng update đối vs draft
@@ -595,9 +511,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         // Chỉ generate lại tên curriculum từ các trường thành phần, tuyệt đối không lấy từ request.getName()
         // Không setName ở bất kỳ nơi nào khác ngoài đây và buildNewCurriculum
-        boolean isIdentityChanging = curriculum.getEnrollmentYear() != request.getEnrollmentYear()
-                || !curriculum.getCurriculumType().name().equals(request.getCurriculumType())
-                || !curriculum.getGroupCode().equals(CurriculumNamingUtil.generateGroupCode(request));
+        boolean isIdentityChanging = curriculum.getEnrollmentYear() != request.getEnrollmentYear() || !curriculum.getCurriculumType().name().equals(request.getCurriculumType()) || !curriculum.getGroupCode().equals(CurriculumNamingUtil.generateGroupCode(request));
 
         if (isIdentityChanging) {
             // Chỉ khi có ý định đổi Identity mới kiểm tra DB
@@ -614,16 +528,7 @@ public class SchoolServiceImpl implements SchoolService {
 
     private Curriculum evolveFromExisting(Curriculum existing, CurriculumRequest request, long version) {
 
-        Curriculum clone = Curriculum.builder()
-                .name(existing.getName())
-                .groupCode(existing.getGroupCode())
-                .curriculumType(existing.getCurriculumType())
-                .enrollmentYear(existing.getEnrollmentYear())
-                .school(existing.getSchool())
-                .parent(existing)
-                .isLatest(false)
-                .curriculumStatus(Status.CUR_DRAFT)
-                .build();
+        Curriculum clone = Curriculum.builder().name(existing.getName()).groupCode(existing.getGroupCode()).curriculumType(existing.getCurriculumType()).enrollmentYear(existing.getEnrollmentYear()).school(existing.getSchool()).parent(existing).isLatest(false).curriculumStatus(Status.CUR_DRAFT).build();
 
         // tận dụng hàm apply để gán các thông tin thay đổi từ request
         applyRequestToCurriculum(clone, request, version);
@@ -635,11 +540,7 @@ public class SchoolServiceImpl implements SchoolService {
         if (request == null) return Collections.emptyList();
 
         return request.stream().map(opt -> {
-            return Map.<String, Object>of(
-                    "name", Objects.requireNonNullElse(opt.getName(), ""),
-                    "description", Objects.requireNonNullElse(opt.getDescription(), ""),
-                    "isMandatory", Boolean.TRUE.equals(opt.getIsMandatory())
-            );
+            return Map.<String, Object>of("name", Objects.requireNonNullElse(opt.getName(), ""), "description", Objects.requireNonNullElse(opt.getDescription(), ""), "isMandatory", Boolean.TRUE.equals(opt.getIsMandatory()));
         }).collect(Collectors.toList());
     }
 
@@ -829,20 +730,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus is out of your scope", null);
         }
 
-        campusProgramOfferingRepo.save(CampusProgramOffering.builder()
-                .campus(targetCampus)
-                .admissionCampaign(campaign)
-                .program(program)
-                .quota(request.getQuota())
-                .remainingQuota(request.getQuota())
-                .learningMode(request.getLearningMode())
-                .priceAdjustmentPercentage(adjustmentPercent)
-                .tuitionFee(finalTuition)
-                .applicationStatus(Status.OPEN)
-                .openDate((request.getOpenDate() != null) ? request.getOpenDate() : campaign.getStartDate())
-                .closeDate((request.getCloseDate() != null) ? request.getCloseDate() : campaign.getEndDate())
-                .status(Status.OPEN)
-                .build());
+        campusProgramOfferingRepo.save(CampusProgramOffering.builder().campus(targetCampus).admissionCampaign(campaign).program(program).quota(request.getQuota()).remainingQuota(request.getQuota()).learningMode(request.getLearningMode()).priceAdjustmentPercentage(adjustmentPercent).tuitionFee(finalTuition).applicationStatus(Status.OPEN).openDate((request.getOpenDate() != null) ? request.getOpenDate() : campaign.getStartDate()).closeDate((request.getCloseDate() != null) ? request.getCloseDate() : campaign.getEndDate()).status(Status.OPEN).build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Create campus offering successfully", null);
     }
@@ -927,13 +815,7 @@ public class SchoolServiceImpl implements SchoolService {
             targetProgram = programRepo.findByIdAndCurriculum_School_Id(request.getProgramId(), actorCampus.getSchool().getId());
         }
 
-        String error = CampusProgramOfferingValidation.validateUpdateCampusProgramOffering(request, actorCampus,
-                offering, targetCampaign, targetCampus, targetProgram, usedQuota,
-                offering.getApplicationStatus(), request.getQuota() != null ? request.getQuota() : offering.getQuota(),
-                request.getOpenDate() != null ? request.getOpenDate()
-                        : offering.getOpenDate(), request.getCloseDate() != null ? request.getCloseDate()
-                        : offering.getCloseDate(),
-                request.getLearningMode() != null ? request.getLearningMode() : offering.getLearningMode(), campusProgramOfferingRepo);
+        String error = CampusProgramOfferingValidation.validateUpdateCampusProgramOffering(request, actorCampus, offering, targetCampaign, targetCampus, targetProgram, usedQuota, offering.getApplicationStatus(), request.getQuota() != null ? request.getQuota() : offering.getQuota(), request.getOpenDate() != null ? request.getOpenDate() : offering.getOpenDate(), request.getCloseDate() != null ? request.getCloseDate() : offering.getCloseDate(), request.getLearningMode() != null ? request.getLearningMode() : offering.getLearningMode(), campusProgramOfferingRepo);
 
         if (error != null) {
             if (error.contains("already has the same program offering")) {
@@ -960,10 +842,8 @@ public class SchoolServiceImpl implements SchoolService {
         offering.setQuota(request.getQuota() != null ? request.getQuota() : offering.getQuota());
         offering.setRemainingQuota(targetRemainingQuota);
         offering.setTuitionFee(request.getTuitionFee() != null ? request.getTuitionFee() : offering.getTuitionFee());
-        offering.setOpenDate(request.getOpenDate() != null ? request.getOpenDate()
-                : offering.getOpenDate());
-        offering.setCloseDate(request.getCloseDate() != null ? request.getCloseDate()
-                : offering.getCloseDate());
+        offering.setOpenDate(request.getOpenDate() != null ? request.getOpenDate() : offering.getOpenDate());
+        offering.setCloseDate(request.getCloseDate() != null ? request.getCloseDate() : offering.getCloseDate());
 
         try {
             campusProgramOfferingRepo.save(offering);
@@ -1012,9 +892,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         campusProgramOfferingRepo.save(offering);
 
-        return ResponseBuilder.build(HttpStatus.OK, (formCount >= offering.getQuota())
-                ? "Chương trình đã đạt chỉ tiêu và được đóng tự động."
-                : "Chương trình đã được Admin chủ động đóng thành công.", buildOfferingData(offering));
+        return ResponseBuilder.build(HttpStatus.OK, (formCount >= offering.getQuota()) ? "Chương trình đã đạt chỉ tiêu và được đóng tự động." : "Chương trình đã được Admin chủ động đóng thành công.", buildOfferingData(offering));
     }
 
     @Override
