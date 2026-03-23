@@ -23,6 +23,7 @@ import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.CurriculumRepo;
 import com.sp26se041.edubridgehcm.repositories.OpenDayEventRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
@@ -48,6 +49,7 @@ import com.sp26se041.edubridgehcm.validations.school.ProgramValidation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -92,6 +94,8 @@ public class SchoolServiceImpl implements SchoolService {
     private final CurriculumRepo curriculumRepo;
 
     private final AdmissionReservationFormRepo admissionReservationFormRepo;
+
+    private final SchoolRepo schoolRepo;
 
     @Override
     @Transactional
@@ -592,7 +596,10 @@ public class SchoolServiceImpl implements SchoolService {
         if (programCount > 0) {
             List<String> linkedProgramNames = curriculum.getPrograms().stream()
                     // Lấy tên Program (thường map từ Graduation Standard hoặc một field name riêng của Program)
-                    .map(p -> "Program: " + p.getGraduationStandard()).collect(Collectors.toList());
+                    .map(p -> {
+                        Map<String, Object> programData = buildProgramData(p);
+                        return (String) programData.get("name");
+                    }).collect(Collectors.toList());
             data.put("linkedProgramNames", linkedProgramNames);
 
         } else {
@@ -1009,7 +1016,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("campaignName", offering.getAdmissionCampaign().getName());
         data.put("campaignYear", offering.getAdmissionCampaign().getYear());
         data.put("programId", offering.getProgram().getId());
-        data.put("programName", offering.getProgram().getGraduationStandard());
+        data.put("programName", offering.getProgram().getName());
         data.put("curriculumId", offering.getProgram().getCurriculum().getId());
         data.put("curriculumType", offering.getProgram().getCurriculum().getCurriculumType());
         data.put("enrollmentYear", offering.getProgram().getCurriculum().getEnrollmentYear());
@@ -1140,6 +1147,38 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("campusName", counsellor.getCampus().getName());
         data.put("account", buildAccountData(counsellor.getAccount()));
         return data;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewSchoolList(int page, int pageSize) {
+
+        Pageable pageable = PageRequest.of(page, pageSize);
+
+        //uu tien cac truong isFeatured len dau, sau do moi tim den Id / rating
+        Page<School> schoolPage = schoolRepo.findAllByOrderByIsFeaturedDescAverageRatingDesc(pageable);
+
+        List<Map<String, Object>> schoolList = schoolPage.stream()
+                .map(
+                        school -> {
+
+                            Map<String, Object> data = new HashMap<>();
+                            data.put("id", school.getId());
+                            data.put("name", school.getName());
+                            data.put("description", school.getDescription());
+                            data.put("logoUrl", school.getLogoUrl());
+                            data.put("websiteUrl", school.getWebsiteUrl());
+                            data.put("averageRating", school.getAverageRating());
+                            data.put("isFeatured", school.getIsFeatured());
+                            return data;
+                        })
+                .toList();
+
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewSchoolDetail(int schoolId) {
+        return null;
     }
 
     @Override

@@ -37,6 +37,8 @@ public class School {
 
     String name;
 
+    String description;
+
     @Column(name = "tax_code", length = 50)
     String taxCode;
 

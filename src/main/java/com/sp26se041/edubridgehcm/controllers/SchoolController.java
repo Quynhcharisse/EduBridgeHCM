@@ -147,6 +147,17 @@ public class SchoolController {
         return schoolService.viewAccountCounsellorList(page, pageSize);
     }
 
+    @GetMapping("/public/list")
+    public ResponseEntity<ResponseObject> viewSchoolList(@RequestParam(defaultValue = "0") int page,
+                                                         @RequestParam(defaultValue = "10") int pageSize) {
+        return schoolService.viewSchoolList(page, pageSize);
+    }
+
+    @GetMapping("/{schoolId}/public/detail")
+    public ResponseEntity<ResponseObject> viewSchoolDetail(@PathVariable int schoolId) {
+        return schoolService.viewSchoolDetail(schoolId);
+    }
+
     // Open day event
     @PostMapping("/event")
     @PreAuthorize("hasRole('SCHOOL')")

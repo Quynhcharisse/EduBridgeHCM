@@ -7,6 +7,7 @@ import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.requests.UpdateProfileRequest;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 
+import java.time.LocalDate;
 import java.util.Arrays;
 
 public class AccountValidation {
@@ -182,12 +183,53 @@ public class AccountValidation {
                 }
 
                 if (normalize(request.getCampusData().getSchoolData().getName()) == null) {
-                    return "Require school name for primary branch";
+                    return "Require school name";
                 }
 
-                String hotline = normalize(request.getCampusData().getSchoolData().getHotline());
-                if (hotline != null && !isValidPhoneNumber(hotline)) {
+                if (normalize(request.getCampusData().getSchoolData().getName()).length() < 100) {
+                    return "School name must not exceed 100 characters";
+                }
+
+                if (normalize(request.getCampusData().getSchoolData().getDescription()) == null) {
+                    return "Require school description";
+                }
+                if (normalize(request.getCampusData().getSchoolData().getDescription()).length() < 20) {
+                    return "School description must be at least 20 characters";
+                }
+                if (normalize(request.getCampusData().getSchoolData().getDescription()).length() > 500) {
+                    return "School description must not exceed 500 characters";
+                }
+
+                if (normalize(request.getCampusData().getSchoolData().getHotline()) != null && !isValidPhoneNumber(normalize(request.getCampusData().getSchoolData().getHotline()))) {
                     return "School hotline must contain exactly 10 digits and start with 03, 07, 08, or 09";
+                }
+
+                if (normalize(request.getCampusData().getSchoolData().getLogoUrl()) == null) {
+                    return "Require school logoUrl";
+                }
+                if (!normalize(request.getCampusData().getSchoolData().getLogoUrl()).startsWith("http")) {
+                    return "School logoUrl must be a valid URL";
+                }
+
+                if (normalize(request.getCampusData().getSchoolData().getWebsiteUrl()) == null) {
+                    return "Require school websiteUrl";
+                }
+                if (!normalize(request.getCampusData().getSchoolData().getWebsiteUrl()).startsWith("http")) {
+                    return "School websiteUrl must be a valid URL";
+                }
+
+                if (normalize(request.getCampusData().getSchoolData().getRepresentativeName()) == null) {
+                    return "Require school representative name";
+                }
+                if (normalize(request.getCampusData().getSchoolData().getRepresentativeName()).length() > 100) {
+                    return "School representative name must not exceed 100 characters";
+                }
+
+                if (request.getCampusData().getSchoolData().getFoundingDate() == null) {
+                    return "Require school founding date";
+                }
+                if (request.getCampusData().getSchoolData().getFoundingDate().isAfter(LocalDate.now())) {
+                    return "School founding date cannot be in the future";
                 }
             }
 
