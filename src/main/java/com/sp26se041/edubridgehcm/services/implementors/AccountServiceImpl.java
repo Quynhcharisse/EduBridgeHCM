@@ -20,7 +20,6 @@ import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AccountService;
 import com.sp26se041.edubridgehcm.services.JWTService;
-import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.CookieUtil;
 import com.sp26se041.edubridgehcm.utils.PaginationUtil;
@@ -37,7 +36,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -285,6 +283,7 @@ public class AccountServiceImpl implements AccountService {
         Map<String, Object> data = new HashMap<>();
         data.put("schoolId", school.getId());
         data.put("schoolName", school.getName());
+        data.put("schoolDescription", school.getDescription());
         data.put("taxCode", school.getTaxCode());
         data.put("websiteUrl", school.getWebsiteUrl());
         data.put("hotline", school.getHotline());
@@ -419,11 +418,11 @@ public class AccountServiceImpl implements AccountService {
 
         if (campus.getIsPrimaryBranch()) {
             campus.getSchool().setName(normalize(campusData.getSchoolData().getName()));
+            campus.getSchool().setDescription(normalize(campusData.getSchoolData().getDescription()));
             campus.getSchool().setLogoUrl(normalize(campusData.getSchoolData().getLogoUrl()));
             campus.getSchool().setWebsiteUrl(normalize(campusData.getSchoolData().getWebsiteUrl()));
             campus.getSchool().setRepresentativeName(normalize(campusData.getSchoolData().getRepresentativeName()));
             campus.getSchool().setHotline(normalize(campusData.getSchoolData().getHotline()));
-            campus.getSchool().setBusinessLicenseUrl(normalize(campusData.getSchoolData().getBusinessLicenseUrl()));
             campus.getSchool().setFoundingDate(campusData.getSchoolData().getFoundingDate());
         }
 
@@ -550,8 +549,19 @@ public class AccountServiceImpl implements AccountService {
         campusData.put("address", campus.getAddress());
         campusData.put("status", campus.getStatus());
         campusData.put("isPrimaryBranch", campus.getIsPrimaryBranch());
-        campusData.put("schoolId", campus.getSchool().getId());
-        campusData.put("schoolName", campus.getSchool().getName());
+
+        if (campus.getIsPrimaryBranch()) {
+            campusData.put("schoolName", campus.getSchool().getName());
+            campusData.put("schoolDescription", campus.getSchool().getDescription());
+            campusData.put("taxCode", campus.getSchool().getTaxCode());
+            campusData.put("logoUrl", campus.getSchool().getLogoUrl());
+            campusData.put("websiteUrl", campus.getSchool().getWebsiteUrl());
+            campusData.put("representativeName", campus.getSchool().getRepresentativeName());
+            campusData.put("hotline", campus.getSchool().getHotline());
+            campusData.put("businessLicenseUrl", campus.getSchool().getBusinessLicenseUrl());
+            campusData.put("foundingDate", campus.getSchool().getFoundingDate());
+        }
+
         campusData.put("imageJson", campus.getImageJson());
         campusData.put("facility", campus.getFacility());
         return campusData;

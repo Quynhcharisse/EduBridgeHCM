@@ -89,6 +89,8 @@ public class UpdateProfileRequest {
 
         String name;
 
+        String description;
+
         String logoUrl;
 
         String websiteUrl;

@@ -23,20 +23,20 @@ public class SystemController {
     private final SystemService systemService;
 
     @GetMapping("/config")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL', 'COUNSELLOR', 'PARENT')")
-    public ResponseEntity<ResponseObject> getConfigData(){
+    @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL')")
+    public ResponseEntity<ResponseObject> getConfigData() {
         return systemService.getConfigData();
     }
 
     @GetMapping("/config/key")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL', 'COUNSELLOR', 'PARENT')")
-    public ResponseEntity<ResponseObject> getConfigDataByKey(@RequestParam String k){
+    @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL')")
+    public ResponseEntity<ResponseObject> getConfigDataByKey(@RequestParam String k) {
         return systemService.getConfigDataByKey(k);
     }
 
     @PutMapping("/config")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> updateConfigData(@RequestBody CreateConfigDataRequest request){
+    public ResponseEntity<ResponseObject> updateConfigData(@RequestBody CreateConfigDataRequest request) {
         return systemService.updateConfigData(request);
     }
 

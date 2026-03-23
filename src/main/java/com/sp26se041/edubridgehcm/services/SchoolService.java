@@ -51,6 +51,10 @@ public interface SchoolService {
 
     ResponseEntity<ResponseObject> viewAccountCounsellorList(int page, int size);
 
+    ResponseEntity<ResponseObject> viewSchoolList(int page, int pageSize);
+
+    ResponseEntity<ResponseObject> viewSchoolDetail(int schoolId);
+
     ResponseEntity<ResponseObject> createOpenDayEvent(CreateOpenDayEventRequest request);
 
     ResponseEntity<ResponseObject> viewOpenDayEventList(int currentPage, int pageSize);

@@ -10,4 +10,6 @@ public interface SchoolRepo extends JpaRepository<School, Integer> {
     boolean existsByTaxCode(String taxCode);
 
     Page<School> findAllByOrderByIdDesc(Pageable pageable);
+
+    Page<School> findAllByOrderByIsFeaturedDescAverageRatingDesc(Pageable pageable);
 }
