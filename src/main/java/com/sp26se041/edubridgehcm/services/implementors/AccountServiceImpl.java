@@ -552,7 +552,7 @@ public class AccountServiceImpl implements AccountService {
 
         if (campus.getIsPrimaryBranch()) {
             campusData.put("schoolName", campus.getSchool().getName());
-            campusData.put("description", campus.getSchool().getDescription());
+            campusData.put("schoolDescription", campus.getSchool().getDescription());
             campusData.put("taxCode", campus.getSchool().getTaxCode());
             campusData.put("logoUrl", campus.getSchool().getLogoUrl());
             campusData.put("websiteUrl", campus.getSchool().getWebsiteUrl());

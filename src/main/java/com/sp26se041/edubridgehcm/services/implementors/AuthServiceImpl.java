@@ -111,6 +111,7 @@ public class AuthServiceImpl implements AuthService {
             SchoolRegistrationRequest schoolRegistrationRequest = schoolRegistrationRequestRepo.save(SchoolRegistrationRequest.builder()
                     .email(request.getEmail())
                     .schoolName(request.getSchoolRequest().getSchoolName())
+                    .description(request.getSchoolRequest().getDescription())
                     .campusName(request.getSchoolRequest().getCampusName())
                     .campusAddress(request.getSchoolRequest().getCampusAddress())
                     .campusPhone(request.getSchoolRequest().getCampusPhone())
@@ -163,6 +164,7 @@ public class AuthServiceImpl implements AuthService {
         Map<String, Object> schoolRequestData = new HashMap<>();
         schoolRequestData.put("requestId", schoolRequest.getId());
         schoolRequestData.put("schoolName", schoolRequest.getSchoolName());
+        schoolRequestData.put("description", schoolRequest.getDescription());
         schoolRequestData.put("campusName", schoolRequest.getCampusName());
         schoolRequestData.put("campusAddress", schoolRequest.getCampusAddress());
         schoolRequestData.put("campusPhone", schoolRequest.getCampusPhone());

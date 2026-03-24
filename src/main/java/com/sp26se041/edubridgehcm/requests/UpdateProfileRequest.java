@@ -87,8 +87,6 @@ public class UpdateProfileRequest {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class SchoolData {
 
-        String name;
-
         String description;
 
         String logoUrl;
