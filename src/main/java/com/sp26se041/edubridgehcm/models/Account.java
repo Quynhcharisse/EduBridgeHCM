@@ -121,4 +121,8 @@ public class Account implements UserDetails {
     public boolean isEnabled() {
         return true;
     }
+
+    public void setIsRestricted(boolean isRestricted) {
+        this.isRestricted = isRestricted;
+    }
 }

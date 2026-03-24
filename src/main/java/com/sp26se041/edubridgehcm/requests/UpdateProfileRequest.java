@@ -131,7 +131,7 @@ public class UpdateProfileRequest {
 
         LocalDateTime uploadDate;
 
-        boolean isUsage;
+        Boolean isUsage;
     }
 
     @Data

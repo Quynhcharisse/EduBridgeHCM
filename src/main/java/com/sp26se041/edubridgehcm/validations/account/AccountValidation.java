@@ -186,7 +186,7 @@ public class AccountValidation {
                     return "Require school name";
                 }
 
-                if (normalize(request.getCampusData().getSchoolData().getName()).length() < 100) {
+                if (normalize(request.getCampusData().getSchoolData().getName()).length() > 100) {
                     return "School name must not exceed 100 characters";
                 }
 

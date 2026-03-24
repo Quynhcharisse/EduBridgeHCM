@@ -114,20 +114,21 @@ public class AccountServiceImpl implements AccountService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Account not found", null);
         }
 
-        if (account.isRestricted() == request.isRestricted()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, request.isRestricted() ? "Account is already restricted" : "Account is already unrestricted", null);
+        if (account.isRestricted() == request.getIsRestricted()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, request.getIsRestricted() ? "Account is already restricted" : "Account is already unrestricted", null);
         }
 
-        if (request.isRestricted()) {
+        if (request.getIsRestricted()) {
             if (request.getReason() == null || request.getReason().trim().isEmpty()) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Reason is required when restricting an account", null);
             }
-            account.setRestricted(true);
+
+            account.setIsRestricted(true);
             account.setStatus(Status.ACCOUNT_RESTRICTED);
             account.setRestrictionReason(request.getReason().trim());
             account.setRestrictionDate(LocalDateTime.now());
         } else {
-            account.setRestricted(false);
+            account.setIsRestricted(false);
             account.setRestrictionReason(null);
             account.setRestrictionDate(null);
             account.setStatus(Status.ACCOUNT_ACTIVE);
@@ -135,7 +136,7 @@ public class AccountServiceImpl implements AccountService {
 
         accountRepo.save(account);
 
-        return ResponseBuilder.build(HttpStatus.OK, request.isRestricted() ? "Account restricted successfully" : "Account unrestricted successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, request.getIsRestricted() ? "Account restricted successfully" : "Account unrestricted successfully", null);
     }
 
     @Override
@@ -440,7 +441,7 @@ public class AccountServiceImpl implements AccountService {
                     dataItem.put("url", normalize(item.getUrl()));
                     dataItem.put("altName", normalize(item.getAltName()));
                     dataItem.put("uploadDate", item.getUploadDate());
-                    dataItem.put("isUsage", item.isUsage());
+                    dataItem.put("isUsage", item.getIsUsage());
                     return dataItem;
                 })
                 .collect(Collectors.toList())
