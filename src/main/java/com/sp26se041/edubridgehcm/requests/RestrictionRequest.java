@@ -14,7 +14,7 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class RestrictionRequest {
 
-    boolean isRestricted;
+    Boolean isRestricted;
 
     String reason;
 }
