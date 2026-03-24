@@ -418,7 +418,6 @@ public class AccountServiceImpl implements AccountService {
     private void updateCampusProfile(Campus campus, UpdateProfileRequest.CampusData campusData) {
 
         if (campus.getIsPrimaryBranch()) {
-            campus.getSchool().setName(normalize(campusData.getSchoolData().getName()));
             campus.getSchool().setDescription(normalize(campusData.getSchoolData().getDescription()));
             campus.getSchool().setLogoUrl(normalize(campusData.getSchoolData().getLogoUrl()));
             campus.getSchool().setWebsiteUrl(normalize(campusData.getSchoolData().getWebsiteUrl()));

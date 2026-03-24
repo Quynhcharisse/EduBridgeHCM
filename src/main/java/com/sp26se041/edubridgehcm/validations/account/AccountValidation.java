@@ -182,20 +182,10 @@ public class AccountValidation {
                     return "Require school data for primary branch";
                 }
 
-                if (normalize(request.getCampusData().getSchoolData().getName()) == null) {
-                    return "Require school name";
-                }
-
-                if (normalize(request.getCampusData().getSchoolData().getName()).length() > 100) {
-                    return "School name must not exceed 100 characters";
-                }
-
                 if (normalize(request.getCampusData().getSchoolData().getDescription()) == null) {
                     return "Require school description";
                 }
-                if (normalize(request.getCampusData().getSchoolData().getDescription()).length() < 20) {
-                    return "School description must be at least 20 characters";
-                }
+
                 if (normalize(request.getCampusData().getSchoolData().getDescription()).length() > 500) {
                     return "School description must not exceed 500 characters";
                 }
