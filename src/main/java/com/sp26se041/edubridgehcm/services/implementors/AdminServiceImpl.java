@@ -93,6 +93,7 @@ public class AdminServiceImpl implements AdminService {
         // tạo school (lấy thẳng từ bảng tạm)
         School school = schoolRepo.save(School.builder()
                 .name(request.getSchoolName().trim())
+                .description(request.getDescription().trim())
                 .taxCode(request.getTaxCode().trim())
                 .websiteUrl(request.getWebsiteUrl())
                 .logoUrl(request.getLogoUrl())
