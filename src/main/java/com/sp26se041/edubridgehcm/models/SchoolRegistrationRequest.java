@@ -33,6 +33,8 @@ public class SchoolRegistrationRequest {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
 
+    String email;
+
     @Column(name = "school_name")
     String schoolName;
 

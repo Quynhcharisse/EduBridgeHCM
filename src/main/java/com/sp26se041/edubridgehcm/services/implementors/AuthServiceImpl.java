@@ -109,6 +109,7 @@ public class AuthServiceImpl implements AuthService {
 
         if (Role.valueOf(request.getRole().toUpperCase()).equals(Role.SCHOOL)) {
             SchoolRegistrationRequest schoolRegistrationRequest = schoolRegistrationRequestRepo.save(SchoolRegistrationRequest.builder()
+                    .email(request.getEmail())
                     .schoolName(request.getSchoolRequest().getSchoolName())
                     .campusName(request.getSchoolRequest().getCampusName())
                     .campusAddress(request.getSchoolRequest().getCampusAddress())
