@@ -182,6 +182,9 @@ public class SchoolServiceImpl implements SchoolService {
 
         Account acc = campus.getAccount();
         data.put("account", buildAccountData(acc));
+        data.put("imageJson", campus.getImageJson());
+        data.put("facility", campus.getFacility());
+        data.put("policyDetail", campus.getPolicyDetail());
         return data;
     }
 
@@ -1157,28 +1160,108 @@ public class SchoolServiceImpl implements SchoolService {
         //uu tien cac truong isFeatured len dau, sau do moi tim den Id / rating
         Page<School> schoolPage = schoolRepo.findAllByOrderByIsFeaturedDescAverageRatingDesc(pageable);
 
-        List<Map<String, Object>> schoolList = schoolPage.stream()
-                .map(
-                        school -> {
+        List<Map<String, Object>> schoolList = schoolPage.stream().map(this::buildPublicSchoolData).toList();
 
-                            Map<String, Object> data = new HashMap<>();
-                            data.put("id", school.getId());
-                            data.put("name", school.getName());
-                            data.put("description", school.getDescription());
-                            data.put("logoUrl", school.getLogoUrl());
-                            data.put("websiteUrl", school.getWebsiteUrl());
-                            data.put("averageRating", school.getAverageRating());
-                            data.put("isFeatured", school.getIsFeatured());
-                            return data;
-                        })
-                .toList();
-
-        return null;
+        return ResponseBuilder.build(HttpStatus.OK, "View school list successfully", schoolList);
     }
 
     @Override
     public ResponseEntity<ResponseObject> viewSchoolDetail(int schoolId) {
-        return null;
+
+        School school = schoolRepo.findById(schoolId).orElse(null);
+
+        if (school == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "School not found", null);
+        }
+
+        Map<String, Object> data = buildPublicSchoolData(school);
+
+        data.put("campustList", school.getCampusList().stream()
+                .filter(campus -> Status.VERIFIED.equals(campus.getStatus()))
+                .map(this::buildPublicCampusData).toList());
+
+        data.put("curriculumList", school.getCurriculumList().stream()
+                .filter(curriculum -> Status.CUR_ACTIVE.equals(curriculum.getCurriculumStatus()))
+                .map(this::buildPublicCurriculumData).toList());
+
+
+        return ResponseBuilder.build(HttpStatus.OK, "View school detail successfully", data);
+    }
+
+    Map<String, Object> buildPublicSchoolData(School school) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", school.getId());
+        data.put("name", school.getName());
+        data.put("description", school.getDescription());
+        data.put("logoUrl", school.getLogoUrl());
+        data.put("websiteUrl", school.getWebsiteUrl());
+        data.put("representativeName", school.getRepresentativeName());
+        data.put("hotline", school.getHotline());
+        data.put("averageRating", school.getAverageRating());
+        data.put("foundingDate", school.getFoundingDate());
+        return data;
+    }
+
+    Map<String, Object> buildPublicCampusData(Campus campus) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("name", campus.getName());
+        data.put("phoneNumber", campus.getPhoneNumber());
+        data.put("address", campus.getAddress());
+        data.put("city", campus.getCity());
+        data.put("district", campus.getDistrict());
+        data.put("boardingType", campus.getBoardingType());
+        data.put("status", campus.getStatus());
+        data.put("policyDetail", campus.getPolicyDetail());
+        data.put("imageJson", campus.getImageJson());
+        data.put("facility", campus.getFacility());
+        return data;
+    }
+
+    Map<String, Object> buildPublicCurriculumData(Curriculum curriculum) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("name", curriculum.getName());
+        data.put("description", curriculum.getDescription());
+        data.put("curriculumType", curriculum.getCurriculumType());
+        data.put("methodLearning", curriculum.getMethodLearning());
+        data.put("subjectsJsonb", curriculum.getSubjectsJsonb());
+        data.put("enrollmentYear", curriculum.getEnrollmentYear());
+        data.put("groupCode", curriculum.getGroupCode());
+        data.put("curriculumStatus", curriculum.getCurriculumStatus());
+        data.put("programList", buildPublicProgramDataList(curriculum.getPrograms()));
+        return data;
+    }
+
+    List<Map<String, Object>> buildPublicProgramDataList(List<Program> programList) {
+
+        if (programList == null) return Collections.emptyList();
+
+        return programList.stream().map(program -> {
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("name", program.getName());
+            data.put("graduationStandard", program.getGraduationStandard());
+            data.put("targetStudentDescription", program.getTargetStudentDescription());
+            data.put("baseTuitionFee", program.getBaseTuitionFee());
+            data.put("isActive", program.isActive());
+            data.put("campusProgramOfferingList", buildPublicCampusProgramOfferingDataList(program.getCampusProgramOfferingList()));
+            return data;
+        }).toList();
+    }
+
+    List<Map<String, Object>> buildPublicCampusProgramOfferingDataList(List<CampusProgramOffering> campusProgramOfferingList) {
+
+        if (campusProgramOfferingList == null) return Collections.emptyList();
+
+        return campusProgramOfferingList.stream().map(campusProgramOffering -> {
+            Map<String, Object> data = new HashMap<>();
+            data.put("learningMode", campusProgramOffering.getLearningMode());
+            data.put("quota", campusProgramOffering.getQuota());
+            data.put("tuitionFee", campusProgramOffering.getTuitionFee());
+            data.put("openDate", campusProgramOffering.getOpenDate());
+            data.put("closeDate", campusProgramOffering.getCloseDate());
+            data.put("status", campusProgramOffering.getStatus());
+            return data;
+        }).toList();
     }
 
     @Override
