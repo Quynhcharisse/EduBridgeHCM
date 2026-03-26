@@ -124,7 +124,7 @@ public class AdminServiceImpl implements AdminService {
     @Override
     public ResponseEntity<ResponseObject> viewSchoolRegistrationList() {
 
-        List<SchoolRegistrationRequest> schoolRegistrationRequestList = schoolRegistrationRequestRepo.findAllByStatusOrderByCreatedAtDesc(Status.ACCOUNT_PENDING_VERIFY);
+        List<SchoolRegistrationRequest> schoolRegistrationRequestList = schoolRegistrationRequestRepo.findAllByOrderByCreatedAtDesc();
 
         List<Map<String, Object>> data = schoolRegistrationRequestList.stream()
                 .map(this::buildRegistrationData)
