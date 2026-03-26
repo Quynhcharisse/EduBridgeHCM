@@ -135,6 +135,7 @@ public class AdminServiceImpl implements AdminService {
 
     private Map<String, Object> buildRegistrationData(SchoolRegistrationRequest request) {
         Map<String, Object> data = new HashMap<>();
+        data.put("id", request.getId());
         data.put("schoolName", request.getSchoolName());
         data.put("taxCode", request.getTaxCode());
         data.put("websiteUrl", request.getWebsiteUrl());
