@@ -42,7 +42,8 @@ public class SchoolController {
 
     @GetMapping("/campus/list")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewCampusList(@RequestParam int page, @RequestParam int pageSize) {
+    public ResponseEntity<ResponseObject> viewCampusList(@RequestParam(defaultValue = "0") int page,
+                                                         @RequestParam(defaultValue = "10") int pageSize) {
         return schoolService.viewCampusList(page, pageSize);
     }
 
