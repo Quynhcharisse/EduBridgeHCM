@@ -1146,6 +1146,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("id", school.getId());
         data.put("name", school.getName());
         data.put("description", school.getDescription());
+        data.put("totalCampus", school.getCampusList() != null ? school.getCampusList().size() : 0);
         data.put("logoUrl", school.getLogoUrl());
         data.put("websiteUrl", school.getWebsiteUrl());
         data.put("representativeName", school.getRepresentativeName());
