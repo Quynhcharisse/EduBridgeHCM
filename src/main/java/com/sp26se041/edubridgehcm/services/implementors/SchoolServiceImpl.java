@@ -1040,7 +1040,11 @@ public class SchoolServiceImpl implements SchoolService {
 
         Account account = accountRepo.save(Account.builder().email(normalize(request.getEmail())).role(Role.COUNSELLOR).status(Status.ACCOUNT_ACTIVE).registerDate(LocalDate.now()).firstLogin(true).build());
 
-        Counsellor counsellor = counsellorRepo.save(Counsellor.builder().account(account).campus(actorCampus).employeeCode(UUID.randomUUID()).build());
+        Counsellor counsellor = counsellorRepo.save(Counsellor.builder()
+                .account(account)
+                .campus(actorCampus)
+                .avatar(request.getAvatar())
+                .employeeCode(UUID.randomUUID()).build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Create counsellor successfully", buildCounsellorData(counsellor));
     }
