@@ -12,8 +12,8 @@ public class SchoolUtil {
         }
 
         return school.getCampusList().stream()
-                .anyMatch(campus -> campus.getStatus() == Status.ACCOUNT_ACTIVE)
-                ? Status.ACCOUNT_INACTIVE.name()
-                : Status.ACCOUNT_ACTIVE.name();
+                .anyMatch(campus -> campus.getStatus().equals(Status.ACCOUNT_ACTIVE))
+                ? Status.ACCOUNT_ACTIVE.name()
+                : Status.ACCOUNT_INACTIVE.name();
     }
 }

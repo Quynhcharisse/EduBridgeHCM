@@ -21,7 +21,9 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 @Tag(name = "Counsellor")
 public class CounsellorController {
+
     private final WebSocketService webSocketService;
+
     private final CounsellorService counsellorService;
 
 
