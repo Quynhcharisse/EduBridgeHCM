@@ -1098,6 +1098,7 @@ public class SchoolServiceImpl implements SchoolService {
         Map<String, Object> data = new HashMap<>();
         data.put("id", counsellor.getId());
         data.put("name", counsellor.getName());
+        data.put("avatar", counsellor.getAvatar());
         data.put("employeeCode", counsellor.getEmployeeCode());
         data.put("campusId", counsellor.getCampus().getId());
         data.put("campusName", counsellor.getCampus().getName());
@@ -1146,6 +1147,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("id", school.getId());
         data.put("name", school.getName());
         data.put("description", school.getDescription());
+        data.put("totalCampus", school.getCampusList() != null ? school.getCampusList().size() : 0);
         data.put("logoUrl", school.getLogoUrl());
         data.put("websiteUrl", school.getWebsiteUrl());
         data.put("representativeName", school.getRepresentativeName());

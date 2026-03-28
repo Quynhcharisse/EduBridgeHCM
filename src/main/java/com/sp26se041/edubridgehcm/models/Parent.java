@@ -52,6 +52,8 @@ public class Parent {
 
     String phone;
 
+    String avatar;
+
     @Enumerated(EnumType.STRING)
     Relationship relationship;
 

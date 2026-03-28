@@ -153,6 +153,7 @@ public class AuthServiceImpl implements AuthService {
         Map<String, Object> parentData = new HashMap<>();
         parentData.put("gender", parent.getGender());
         parentData.put("name", parent.getName());
+        parentData.put("avatar", parent.getAvatar());
         parentData.put("relationship", parent.getRelationship());
         parentData.put("idCardNumber", parent.getIdCardNumber());
         parentData.put("workplace", parent.getWorkplace());
