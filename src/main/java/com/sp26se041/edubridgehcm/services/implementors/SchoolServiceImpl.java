@@ -1098,6 +1098,7 @@ public class SchoolServiceImpl implements SchoolService {
         Map<String, Object> data = new HashMap<>();
         data.put("id", counsellor.getId());
         data.put("name", counsellor.getName());
+        data.put("avatar", counsellor.getAvatar());
         data.put("employeeCode", counsellor.getEmployeeCode());
         data.put("campusId", counsellor.getCampus().getId());
         data.put("campusName", counsellor.getCampus().getName());

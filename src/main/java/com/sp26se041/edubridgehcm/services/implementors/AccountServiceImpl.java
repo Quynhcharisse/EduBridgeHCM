@@ -251,6 +251,7 @@ public class AccountServiceImpl implements AccountService {
 
         Parent parent = acc.getParent();
         data.put("name", parent != null ? parent.getName() : null);
+        data.put("avatar", parent != null ? parent.getAvatar() : null);
         data.put("phone", parent != null ? parent.getPhone() : null);
         data.put("gender", parent != null ? parent.getGender() : null);
         data.put("relationship", parent != null ? parent.getRelationship() : null);
@@ -337,6 +338,7 @@ public class AccountServiceImpl implements AccountService {
         Map<String, Object> item = new HashMap<>();
         item.put("counsellorId", counsellor.getId());
         item.put("name", counsellor.getName());
+        item.put("avatar", counsellor.getAvatar());
         item.put("employeeCode", counsellor.getEmployeeCode());
         item.put("campusId", counsellor.getCampus() != null ? counsellor.getCampus().getId() : null);
         item.put("campusName", counsellor.getCampus() != null ? counsellor.getCampus().getName() : null);
@@ -507,6 +509,7 @@ public class AccountServiceImpl implements AccountService {
         parentData.put("name", parent.getName());
         parentData.put("gender", parent.getGender());
         parentData.put("phone", parent.getPhone());
+        parentData.put("avatar", parent.getAvatar());
         parentData.put("relationship", parent.getRelationship());
         parentData.put("occupation", parent.getOccupation());
         parentData.put("workplace", parent.getWorkplace());
@@ -522,6 +525,7 @@ public class AccountServiceImpl implements AccountService {
         Map<String, Object> counsellorData = new HashMap<>();
         counsellorData.put("name", counsellor.getName());
         counsellorData.put("employeeCode", counsellor.getEmployeeCode());
+        counsellorData.put("avatar", counsellor.getAvatar());
         counsellorData.put("campusId", counsellor.getCampus().getId());
         counsellorData.put("campusName", counsellor.getCampus().getName());
         return counsellorData;
