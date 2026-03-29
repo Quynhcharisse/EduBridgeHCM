@@ -2,16 +2,20 @@ package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.Gender;
 import com.sp26se041.edubridgehcm.enums.GradeLevel;
+import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.models.Conversation;
+import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Major;
 import com.sp26se041.edubridgehcm.models.PersonalityType;
 import com.sp26se041.edubridgehcm.models.StudentProfile;
 import com.sp26se041.edubridgehcm.models.Subject;
+import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
 import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
+import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.MajorRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
 import com.sp26se041.edubridgehcm.repositories.StudentInfoRepo;
@@ -45,11 +49,18 @@ import java.util.stream.Collectors;
 public class ParentServiceImpl implements ParentService {
 
     private final ChatMessageRepo chatMessageRepo;
+
     private final ConversationRepo conversationRepo;
+
     private final PersonalityTypeRepo personalityTypeRepo;
+
     private final MajorRepo majorRepo;
+
     private final SubjectRepo subjectRepo;
+
     private final StudentInfoRepo studentInfoRepo;
+    private final AccountRepo accountRepo;
+    private final CounsellorRepo counsellorRepo;
 
 
     @Override
@@ -62,10 +73,10 @@ public class ParentServiceImpl implements ParentService {
             List<Conversation> conversations;
             if (cursorId == null) {
                 conversations = conversationRepo
-                            .findTop20ByParentEmailOrderByUpdatedDateDesc(email);
+                            .findTop20ByParentEmailAndStudentProfileIsNotNullOrderByUpdatedDateDesc(email);
             } else {
                     conversations = conversationRepo
-                            .findTop20ByParentEmailAndIdLessThanOrderByUpdatedDateDesc(email, cursorId);
+                            .findTop20ByParentEmailAndIdLessThanAndStudentProfileIsNotNullOrderByUpdatedDateDesc(email, cursorId);
             }
             List<Map<String, Object>> items = buildConversationList(conversations, email);
 
@@ -119,6 +130,7 @@ public class ParentServiceImpl implements ParentService {
 
                     Map<String, Object> map = new HashMap<>();
                     map.put("conversationId", conversation.getId());
+
                     map.put("lastMessage", lastMessage != null ? lastMessage.getMessage() : null);
                     map.put("updatedAt", conversation.getUpdatedDate());
                     map.put("unreadCount", unreadCount != null ? unreadCount : 0L);
@@ -127,7 +139,26 @@ public class ParentServiceImpl implements ParentService {
                             : conversation.getParentEmail();
 
                     map.put("otherUser", otherUser);
+
+                    String school = accountRepo.findByEmail(otherUser)
+                            .map(Account::getCounsellor)
+                            .map(c -> c.getCampus())
+                            .map(campus -> campus.getSchool())
+                            .map(s -> s.getName())
+                            .orElse("N/A");
+
+                    String avatarUrl = accountRepo.findByEmail(otherUser)
+                            .map(Account::getCounsellor)
+                            .map( c -> c.getAvatar())
+                            .orElse("N/A");
+
+                    map.put("avatarUrl", avatarUrl);
+                    map.put("school", school);
+                    map.put("studentId", conversation.getStudentProfile().getId());
+                    map.put("studentName", conversation.getStudentProfile().getStudentName());
+
                     return map;
+
                 })
                 .toList();
     }
@@ -224,9 +255,15 @@ public class ParentServiceImpl implements ParentService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
         }
 
+        String email = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
         Account account = AuthRequestUtil.extractAuthenticatedAccount();
 
-        String error = validateAddStudentInfoRequest(request);
+        String error = validateAddStudentInfoRequest(request, email);
+
         if(!error.isEmpty()){
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
@@ -286,12 +323,15 @@ public class ParentServiceImpl implements ParentService {
         return result;
     }
 
-    private String validateAddStudentInfoRequest(AddStudentInfoRequest request) {
+    private String validateAddStudentInfoRequest(AddStudentInfoRequest request, String parentEmail) {
         if (request == null) {
            return "Request must not be null";
         }
         if (isBlank(request.getStudentName())) {
-            return "Student name must not be blank";
+            return "Child name must not be blank";
+        }
+        if (studentInfoRepo.existsByStudentNameIgnoreCaseAndParent_Account_Email(request.getStudentName().trim(), parentEmail)) {
+            return "You already already has a child with the same name";
         }
         if (isBlank(request.getGender())) {
             return "Gender is required";
@@ -378,6 +418,7 @@ public class ParentServiceImpl implements ParentService {
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
     }
+
     private String validateAcademicInfoSubjects(
             AddStudentInfoRequest.AcademicInfo academicInfo,
             int academicIndex
@@ -419,6 +460,7 @@ public class ParentServiceImpl implements ParentService {
         }
         return "";
     }
+
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
     }
