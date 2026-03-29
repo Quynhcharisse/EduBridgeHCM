@@ -69,7 +69,6 @@ import java.time.Year;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -1176,7 +1175,6 @@ public class SchoolServiceImpl implements SchoolService {
         List<Map<String, Object>> schoolList = schools.stream()
                 .map(school -> buildPublicSchoolData(school, favouriteSchoolIds))
                 .toList();
-        //
 
         return ResponseBuilder.build(HttpStatus.OK, "View school list successfully", schoolList);
     }

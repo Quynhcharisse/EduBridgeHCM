@@ -13,6 +13,7 @@ import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Major;
 import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.PersonalityType;
+import com.sp26se041.edubridgehcm.models.PlatformConfig;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.Subject;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
@@ -21,6 +22,7 @@ import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.MajorRepo;
 import com.sp26se041.edubridgehcm.repositories.ParentRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
+import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
@@ -33,7 +35,9 @@ import org.springframework.context.annotation.Bean;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -51,8 +55,12 @@ public class EduBridgeHcmApplication {
 
     private final CounsellorRepo counsellorRepo;
 
+    private final PlatformConfigRepo platformConfigRepo;
+
     private final PersonalityTypeRepo personalityTypeRepo;
+
     private final MajorRepo majorRepo;
+
     private final SubjectRepo subjectRepo;
 
     public static void main(String[] args) {
@@ -65,6 +73,7 @@ public class EduBridgeHcmApplication {
             initAdmin();
             initParent();
             initPrimaryCampusAndCounsellor();
+            initConfigSystem();
             initPersonalityTypes();
             initMajors();
             initSubjects();
@@ -236,8 +245,90 @@ public class EduBridgeHcmApplication {
                 ));
     }
 
+    private void initConfigSystem() {
+
+        if (platformConfigRepo.count() > 0) {
+            return;
+        }
+
+        Map<String, Object> businessData = new HashMap<>();
+        businessData.put("taxRate", 0.05);
+        businessData.put("serviceRate", 0.05);
+        businessData.put("minPay", 10000);
+        businessData.put("maxPay", 200000000);
+
+        Map<String, Object> mediaData = new HashMap<>();
+        mediaData.put("maxImgSize", 10);
+        mediaData.put("maxVideoSize", 50);
+        mediaData.put("maxDesignRefImg", 4);
+        mediaData.put("maxFeedbackImg", 4);
+        mediaData.put("maxFeedbackVideo", 1);
+        mediaData.put("maxReportImg", 4);
+        mediaData.put("maxReportVideo", 1);
+        mediaData.put("maxGarmentThumbnail", 4);
+        mediaData.put("imgFormat", List.of(
+                Map.of("format", ".jpg"),
+                Map.of("format", ".jpeg"),
+                Map.of("format", ".png"),
+                Map.of("format", ".gif"),
+                Map.of("format", ".webp")
+        ));
+        mediaData.put("videoFormat", List.of(
+                Map.of("format", ".mp4"),
+                Map.of("format", ".avi"),
+                Map.of("format", ".mov"),
+                Map.of("format", ".wmv"),
+                Map.of("format", ".webm")
+        ));
+
+        Map<String, Object> designData = new HashMap<>();
+        designData.put("illustrationImage", "https://res.cloudinary.com/dj0ckodyq/image/upload/v1756751023/logoPos_yffeh1.png");
+        designData.put("positions", List.of(
+                Map.of("p", "Top Left"),
+                Map.of("p", "Top Right"),
+                Map.of("p", "Bottom Left"),
+                Map.of("p", "Bottom Right"),
+                Map.of("p", "Center")
+        ));
+
+        Map<String, Object> quotaData = new HashMap<>();
+        Map<String, Object> year2025 = new HashMap<>();
+        year2025.put("sourceUrl", "https://hcm.edu.vn/"); // Link mặc định của Sở
+        year2025.put("quotas", new HashMap<String, Integer>()); // Để trống để Admin tự điền sau
+
+        quotaData.put("2025-2026", year2025);
+
+        // --- 4. Subscription Policy (Phần này bạn có dùng trong Request nên nên init luôn) ---
+        Map<String, Object> subscriptionData = new HashMap<>();
+        subscriptionData.put("trialDays", 30);
+        subscriptionData.put("gracePeriod", 7);
+        subscriptionData.put("minSubscriptionMonth", 3);
+
+        Map<String, Object> reportData = new HashMap<>();
+        reportData.put("maxDisbursementDay", 7);
+        reportData.put("severityLevels", List.of(
+                Map.of("name", "Minor", "compensation", 3),    // Lỗi nhẹ: Tặng 3 ngày sử dụng
+                Map.of("name", "Moderate", "compensation", 7), // Lỗi vừa: Tặng 1 tuần
+                Map.of("name", "Major", "compensation", 30),   // Lỗi nặng: Tặng 1 tháng
+                Map.of("name", "Critical", "compensation", 90)
+        ));
+
+        LocalDateTime today = LocalDateTime.now();
+
+        platformConfigRepo.saveAll(
+                List.of(
+                        PlatformConfig.builder().key("business").value(businessData).creationDate(today).modifiedDate(today).build(),
+                        PlatformConfig.builder().key("media").value(mediaData).creationDate(today).modifiedDate(today).build(),
+                        PlatformConfig.builder().key("design").value(designData).creationDate(today).modifiedDate(today).build(),
+                        PlatformConfig.builder().key("quota").value(quotaData).creationDate(today).modifiedDate(today).build(),
+                        PlatformConfig.builder().key("subscription").value(subscriptionData).creationDate(today).modifiedDate(today).build(),
+                        PlatformConfig.builder().key("report").value(reportData).creationDate(today).modifiedDate(today).build()
+                )
+        );
+    }
+
     //Init Subject
-    private void initSubjects(){
+    private void initSubjects() {
 
         if (subjectRepo.count() > 0) {
             return;
@@ -301,60 +392,59 @@ public class EduBridgeHcmApplication {
                 .build());
     }
 
-
     // Init Personality type
-    private void initPersonalityTypes(){
+    private void initPersonalityTypes() {
         if (!personalityTypeRepo.existsByCode("INTJ")) {
             buildINTJ();
         }
         if (!personalityTypeRepo.existsByCode("INTP")) {
             buildINTP();
         }
-        if(!personalityTypeRepo.existsByCode("ENTJ")){
+        if (!personalityTypeRepo.existsByCode("ENTJ")) {
             buildENTJ();
         }
-        if(!personalityTypeRepo.existsByCode("ENTP")){
+        if (!personalityTypeRepo.existsByCode("ENTP")) {
             buildENTP();
         }
-        if(!personalityTypeRepo.existsByCode("INFJ")){
+        if (!personalityTypeRepo.existsByCode("INFJ")) {
             buildINFJ();
         }
-        if(!personalityTypeRepo.existsByCode("INFP")){
+        if (!personalityTypeRepo.existsByCode("INFP")) {
             buildINFP();
         }
-        if(!personalityTypeRepo.existsByCode("ENFJ")){
+        if (!personalityTypeRepo.existsByCode("ENFJ")) {
             buildENFJ();
         }
-        if(!personalityTypeRepo.existsByCode("ENFP")){
+        if (!personalityTypeRepo.existsByCode("ENFP")) {
             buildENFP();
         }
-        if(!personalityTypeRepo.existsByCode("ISTJ")){
+        if (!personalityTypeRepo.existsByCode("ISTJ")) {
             buildISTJ();
         }
-        if(!personalityTypeRepo.existsByCode("ISFJ")){
+        if (!personalityTypeRepo.existsByCode("ISFJ")) {
             buildISFJ();
         }
-        if(!personalityTypeRepo.existsByCode("ESTJ")){
+        if (!personalityTypeRepo.existsByCode("ESTJ")) {
             buildESTJ();
         }
-        if(!personalityTypeRepo.existsByCode("ESFJ")){
+        if (!personalityTypeRepo.existsByCode("ESFJ")) {
             buildESFJ();
         }
-        if(!personalityTypeRepo.existsByCode("ISTP")){
+        if (!personalityTypeRepo.existsByCode("ISTP")) {
             buildISTP();
         }
-        if(!personalityTypeRepo.existsByCode("ISFP")){
+        if (!personalityTypeRepo.existsByCode("ISFP")) {
             buildISFP();
         }
-        if(!personalityTypeRepo.existsByCode("ESTP")){
+        if (!personalityTypeRepo.existsByCode("ESTP")) {
             buildESTP();
         }
-        if(!personalityTypeRepo.existsByCode("ESFP")){
+        if (!personalityTypeRepo.existsByCode("ESFP")) {
             buildESFP();
         }
     }
 
-    private void initMajors(){
+    private void initMajors() {
         if (majorRepo.count() > 0) {
             return;
         }
@@ -442,7 +532,7 @@ public class EduBridgeHcmApplication {
         majorRepo.saveAll(majors);
     }
 
-    private void buildINTJ(){
+    private void buildINTJ() {
         PersonalityType personalityType = PersonalityType.builder()
                 .code("INTJ")
                 .name("Kiến trúc sư")
@@ -527,7 +617,7 @@ public class EduBridgeHcmApplication {
         personalityTypeRepo.save(personalityType);
     }
 
-    private void buildINTP(){
+    private void buildINTP() {
         PersonalityType personalityType = PersonalityType.builder()
                 .code("INTP")
                 .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773847244/INTP_d5xivc.png")
@@ -611,7 +701,7 @@ public class EduBridgeHcmApplication {
         personalityTypeRepo.save(personalityType);
     }
 
-    private void buildENTJ(){
+    private void buildENTJ() {
         PersonalityType personalityType = PersonalityType.builder()
                 .code("ENTJ")
                 .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773847464/ENTJ_vouhfp.png")
@@ -720,7 +810,7 @@ public class EduBridgeHcmApplication {
         personalityTypeRepo.save(personalityType);
     }
 
-    private void buildENTP(){
+    private void buildENTP() {
         PersonalityType personalityType = PersonalityType.builder()
                 .code("ENTP")
                 .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773880050/ENTP_twdi72.png")
@@ -810,7 +900,7 @@ public class EduBridgeHcmApplication {
         personalityTypeRepo.save(personalityType);
     }
 
-    private void buildINFJ(){
+    private void buildINFJ() {
         PersonalityType personalityType = PersonalityType.builder()
                 .code("INFJ")
                 .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773880254/INFJ_drmjm3.png")
@@ -890,7 +980,7 @@ public class EduBridgeHcmApplication {
         personalityTypeRepo.save(personalityType);
     }
 
-    private void buildINFP(){
+    private void buildINFP() {
         PersonalityType personalityType = PersonalityType.builder()
                 .code("INFP")
                 .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773881624/INFP_cfpu7s.png")
@@ -966,7 +1056,7 @@ public class EduBridgeHcmApplication {
         personalityTypeRepo.save(personalityType);
     }
 
-    private void buildENFJ(){
+    private void buildENFJ() {
         PersonalityType personalityType = PersonalityType.builder()
                 .code("ENFJ")
                 .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773882974/ENFJ_vqsgmc.png")
@@ -1060,7 +1150,7 @@ public class EduBridgeHcmApplication {
         personalityTypeRepo.save(personalityType);
     }
 
-    private void buildENFP(){
+    private void buildENFP() {
         PersonalityType personalityType = PersonalityType.builder()
                 .code("ENFP")
                 .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773886707/ENFP_qusyl1.png")
@@ -1162,7 +1252,7 @@ public class EduBridgeHcmApplication {
         personalityTypeRepo.save(personalityType);
     }
 
-    private void buildISTJ(){
+    private void buildISTJ() {
         PersonalityType personalityType = PersonalityType.builder()
                 .code("ISTJ")
                 .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773888419/ISTJ_zivr61.png")
@@ -1254,7 +1344,7 @@ public class EduBridgeHcmApplication {
         personalityTypeRepo.save(personalityType);
     }
 
-    private void buildISFJ(){
+    private void buildISFJ() {
         PersonalityType personalityType = PersonalityType.builder()
                 .code("ISFJ")
                 .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773889721/ISFJ_ajuhe7.png")
@@ -1284,7 +1374,7 @@ public class EduBridgeHcmApplication {
                         "Thực tế: Tính cách ISFJ khi quyết định hoàn thành bất cứ điều gì, họ thường tìm kiếm phương pháp thiết thực nhất để đạt được nó bằng cách xem xét các sự kiện và chi tiết."
                 ))
                 .weaknesses(List.of(
-                      ""
+                        ""
                 ))
                 .sources(List.of(
                         CreatePersonalityTypeRequest.SourceInfo.builder()
@@ -1351,7 +1441,7 @@ public class EduBridgeHcmApplication {
         personalityTypeRepo.save(personalityType);
     }
 
-    private void buildESTJ(){
+    private void buildESTJ() {
         PersonalityType personalityType = PersonalityType.builder()
                 .code("ESTJ")
                 .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773891122/ESTJ_cjrmyf.png")
@@ -1456,7 +1546,7 @@ public class EduBridgeHcmApplication {
         personalityTypeRepo.save(personalityType);
     }
 
-    private void buildESFJ(){
+    private void buildESFJ() {
         PersonalityType personalityType = PersonalityType.builder()
                 .code("ESFJ")
                 .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773892586/ESFJ_krr1bp.png")
@@ -1543,7 +1633,7 @@ public class EduBridgeHcmApplication {
         personalityTypeRepo.save(personalityType);
     }
 
-    private void buildISTP(){
+    private void buildISTP() {
         PersonalityType personalityType = PersonalityType.builder()
                 .code("ISTP")
                 .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773895503/ISTP_ncvn4z.png")
@@ -1627,7 +1717,7 @@ public class EduBridgeHcmApplication {
         personalityTypeRepo.save(personalityType);
     }
 
-    private void buildISFP(){
+    private void buildISFP() {
         PersonalityType personalityType = PersonalityType.builder()
                 .code("ISFP")
                 .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773897251/ISFP_w1fnoe.png")
@@ -1709,7 +1799,7 @@ public class EduBridgeHcmApplication {
         personalityTypeRepo.save(personalityType);
     }
 
-    private void buildESTP(){
+    private void buildESTP() {
         PersonalityType personalityType = PersonalityType.builder()
                 .code("ESTP")
                 .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773898668/ESTP_cdsih3.png")
@@ -1804,7 +1894,7 @@ public class EduBridgeHcmApplication {
         personalityTypeRepo.save(personalityType);
     }
 
-    private void buildESFP(){
+    private void buildESFP() {
         PersonalityType personalityType = PersonalityType.builder()
                 .code("ESFP")
                 .image("https://res.cloudinary.com/diccwgzod/image/upload/v1773899766/ESFP_amzuua.png")
