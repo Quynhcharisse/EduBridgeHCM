@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.controllers;
 
 import com.sp26se041.edubridgehcm.models.ChatMessage;
+import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
 import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.ParentService;
@@ -29,7 +30,9 @@ import java.time.LocalDateTime;
 public class ParentController {
 
     private final SimpMessagingTemplate simpMessagingTemplate;
+
     private final ParentService parentService;
+
     private final WebSocketService webSocketService;
 
     @MessageMapping("/private-message")
@@ -76,6 +79,12 @@ public class ParentController {
     @PreAuthorize("hasRole('PARENT')")
     public ResponseEntity<?> getConversations(@RequestParam(required = false) Long cursorId) {
         return parentService.getConversations(cursorId);
+    }
+
+    @PostMapping("/favourite/school")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<?> addFavouriteSchool(@RequestBody AddFavouriteSchoolRequest request) {
+         return parentService.addFavouriteSchool(request);
     }
 
     //Personality Type
