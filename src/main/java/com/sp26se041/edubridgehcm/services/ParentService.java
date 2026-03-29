@@ -20,6 +20,8 @@ public interface ParentService {
     ResponseEntity<ResponseObject> addStudentInfo(AddStudentInfoRequest request);
 
     ResponseEntity<ResponseObject> getStudents();
+    //Favourite school
 
     ResponseEntity<ResponseObject> addFavouriteSchool(AddFavouriteSchoolRequest request);
+    ResponseEntity<ResponseObject> getFavouriteSchools(int page, int size);
 }

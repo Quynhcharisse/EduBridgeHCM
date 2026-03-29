@@ -8,16 +8,22 @@ import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.models.Conversation;
 import com.sp26se041.edubridgehcm.models.Counsellor;
+import com.sp26se041.edubridgehcm.models.FavouriteSchool;
 import com.sp26se041.edubridgehcm.models.Major;
+import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.PersonalityType;
+import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.StudentProfile;
 import com.sp26se041.edubridgehcm.models.Subject;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
 import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
+import com.sp26se041.edubridgehcm.repositories.FavouriteSchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.MajorRepo;
+import com.sp26se041.edubridgehcm.repositories.ParentRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.StudentInfoRepo;
 import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
 import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
@@ -26,8 +32,12 @@ import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.ParentService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
+import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -60,8 +70,14 @@ public class ParentServiceImpl implements ParentService {
     private final SubjectRepo subjectRepo;
 
     private final StudentInfoRepo studentInfoRepo;
+
     private final AccountRepo accountRepo;
-    private final CounsellorRepo counsellorRepo;
+
+    private final SchoolRepo schoolRepo;
+
+    private final ParentRepo parentRepo;
+
+    private final FavouriteSchoolRepo favouriteSchoolRepo;
 
 
     @Override
@@ -315,12 +331,66 @@ public class ParentServiceImpl implements ParentService {
 
     @Override
     public ResponseEntity<ResponseObject> addFavouriteSchool(AddFavouriteSchoolRequest request) {
+
         if (AccountRestrictionUtil.isRestrictedActor()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
         }
 
-        return null;
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        Parent parent = parentRepo.findByAccount_Email(email)
+                .orElse(null);
+
+        if (parent == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Parent not found", null);
+        }
+
+        School school = schoolRepo.findById(request.getSchoolId())
+                .orElse(null);
+        if (school == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "School not found", null);
+        }
+
+        boolean exists = favouriteSchoolRepo.existsByParentAndSchool(parent, school);
+        if (exists) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "School is already in favourite list", null);
+        }
+
+        FavouriteSchool favouriteSchool = FavouriteSchool.builder()
+                .parent(parent)
+                .school(school)
+                .build();
+
+        favouriteSchoolRepo.save(favouriteSchool);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Add favourite school successfully", null);
     }
+
+    @Override
+    public ResponseEntity<ResponseObject> getFavouriteSchools(int page, int size) {
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        Parent parent = parentRepo.findByAccount_Email(email)
+                .orElse(null);
+
+        if (parent == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Parent not found", null);
+        }
+
+        Pageable pageable;
+
+        try {
+            pageable = PaginationUtil.buildPageRequest(page, size);
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
+
+        Page<FavouriteSchool> favouriteSchoolPage = favouriteSchoolRepo.findByParentId(parent.getId(), pageable);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Get favourite school successfully", null);
+    }
+
 
     private Map<String, Object> buildStudentProfile(StudentProfile studentProfile) {
         Map<String, Object> result = new HashMap<>();
