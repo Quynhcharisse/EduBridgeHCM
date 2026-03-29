@@ -103,6 +103,7 @@ public class AuthServiceImpl implements AuthService {
 
             account.setParent(parentRepo.save(Parent.builder()
                     .account(account)
+                    .avatar(request.getAvatar())
                     .build()));
             return ResponseBuilder.build(HttpStatus.OK, "Register successfully", buildAccountData(account));
         }

@@ -18,6 +18,8 @@ public class RegisterRequest {
 
     String email;
 
+    String avatar;
+
     String role;
 
     SchoolRequest schoolRequest;
