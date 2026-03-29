@@ -42,5 +42,4 @@ public class CounsellorController {
     public ResponseEntity<?> getConversations(@RequestParam (required = false) Long cursorId){
         return counsellorService.getConversations(cursorId);
     }
-
 }
