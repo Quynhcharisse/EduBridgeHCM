@@ -12,6 +12,7 @@ import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
 import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Curriculum;
 import com.sp26se041.edubridgehcm.models.OpenDayEvent;
+import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
@@ -21,7 +22,9 @@ import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.CurriculumRepo;
+import com.sp26se041.edubridgehcm.repositories.FavouriteSchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.OpenDayEventRepo;
+import com.sp26se041.edubridgehcm.repositories.ParentRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
@@ -52,6 +55,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,10 +69,12 @@ import java.time.Year;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -95,6 +101,8 @@ public class SchoolServiceImpl implements SchoolService {
     private final AdmissionReservationFormRepo admissionReservationFormRepo;
 
     private final SchoolRepo schoolRepo;
+    private final FavouriteSchoolRepo favouriteSchoolRepo;
+    private final ParentRepo parentRepo;
 
     @Override
     @Transactional
@@ -1160,9 +1168,15 @@ public class SchoolServiceImpl implements SchoolService {
     public ResponseEntity<ResponseObject> viewSchoolList() {
 
         //uu tien cac truong isFeatured len dau, sau do moi tim den Id / rating
-        List<School> school = schoolRepo.findAllByOrderByIsFeaturedDescAverageRatingDesc();
+        List<School> schools = schoolRepo.findAllByOrderByIsFeaturedDescAverageRatingDesc();
 
-        List<Map<String, Object>> schoolList = school.stream().map(this::buildPublicSchoolData).toList();
+        //Trí sửa
+        Set<Integer> favouriteSchoolIds = getFavouriteSchoolIds();
+
+        List<Map<String, Object>> schoolList = schools.stream()
+                .map(school -> buildPublicSchoolData(school, favouriteSchoolIds))
+                .toList();
+        //
 
         return ResponseBuilder.build(HttpStatus.OK, "View school list successfully", schoolList);
     }
@@ -1176,7 +1190,9 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "School not found", null);
         }
 
-        Map<String, Object> data = buildPublicSchoolData(school);
+        Set<Integer> favouriteSchoolIds = getFavouriteSchoolIds();
+
+        Map<String, Object> data = buildPublicSchoolData(school, favouriteSchoolIds);
 
         data.put("campustList", school.getCampusList().stream()
                 .filter(campus -> Status.VERIFIED.equals(campus.getStatus()))
@@ -1190,10 +1206,29 @@ public class SchoolServiceImpl implements SchoolService {
         return ResponseBuilder.build(HttpStatus.OK, "View school detail successfully", data);
     }
 
-    Map<String, Object> buildPublicSchoolData(School school) {
+    //Trí thêm
+    private Set<Integer> getFavouriteSchoolIds() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        Parent parent = parentRepo.findByAccount_Email(email).orElse(null);
+
+        if (parent == null) {
+            return Collections.emptySet();
+        }
+
+        return favouriteSchoolRepo.findByParentId(parent.getId())
+                .stream()
+                .map(f -> f.getSchool().getId())
+                .collect(Collectors.toSet());
+    }
+    //
+
+    Map<String, Object> buildPublicSchoolData(School school, Set<Integer> favouriteSchoolIds) {
+
         Map<String, Object> data = new HashMap<>();
         data.put("id", school.getId());
         data.put("name", school.getName());
+        data.put("isFavourite", favouriteSchoolIds.contains(school.getId())); // Trí thêm
         data.put("description", school.getDescription());
         data.put("totalCampus", school.getCampusList() != null ? school.getCampusList().size() : 0);
         data.put("logoUrl", school.getLogoUrl());
