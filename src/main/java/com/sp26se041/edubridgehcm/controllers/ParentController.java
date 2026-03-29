@@ -63,7 +63,7 @@ public class ParentController {
     }
 
     @GetMapping("/messages/history/{parentEmail}/{counsellorEmail}")
-    public ResponseEntity<ResponseObject> getChatHistory(@PathVariable String parentEmail, @PathVariable String counsellorEmail, @RequestParam (required = false) Long cursorId) {
+    public ResponseEntity<ResponseObject> getChatHistory(@PathVariable String parentEmail, @PathVariable String counsellorEmail, @RequestParam(required = false) Long cursorId) {
         return webSocketService.getChatHistory(parentEmail, counsellorEmail, cursorId);
     }
 
@@ -74,7 +74,7 @@ public class ParentController {
 
     @GetMapping("/conversations")
     @PreAuthorize("hasRole('PARENT')")
-    public ResponseEntity<?> getConversations(@RequestParam (required = false) Long cursorId){
+    public ResponseEntity<?> getConversations(@RequestParam(required = false) Long cursorId) {
         return parentService.getConversations(cursorId);
     }
 
@@ -93,15 +93,19 @@ public class ParentController {
 
     @PostMapping("/student")
     @PreAuthorize("hasRole('PARENT')")
-    public ResponseEntity<ResponseObject> addStudentInfo(@RequestBody AddStudentInfoRequest request){
+    public ResponseEntity<ResponseObject> addStudentInfo(@RequestBody AddStudentInfoRequest request) {
         return parentService.addStudentInfo(request);
     }
+
     @GetMapping("/student")
     @PreAuthorize("hasRole('PARENT')")
-    public ResponseEntity<ResponseObject> getStudentInfos(){
+    public ResponseEntity<ResponseObject> getStudentInfos() {
         return parentService.getStudents();
     }
+
     @GetMapping("/major")
     @PreAuthorize("hasRole('PARENT')")
-    public ResponseEntity<ResponseObject> getMajors() { return parentService.getAllMajors(); }
+    public ResponseEntity<ResponseObject> getMajors() {
+        return parentService.getAllMajors();
+    }
 }

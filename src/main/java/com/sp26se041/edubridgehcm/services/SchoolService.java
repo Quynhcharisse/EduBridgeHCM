@@ -51,7 +51,7 @@ public interface SchoolService {
 
     ResponseEntity<ResponseObject> viewAccountCounsellorList(int page, int size);
 
-    ResponseEntity<ResponseObject> viewSchoolList(int page, int pageSize);
+    ResponseEntity<ResponseObject> viewSchoolList();
 
     ResponseEntity<ResponseObject> viewSchoolDetail(int schoolId);
 

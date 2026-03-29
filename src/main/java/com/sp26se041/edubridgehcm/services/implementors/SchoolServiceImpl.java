@@ -1,18 +1,54 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
-import com.sp26se041.edubridgehcm.enums.*;
-import com.sp26se041.edubridgehcm.models.*;
-import com.sp26se041.edubridgehcm.repositories.*;
-import com.sp26se041.edubridgehcm.requests.*;
+import com.sp26se041.edubridgehcm.enums.BoardingType;
+import com.sp26se041.edubridgehcm.enums.CurriculumType;
+import com.sp26se041.edubridgehcm.enums.LearningMethod;
+import com.sp26se041.edubridgehcm.enums.Role;
+import com.sp26se041.edubridgehcm.enums.Status;
+import com.sp26se041.edubridgehcm.models.Account;
+import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
+import com.sp26se041.edubridgehcm.models.Campus;
+import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
+import com.sp26se041.edubridgehcm.models.Counsellor;
+import com.sp26se041.edubridgehcm.models.Curriculum;
+import com.sp26se041.edubridgehcm.models.OpenDayEvent;
+import com.sp26se041.edubridgehcm.models.Program;
+import com.sp26se041.edubridgehcm.models.School;
+import com.sp26se041.edubridgehcm.repositories.AccountRepo;
+import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
+import com.sp26se041.edubridgehcm.repositories.AdmissionReservationFormRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusRepo;
+import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
+import com.sp26se041.edubridgehcm.repositories.CurriculumRepo;
+import com.sp26se041.edubridgehcm.repositories.OpenDayEventRepo;
+import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
+import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
+import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
+import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
+import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
+import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
+import com.sp26se041.edubridgehcm.requests.ProgramRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
-import com.sp26se041.edubridgehcm.utils.*;
-import com.sp26se041.edubridgehcm.validations.school.*;
+import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
+import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
+import com.sp26se041.edubridgehcm.utils.CurriculumNamingUtil;
+import com.sp26se041.edubridgehcm.utils.PaginationUtil;
+import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
+import com.sp26se041.edubridgehcm.validations.school.AdmissionCampaignValidation;
+import com.sp26se041.edubridgehcm.validations.school.CampusProgramOfferingValidation;
+import com.sp26se041.edubridgehcm.validations.school.CampusValidation;
+import com.sp26se041.edubridgehcm.validations.school.CurriculumValidation;
+import com.sp26se041.edubridgehcm.validations.school.ProgramValidation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,9 +57,19 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.*;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Year;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -1111,14 +1157,12 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> viewSchoolList(int page, int pageSize) {
-
-        Pageable pageable = PageRequest.of(page, pageSize);
+    public ResponseEntity<ResponseObject> viewSchoolList() {
 
         //uu tien cac truong isFeatured len dau, sau do moi tim den Id / rating
-        Page<School> schoolPage = schoolRepo.findAllByOrderByIsFeaturedDescAverageRatingDesc(pageable);
+        List<School> school = schoolRepo.findAllByOrderByIsFeaturedDescAverageRatingDesc();
 
-        List<Map<String, Object>> schoolList = schoolPage.stream().map(this::buildPublicSchoolData).toList();
+        List<Map<String, Object>> schoolList = school.stream().map(this::buildPublicSchoolData).toList();
 
         return ResponseBuilder.build(HttpStatus.OK, "View school list successfully", schoolList);
     }

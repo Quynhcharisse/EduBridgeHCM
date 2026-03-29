@@ -133,9 +133,8 @@ public class SchoolController {
     }
 
     @GetMapping("/public/list")
-    public ResponseEntity<ResponseObject> viewSchoolList(@RequestParam(defaultValue = "0") int page,
-                                                         @RequestParam(defaultValue = "10") int pageSize) {
-        return schoolService.viewSchoolList(page, pageSize);
+    public ResponseEntity<ResponseObject> viewSchoolList() {
+        return schoolService.viewSchoolList();
     }
 
     @GetMapping("/{schoolId}/public/detail")

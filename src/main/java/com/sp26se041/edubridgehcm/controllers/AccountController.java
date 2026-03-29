@@ -49,19 +49,25 @@ public class AccountController {
 
     @GetMapping("/user/list")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> viewUserList(@RequestParam String role, @RequestParam int page, @RequestParam int pageSize) {
+    public ResponseEntity<ResponseObject> viewUserList(@RequestParam String role,
+                                                       @RequestParam(defaultValue = "0") int page,
+                                                       @RequestParam(defaultValue = "10") int pageSize) {
         return accountService.viewUserList(role, page, pageSize);
     }
 
     @GetMapping("/school/{schoolId}/campus/list")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> viewSchoolCampusList(@PathVariable int schoolId, @RequestParam int page, @RequestParam int pageSize) {
+    public ResponseEntity<ResponseObject> viewSchoolCampusList(@PathVariable int schoolId,
+                                                               @RequestParam(defaultValue = "0") int page,
+                                                               @RequestParam(defaultValue = "10") int pageSize) {
         return accountService.viewSchoolCampusList(schoolId, page, pageSize);
     }
 
     @GetMapping("/campus/{campusId}/counsellor/list")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> viewCampusCounsellorList(@PathVariable int campusId, @RequestParam int page, @RequestParam int pageSize) {
+    public ResponseEntity<ResponseObject> viewCampusCounsellorList(@PathVariable int campusId,
+                                                                   @RequestParam(defaultValue = "0") int page,
+                                                                   @RequestParam(defaultValue = "10") int pageSize) {
         return accountService.viewCampusCounsellorList(campusId, page, pageSize);
     }
 
