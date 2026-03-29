@@ -11,13 +11,13 @@ public interface ConversationRepo extends JpaRepository<Conversation, Long> {
 
     Optional<Conversation> findByParentEmailAndCounsellorEmail(String parentEmail, String counsellorEmail);
     
-    List<Conversation> findTop20ByParentEmailOrderByUpdatedDateDesc(String parentEmail);
+    List<Conversation> findTop20ByParentEmailAndStudentProfileIsNotNullOrderByUpdatedDateDesc(String parentEmail);
     
-    List<Conversation> findTop20ByCounsellorEmailOrderByUpdatedDateDesc(String counsellorEmail);
+    List<Conversation> findTop20ByCounsellorEmailAndStudentProfileIsNotNullOrderByUpdatedDateDesc(String counsellorEmail);
 
-    List<Conversation> findTop20ByParentEmailAndIdLessThanOrderByUpdatedDateDesc(String parentEmail, Long cursorId);
+    List<Conversation> findTop20ByParentEmailAndIdLessThanAndStudentProfileIsNotNullOrderByUpdatedDateDesc(String parentEmail, Long cursorId);
     
-    List<Conversation> findTop20ByCounsellorEmailAndIdLessThanOrderByUpdatedDateDesc(String counsellorEmail, Long cursorId);
+    List<Conversation> findTop20ByCounsellorEmailAndIdLessThanAndStudentProfileIsNotNullOrderByUpdatedDateDesc(String counsellorEmail, Long cursorId);
 
     Optional<Conversation> findById(Long id);
 }

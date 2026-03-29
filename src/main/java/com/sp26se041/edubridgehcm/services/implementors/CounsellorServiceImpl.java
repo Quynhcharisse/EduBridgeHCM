@@ -1,8 +1,11 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.Status;
+import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.models.Conversation;
+import com.sp26se041.edubridgehcm.models.Parent;
+import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
 import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -24,6 +27,7 @@ public class CounsellorServiceImpl implements CounsellorService {
 
     private final ConversationRepo conversationRepo;
     private final ChatMessageRepo chatMessageRepo;
+    private final AccountRepo accountRepo;
 
     @Override
     public ResponseEntity<ResponseObject> getConversations(Long cursorId) {
@@ -35,11 +39,11 @@ public class CounsellorServiceImpl implements CounsellorService {
             List<Conversation> conversations;
             if (cursorId == null) {
                 conversations = conversationRepo
-                        .findTop20ByCounsellorEmailOrderByUpdatedDateDesc(email);
+                        .findTop20ByCounsellorEmailAndStudentProfileIsNotNullOrderByUpdatedDateDesc(email);
 
             } else {
                 conversations = conversationRepo
-                        .findTop20ByCounsellorEmailAndIdLessThanOrderByUpdatedDateDesc(email, cursorId);
+                        .findTop20ByCounsellorEmailAndIdLessThanAndStudentProfileIsNotNullOrderByUpdatedDateDesc(email, cursorId);
             }
             List<Map<String, Object>> items = buildConversationList(conversations, email);
 
@@ -91,6 +95,7 @@ public class CounsellorServiceImpl implements CounsellorService {
 
                     Map<String, Object> map = new HashMap<>();
                     map.put("conversationId", conversation.getId());
+
                     map.put("lastMessage", lastMessage != null ? lastMessage.getMessage() : null);
                     map.put("updatedAt", conversation.getUpdatedDate());
                     map.put("unreadCount", unreadCount != null ? unreadCount : 0L);
@@ -99,7 +104,18 @@ public class CounsellorServiceImpl implements CounsellorService {
                             : conversation.getParentEmail();
 
                     map.put("otherUser", otherUser);
+
+                    String avatarUrl = accountRepo.findByEmail(otherUser)
+                            .map(Account::getParent)
+                            .map(Parent::getAvatar)
+                            .orElse("N/A");
+
+                    map.put("avatarUrl", avatarUrl);
+                    map.put("studentProfileId", conversation.getStudentProfile().getId());
+                    map.put("studentName", conversation.getStudentProfile().getStudentName());
+
                     return map;
+
                 })
                 .toList();
     }
