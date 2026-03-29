@@ -61,10 +61,6 @@ public class ParentController {
                 message
         );
     }
-
-    @GetMapping("/messages/history/{parentEmail}/{counsellorEmail}")
-    public ResponseEntity<ResponseObject> getChatHistory(@PathVariable String parentEmail, @PathVariable String counsellorEmail, @RequestParam(required = false) Long cursorId) {
-        return webSocketService.getChatHistory(parentEmail, counsellorEmail, cursorId);
       
     @GetMapping("/messages/history/{parentEmail}/{counsellorEmail}/{studentProfileId}")
     public ResponseEntity<ResponseObject> getChatHistory(@PathVariable String parentEmail, @PathVariable String counsellorEmail, @PathVariable int studentProfileId, @RequestParam (required = false) Long cursorId) {
