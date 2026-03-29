@@ -20,6 +20,7 @@ import com.sp26se041.edubridgehcm.repositories.MajorRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
 import com.sp26se041.edubridgehcm.repositories.StudentInfoRepo;
 import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
+import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
 import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.ParentService;
@@ -312,6 +313,15 @@ public class ParentServiceImpl implements ParentService {
         );
     }
 
+    @Override
+    public ResponseEntity<ResponseObject> addFavouriteSchool(AddFavouriteSchoolRequest request) {
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        return null;
+    }
+
     private Map<String, Object> buildStudentProfile(StudentProfile studentProfile) {
         Map<String, Object> result = new HashMap<>();
         result.put("id", studentProfile.getId());
@@ -329,6 +339,9 @@ public class ParentServiceImpl implements ParentService {
         }
         if (isBlank(request.getStudentName())) {
             return "Child name must not be blank";
+        }
+        if (request.getStudentName().length() > 200) {
+            return "Child name must be less than or equal to 200 characters";
         }
         if (studentInfoRepo.existsByStudentNameIgnoreCaseAndParent_Account_Email(request.getStudentName().trim(), parentEmail)) {
             return "You already already has a child with the same name";
