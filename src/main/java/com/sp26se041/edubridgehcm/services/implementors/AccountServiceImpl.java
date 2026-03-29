@@ -4,15 +4,27 @@ import com.sp26se041.edubridgehcm.enums.Gender;
 import com.sp26se041.edubridgehcm.enums.Relationship;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
-import com.sp26se041.edubridgehcm.models.*;
-import com.sp26se041.edubridgehcm.repositories.*;
+import com.sp26se041.edubridgehcm.models.Account;
+import com.sp26se041.edubridgehcm.models.Campus;
+import com.sp26se041.edubridgehcm.models.Counsellor;
+import com.sp26se041.edubridgehcm.models.Parent;
+import com.sp26se041.edubridgehcm.models.School;
+import com.sp26se041.edubridgehcm.repositories.AccountRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusRepo;
+import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
+import com.sp26se041.edubridgehcm.repositories.ParentRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.requests.RestrictionRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateProfileRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AccountService;
 import com.sp26se041.edubridgehcm.services.JWTService;
-import com.sp26se041.edubridgehcm.utils.*;
+import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
+import com.sp26se041.edubridgehcm.utils.CookieUtil;
+import com.sp26se041.edubridgehcm.utils.PaginationUtil;
+import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
+import com.sp26se041.edubridgehcm.utils.SchoolUtil;
 import com.sp26se041.edubridgehcm.validations.account.AccountValidation;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -420,41 +432,6 @@ public class AccountServiceImpl implements AccountService {
         campus.setPhoneNumber(normalize(campusData.getPhoneNumber()));
         campus.setAddress(normalize(campusData.getAddress()));
 
-        Map<String, Object> imageMap = new HashMap<>();
-        imageMap.put("coverUrl", campusData.getImageJson().getCoverUrl());
-
-        imageMap.put("itemList", campusData.getImageJson().getItemList().stream()
-                .map(item -> {
-                    Map<String, Object> dataItem = new HashMap<>();
-                    dataItem.put("name", normalize(item.getName()));
-                    dataItem.put("url", normalize(item.getUrl()));
-                    dataItem.put("altName", normalize(item.getAltName()));
-                    dataItem.put("uploadDate", item.getUploadDate());
-                    dataItem.put("isUsage", item.getIsUsage());
-                    return dataItem;
-                })
-                .collect(Collectors.toList())
-        );
-        campus.setImageJson(imageMap);
-
-        Map<String, Object> facilityMap = new HashMap<>();
-        facilityMap.put("overview", campusData.getFacilityJson().getOverview());
-
-        facilityMap.put("itemList", campusData.getFacilityJson().getItemList().stream()
-                .map(item -> {
-                    Map<String, Object> dataItem = new HashMap<>();
-                    dataItem.put("facilityCode", normalize(item.getFacilityCode()));
-                    dataItem.put("name", normalize(item.getName()));
-                    dataItem.put("value", normalize(item.getValue()));
-                    dataItem.put("unit", normalize(item.getUnit()));
-                    dataItem.put("category", normalize(item.getCategory()));
-                    return dataItem;
-                })
-                .collect(Collectors.toList())
-        );
-        campus.setFacility(facilityMap);
-        campus.setPolicyDetail(normalize(campusData.getPolicyDetail()));
-
         campusRepo.save(campus);
     }
 
@@ -554,8 +531,6 @@ public class AccountServiceImpl implements AccountService {
             campusData.put("foundingDate", campus.getSchool().getFoundingDate());
         }
 
-        campusData.put("imageJson", campus.getImageJson());
-        campusData.put("facility", campus.getFacility());
         return campusData;
     }
 }
