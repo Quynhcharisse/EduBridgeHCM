@@ -35,6 +35,7 @@ import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
 import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
 import com.sp26se041.edubridgehcm.requests.ProgramRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -1204,7 +1205,6 @@ public class SchoolServiceImpl implements SchoolService {
         return ResponseBuilder.build(HttpStatus.OK, "View school detail successfully", data);
     }
 
-    //Trí thêm
     private Set<Integer> getFavouriteSchoolIds() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
@@ -1219,7 +1219,6 @@ public class SchoolServiceImpl implements SchoolService {
                 .map(f -> f.getSchool().getId())
                 .collect(Collectors.toSet());
     }
-    //
 
     Map<String, Object> buildPublicSchoolData(School school, Set<Integer> favouriteSchoolIds) {
 
@@ -1435,5 +1434,28 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("updatedAt", openDayEvent.getUpdatedAt());
 
         return data;
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<ResponseObject> updateCampusConfig(int campusId, UpdateCampusConfigRequest request) {
+
+        Campus campus = campusRepo.findById(campusId).orElse(null);
+
+        if (campus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campus not found", null);
+        }
+        // Validate: chỉ cho phép sửa value, unit, isUsage của facility mẫu, cho phép thêm mới (isCustom)
+        // (Có thể bổ sung validate nâng cao nếu cần)
+        Map<String, Object> facilityMap = new HashMap<>();
+        facilityMap.put("overview", request.getOverview());
+        facilityMap.put("itemList", request.getItemList());
+        facilityMap.put("imageJsonData", request.getImageJsonData());
+
+        campus.setFacility(facilityMap);
+        campus.setPolicyDetail(request.getPolicyDetail());
+        campusRepo.save(campus);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Campus facility updated successfully", null);
     }
 }

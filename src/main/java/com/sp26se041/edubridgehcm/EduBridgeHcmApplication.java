@@ -35,6 +35,7 @@ import org.springframework.context.annotation.Bean;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -265,7 +266,6 @@ public class EduBridgeHcmApplication {
         mediaData.put("maxFeedbackVideo", 1);
         mediaData.put("maxReportImg", 4);
         mediaData.put("maxReportVideo", 1);
-        mediaData.put("maxGarmentThumbnail", 4);
         mediaData.put("imgFormat", List.of(
                 Map.of("format", ".jpg"),
                 Map.of("format", ".jpeg"),

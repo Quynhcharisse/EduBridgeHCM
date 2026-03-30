@@ -8,8 +8,6 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -74,10 +72,6 @@ public class UpdateProfileRequest {
         String policyDetail;
 
         String address;
-
-        ImageJsonData imageJson;
-
-        FacilityData facilityJson;
     }
 
     @Data
@@ -100,67 +94,5 @@ public class UpdateProfileRequest {
         String businessLicenseUrl;
 
         LocalDate foundingDate;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class ImageJsonData {
-
-        String coverUrl;
-
-        List<ImageItem> itemList;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class ImageItem {
-
-        String name;
-
-        String url;
-
-        String altName;
-
-        LocalDateTime uploadDate;
-
-        Boolean isUsage;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class FacilityData {
-
-        String overview;
-
-        List<FacilityItem> itemList;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class FacilityItem {
-        // Ví dụ: "LIBRARY", "SWIMMING_POOL", "LAB"
-        // Dùng code để Frontend dễ map với bộ Icon
-        String facilityCode;
-
-        String name; // Ví dụ: Thư viện trung tâm
-
-        String value; // Ví dụ: 500
-
-        String unit; // Ví dụ: "m2" hoặc "phòng
-
-        // Phân loại: Học tập, Thể thao, Nội trú
-        String category;
     }
 }
