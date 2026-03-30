@@ -130,9 +130,13 @@ public class SystemServiceImpl implements SystemService {
         businessJson.put("minPay", businessData.getMinPay());
         businessJson.put("maxPay", businessData.getMaxPay());
 
-        PlatformConfig config = platformConfigRepo.findByKey("business").orElse(null);
+        PlatformConfig config = platformConfigRepo.findByKey("business").orElse(
+                PlatformConfig.builder()
+                        .key("business")
+                        .creationDate(LocalDateTime.now())
+                        .build()
+        );
 
-        assert config != null;
         config.setValue(businessJson);
         config.setModifiedDate(LocalDateTime.now());
         platformConfigRepo.save(config);
@@ -169,8 +173,13 @@ public class SystemServiceImpl implements SystemService {
                 .toList();
         mediaJson.put("videoFormat", videoFormats);
 
-        PlatformConfig config = platformConfigRepo.findByKey("media").orElse(null);
-        assert config != null;
+        PlatformConfig config = platformConfigRepo.findByKey("media").orElse(
+                PlatformConfig.builder()
+                        .key("media")
+                        .creationDate(LocalDateTime.now())
+                        .build()
+        );
+
         config.setValue(mediaJson);
         config.setModifiedDate(LocalDateTime.now());
         platformConfigRepo.save(config);
@@ -191,9 +200,15 @@ public class SystemServiceImpl implements SystemService {
                 .toList();
         designJson.put("positions", logoPos);
 
-        PlatformConfig config = platformConfigRepo.findByKey("design").orElse(null);
-        assert config != null;
+        PlatformConfig config = platformConfigRepo.findByKey("design").orElse(
+                PlatformConfig.builder()
+                        .key("design")
+                        .creationDate(LocalDateTime.now())
+                        .build()
+        );
+
         config.setValue(designJson);
+        config.setModifiedDate(LocalDateTime.now());
         platformConfigRepo.save(config);
     }
 
@@ -207,8 +222,13 @@ public class SystemServiceImpl implements SystemService {
         subJson.put("taxRate", subData.getTaxRate());
         subJson.put("minSubscriptionMonth", subData.getMinSubscriptionMonth());
 
-        PlatformConfig config = platformConfigRepo.findByKey("subscriptionPolicy").orElse(null);
-        assert config != null;
+        PlatformConfig config = platformConfigRepo.findByKey("subscriptionPolicy").orElse(
+                PlatformConfig.builder()
+                        .key("subscriptionPolicy")
+                        .creationDate(LocalDateTime.now())
+                        .build()
+        );
+
         config.setValue(subJson);
         config.setModifiedDate(LocalDateTime.now());
         platformConfigRepo.save(config);
@@ -217,6 +237,13 @@ public class SystemServiceImpl implements SystemService {
     @Transactional
     public void updateAdmissionQuota(CreateConfigDataRequest request) {
         CreateConfigDataRequest.AdmissionQuotaData admissData = request.getAdmissionQuotaData();
+
+        Map<String, Object> currentYearInfo = new HashMap<>();
+        currentYearInfo.put("sourceUrl", admissData.getSourceUrl());
+
+        Map<String, Integer> formattedQuotas = new HashMap<>();
+        admissData.getQuotas().forEach((id, val) -> formattedQuotas.put(id.toString(), val));
+        currentYearInfo.put("quotas", formattedQuotas);
 
         PlatformConfig config = platformConfigRepo.findByKey("admission_quota")
                 .orElse(PlatformConfig.builder()
@@ -228,15 +255,9 @@ public class SystemServiceImpl implements SystemService {
                 ? (Map<String, Object>) config.getValue()
                 : new HashMap<>();
 
-        Map<String, Object> currentYearInfo = new HashMap<>();
-        currentYearInfo.put("sourceUrl", admissData.getSourceUrl());
-
-        Map<String, Integer> formattedQuotas = new HashMap<>();
-        admissData.getQuotas().forEach((id, val) -> formattedQuotas.put(id.toString(), val));
-        currentYearInfo.put("quotas", formattedQuotas);
-
         allYearsData.put(admissData.getYear(), currentYearInfo);
 
+        assert config != null;
         config.setValue(allYearsData);
         config.setModifiedDate(LocalDateTime.now());
         platformConfigRepo.save(config);
@@ -258,8 +279,13 @@ public class SystemServiceImpl implements SystemService {
                 .toList();
         reportJson.put("severityLevels", severityLevels);
 
-        PlatformConfig config = platformConfigRepo.findByKey("report").orElse(null);
-        assert config != null;
+        PlatformConfig config = platformConfigRepo.findByKey("report").orElse(
+                PlatformConfig.builder()
+                        .key("report")
+                        .creationDate(LocalDateTime.now())
+                        .build()
+        );
+
         config.setValue(reportJson);
         config.setModifiedDate(LocalDateTime.now());
         platformConfigRepo.save(config);
