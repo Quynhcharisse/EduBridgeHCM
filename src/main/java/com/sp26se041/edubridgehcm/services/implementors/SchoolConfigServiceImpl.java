@@ -50,6 +50,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         Map<String, Object> facilityTemplate = new HashMap<>();
 
         facilityTemplate.put("overview", request.getOverview());
+        facilityTemplate.put("imageJsonData", imageMap);
         facilityTemplate.put("itemList", request.getItemList().stream().map(item -> {
             Map<String, Object> itemMap = new HashMap<>();
             itemMap.put("facilityCode", item.getFacilityCode());
@@ -65,6 +66,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                         .schoolId(schoolId)
                         .key("facility_template")
                         .build());
+
         config.setValue(facilityTemplate);
         config.setUpdatedAt(LocalDateTime.now());
         schoolConfigRepo.save(config);
