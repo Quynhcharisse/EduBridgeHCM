@@ -5,7 +5,6 @@ import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.requests.CreateConfigDataRequest;
-import com.sp26se041.edubridgehcm.requests.CreateFacilityTemplateRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SystemService;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
@@ -265,15 +264,4 @@ public class SystemServiceImpl implements SystemService {
         config.setModifiedDate(LocalDateTime.now());
         platformConfigRepo.save(config);
     }
-
-    @Override
-    public ResponseEntity<ResponseObject> createFacilityTemplate(CreateFacilityTemplateRequest request) {
-        return null;
-    }
-
-    @Override
-    public ResponseEntity<ResponseObject> getFacilityTemplate() {
-        return null;
-    }
-
 }

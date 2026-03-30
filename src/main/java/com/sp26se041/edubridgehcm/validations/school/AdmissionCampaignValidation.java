@@ -17,7 +17,6 @@ public class AdmissionCampaignValidation {
     public static String validationCreateAdmissionCampaignTemplate(CreateAdmissionCampaignTemplateRequest request,
                                                                    Campus actorCampus,
                                                                    AdmissionCampaignRepo admissionCampaignRepo) {
-
         if (request == null) {
             return "Request is required";
         }

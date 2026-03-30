@@ -2,6 +2,7 @@ package com.sp26se041.edubridgehcm.models;
 
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -21,6 +22,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @Table(name = "`school_config`")
+@Entity
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class SchoolConfig {
 
@@ -29,12 +31,12 @@ public class SchoolConfig {
     Integer id;
 
     @Column(name = "school_id")
-    Integer schoolId;
+    int schoolId;
 
     String key;
 
-    @Column(columnDefinition = "jsonb")
     @Type(JsonBinaryType.class)
+    @Column(columnDefinition = "jsonb")
     Object value;
 
     @Column(name = "updated_at")
