@@ -112,12 +112,11 @@ public class SystemServiceImpl implements SystemService {
 
     @Transactional
     public void updateConfig(CreateConfigDataRequest request) {
-        updateBusiness(request);
-        updateMedia(request);
-        updateDesign(request);
-        updateAdmissionQuota(request);
-        updateSubscriptionPolicy(request);
-        updateReport(request);
+        if (request.getBusinessData() != null) updateBusiness(request);
+        if (request.getMediaData() != null) updateMedia(request);
+        if (request.getAdmissionQuotaData() != null) updateAdmissionQuota(request);
+        if (request.getSubscriptionData() != null) updateSubscriptionPolicy(request);
+        if (request.getReportData() != null) updateReport(request);
     }
 
     @Transactional
@@ -181,33 +180,6 @@ public class SystemServiceImpl implements SystemService {
         );
 
         config.setValue(mediaJson);
-        config.setModifiedDate(LocalDateTime.now());
-        platformConfigRepo.save(config);
-    }
-
-    @Transactional
-    public void updateDesign(CreateConfigDataRequest request) {
-        CreateConfigDataRequest.DesignData designData = request.getDesignData();
-        Map<String, Object> designJson = new HashMap<>();
-
-        designJson.put("illustrationImage", designData.getIllustrationImage());
-        List<Map<String, String>> logoPos = designData.getPositions().stream()
-                .map(position -> {
-                    Map<String, String> p = new HashMap<>();
-                    p.put("p", position.getPosition());
-                    return p;
-                })
-                .toList();
-        designJson.put("positions", logoPos);
-
-        PlatformConfig config = platformConfigRepo.findByKey("design").orElse(
-                PlatformConfig.builder()
-                        .key("design")
-                        .creationDate(LocalDateTime.now())
-                        .build()
-        );
-
-        config.setValue(designJson);
         config.setModifiedDate(LocalDateTime.now());
         platformConfigRepo.save(config);
     }
