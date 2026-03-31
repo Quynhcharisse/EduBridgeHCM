@@ -7,6 +7,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -19,8 +21,6 @@ public class CreateConfigDataRequest {
     BusinessData businessData;
 
     MediaData mediaData;
-
-    DesignData designData;
 
     ReportData reportData;
 
@@ -79,25 +79,6 @@ public class CreateConfigDataRequest {
     }
 
     @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
-    @Builder
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class DesignData {
-        String illustrationImage;
-        List<LogoPosition> positions;
-    }
-
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
-    @Builder
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class LogoPosition {
-        String position;
-    }
-
-    @Data
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
@@ -126,8 +107,13 @@ public class CreateConfigDataRequest {
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class ReportData {
-        int maxDisbursementDay;
-        List<SeverityLevel> levels;
+        int maxResolutionDay;
+        LocalDateTime responseDeadline;
+        LocalDateTime activationDeadline;
+        int bonusDays; //số ngày
+        String bonusCondition;
+        String description;
+        List<resolutionLevels> levels;
     }
 
     @Data
@@ -135,8 +121,7 @@ public class CreateConfigDataRequest {
     @NoArgsConstructor
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class SeverityLevel {
+    public static class resolutionLevels {
         String name;
-        String compensation;
     }
 }
