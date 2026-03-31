@@ -86,7 +86,6 @@ public class CreateConfigDataRequest {
     public static class SubscriptionData {
         int trialDays;      // Số ngày dùng thử mặc định
         int gracePeriod;    // Thời gian gia hạn (ân hạn) trước khi khóa
-        double taxRate;     // Thuế VAT riêng cho dịch vụ phần mềm
         int minSubscriptionMonth; // Số tháng mua tối thiểu (VD: 3 tháng)
     }
 

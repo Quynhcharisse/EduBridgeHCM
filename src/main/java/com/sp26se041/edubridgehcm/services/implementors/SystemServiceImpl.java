@@ -200,7 +200,6 @@ public class SystemServiceImpl implements SystemService {
         Map<String, Object> subJson = new HashMap<>();
         subJson.put("trialDays", subData.getTrialDays());
         subJson.put("gracePeriod", subData.getGracePeriod());
-        subJson.put("taxRate", subData.getTaxRate());
         subJson.put("minSubscriptionMonth", subData.getMinSubscriptionMonth());
 
         PlatformConfig config = platformConfigRepo.findByKey("subscriptionPolicy").orElse(
