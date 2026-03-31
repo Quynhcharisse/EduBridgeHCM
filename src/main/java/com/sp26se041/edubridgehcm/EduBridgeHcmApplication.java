@@ -206,15 +206,45 @@ public class EduBridgeHcmApplication {
         subscriptionData.put("minSubscriptionMonth", 3);
 
         Map<String, Object> reportData = new HashMap<>();
-        reportData.put("maxDisbursementDay", 7);
-        reportData.put("severityLevels", List.of(Map.of("name", "Minor", "compensation", 3),    // Lỗi nhẹ: Tặng 3 ngày sử dụng
-                Map.of("name", "Moderate", "compensation", 7), // Lỗi vừa: Tặng 1 tuần
-                Map.of("name", "Major", "compensation", 30),   // Lỗi nặng: Tặng 1 tháng
-                Map.of("name", "Critical", "compensation", 90)));
+        reportData.put("maxResolutionDay", 7);
+        reportData.put("responseDeadline", LocalDateTime.now().plusHours(4));
+        reportData.put("activationDeadline", LocalDateTime.now().plusDays(1));
+        reportData.put("bonusDays", 2);
+        reportData.put("bonusCondition", "Nếu xử lý quá 24 giờ hoặc lỗi do hệ thống");
+        reportData.put("description", "Sau khi báo cáo được xác minh, hệ thống sẽ kích hoạt lại dịch vụ. Nếu xử lý chậm trễ, khách hàng được tặng thêm ngày sử dụng.");
+        reportData.put("resolutionLevels", List.of(
+                Map.of("name", "High"),
+                Map.of("name", "Medium"),
+                Map.of("name", "Low")));
 
         LocalDateTime today = LocalDateTime.now();
 
-        platformConfigRepo.saveAll(List.of(PlatformConfig.builder().key("business").value(businessData).creationDate(today).modifiedDate(today).build(), PlatformConfig.builder().key("media").value(mediaData).creationDate(today).modifiedDate(today).build(), PlatformConfig.builder().key("quota").value(quotaData).creationDate(today).modifiedDate(today).build(), PlatformConfig.builder().key("subscription").value(subscriptionData).creationDate(today).modifiedDate(today).build(), PlatformConfig.builder().key("report").value(reportData).creationDate(today).modifiedDate(today).build()));
+        platformConfigRepo.saveAll(List.of(PlatformConfig.builder().key("business").value(businessData)
+                        .creationDate(today)
+                        .modifiedDate(today)
+                        .build(),
+                PlatformConfig.builder()
+                        .key("media")
+                        .value(mediaData)
+                        .creationDate(today)
+                        .modifiedDate(today)
+                        .build(),
+                PlatformConfig.builder()
+                        .key("quota")
+                        .value(quotaData)
+                        .creationDate(today)
+                        .modifiedDate(today).build(),
+                PlatformConfig.builder()
+                        .key("subscription")
+                        .value(subscriptionData)
+                        .creationDate(today)
+                        .modifiedDate(today).build(),
+                PlatformConfig.builder()
+                        .key("report")
+                        .value(reportData)
+                        .creationDate(today)
+                        .modifiedDate(today)
+                        .build()));
     }
 
     //Init Subject

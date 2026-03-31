@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -69,7 +70,12 @@ public class SystemServiceImpl implements SystemService {
     @Override
     @Transactional
     public ResponseEntity<ResponseObject> updateConfigData(CreateConfigDataRequest request) {
-        if (request.getBusinessData() == null || request.getMediaData() == null || request.getDesignData() == null || request.getReportData() == null) {
+        if (request.getBusinessData() == null
+                && request.getMediaData() == null
+                && request.getSubscriptionData() == null
+                && request.getAdmissionQuotaData() == null
+                && request.getReportData() == null
+        ) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Data missing", null);
         }
 
@@ -95,8 +101,11 @@ public class SystemServiceImpl implements SystemService {
 
         Map<String, Integer> displayQuotas = new HashMap<>();
 
-        // Load All Schools một lần để tối ưu hiệu năng (tránh N+1 query)
-        Map<Integer, String> schoolNames = schoolRepo.findAll().stream()
+        Set<Integer> targetIds = idQuotas.keySet().stream()
+                .map(Integer::parseInt)
+                .collect(Collectors.toSet());
+
+        Map<Integer, String> schoolNames = schoolRepo.findAllById(targetIds).stream()
                 .collect(Collectors.toMap(School::getId, School::getName));
 
         idQuotas.forEach((id, val) -> {
@@ -240,15 +249,20 @@ public class SystemServiceImpl implements SystemService {
         CreateConfigDataRequest.ReportData reportData = request.getReportData();
         Map<String, Object> reportJson = new HashMap<>();
 
-        reportJson.put("maxDisbursementDay", reportData.getMaxDisbursementDay());
-        List<Map<String, String>> severityLevels = reportData.getLevels().stream()
+        reportJson.put("maxResolutionDay", reportData.getMaxResolutionDay());
+        reportJson.put("responseDeadline", reportData.getResponseDeadline());
+        reportJson.put("activationDeadline", reportData.getActivationDeadline());
+        reportJson.put("bonusDays", reportData.getBonusDays());
+        reportJson.put("bonusCondition", reportData.getBonusCondition());
+        reportJson.put("description", reportData.getDescription());
+        List<Map<String, String>> resolutionLevels = reportData.getLevels().stream()
                 .map(level -> {
                     Map<String, String> l = new HashMap<>();
                     l.put("name", level.getName());
                     return l;
                 })
                 .toList();
-        reportJson.put("severityLevels", severityLevels);
+        reportJson.put("resolutionLevels", resolutionLevels);
 
         PlatformConfig config = platformConfigRepo.findByKey("report").orElse(
                 PlatformConfig.builder()
