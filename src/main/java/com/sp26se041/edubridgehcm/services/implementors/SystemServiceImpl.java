@@ -245,7 +245,6 @@ public class SystemServiceImpl implements SystemService {
                 .map(level -> {
                     Map<String, String> l = new HashMap<>();
                     l.put("name", level.getName());
-                    l.put("compensation", level.getCompensation());
                     return l;
                 })
                 .toList();
