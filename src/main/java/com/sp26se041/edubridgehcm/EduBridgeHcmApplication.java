@@ -219,7 +219,10 @@ public class EduBridgeHcmApplication {
 
         LocalDateTime today = LocalDateTime.now();
 
-        platformConfigRepo.saveAll(List.of(PlatformConfig.builder().key("business").value(businessData)
+        platformConfigRepo.saveAll(List.of(
+                PlatformConfig.builder()
+                        .key("business")
+                        .value(businessData)
                         .creationDate(today)
                         .modifiedDate(today)
                         .build(),
@@ -235,7 +238,7 @@ public class EduBridgeHcmApplication {
                         .creationDate(today)
                         .modifiedDate(today).build(),
                 PlatformConfig.builder()
-                        .key("subscription")
+                        .key("subscriptionPolicy")
                         .value(subscriptionData)
                         .creationDate(today)
                         .modifiedDate(today).build(),
