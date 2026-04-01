@@ -247,6 +247,57 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
+    public ResponseEntity<ResponseObject> cloneAdmissionCampaign(int id) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        // actor campus co phai la primary campus ko
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
+        }
+
+        AdmissionCampaign oldCampaign = admissionCampaignRepo.findById(id).orElse(null);
+        if (oldCampaign == null)
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Original campaign not found", null);
+
+        // 1. Tạo một Request giả từ dữ liệu cũ
+        CreateAdmissionCampaignTemplateRequest request = new CreateAdmissionCampaignTemplateRequest();
+        request.setName(oldCampaign.getName() + " (Revised)");
+        request.setDescription(oldCampaign.getDescription());
+        request.setYear(oldCampaign.getYear());
+        request.setStartDate(oldCampaign.getStartDate());
+        request.setEndDate(oldCampaign.getEndDate());
+
+        String error = AdmissionCampaignValidation.validationCreateAdmissionCampaignTemplate(request, actorCampus, admissionCampaignRepo);
+
+        if (error != null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+        }
+
+        AdmissionCampaign newCampaign = AdmissionCampaign.builder()
+                .school(oldCampaign.getSchool())
+                .name(request.getName())
+                .description(request.getDescription())
+                .year(request.getYear())
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate())
+                .status(Status.DRAFT)
+                .build();
+
+        admissionCampaignRepo.save(newCampaign);
+
+        return ResponseBuilder.build(HttpStatus.CREATED, "Cloned successfully!", null);
+    }
+
+    @Override
     @Transactional
     public ResponseEntity<ResponseObject> updateAdmissionCampaignTemplate(UpdateAdmissionCampaignTemplateRequest request) {
 
@@ -341,6 +392,7 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
+    @Transactional
     public ResponseEntity<ResponseObject> cancelAdmissionCampaign(int id, String reason) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
@@ -373,6 +425,13 @@ public class SchoolServiceImpl implements SchoolService {
             offering.setApplicationStatus(Status.CANCELLED);
         }
         campusProgramOfferingRepo.saveAll(offerings);
+
+        // 1. Kiểm tra xem có bất kỳ hồ sơ nào bám vào các Offering của Campaign này không
+
+        if (admissionReservationFormRepo.countByCampusProgramOffering_AdmissionCampaign_Id(id) > 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "This campaign cannot be canceled because there is already a " + admissionReservationFormRepo.countByCampusProgramOffering_AdmissionCampaign_Id(id) + " registration profile." + "Please process the profile before taking this action.", null);
+        }
 
         return ResponseBuilder.build(HttpStatus.OK, "Cancelled successfully", null);
     }

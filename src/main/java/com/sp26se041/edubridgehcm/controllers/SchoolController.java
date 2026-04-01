@@ -54,6 +54,12 @@ public class SchoolController {
         return schoolService.createAdmissionCampaignTemplate(request);
     }
 
+    @PostMapping("{id}/campaign/template/clone")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> cloneAdmissionCampaign(@PathVariable int id) {
+        return schoolService.cloneAdmissionCampaign(id);
+    }
+
     @PutMapping("/campaign/template")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> updateAdmissionCampaignTemplate(@RequestBody UpdateAdmissionCampaignTemplateRequest request) {
@@ -66,7 +72,7 @@ public class SchoolController {
         return schoolService.publishAdmissionCampaignStatus(id);
     }
 
-    @PutMapping("{id}/campaign/template/cancele")
+    @PutMapping("{id}/campaign/template/cancel")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> cancelAdmissionCampaign(@PathVariable int id, String reason) {
         return schoolService.cancelAdmissionCampaign(id, reason);

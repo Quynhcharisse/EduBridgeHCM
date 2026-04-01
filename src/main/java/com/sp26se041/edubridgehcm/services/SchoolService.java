@@ -22,6 +22,8 @@ public interface SchoolService {
 
     ResponseEntity<ResponseObject> createAdmissionCampaignTemplate(CreateAdmissionCampaignTemplateRequest request);
 
+    ResponseEntity<ResponseObject> cloneAdmissionCampaign(int id);
+
     ResponseEntity<ResponseObject> updateAdmissionCampaignTemplate(UpdateAdmissionCampaignTemplateRequest request);
 
     ResponseEntity<ResponseObject> publishAdmissionCampaignStatus(int id);
