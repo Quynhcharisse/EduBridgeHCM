@@ -229,7 +229,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         String error = AdmissionCampaignValidation.validationCreateAdmissionCampaignTemplate(request, actorCampus, admissionCampaignRepo);
 
-        if (error != null && !error.isBlank()) {
+        if ((error != null)) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
@@ -292,7 +292,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         String error = AdmissionCampaignValidation.validationUpdateAdmissionCampaignTemplate(request, admissionCampaignRepo);
 
-        if (!error.isEmpty()) {
+        if (error != null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
