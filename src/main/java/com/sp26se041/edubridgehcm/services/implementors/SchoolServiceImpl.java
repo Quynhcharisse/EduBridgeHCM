@@ -569,7 +569,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Curriculum not found", null);
         }
 
-        switch (action.toLowerCase()) {
+        switch (action.toUpperCase()) {
 
             case "PUBLISH":
                 //Chỉ cho phép Publish nếu đang là DRAFT
@@ -701,8 +701,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("curriculumType", curriculum.getCurriculumType());
         data.put("methodLearning", curriculum.getMethodLearning());
         data.put("enrollmentYear", curriculum.getEnrollmentYear());
-        data.put("groupCode", curriculum.getGroupCode());
-        data.put("curriculumStatus", curriculum.getCurriculumStatus().name());
+        data.put("groupCode", curriculum.getGroupCode());t
         data.put("subjects", curriculum.getSubjectsJsonb());
         data.put("status", curriculum.getCurriculumStatus().name());
 
