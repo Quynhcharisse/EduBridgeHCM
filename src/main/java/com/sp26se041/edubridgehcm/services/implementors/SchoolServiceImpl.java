@@ -341,6 +341,43 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
+    public ResponseEntity<ResponseObject> cancelAdmissionCampaign(int id, String reason) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        //kiểm tra Actor & Quyền (Tương tự Create/Update)
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null || !actorCampus.getIsPrimaryBranch()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can change status", null);
+        }
+
+        //Tìm Campaign
+        AdmissionCampaign campaign = admissionCampaignRepo.findById(id).filter(c -> c.getSchool().getId().equals(actorCampus.getSchool().getId())).orElse(null);
+
+        if (campaign == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campaign not found", null);
+
+        // 2. Chỉ cho hủy nếu đang OPEN
+        if (campaign.getStatus() == Status.CANCELLED) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campaign already inactive", null);
+        }
+
+        campaign.setStatus(Status.CANCELLED);
+        campaign.setReason(reason);
+        admissionCampaignRepo.save(campaign);
+
+        //Hủy toàn bộ Offering con ==> cha bị hủy thì con của nó cũng phải ăn theo
+        List<CampusProgramOffering> offerings = campusProgramOfferingRepo.findByAdmissionCampaignId(id);
+        for (CampusProgramOffering offering : offerings) {
+            offering.setApplicationStatus(Status.CANCELLED);
+        }
+        campusProgramOfferingRepo.saveAll(offerings);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Cancelled successfully", null);
+    }
+
+    @Override
     public ResponseEntity<ResponseObject> viewAdmissionCampaignTemplate(int year) {
 
         Campus actorCampus = extractActorCampus();
