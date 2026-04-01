@@ -240,7 +240,7 @@ public class SchoolServiceImpl implements SchoolService {
                 .year(request.getYear())
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
-                .status(Status.DRAFT).build();
+                .status(Status.DRAFT_ADMISSION_CAMPAIGN).build();
         admissionCampaignRepo.save(admissionCampaign);
 
         return ResponseBuilder.build(HttpStatus.CREATED, "Create campaign template successfully", null);
@@ -289,7 +289,7 @@ public class SchoolServiceImpl implements SchoolService {
                 .year(request.getYear())
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
-                .status(Status.DRAFT)
+                .status(Status.DRAFT_ADMISSION_CAMPAIGN)
                 .build();
 
         admissionCampaignRepo.save(newCampaign);
@@ -332,7 +332,7 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         //Chỉ cho sửa khi trạng thái là DRAFT ==> đang sửa sao cho update
-        if (!admissionCampaign.getStatus().equals(Status.DRAFT)) {
+        if (!admissionCampaign.getStatus().equals(Status.DRAFT_ADMISSION_CAMPAIGN)) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only DRAFT campaigns can be updated. This campaign is already " + admissionCampaign.getStatus(), null);
         }
 
@@ -376,8 +376,14 @@ public class SchoolServiceImpl implements SchoolService {
 
         if (campaign == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campaign not found", null);
 
-        if (!campaign.getStatus().equals(Status.DRAFT)) {
+        if (!campaign.getStatus().equals(Status.DRAFT_ADMISSION_CAMPAIGN)) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Only DRAFT campaigns can be published", null);
+        }
+
+        if (admissionCampaignRepo.existsBySchoolIdAndYearAndStatus(actorCampus.getSchool().getId(), campaign.getYear(), Status.OPEN_ADMISSION_CAMPAIGN)) {
+            return ResponseBuilder.build(HttpStatus.CONFLICT,
+                    "Academic year " + campaign.getYear() + " already has an OPEN campaign. Please close it before publishing a new one.",
+                    null);
         }
 
         // Kiểm tra tính hợp lệ của ngày kết thúc trước khi Publish
@@ -385,7 +391,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot publish an expired campaign. Update End Date first.", null);
         }
 
-        campaign.setStatus(Status.OPEN);
+        campaign.setStatus(Status.OPEN_ADMISSION_CAMPAIGN);
         admissionCampaignRepo.save(campaign);
 
         return ResponseBuilder.build(HttpStatus.OK, "Campaign published! Now Campuses can register offerings.", null);
@@ -411,27 +417,27 @@ public class SchoolServiceImpl implements SchoolService {
         if (campaign == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campaign not found", null);
 
         // 2. Chỉ cho hủy nếu đang OPEN
-        if (campaign.getStatus() == Status.CANCELLED) {
+        if (campaign.getStatus() == Status.CANCELLED_ADMISSION_CAMPAIGN) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campaign already inactive", null);
         }
 
-        campaign.setStatus(Status.CANCELLED);
+        if (admissionReservationFormRepo.countByCampusProgramOffering_AdmissionCampaign_Id(id) > 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "This campaign cannot be canceled because there is already a " + admissionReservationFormRepo.countByCampusProgramOffering_AdmissionCampaign_Id(id) + " registration profile." + "Please process the profile before taking this action.", null);
+        }
+
+        campaign.setStatus(Status.CANCELLED_ADMISSION_CAMPAIGN);
         campaign.setReason(reason);
         admissionCampaignRepo.save(campaign);
 
         //Hủy toàn bộ Offering con ==> cha bị hủy thì con của nó cũng phải ăn theo
         List<CampusProgramOffering> offerings = campusProgramOfferingRepo.findByAdmissionCampaignId(id);
         for (CampusProgramOffering offering : offerings) {
-            offering.setApplicationStatus(Status.CANCELLED);
+            offering.setApplicationStatus(Status.CANCELLED_ADMISSION_CAMPAIGN);
         }
         campusProgramOfferingRepo.saveAll(offerings);
 
         // 1. Kiểm tra xem có bất kỳ hồ sơ nào bám vào các Offering của Campaign này không
-
-        if (admissionReservationFormRepo.countByCampusProgramOffering_AdmissionCampaign_Id(id) > 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "This campaign cannot be canceled because there is already a " + admissionReservationFormRepo.countByCampusProgramOffering_AdmissionCampaign_Id(id) + " registration profile." + "Please process the profile before taking this action.", null);
-        }
 
         return ResponseBuilder.build(HttpStatus.OK, "Cancelled successfully", null);
     }
@@ -466,7 +472,7 @@ public class SchoolServiceImpl implements SchoolService {
 
     private Status autoCheckAndExpireStatus(AdmissionCampaign admissionCampaign) {
 
-        if (admissionCampaign.getStatus().equals(Status.OPEN) && admissionCampaign.getEndDate().isBefore(LocalDate.now())) {
+        if (admissionCampaign.getStatus().equals(Status.OPEN_ADMISSION_CAMPAIGN) && admissionCampaign.getEndDate().isBefore(LocalDate.now())) {
             admissionCampaign.setStatus(Status.EXPIRED);
             admissionCampaignRepo.save(admissionCampaign);
         }
@@ -476,7 +482,7 @@ public class SchoolServiceImpl implements SchoolService {
         if (offerings != null && !offerings.isEmpty()) {
             for (CampusProgramOffering offering : offerings) {
                 // Chỉ đóng những cái đang mở hoặc tạm dừng, không chạm vào cái đã FULL/CLOSED thủ công
-                if (offering.getApplicationStatus() == Status.OPEN || offering.getApplicationStatus() == Status.PAUSED) {
+                if (offering.getApplicationStatus() == Status.OPEN_ADMISSION_CAMPAIGN || offering.getApplicationStatus() == Status.PAUSED) {
                     offering.setApplicationStatus(Status.EXPIRED);
                 }
             }
@@ -855,7 +861,19 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus is out of your scope", null);
         }
 
-        campusProgramOfferingRepo.save(CampusProgramOffering.builder().campus(targetCampus).admissionCampaign(campaign).program(program).quota(request.getQuota()).remainingQuota(request.getQuota()).learningMode(request.getLearningMode()).priceAdjustmentPercentage(adjustmentPercent).tuitionFee(finalTuition).applicationStatus(Status.OPEN).openDate((request.getOpenDate() != null) ? request.getOpenDate() : campaign.getStartDate()).closeDate((request.getCloseDate() != null) ? request.getCloseDate() : campaign.getEndDate()).status(Status.OPEN).build());
+        campusProgramOfferingRepo.save(CampusProgramOffering.builder()
+                .campus(targetCampus)
+                .admissionCampaign(campaign)
+                .program(program)
+                .quota(request.getQuota())
+                .remainingQuota(request.getQuota())
+                .learningMode(request.getLearningMode())
+                .priceAdjustmentPercentage(adjustmentPercent)
+                .tuitionFee(finalTuition)
+                .applicationStatus(Status.OPEN)
+                .openDate((request.getOpenDate() != null) ? request.getOpenDate() : campaign.getStartDate()).closeDate((request.getCloseDate() != null) ? request.getCloseDate() : campaign.getEndDate())
+                .status(Status.OPEN_ADMISSION_CAMPAIGN)
+                .build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Create campus offering successfully", null);
     }
