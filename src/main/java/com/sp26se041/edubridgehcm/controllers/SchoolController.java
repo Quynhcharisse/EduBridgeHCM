@@ -54,16 +54,16 @@ public class SchoolController {
         return schoolService.createAdmissionCampaignTemplate(request);
     }
 
-    @PutMapping("{id}/campaign/template/status")
-    @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> changeAdmissionCampaignStatus(@PathVariable Integer id, @RequestParam Status targetStatus) { // Spring tự map String -> Enum
-        return schoolService.changeAdmissionCampaignStatus(id, targetStatus);
-    }
-
     @PutMapping("/campaign/template")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> updateAdmissionCampaignTemplate(@RequestBody UpdateAdmissionCampaignTemplateRequest request) {
         return schoolService.updateAdmissionCampaignTemplate(request);
+    }
+
+    @PutMapping("{id}/campaign/template/status")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> publishAdmissionCampaignStatus(@PathVariable int id) {
+        return schoolService.publishAdmissionCampaignStatus(id);
     }
 
     @GetMapping("{year}/campaign/template")

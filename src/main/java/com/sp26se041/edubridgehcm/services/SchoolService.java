@@ -24,7 +24,7 @@ public interface SchoolService {
 
     ResponseEntity<ResponseObject> updateAdmissionCampaignTemplate(UpdateAdmissionCampaignTemplateRequest request);
 
-    ResponseEntity<ResponseObject> changeAdmissionCampaignStatus(Integer id, Status targetStatus);
+    ResponseEntity<ResponseObject> publishAdmissionCampaignStatus(int id);
 
     ResponseEntity<ResponseObject> viewAdmissionCampaignTemplate(int year);
 
