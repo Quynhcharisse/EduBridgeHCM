@@ -10,9 +10,7 @@ import java.util.List;
 
 public interface CurriculumRepo extends JpaRepository<Curriculum, Integer> {
 
-    Page<Curriculum> findBySchoolIdOrderByEnrollmentYearDescVersionDesc(Integer schoolId, Pageable pageable);
-
-    List<Curriculum> findAllByGroupCodeAndEnrollmentYearAndIsLatestTrue(String groupCode, int enrollmentYear);
+    Page<Curriculum> findBySchoolIdOrderByEnrollmentYearDesc(Integer schoolId, Pageable pageable);
 
     Curriculum findByGroupCodeAndEnrollmentYearAndCurriculumStatus(String groupCode, int enrollmentYear, Status status);
 }

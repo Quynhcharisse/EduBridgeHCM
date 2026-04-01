@@ -66,8 +66,6 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.Year;
-import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -512,21 +510,18 @@ public class SchoolServiceImpl implements SchoolService {
 
         String error = CurriculumValidation.validationUpsertCurriculum(request, curriculumRepo, programRepo);
 
-        if (error != null && !error.isBlank()) {
+        if (error != null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
         Curriculum targetCurriculum;
 
-        long currentVersion = Long.parseLong(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
 
         boolean isNew = request.getCurriculumId() == null || request.getCurriculumId() <= 0;
 
         if (isNew) {
-
-            targetCurriculum = buildNewCurriculum(request, actorCampus.getSchool(), currentVersion);
+            targetCurriculum = buildNewCurriculum(request, actorCampus.getSchool());
         } else {
-
             Curriculum existingCurriculum = curriculumRepo.findById(request.getCurriculumId()).orElse(null);
 
             if (existingCurriculum == null) {
@@ -534,38 +529,24 @@ public class SchoolServiceImpl implements SchoolService {
             }
 
             if (Status.CUR_DRAFT.equals(existingCurriculum.getCurriculumStatus())) {
+                // Nếu là DRAFT, cho phép sửa
+                applyRequestToCurriculum(existingCurriculum, request);
                 targetCurriculum = existingCurriculum;
-                applyRequestToCurriculum(targetCurriculum, request, currentVersion);
             } else {
-                // Sửa bản ACTIVE: Tạo bản sao (Clone) ở dạng DRAFT để không ảnh hưởng dữ liệu đang chạy
-                targetCurriculum = evolveFromExisting(existingCurriculum, request, currentVersion);
+                // Nếu là ACTIVE, cấm sửa đè -> Tự động CLONE ra bản mới (DRAFT)
+                // Bản cũ (ACTIVE) vẫn còn đó cho các Program cũ dùng
+                targetCurriculum = evolveFromExisting(existingCurriculum, request);
             }
         }
 
         targetCurriculum.setCurriculumStatus(Status.CUR_DRAFT);
-        demoteLatestStatus(targetCurriculum.getGroupCode(), targetCurriculum.getEnrollmentYear());
-        targetCurriculum.setLatest(true);
-
         curriculumRepo.save(targetCurriculum);
         return ResponseBuilder.build(HttpStatus.OK, isNew ? "Created draft successfully" : "Updated draft successfully", null);
     }
 
-    private void demoteLatestStatus(String groupCode, int enrollmentYear) {
-        // 1. Tìm tất cả các bản ghi đang mang cờ isLatest = true trong nhóm này
-        List<Curriculum> latestVersions = curriculumRepo.findAllByGroupCodeAndEnrollmentYearAndIsLatestTrue(groupCode, enrollmentYear);
-
-        if (!latestVersions.isEmpty()) {
-            latestVersions.forEach(c -> c.setLatest(false));
-
-            curriculumRepo.saveAll(latestVersions);
-
-            curriculumRepo.flush();
-        }
-    }
-
     @Override
     @Transactional
-    public ResponseEntity<ResponseObject> activateCurriculum(int id) {
+    public ResponseEntity<ResponseObject> handleCurriculumAction(int id, String action) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
@@ -588,54 +569,65 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Curriculum not found", null);
         }
 
-        // 1. Nếu đã ACTIVE rồi thì thôi
-        if (Status.CUR_ACTIVE.equals(target.getCurriculumStatus())) {
-            return ResponseBuilder.build(HttpStatus.OK, "This curriculum is already active", null);
+        switch (action.toLowerCase()) {
+
+            case "PUBLISH":
+                //Chỉ cho phép Publish nếu đang là DRAFT
+                if (!Status.CUR_DRAFT.equals(target.getCurriculumStatus())) {
+                    return ResponseBuilder.build(HttpStatus.OK, "Only Draft can be published", null);
+                }
+
+                Curriculum currentActive = curriculumRepo.findByGroupCodeAndEnrollmentYearAndCurriculumStatus(
+                        target.getGroupCode(), target.getEnrollmentYear(), Status.CUR_ACTIVE);
+
+                //Tìm bản ACTIVE hiện tại của cùng nhóm --> nếu có cho vào bản CUR_ARCHIVED
+                if (currentActive != null) {
+                    currentActive.setCurriculumStatus(Status.CUR_ARCHIVED);
+                    curriculumRepo.save(currentActive);
+                }
+
+                target.setCurriculumStatus(Status.CUR_ACTIVE);
+                curriculumRepo.save(target);
+                return ResponseBuilder.build(HttpStatus.OK, "Published successfully", target.getId());
+
+            case "REVISE":
+                //Chỉnh sửa, cập nhật dựa trên bản cũ để tạo bản mới.
+                // Chỉ cho phép REVISE nếu đang là ACTIVE
+                if (!Status.CUR_ACTIVE.equals(target.getCurriculumStatus())) {
+                    return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Only Active curriculum can be revised", null);
+                }
+
+                //GIỮ NGUYÊN bản cũ là ACTIVE, chỉ đơn giản là CLONE ra bản DRAFT mới để sửa
+                Curriculum newDraft = evolveFromExisting(target, null);
+
+                return ResponseBuilder.build(HttpStatus.OK, "New draft created. Please update your changes.", curriculumRepo.save(newDraft).getId());
+
+            default:
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid action: " + action, null);
         }
-
-        // 2. Chặn ARCHIVED (Bạn đã làm tốt)
-        if (Status.CUR_ARCHIVED.equals(target.getCurriculumStatus())) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot activate an archived curriculum", null);
-        }
-
-        // 1. Kiểm tra tính hợp lệ của thời điểm nhấn nút (EnrollmentYear)
-        int currentYear = Year.now().getValue();
-        if (target.getEnrollmentYear() < currentYear - 1) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot activate curriculum for a past enrollment year.", null);
-        }
-
-        // 2. Kiểm tra trùng lặp nội dung với bản ACTIVE hiện tại
-        Curriculum currentActive = curriculumRepo.findByGroupCodeAndEnrollmentYearAndCurriculumStatus(target.getGroupCode(), target.getEnrollmentYear(), Status.CUR_ACTIVE);
-
-        if (currentActive != null) {
-            // So sánh nội dung quan trọng: Subjects và Description
-            boolean isSameContent = Objects.equals(target.getSubjectsJsonb(), currentActive.getSubjectsJsonb()) && Objects.equals(target.getDescription(), currentActive.getDescription()) && Objects.equals(target.getMethodLearning(), currentActive.getMethodLearning());
-
-            if (isSameContent) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "This draft has no changes compared to the current Active version. Activation canceled.", null);
-            }
-        }
-
-        // 5. THỰC HIỆN PUBLISH (Chuyển DRAFT -> ACTIVE)
-        target.setCurriculumStatus(Status.CUR_ACTIVE);
-        target.setLatest(true);
-        target.setVersion(Long.parseLong(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))));
-
-        curriculumRepo.save(target);
-        return ResponseBuilder.build(HttpStatus.OK, "Publish curriculum successful", null);
     }
 
-    private Curriculum buildNewCurriculum(CurriculumRequest request, School school, long version) {
-        return Curriculum.builder().name(CurriculumNamingUtil.generateName(request)).groupCode(CurriculumNamingUtil.generateGroupCode(request)).curriculumType(CurriculumType.valueOf(request.getCurriculumType())).methodLearning(LearningMethod.valueOf(request.getMethodLearning())).enrollmentYear(request.getEnrollmentYear()).description(request.getDescription()).subjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions())).version(version).school(school).isLatest(false).curriculumStatus(Status.CUR_DRAFT).build();
+    private Curriculum buildNewCurriculum(CurriculumRequest request, School school) {
+        // tạo mới thì draft
+        return Curriculum.builder()
+                .name(CurriculumNamingUtil.generateName(request))
+                .groupCode(CurriculumNamingUtil.generateGroupCode(request))
+                .curriculumType(CurriculumType.valueOf(request.getCurriculumType()))
+                .methodLearning(LearningMethod.valueOf(request.getMethodLearning()))
+                .enrollmentYear(request.getEnrollmentYear())
+                .description(request.getDescription())
+                .subjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()))
+                .school(school)
+                .curriculumStatus(Status.CUR_DRAFT)
+                .build();
     }
 
     // bảng update đối vs draft
-    private void applyRequestToCurriculum(Curriculum curriculum, CurriculumRequest request, long version) {
+    private void applyRequestToCurriculum(Curriculum curriculum, CurriculumRequest request) {
 
         curriculum.setDescription(request.getDescription());
         curriculum.setSubjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()));
         curriculum.setMethodLearning(LearningMethod.valueOf(request.getMethodLearning()));
-        curriculum.setVersion(version);
 
         // Chỉ generate lại tên curriculum từ các trường thành phần, tuyệt đối không lấy từ request.getName()
         // Không setName ở bất kỳ nơi nào khác ngoài đây và buildNewCurriculum
@@ -654,12 +646,17 @@ public class SchoolServiceImpl implements SchoolService {
         }
     }
 
-    private Curriculum evolveFromExisting(Curriculum existing, CurriculumRequest request, long version) {
-
-        Curriculum clone = Curriculum.builder().name(existing.getName()).groupCode(existing.getGroupCode()).curriculumType(existing.getCurriculumType()).enrollmentYear(existing.getEnrollmentYear()).school(existing.getSchool()).parent(existing).isLatest(false).curriculumStatus(Status.CUR_DRAFT).build();
-
-        // tận dụng hàm apply để gán các thông tin thay đổi từ request
-        applyRequestToCurriculum(clone, request, version);
+    private Curriculum evolveFromExisting(Curriculum existing, CurriculumRequest request) {
+        Curriculum clone = Curriculum.builder()
+                .name(existing.getName())
+                .groupCode(existing.getGroupCode())
+                .curriculumType(existing.getCurriculumType())
+                .enrollmentYear(existing.getEnrollmentYear())
+                .school(existing.getSchool())
+                .parent(existing)
+                .curriculumStatus(Status.CUR_DRAFT)
+                .build();
+        applyRequestToCurriculum(clone, request);
         return clone;
     }
 
@@ -688,7 +685,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
         }
 
-        Page<Curriculum> curriculumPage = curriculumRepo.findBySchoolIdOrderByEnrollmentYearDescVersionDesc(actorCampus.getSchool().getId(), pageable);
+        Page<Curriculum> curriculumPage = curriculumRepo.findBySchoolIdOrderByEnrollmentYearDesc(actorCampus.getSchool().getId(), pageable);
 
         PageResponse<Map<String, Object>> pageResponse = PaginationUtil.buildPageResponse(curriculumPage, this::buildCurriculumData);
 
@@ -705,9 +702,6 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("methodLearning", curriculum.getMethodLearning());
         data.put("enrollmentYear", curriculum.getEnrollmentYear());
         data.put("groupCode", curriculum.getGroupCode());
-        data.put("version", curriculum.getVersion());
-        data.put("versionDisplay", CurriculumNamingUtil.formatLongVersion(curriculum.getVersion()));
-        data.put("isLatest", curriculum.isLatest());
         data.put("curriculumStatus", curriculum.getCurriculumStatus().name());
         data.put("subjects", curriculum.getSubjectsJsonb());
         data.put("status", curriculum.getCurriculumStatus().name());

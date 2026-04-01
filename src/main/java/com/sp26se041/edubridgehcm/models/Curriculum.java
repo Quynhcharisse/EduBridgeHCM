@@ -62,11 +62,6 @@ public class Curriculum {
     @Column(name = "group_code")
     String groupCode;
 
-    long version;
-
-    @Column(name = "is_latest")
-    boolean isLatest;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "curriculum_status")
     Status curriculumStatus;

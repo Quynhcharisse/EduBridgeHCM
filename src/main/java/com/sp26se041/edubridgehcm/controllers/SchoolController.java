@@ -92,8 +92,8 @@ public class SchoolController {
 
     @PatchMapping("/{id}/activate/curriculum")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> activate(@PathVariable int id) {
-        return schoolService.activateCurriculum(id);
+    public ResponseEntity<ResponseObject> handleCurriculumAction(@PathVariable int id, @RequestParam(name = "action") String action) {
+        return schoolService.handleCurriculumAction(id, action);
     }
 
     @GetMapping("/curriculum/list")
