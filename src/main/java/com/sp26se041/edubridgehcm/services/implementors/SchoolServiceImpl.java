@@ -569,7 +569,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Curriculum not found", null);
         }
 
-        switch (action.toLowerCase()) {
+        switch (action.toUpperCase()) {
 
             case "PUBLISH":
                 //Chỉ cho phép Publish nếu đang là DRAFT
