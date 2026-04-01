@@ -83,7 +83,7 @@ public class AdmissionCampaignValidation {
             return "End date must be within the academic year " + request.getYear();
         }
 
-        if (admissionCampaignRepo.existsByYearAndSchoolIdAndStatusIn(actorCampus.getSchool().getId(), request.getYear(), List.of(Status.DRAFT, Status.OPEN, Status.PAUSED))) {
+        if (admissionCampaignRepo.existsByYearAndSchoolIdAndStatusIn(actorCampus.getSchool().getId(), request.getYear(), List.of(Status.OPEN_ADMISSION_CAMPAIGN))) {
             return "A campaign template for the " + request.getYear() + " year already exists";
         }
 
@@ -163,12 +163,15 @@ public class AdmissionCampaignValidation {
             return "End date must be within the academic year " + request.getYear();
         }
 
-        // Sửa lại logic check trùng năm:
-        AdmissionCampaign duplicateAdmissionCampaign = admissionCampaignRepo.findBySchoolIdAndYearAndIdNot(actorCampus.getSchool().getId(), request.getYear(), request.getAdmissionCampaignTemplateId()).orElse(null);
+        // Sửa lại đoạn check trùng trong hàm Update
+        List<AdmissionCampaign> existingCampaigns = admissionCampaignRepo
+                .findAllBySchoolIdAndYearAndIdNot(actorCampus.getSchool().getId(), request.getYear(), request.getAdmissionCampaignTemplateId());
 
-        // Nếu tìm thấy một campaign trùng năm, nhưng ID của nó khác với cái ta đang sửa -> Mới là lỗi
-        if (duplicateAdmissionCampaign != null) {
-            return "A campaign template for the year " + request.getYear() + " already exists";
+        for (AdmissionCampaign other : existingCampaigns) {
+            // RULE 1: Nếu đã có một chiến dịch khác đang OPEN_ADMISSION_CAMPAIGN ==> Thì ko đc trùng
+            if (other.getStatus() == Status.OPEN_ADMISSION_CAMPAIGN) {
+                return "Academic year " + request.getYear() + " already has an OPEN campaign (ID: " + other.getId() + "). Cannot have multiple campaigns when one is already active.";
+            }
         }
 
         return null;
