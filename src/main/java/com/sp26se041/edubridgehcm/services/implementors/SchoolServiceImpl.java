@@ -419,23 +419,30 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campaign already inactive", null);
         }
 
-        if (admissionReservationFormRepo.countByCampusProgramOffering_AdmissionCampaign_Id(id) > 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "This campaign cannot be canceled because there is already a " + admissionReservationFormRepo.countByCampusProgramOffering_AdmissionCampaign_Id(id) + " registration profile." + "Please process the profile before taking this action.", null);
+        // 3. Kiểm tra xem có hồ sơ nào đang bám vào các Offering của Campaign này không
+        // Bạn nên đếm các hồ sơ CHƯA HOÀN THÀNH (Ví dụ: PENDING, PROCESSING)
+        long activeProfilesCount = admissionReservationFormRepo.countByCampusProgramOffering_AdmissionCampaign_Id(id);
+
+        if (activeProfilesCount > 0) {
+            return ResponseBuilder.build(HttpStatus.PRECONDITION_FAILED,
+                    String.format("Cannot cancel campaign. There are %d active registration profiles linked to this campaign. " +
+                            "Please Reject or Process all profiles before cancelling to ensure student data integrity.", activeProfilesCount),
+                    null);
         }
 
         campaign.setStatus(Status.CANCELLED_ADMISSION_CAMPAIGN);
-        campaign.setReason(reason);
+        campaign.setReason(normalize(reason));
         admissionCampaignRepo.save(campaign);
 
         //Hủy toàn bộ Offering con ==> cha bị hủy thì con của nó cũng phải ăn theo
+        // 5. Cập nhật toàn bộ Offering con sang trạng thái CANCELLED
         List<CampusProgramOffering> offerings = campusProgramOfferingRepo.findByAdmissionCampaignId(id);
-        for (CampusProgramOffering offering : offerings) {
-            offering.setApplicationStatus(Status.CANCELLED_ADMISSION_CAMPAIGN);
+        if (!offerings.isEmpty()) {
+            for (CampusProgramOffering offering : offerings) {
+                offering.setApplicationStatus(Status.CANCELLED_ADMISSION_CAMPAIGN);
+            }
+            campusProgramOfferingRepo.saveAll(offerings);
         }
-        campusProgramOfferingRepo.saveAll(offerings);
-
-        // 1. Kiểm tra xem có bất kỳ hồ sơ nào bám vào các Offering của Campaign này không
 
         return ResponseBuilder.build(HttpStatus.OK, "Cancelled successfully", null);
     }
