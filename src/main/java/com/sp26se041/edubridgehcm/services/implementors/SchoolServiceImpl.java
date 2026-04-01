@@ -1378,6 +1378,16 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("policyDetail", campus.getPolicyDetail());
         data.put("imageJson", campus.getImageJson());
         data.put("facility", campus.getFacility());
+
+        List<String> consultantEmails = campus.getCounsellorList().stream()
+                .map(Counsellor::getAccount)
+                .filter(acc -> acc != null)
+                .filter(acc -> Role.COUNSELLOR.equals(acc.getRole()))
+                .filter(acc -> Status.ACCOUNT_ACTIVE.equals(acc.getStatus()))
+                .map(Account::getEmail)
+                .toList();
+
+        data.put("consultantEmails", consultantEmails);
         return data;
     }
 
