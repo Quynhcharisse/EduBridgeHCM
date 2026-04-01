@@ -278,14 +278,17 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campaign template is out of your school scope", null);
         }
 
-        //Chỉ cho sửa khi trạng thái là PAUSED ==> đang sửa sao cho update
-        //CLOSED: Nghĩa là chiến dịch đã kết thúc hẳn, dữ liệu đã được chốt để làm báo cáo. Nếu cho phép sửa ở trạng thái này sẽ làm mất tính toàn vẹn của lịch sử dữ liệu.
-        //PAUSE: Nghĩa là "Tạm nghỉ để bảo trì/chỉnh sửa". Đây chính là trạng thái sinh ra để dành cho việc thay đổi cấu hình mà không làm ảnh hưởng đến tiến trình chung.
-        if (!admissionCampaign.getStatus().equals(Status.PAUSED)) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "The campaign is currently active (OPEN). Please switch to PAUSED before updating the information.", null);
+        //Chỉ cho sửa khi trạng thái là DRAFT ==> đang sửa sao cho update
+        if (!admissionCampaign.getStatus().equals(Status.DRAFT)) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only DRAFT campaigns can be updated. This campaign is already " + admissionCampaign.getStatus(), null);
         }
 
-        String error = AdmissionCampaignValidation.validationUpdateAdmissionCampaignTemplate(request, admissionCampaign, campusProgramOfferingRepo);
+        //Chỉ cho sửa năm hiện tại
+        if (admissionCampaign.getYear() < LocalDate.now().getYear()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot update past campaigns", null);
+        }
+
+        String error = AdmissionCampaignValidation.validationUpdateAdmissionCampaignTemplate(request, admissionCampaignRepo);
 
         if (!error.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
@@ -293,6 +296,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         admissionCampaign.setName(normalize(request.getName()));
         admissionCampaign.setDescription(normalize(request.getDescription()));
+        admissionCampaign.setYear(request.getYear());
         admissionCampaign.setStartDate(request.getStartDate());
         admissionCampaign.setEndDate(request.getEndDate());
         admissionCampaignRepo.save(admissionCampaign);

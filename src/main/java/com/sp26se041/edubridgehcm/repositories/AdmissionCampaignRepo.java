@@ -13,7 +13,7 @@ public interface AdmissionCampaignRepo extends JpaRepository<AdmissionCampaign, 
     // Kiểm tra xem năm đó trường đã tạo template chưa
     boolean existsBySchoolIdAndYear(int schoolId, int year);
 
-    List<AdmissionCampaign> findBySchoolIdAndYear(int schoolId, int year);
+    Optional<AdmissionCampaign> findBySchoolIdAndYearAndIdNot(int schoolId, int year, int id);
 
     Optional<AdmissionCampaign> findFirstBySchoolIdAndYearOrderByIdDesc(int schoolId, int year);
 
