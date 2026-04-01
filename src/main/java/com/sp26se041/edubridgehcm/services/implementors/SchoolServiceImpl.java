@@ -380,6 +380,12 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Only DRAFT campaigns can be published", null);
         }
 
+        if (admissionCampaignRepo.existsBySchoolIdAndYearAndStatus(actorCampus.getSchool().getId(), campaign.getYear(), Status.OPEN_ADMISSION_CAMPAIGN)) {
+            return ResponseBuilder.build(HttpStatus.CONFLICT,
+                    "Academic year " + campaign.getYear() + " already has an OPEN campaign. Please close it before publishing a new one.",
+                    null);
+        }
+
         // Kiểm tra tính hợp lệ của ngày kết thúc trước khi Publish
         if (LocalDate.now().isAfter(campaign.getEndDate())) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot publish an expired campaign. Update End Date first.", null);

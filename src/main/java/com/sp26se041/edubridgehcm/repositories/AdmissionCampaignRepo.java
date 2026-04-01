@@ -16,4 +16,6 @@ public interface AdmissionCampaignRepo extends JpaRepository<AdmissionCampaign, 
     List<AdmissionCampaign> findBySchoolIdOrderByYearDesc(int schoolId);
 
     List<AdmissionCampaign> findAllBySchoolIdAndYearAndIdNot(Integer schoolId, int year, int id);
+
+    boolean existsBySchoolIdAndYearAndStatus(int id, int year, Status status);
 }
