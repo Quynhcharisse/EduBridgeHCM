@@ -20,6 +20,8 @@ public class UpdateAdmissionCampaignTemplateRequest {
 
     String name;
 
+    int year;
+
     String description;
 
     LocalDate startDate;
