@@ -701,7 +701,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("curriculumType", curriculum.getCurriculumType());
         data.put("methodLearning", curriculum.getMethodLearning());
         data.put("enrollmentYear", curriculum.getEnrollmentYear());
-        data.put("groupCode", curriculum.getGroupCode());t
+        data.put("groupCode", curriculum.getGroupCode());
         data.put("subjects", curriculum.getSubjectsJsonb());
         data.put("status", curriculum.getCurriculumStatus().name());
 
