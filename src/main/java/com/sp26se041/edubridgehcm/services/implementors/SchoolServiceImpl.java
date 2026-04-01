@@ -625,6 +625,8 @@ public class SchoolServiceImpl implements SchoolService {
     // bảng update đối vs draft
     private void applyRequestToCurriculum(Curriculum curriculum, CurriculumRequest request) {
 
+        if (request == null) return;
+
         curriculum.setDescription(request.getDescription());
         curriculum.setSubjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()));
         curriculum.setMethodLearning(LearningMethod.valueOf(request.getMethodLearning()));
@@ -650,13 +652,21 @@ public class SchoolServiceImpl implements SchoolService {
         Curriculum clone = Curriculum.builder()
                 .name(existing.getName())
                 .groupCode(existing.getGroupCode())
+                .description(existing.getDescription())
                 .curriculumType(existing.getCurriculumType())
+                .methodLearning(existing.getMethodLearning())
                 .enrollmentYear(existing.getEnrollmentYear())
+                .subjectsJsonb(existing.getSubjectsJsonb())
                 .school(existing.getSchool())
                 .parent(existing)
                 .curriculumStatus(Status.CUR_DRAFT)
                 .build();
         applyRequestToCurriculum(clone, request);
+
+        if (request != null) {
+            applyRequestToCurriculum(clone, request);
+        }
+
         return clone;
     }
 
