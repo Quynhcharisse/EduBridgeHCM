@@ -101,7 +101,9 @@ public class SchoolServiceImpl implements SchoolService {
     private final AdmissionReservationFormRepo admissionReservationFormRepo;
 
     private final SchoolRepo schoolRepo;
+
     private final FavouriteSchoolRepo favouriteSchoolRepo;
+
     private final ParentRepo parentRepo;
 
     @Override
@@ -306,7 +308,7 @@ public class SchoolServiceImpl implements SchoolService {
 
     @Override
     @Transactional
-    public ResponseEntity<ResponseObject> changeAdmissionCampaignStatus(Integer id, Status targetStatus) {
+    public ResponseEntity<ResponseObject> publishAdmissionCampaignStatus(int id) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
@@ -323,41 +325,19 @@ public class SchoolServiceImpl implements SchoolService {
 
         if (campaign == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campaign not found", null);
 
-        if (campaign.getStatus().equals(targetStatus)) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campaign is already in status " + targetStatus.name(), null);
+        if (!campaign.getStatus().equals(Status.DRAFT)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Only DRAFT campaigns can be published", null);
         }
 
-        if (campaign.getStatus().equals(Status.CLOSED) || campaign.getStatus().equals(Status.EXPIRED)) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Cannot change status of a closed or expired campaign", null);
+        // Kiểm tra tính hợp lệ của ngày kết thúc trước khi Publish
+        if (LocalDate.now().isAfter(campaign.getEndDate())) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot publish an expired campaign. Update End Date first.", null);
         }
 
-        if (targetStatus.equals(Status.OPEN)) {
-            if (LocalDate.now().isAfter(campaign.getEndDate())) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "End date passed. Update campaign duration first.", null);
-            }
-        }
-
-        campaign.setStatus(targetStatus);
+        campaign.setStatus(Status.OPEN);
         admissionCampaignRepo.save(campaign);
 
-        // 6. XỬ LÝ CASCADE ĐỒNG BỘ CHO CÁC NGÀNH HỌC (OFFERINGS)
-        List<CampusProgramOffering> offerings = campusProgramOfferingRepo.findByAdmissionCampaignId(id);
-
-        if (targetStatus.equals(Status.CLOSED) || targetStatus.equals(Status.PAUSED)) {
-            // Nếu Cha dừng/đóng -> Toàn bộ con dừng/đóng theo
-            for (CampusProgramOffering offering : offerings) {
-                offering.setApplicationStatus(targetStatus);
-            }
-        } else if (targetStatus.equals(Status.OPEN)) {
-            // Nếu Cha mở lại -> Chỉ mở lại những ngành đang bị PAUSED (không mở lại ngành đã FULL/CLOSED)
-            for (CampusProgramOffering offering : offerings) {
-                if (offering.getApplicationStatus().equals(Status.PAUSED)) {
-                    offering.setApplicationStatus(Status.OPEN);
-                }
-            }
-        }
-
-        return ResponseBuilder.build(HttpStatus.OK, "Status updated to " + targetStatus + " successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Campaign published! Now Campuses can register offerings.", null);
     }
 
     @Override
@@ -386,6 +366,27 @@ public class SchoolServiceImpl implements SchoolService {
         List<Map<String, Object>> data = campaignList.stream().map(this::buildCampaignData).toList();
 
         return ResponseBuilder.build(HttpStatus.OK, "View campaign template list successfully", data);
+    }
+
+    private Status autoCheckAndExpireStatus(AdmissionCampaign admissionCampaign) {
+
+        if (admissionCampaign.getStatus().equals(Status.OPEN) && admissionCampaign.getEndDate().isBefore(LocalDate.now())) {
+            admissionCampaign.setStatus(Status.EXPIRED);
+            admissionCampaignRepo.save(admissionCampaign);
+        }
+
+        //Cập nhật tất cả các ngành học (Offerings) của chiến dịch này
+        List<CampusProgramOffering> offerings = campusProgramOfferingRepo.findByAdmissionCampaignId(admissionCampaign.getId());
+        if (offerings != null && !offerings.isEmpty()) {
+            for (CampusProgramOffering offering : offerings) {
+                // Chỉ đóng những cái đang mở hoặc tạm dừng, không chạm vào cái đã FULL/CLOSED thủ công
+                if (offering.getApplicationStatus() == Status.OPEN || offering.getApplicationStatus() == Status.PAUSED) {
+                    offering.setApplicationStatus(Status.EXPIRED);
+                }
+            }
+            campusProgramOfferingRepo.saveAll(offerings);
+        }
+        return admissionCampaign.getStatus();
     }
 
     @Override
@@ -997,7 +998,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("year", campaign.getYear());
         data.put("startDate", campaign.getStartDate());
         data.put("endDate", campaign.getEndDate());
-        data.put("status", campaign.getStatus());
+        data.put("status", autoCheckAndExpireStatus(campaign));
         data.put("schoolId", campaign.getSchool().getId());
         return data;
     }
