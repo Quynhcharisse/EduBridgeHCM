@@ -37,23 +37,18 @@ public class AdmissionCampaignValidation {
             return "Year is required";
         }
 
-        // 2. Kiểm tra Năm (Year)
+        // Cho phép tạo chiến dịch cho năm hiện tại hoặc các năm tương lai
         if (request.getYear() < LocalDate.now().getYear()) {
-            return "Cannot create a campaign for a past year";
-        }
-
-        if (admissionCampaignRepo.existsBySchoolIdAndYear(actorCampus.getSchool().getId(), request.getYear())) {
-            return "A campaign template for the year already exists";
+            return "Cannot create a campaign for a past academic year";
         }
 
         // 3. Kiểm tra Ngày tháng (Dates)
-        if (request.getStartDate() == null || request.getEndDate() == null) {
-            return "Start date and end date are required";
+        if (request.getStartDate() == null) {
+            return "Start date are required";
         }
 
-        // Đồng bộ Năm và Ngày (Bạn đã làm rất tốt bước này)
-        if (request.getStartDate().getYear() != request.getYear() || request.getEndDate().getYear() != request.getYear()) {
-            return "Start date and end date must be within the year " + request.getYear();
+        if (request.getEndDate() == null) {
+            return "End date are required";
         }
 
         // Check quá khứ cho StartDate (cho phép lùi 1 ngày)
@@ -66,9 +61,29 @@ public class AdmissionCampaignValidation {
             return "End date must be in the future";
         }
 
-        // Check mối quan hệ End - Start (Nên dùng !isAfter để bắt buộc khác ngày)
+        //chiến dịch phải diễn ra ít nhất là hơn 1 ngày
         if (!request.getEndDate().isAfter(request.getStartDate())) {
             return "End date must be after start date";
+        }
+
+        // Quy tắc: StartDate có thể nằm ở quý 4 của năm trước (n-1)
+        // để bắt đầu nhận hồ sơ sớm cho năm học (n).
+        // Ví dụ: Chiến dịch 2027 có thể bắt đầu từ 01/10/2026.
+        if (request.getStartDate().isBefore(LocalDate.of(request.getYear() - 1, 10, 1))) {
+            return "Start date is too early. Early bird for " + request.getYear() + " should start from October " + (request.getYear() - 1);
+        }
+
+        if (request.getEndDate().isBefore(LocalDate.of(request.getYear() - 1, 12, 31))) {
+            return "End date is invalid. A campaign for " + request.getYear() + " must at least last until the end of " + (request.getYear() - 1);
+        }
+
+        // Quy tắc: EndDate phải kết thúc trong năm học đó để chốt sổ
+        if (request.getEndDate().getYear() != request.getYear()) {
+            return "End date must be within the academic year " + request.getYear();
+        }
+
+        if (admissionCampaignRepo.existsBySchoolIdAndYear(actorCampus.getSchool().getId(), request.getYear())) {
+            return "A campaign template for the " + request.getYear() + "year already exists";
         }
 
         return null;

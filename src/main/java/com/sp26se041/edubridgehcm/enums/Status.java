@@ -18,6 +18,7 @@ public enum Status {
 
     //With status for admissions
     OPEN("open"), //tao moi
+    DRAFT("draft"), //tạo mới ban đầu admission campaign
     CLOSED("closed"), //schoo admin pause thu cong
     PAUSED("paused"), //school admin dong thu cong
     FULL("fulled"), //offering het quota

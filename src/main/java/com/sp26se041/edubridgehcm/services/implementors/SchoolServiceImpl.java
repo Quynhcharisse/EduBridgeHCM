@@ -231,7 +231,14 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
-        AdmissionCampaign admissionCampaign = AdmissionCampaign.builder().school(actorCampus.getSchool()).name(normalize(request.getName())).description(normalize(request.getDescription())).year(request.getYear()).startDate(request.getStartDate()).endDate(request.getEndDate()).status(Status.OPEN).build();
+        AdmissionCampaign admissionCampaign = AdmissionCampaign.builder()
+                .school(actorCampus.getSchool())
+                .name(normalize(request.getName()))
+                .description(normalize(request.getDescription()))
+                .year(request.getYear())
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate())
+                .status(Status.DRAFT).build();
         admissionCampaignRepo.save(admissionCampaign);
 
         return ResponseBuilder.build(HttpStatus.CREATED, "Create campaign template successfully", null);
