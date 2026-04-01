@@ -294,7 +294,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         admissionCampaignRepo.save(newCampaign);
 
-        return ResponseBuilder.build(HttpStatus.CREATED, "Cloned successfully!", null);
+        return ResponseBuilder.build(HttpStatus.CREATED, "Cloned successfully!", buildCampaignData(newCampaign));
     }
 
     @Override
