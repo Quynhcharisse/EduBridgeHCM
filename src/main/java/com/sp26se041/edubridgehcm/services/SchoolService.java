@@ -26,6 +26,8 @@ public interface SchoolService {
 
     ResponseEntity<ResponseObject> publishAdmissionCampaignStatus(int id);
 
+    ResponseEntity<ResponseObject> cancelAdmissionCampaign(int id, String reason);
+
     ResponseEntity<ResponseObject> viewAdmissionCampaignTemplate(int year);
 
     ResponseEntity<ResponseObject> upsertCurriculum(CurriculumRequest request);

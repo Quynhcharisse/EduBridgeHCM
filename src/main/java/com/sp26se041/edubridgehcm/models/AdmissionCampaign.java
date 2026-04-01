@@ -55,6 +55,8 @@ public class AdmissionCampaign {
 
     String description;
 
+    String reason;
+
     @Column(name = "start_date")
     LocalDate startDate;
 

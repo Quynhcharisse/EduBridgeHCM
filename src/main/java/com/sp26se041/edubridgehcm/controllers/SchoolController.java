@@ -66,6 +66,12 @@ public class SchoolController {
         return schoolService.publishAdmissionCampaignStatus(id);
     }
 
+    @PutMapping("{id}/campaign/template/cancele")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> cancelAdmissionCampaign(@PathVariable int id, String reason) {
+        return schoolService.cancelAdmissionCampaign(id, reason);
+    }
+
     @GetMapping("{year}/campaign/template")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> viewAdmissionCampaignTemplate(@PathVariable int year) {
