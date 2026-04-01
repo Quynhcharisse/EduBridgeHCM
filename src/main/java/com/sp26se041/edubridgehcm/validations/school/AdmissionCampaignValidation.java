@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.validations.school;
 
 import com.sp26se041.edubridgehcm.enums.Role;
+import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
 import com.sp26se041.edubridgehcm.models.Campus;
@@ -10,6 +11,7 @@ import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateReques
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 
 import java.time.LocalDate;
+import java.util.List;
 
 public class AdmissionCampaignValidation {
 
@@ -81,8 +83,8 @@ public class AdmissionCampaignValidation {
             return "End date must be within the academic year " + request.getYear();
         }
 
-        if (admissionCampaignRepo.existsBySchoolIdAndYear(actorCampus.getSchool().getId(), request.getYear())) {
-            return "A campaign template for the " + request.getYear() + "year already exists";
+        if (admissionCampaignRepo.existsByYearAndSchoolIdAndStatusIn(actorCampus.getSchool().getId(), request.getYear(), List.of(Status.DRAFT, Status.OPEN, Status.PAUSED))) {
+            return "A campaign template for the " + request.getYear() + " year already exists";
         }
 
         return null;
