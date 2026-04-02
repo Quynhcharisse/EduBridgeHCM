@@ -796,6 +796,21 @@ public class SchoolServiceImpl implements SchoolService {
     @Transactional
     public ResponseEntity<ResponseObject> cloneProgram(int id) {
 
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        // actor campus co phai la primary campus ko
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
+        }
+
         Program oldProgram = programRepo.findById(id).orElse(null);
 
         if (oldProgram == null) {
