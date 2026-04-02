@@ -2,7 +2,10 @@ package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.CurriculumType;
+import com.sp26se041.edubridgehcm.enums.FeeUnit;
+import com.sp26se041.edubridgehcm.enums.LanguageInstruction;
 import com.sp26se041.edubridgehcm.enums.LearningMethod;
+import com.sp26se041.edubridgehcm.enums.ProgramCategory;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
@@ -748,7 +751,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         String error = ProgramValidation.validationUpsertProgram(request, actorCampus, curriculumRepo, programRepo);
 
-        if (error != null && !error.isBlank()) {
+        if (error != null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
@@ -764,13 +767,21 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Curriculum is invalid", null);
         }
 
+        if (curriculum.getCurriculumStatus() == Status.CUR_ARCHIVED) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Cannot use an archived curriculum. Please use the latest active version.", null);
+        }
+
         // Đồng bộ dữ liệu (Gom chung cho cả Create/Update để tránh lặp code)
         program.setCurriculum(curriculum);
         program.setName(normalize(request.getName()));
+        program.setLanguageOfInstruction(LanguageInstruction.valueOf(normalize(request.getLanguageOfInstruction())));
+        program.setProgramCategory(ProgramCategory.valueOf(normalize(request.getProgramCategory())));
         program.setGraduationStandard(normalize(request.getGraduationStandard()));
         program.setTargetStudentDescription(normalize(request.getTargetStudentDescription()));
         program.setBaseTuitionFee(request.getBaseTuitionFee());
-        program.setActive(Boolean.TRUE.equals(request.getIsActive()));
+        program.setFeeUnit(FeeUnit.valueOf(request.getFeeUnit()));
+        program.setStatus(Status.PRO_DRAFT);
 
         try {
             programRepo.save(program);
@@ -1107,8 +1118,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("graduationStandard", program.getGraduationStandard());
         data.put("targetStudentDescription", program.getTargetStudentDescription());
         data.put("baseTuitionFee", program.getBaseTuitionFee());
-        data.put("isActive", program.isActive());
-        data.put("programStatus", program.isActive() ? Status.PRO_ACTIVE : Status.PRO_INACTIVE);
+        data.put("status", program.getStatus());
 
         Curriculum curriculum = program.getCurriculum();
         data.put("curriculumId", curriculum.getId());
@@ -1377,7 +1387,7 @@ public class SchoolServiceImpl implements SchoolService {
             data.put("graduationStandard", program.getGraduationStandard());
             data.put("targetStudentDescription", program.getTargetStudentDescription());
             data.put("baseTuitionFee", program.getBaseTuitionFee());
-            data.put("isActive", program.isActive());
+            data.put("isActive", program.getStatus());
             data.put("campusProgramOfferingList", buildPublicCampusProgramOfferingDataList(program.getCampusProgramOfferingList()));
             return data;
         }).toList();

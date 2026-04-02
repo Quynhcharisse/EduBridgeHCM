@@ -64,7 +64,7 @@ public class CampusProgramOfferingValidation {
             return "Program not found";
         }
 
-        if (!program.isActive()) {
+        if (!program.getStatus().equals(Status.PRO_INACTIVE)) {
             return "Program is inactive";
         }
 
@@ -143,8 +143,9 @@ public class CampusProgramOfferingValidation {
             return "Target program is invalid";
         }
 
-        if (!targetProgram.isActive()) {
-            return "Program is inactive";
+        // Nếu status LÀ INACTIVE
+        if (Status.PRO_INACTIVE.equals(targetProgram.getStatus())) {
+            return "This program has been inactivated by the school.";
         }
 
         if (targetProgram.getCurriculum().getCurriculumStatus() != Status.CUR_ACTIVE) {
