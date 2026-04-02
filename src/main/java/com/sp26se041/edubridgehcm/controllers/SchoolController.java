@@ -103,6 +103,18 @@ public class SchoolController {
         return schoolService.viewCurriculumList(page, pageSize);
     }
 
+    @PatchMapping("/{id}/activate/program")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> handleProgramAction(@PathVariable int id, @RequestParam(name = "action") String action) {
+        return schoolService.handleProgramAction(id, action);
+    }
+
+    @PostMapping("/{id}/program/clone")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> cloneProgram(@PathVariable int id) {
+        return schoolService.cloneProgram(id);
+    }
+
     @GetMapping("/program/list")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> viewProgramList(@RequestParam(defaultValue = "0") int page,

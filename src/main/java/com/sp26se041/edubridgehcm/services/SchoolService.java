@@ -42,6 +42,10 @@ public interface SchoolService {
 
     ResponseEntity<ResponseObject> upsertProgram(ProgramRequest request);
 
+    ResponseEntity<ResponseObject> cloneProgram(int id);
+
+    ResponseEntity<ResponseObject> handleProgramAction(int id, String action);
+
     ResponseEntity<ResponseObject> createCampusProgramOffering(CreateCampusProgramOfferingRequest request);
 
     ResponseEntity<ResponseObject> viewCampusProgramOfferingList(int campusId, int page, int pageSize);

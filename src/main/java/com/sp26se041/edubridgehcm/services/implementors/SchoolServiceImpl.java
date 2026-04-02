@@ -793,6 +793,88 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
+    public ResponseEntity<ResponseObject> cloneProgram(int id) {
+
+        Program oldProgram = programRepo.findById(id).orElse(null);
+
+        if (oldProgram == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "The original program does not exist.", null);
+        }
+
+        Program newProgram = new Program();
+        newProgram.setName(oldProgram.getName() + " - Sao chép (" + LocalDateTime.now().getYear() + ")");
+        newProgram.setCurriculum(oldProgram.getCurriculum());
+        newProgram.setLanguageOfInstruction(oldProgram.getLanguageOfInstruction());
+        newProgram.setProgramCategory(oldProgram.getProgramCategory());
+        newProgram.setGraduationStandard(oldProgram.getGraduationStandard());
+        newProgram.setTargetStudentDescription(oldProgram.getTargetStudentDescription());
+
+        // Giữ nguyên học phí cũ để Admin tự vào sửa sau
+        newProgram.setBaseTuitionFee(oldProgram.getBaseTuitionFee());
+        newProgram.setFeeUnit(oldProgram.getFeeUnit());
+        newProgram.setStatus(Status.PRO_DRAFT);
+
+        Program savedProgram = programRepo.save(newProgram);
+
+        return ResponseBuilder.build(HttpStatus.CREATED, "A copy has been successfully created. Please update your information.", buildProgramData(savedProgram));
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<ResponseObject> handleProgramAction(int id, String action) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        // actor campus co phai la primary campus ko
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
+        }
+
+        Program program = programRepo.findById(id).orElse(null);
+
+        if (program == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Program not found", null);
+
+        switch (action.toUpperCase()) {
+            case "ACTIVATE":
+
+                if (Status.PRO_ACTIVE.equals(program.getStatus())) {
+                    return ResponseBuilder.build(HttpStatus.OK, "Program is already Active", null);
+                }
+
+                program.setStatus(Status.PRO_ACTIVE);
+                programRepo.save(program);
+                return ResponseBuilder.build(HttpStatus.OK, "Program activated successfully", null);
+            case "DEACTIVATE":
+
+                if (Status.PRO_INACTIVE.equals(program.getStatus())) {
+                    return ResponseBuilder.build(HttpStatus.OK, "Program is already Inactive", null);
+                }
+
+                program.setStatus(Status.PRO_INACTIVE);
+
+                List<CampusProgramOffering> activeOfferings = campusProgramOfferingRepo.findByProgramIdAndStatus(id, Status.OPEN);
+                for (CampusProgramOffering off : activeOfferings) {
+                    off.setStatus(Status.CLOSED); // Chặn người mới nộp vào
+                    campusProgramOfferingRepo.save(off);
+                }
+
+                programRepo.save(program);
+                return ResponseBuilder.build(HttpStatus.OK, "Program deactivated successfully", null);
+
+            default:
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid action", null);
+        }
+    }
+
+    @Override
     public ResponseEntity<ResponseObject> viewProgramList(int page, int pageSize) {
 
         Campus actorCampus = extractActorCampus();
@@ -1113,21 +1195,36 @@ public class SchoolServiceImpl implements SchoolService {
 
     private Map<String, Object> buildProgramData(Program program) {
         Map<String, Object> data = new HashMap<>();
+
         data.put("id", program.getId());
         data.put("name", program.getName());
+        data.put("languageOfInstruction", program.getLanguageOfInstruction()); // Thêm cái này
+        data.put("programCategory", program.getProgramCategory()); // Thêm cái này
         data.put("graduationStandard", program.getGraduationStandard());
         data.put("targetStudentDescription", program.getTargetStudentDescription());
         data.put("baseTuitionFee", program.getBaseTuitionFee());
+        data.put("feeUnit", program.getFeeUnit()); // Rất quan trọng cho FE hiển thị
         data.put("status", program.getStatus());
 
         Curriculum curriculum = program.getCurriculum();
-        data.put("curriculumId", curriculum.getId());
-        data.put("curriculumName", curriculum.getName());
-        data.put("curriculumType", curriculum.getCurriculumType());
-        data.put("enrollmentYear", curriculum.getEnrollmentYear());
-        data.put("curriculumStatus", curriculum.getCurriculumStatus());
-        data.put("schoolId", curriculum.getSchool().getId());
-        data.put("offeringCount", program.getCampusProgramOfferingList().size());
+        Map<String, Object> curriculumData = new HashMap<>();
+        curriculumData.put("id", curriculum.getId());
+        curriculumData.put("name", curriculum.getName());
+        curriculumData.put("type", curriculum.getCurriculumType());
+        curriculumData.put("enrollmentYear", curriculum.getEnrollmentYear());
+        curriculumData.put("status", curriculum.getCurriculumStatus());
+        curriculumData.put("schoolId", curriculum.getSchool() != null ? curriculum.getSchool().getId() : null);
+        data.put("curriculum", curriculumData);
+
+        // --- Thông tin Thống kê & Logic (Helper cho FE) ---
+        int offeringCount = (program.getCampusProgramOfferingList() != null)
+                ? program.getCampusProgramOfferingList().size()
+                : 0;
+        data.put("offeringCount", offeringCount);
+
+        boolean isActive = Status.PRO_ACTIVE.equals(program.getStatus());
+        data.put("canEditCore", !isActive && offeringCount == 0);
+
         return data;
     }
 
