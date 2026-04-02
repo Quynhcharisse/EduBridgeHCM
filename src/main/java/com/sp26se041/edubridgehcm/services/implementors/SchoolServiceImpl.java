@@ -793,6 +793,7 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
+    @Transactional
     public ResponseEntity<ResponseObject> cloneProgram(int id) {
 
         Program oldProgram = programRepo.findById(id).orElse(null);
@@ -802,7 +803,7 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         Program newProgram = new Program();
-        newProgram.setName(oldProgram.getName() + " - Sao chép (" + LocalDateTime.now().getYear() + ")");
+        newProgram.setName(oldProgram.getName() + " - Cloned (" + LocalDateTime.now().getYear() + ")");
         newProgram.setCurriculum(oldProgram.getCurriculum());
         newProgram.setLanguageOfInstruction(oldProgram.getLanguageOfInstruction());
         newProgram.setProgramCategory(oldProgram.getProgramCategory());
