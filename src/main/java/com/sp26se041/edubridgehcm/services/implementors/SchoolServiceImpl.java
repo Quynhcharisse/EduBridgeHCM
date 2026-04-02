@@ -231,14 +231,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
-        AdmissionCampaign admissionCampaign = AdmissionCampaign.builder()
-                .school(actorCampus.getSchool())
-                .name(normalize(request.getName()))
-                .description(normalize(request.getDescription()))
-                .year(request.getYear())
-                .startDate(request.getStartDate())
-                .endDate(request.getEndDate())
-                .status(Status.DRAFT_ADMISSION_CAMPAIGN).build();
+        AdmissionCampaign admissionCampaign = AdmissionCampaign.builder().school(actorCampus.getSchool()).name(normalize(request.getName())).description(normalize(request.getDescription())).year(request.getYear()).startDate(request.getStartDate()).endDate(request.getEndDate()).status(Status.DRAFT_ADMISSION_CAMPAIGN).build();
         admissionCampaignRepo.save(admissionCampaign);
 
         return ResponseBuilder.build(HttpStatus.CREATED, "Create campaign template successfully", null);
@@ -280,15 +273,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
-        AdmissionCampaign newCampaign = AdmissionCampaign.builder()
-                .school(oldCampaign.getSchool())
-                .name(request.getName())
-                .description(request.getDescription())
-                .year(request.getYear())
-                .startDate(request.getStartDate())
-                .endDate(request.getEndDate())
-                .status(Status.DRAFT_ADMISSION_CAMPAIGN)
-                .build();
+        AdmissionCampaign newCampaign = AdmissionCampaign.builder().school(oldCampaign.getSchool()).name(request.getName()).description(request.getDescription()).year(request.getYear()).startDate(request.getStartDate()).endDate(request.getEndDate()).status(Status.DRAFT_ADMISSION_CAMPAIGN).build();
 
         admissionCampaignRepo.save(newCampaign);
 
@@ -379,9 +364,7 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         if (admissionCampaignRepo.existsBySchoolIdAndYearAndStatus(actorCampus.getSchool().getId(), campaign.getYear(), Status.OPEN_ADMISSION_CAMPAIGN)) {
-            return ResponseBuilder.build(HttpStatus.CONFLICT,
-                    "Academic year " + campaign.getYear() + " already has an OPEN campaign. Please close it before publishing a new one.",
-                    null);
+            return ResponseBuilder.build(HttpStatus.CONFLICT, "Academic year " + campaign.getYear() + " already has an OPEN campaign. Please close it before publishing a new one.", null);
         }
 
         // Kiểm tra tính hợp lệ của ngày kết thúc trước khi Publish
@@ -424,10 +407,7 @@ public class SchoolServiceImpl implements SchoolService {
         long activeProfilesCount = admissionReservationFormRepo.countByCampusProgramOffering_AdmissionCampaign_Id(id);
 
         if (activeProfilesCount > 0) {
-            return ResponseBuilder.build(HttpStatus.PRECONDITION_FAILED,
-                    String.format("Cannot cancel campaign. There are %d active registration profiles linked to this campaign. " +
-                            "Please Reject or Process all profiles before cancelling to ensure student data integrity.", activeProfilesCount),
-                    null);
+            return ResponseBuilder.build(HttpStatus.PRECONDITION_FAILED, String.format("Cannot cancel campaign. There are %d active registration profiles linked to this campaign. " + "Please Reject or Process all profiles before cancelling to ensure student data integrity.", activeProfilesCount), null);
         }
 
         campaign.setStatus(Status.CANCELLED_ADMISSION_CAMPAIGN);
@@ -584,8 +564,10 @@ public class SchoolServiceImpl implements SchoolService {
                     return ResponseBuilder.build(HttpStatus.OK, "Only Draft can be published", null);
                 }
 
-                Curriculum currentActive = curriculumRepo.findByGroupCodeAndEnrollmentYearAndCurriculumStatus(
-                        target.getGroupCode(), target.getEnrollmentYear(), Status.CUR_ACTIVE);
+                //Nếu bạn đang chuẩn bị PUBLISH một bản nháp mới cho "Khối Tự Nhiên - 2024",
+                // hệ thống sẽ lục tìm: "Hệ thống đã có bản nào là Tự Nhiên - 2024 đang chạy (ACTIVE) chưa?"
+                // . Nếu có, bản đó lập tức bị coi là "phiên bản cũ" và bị đẩy vào kho ARCHIVED.
+                Curriculum currentActive = curriculumRepo.findByGroupCodeAndEnrollmentYearAndCurriculumStatus(target.getGroupCode(), target.getEnrollmentYear(), Status.CUR_ACTIVE);
 
                 //Tìm bản ACTIVE hiện tại của cùng nhóm --> nếu có cho vào bản CUR_ARCHIVED
                 if (currentActive != null) {
@@ -656,19 +638,7 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     private Curriculum evolveFromExisting(Curriculum existing, CurriculumRequest request) {
-        Curriculum clone = Curriculum.builder()
-                .name(existing.getName())
-                .groupCode(existing.getGroupCode())
-                .description(existing.getDescription())
-                .curriculumType(existing.getCurriculumType())
-                .methodLearning(existing.getMethodLearning())
-                .enrollmentYear(existing.getEnrollmentYear())
-                .subjectsJsonb(existing.getSubjectsJsonb())
-                .school(existing.getSchool())
-                .parent(existing)
-                .curriculumStatus(Status.CUR_DRAFT)
-                .build();
-        applyRequestToCurriculum(clone, request);
+        Curriculum clone = Curriculum.builder().name(existing.getName()).groupCode(existing.getGroupCode()).description(existing.getDescription()).curriculumType(existing.getCurriculumType()).methodLearning(existing.getMethodLearning()).enrollmentYear(existing.getEnrollmentYear()).subjectsJsonb(existing.getSubjectsJsonb()).school(existing.getSchool()).parent(existing).curriculumStatus(Status.CUR_DRAFT).build();
 
         if (request != null) {
             applyRequestToCurriculum(clone, request);
@@ -694,6 +664,8 @@ public class SchoolServiceImpl implements SchoolService {
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "User session invalid or school not found", null);
         }
+
+        autoArchiveOldCurriculums(actorCampus.getSchool().getId());
 
         Pageable pageable;
         try {
@@ -741,6 +713,19 @@ public class SchoolServiceImpl implements SchoolService {
             data.put("linkedProgramNames", Collections.emptyList());
         }
         return data;
+    }
+
+    private void autoArchiveOldCurriculums(int schoolId) {
+        int currentYear = LocalDate.now().getYear();
+
+        List<Curriculum> oldCurriculums = curriculumRepo.findAllBySchoolIdAndCurriculumStatusAndEnrollmentYearLessThan(schoolId, Status.CUR_ACTIVE, currentYear);
+
+        if (oldCurriculums != null && !oldCurriculums.isEmpty()) {
+            for (Curriculum cur : oldCurriculums) {
+                cur.setCurriculumStatus(Status.CUR_ARCHIVED);
+            }
+            curriculumRepo.saveAll(oldCurriculums);
+        }
     }
 
     @Override
@@ -871,19 +856,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus is out of your scope", null);
         }
 
-        campusProgramOfferingRepo.save(CampusProgramOffering.builder()
-                .campus(targetCampus)
-                .admissionCampaign(campaign)
-                .program(program)
-                .quota(request.getQuota())
-                .remainingQuota(request.getQuota())
-                .learningMode(request.getLearningMode())
-                .priceAdjustmentPercentage(adjustmentPercent)
-                .tuitionFee(finalTuition)
-                .applicationStatus(Status.OPEN)
-                .openDate((request.getOpenDate() != null) ? request.getOpenDate() : campaign.getStartDate()).closeDate((request.getCloseDate() != null) ? request.getCloseDate() : campaign.getEndDate())
-                .status(Status.OPEN_ADMISSION_CAMPAIGN)
-                .build());
+        campusProgramOfferingRepo.save(CampusProgramOffering.builder().campus(targetCampus).admissionCampaign(campaign).program(program).quota(request.getQuota()).remainingQuota(request.getQuota()).learningMode(request.getLearningMode()).priceAdjustmentPercentage(adjustmentPercent).tuitionFee(finalTuition).applicationStatus(Status.OPEN).openDate((request.getOpenDate() != null) ? request.getOpenDate() : campaign.getStartDate()).closeDate((request.getCloseDate() != null) ? request.getCloseDate() : campaign.getEndDate()).status(Status.OPEN_ADMISSION_CAMPAIGN).build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Create campus offering successfully", null);
     }
@@ -1230,11 +1203,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         Account account = accountRepo.save(Account.builder().email(normalize(request.getEmail())).role(Role.COUNSELLOR).status(Status.ACCOUNT_ACTIVE).registerDate(LocalDate.now()).firstLogin(true).build());
 
-        Counsellor counsellor = counsellorRepo.save(Counsellor.builder()
-                .account(account)
-                .campus(actorCampus)
-                .avatar(request.getAvatar())
-                .employeeCode(UUID.randomUUID()).build());
+        Counsellor counsellor = counsellorRepo.save(Counsellor.builder().account(account).campus(actorCampus).avatar(request.getAvatar()).employeeCode(UUID.randomUUID()).build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Create counsellor successfully", buildCounsellorData(counsellor));
     }
@@ -1309,9 +1278,7 @@ public class SchoolServiceImpl implements SchoolService {
         //Trí sửa
         Set<Integer> favouriteSchoolIds = getFavouriteSchoolIds();
 
-        List<Map<String, Object>> schoolList = schools.stream()
-                .map(school -> buildPublicSchoolData(school, favouriteSchoolIds))
-                .toList();
+        List<Map<String, Object>> schoolList = schools.stream().map(school -> buildPublicSchoolData(school, favouriteSchoolIds)).toList();
 
         return ResponseBuilder.build(HttpStatus.OK, "View school list successfully", schoolList);
     }
@@ -1329,13 +1296,9 @@ public class SchoolServiceImpl implements SchoolService {
 
         Map<String, Object> data = buildPublicSchoolData(school, favouriteSchoolIds);
 
-        data.put("campustList", school.getCampusList().stream()
-                .filter(campus -> Status.VERIFIED.equals(campus.getStatus()))
-                .map(this::buildPublicCampusData).toList());
+        data.put("campustList", school.getCampusList().stream().filter(campus -> Status.VERIFIED.equals(campus.getStatus())).map(this::buildPublicCampusData).toList());
 
-        data.put("curriculumList", school.getCurriculumList().stream()
-                .filter(curriculum -> Status.CUR_ACTIVE.equals(curriculum.getCurriculumStatus()))
-                .map(this::buildPublicCurriculumData).toList());
+        data.put("curriculumList", school.getCurriculumList().stream().filter(curriculum -> Status.CUR_ACTIVE.equals(curriculum.getCurriculumStatus())).map(this::buildPublicCurriculumData).toList());
 
 
         return ResponseBuilder.build(HttpStatus.OK, "View school detail successfully", data);
@@ -1350,10 +1313,7 @@ public class SchoolServiceImpl implements SchoolService {
             return Collections.emptySet();
         }
 
-        return favouriteSchoolRepo.findByParentId(parent.getId())
-                .stream()
-                .map(f -> f.getSchool().getId())
-                .collect(Collectors.toSet());
+        return favouriteSchoolRepo.findByParentId(parent.getId()).stream().map(f -> f.getSchool().getId()).collect(Collectors.toSet());
     }
 
     Map<String, Object> buildPublicSchoolData(School school, Set<Integer> favouriteSchoolIds) {
@@ -1386,13 +1346,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("imageJson", campus.getImageJson());
         data.put("facility", campus.getFacility());
 
-        List<String> consultantEmails = campus.getCounsellorList().stream()
-                .map(Counsellor::getAccount)
-                .filter(acc -> acc != null)
-                .filter(acc -> Role.COUNSELLOR.equals(acc.getRole()))
-                .filter(acc -> Status.ACCOUNT_ACTIVE.equals(acc.getStatus()))
-                .map(Account::getEmail)
-                .toList();
+        List<String> consultantEmails = campus.getCounsellorList().stream().map(Counsellor::getAccount).filter(acc -> acc != null).filter(acc -> Role.COUNSELLOR.equals(acc.getRole())).filter(acc -> Status.ACCOUNT_ACTIVE.equals(acc.getStatus())).map(Account::getEmail).toList();
 
         data.put("consultantEmails", consultantEmails);
         return data;
