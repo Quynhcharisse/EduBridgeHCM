@@ -6,6 +6,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
+
 public interface CurriculumRepo extends JpaRepository<Curriculum, Integer> {
 
     Page<Curriculum> findBySchoolIdOrderByEnrollmentYearDesc(Integer schoolId, Pageable pageable);
@@ -13,4 +15,6 @@ public interface CurriculumRepo extends JpaRepository<Curriculum, Integer> {
     Curriculum findByGroupCodeAndEnrollmentYearAndCurriculumStatus(String groupCode, int enrollmentYear, Status status);
 
     boolean existsByGroupCodeAndEnrollmentYearAndCurriculumStatusNotAndIdNot(String groupCode, int enrollmentYear, Status status, int curriculumId);
+
+    List<Curriculum> findAllBySchoolIdAndCurriculumStatusAndEnrollmentYearLessThan(int schoolId, Status status, int year);
 }
