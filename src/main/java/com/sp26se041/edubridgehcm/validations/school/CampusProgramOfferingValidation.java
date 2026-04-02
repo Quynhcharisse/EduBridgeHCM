@@ -222,7 +222,7 @@ public class CampusProgramOfferingValidation {
             return "This campus already has the same program offering in this campaign";
         }
 
-        BigDecimal targetTuition = request.getTuitionFee() != null ? request.getTuitionFee() : offering.getTuitionFee();
+        BigDecimal targetTuition = request.getTuitionFee() != null ? request.getTuitionFee() : offering.getFinalTuitionFee();
 
         if (targetTuition.signum() < 0) {
             return "Tuition fee must be >= 0";

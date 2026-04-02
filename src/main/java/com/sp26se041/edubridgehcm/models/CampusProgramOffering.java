@@ -60,6 +60,12 @@ public class CampusProgramOffering {
     @JoinColumn(name = "program_id")
     Program program;
 
+    @Column(name = "base_tuition_snapshot")
+    BigDecimal baseTuitionSnapshot; // Giá gốc của Program lúc tạo Offering
+
+    @Column(name = "program_name_snapshot")
+    String programNameSnapshot; // Tên Program lúc tạo Offering
+
     int quota;
 
     @Column(name = "remaining_quota")
@@ -72,7 +78,7 @@ public class CampusProgramOffering {
     Float priceAdjustmentPercentage;
 
     @Column(name = "tuition_fee")
-    BigDecimal tuitionFee;
+    BigDecimal finalTuitionFee; // giá cuối cùng của mỗi campus sau khi chỉnh
 
     @Enumerated(EnumType.STRING)
     @Column(name = "application_status")
