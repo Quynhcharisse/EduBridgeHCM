@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.repositories;
 
 import com.sp26se041.edubridgehcm.enums.LearningMode;
+import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,5 +20,7 @@ public interface CampusProgramOfferingRepo extends JpaRepository<CampusProgramOf
     boolean existsByAdmissionCampaignIdAndCampusIdAndProgramIdAndLearningModeAndIdNot(Integer admissionCampaignId, Integer campusId, Integer programId, LearningMode learningMode, Integer id);
 
     List<CampusProgramOffering> findByAdmissionCampaignId(Integer id);
+
+    List<CampusProgramOffering> findByProgramIdAndStatus(int id, Status status);
 }
 
