@@ -66,6 +66,9 @@ public class CampusProgramOffering {
     @Column(name = "program_name_snapshot")
     String programNameSnapshot; // Tên Program lúc tạo Offering
 
+    @Column(name = "admission_method")
+    String admissionMethod; 
+
     int quota;
 
     @Column(name = "remaining_quota")
