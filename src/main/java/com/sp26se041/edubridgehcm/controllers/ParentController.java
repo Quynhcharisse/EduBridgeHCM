@@ -81,13 +81,24 @@ public class ParentController {
         return parentService.getConversations(cursorId);
     }
 
+
+
     @PostMapping("/favourite/school")
     @PreAuthorize("hasRole('PARENT')")
     public ResponseEntity<?> addFavouriteSchool(@RequestBody AddFavouriteSchoolRequest request) {
          return parentService.addFavouriteSchool(request);
     }
 
-    //Personality Type
+    @GetMapping("/favourite/school")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<ResponseObject> getFavouriteSchool(@RequestParam(defaultValue = "0") int page,
+                                                             @RequestParam(defaultValue = "10") int pageSize) {
+        return parentService.getFavouriteSchools(page, pageSize);
+    }
+
+
+
+    //Personality Type, Subject
     @GetMapping("/personality/type")
     @PreAuthorize("hasRole('PARENT')")
     public ResponseEntity<ResponseObject> getPersonalityTypes() {
@@ -99,7 +110,13 @@ public class ParentController {
     public ResponseEntity<ResponseObject> getSubjects() {
         return parentService.getAllSubjects();
     }
+    @GetMapping("/major")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<ResponseObject> getMajors() {
+        return parentService.getAllMajors();
+    }
 
+    //Student Info
     @PostMapping("/student")
     @PreAuthorize("hasRole('PARENT')")
     public ResponseEntity<ResponseObject> addStudentInfo(@RequestBody AddStudentInfoRequest request) {
@@ -112,9 +129,5 @@ public class ParentController {
         return parentService.getStudents();
     }
 
-    @GetMapping("/major")
-    @PreAuthorize("hasRole('PARENT')")
-    public ResponseEntity<ResponseObject> getMajors() {
-        return parentService.getAllMajors();
-    }
+
 }
