@@ -965,7 +965,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus is out of your scope", null);
         }
 
-        campusProgramOfferingRepo.save(CampusProgramOffering.builder().campus(targetCampus).admissionCampaign(campaign).program(program).quota(request.getQuota()).remainingQuota(request.getQuota()).learningMode(request.getLearningMode()).priceAdjustmentPercentage(adjustmentPercent).tuitionFee(finalTuition).applicationStatus(Status.OPEN).openDate((request.getOpenDate() != null) ? request.getOpenDate() : campaign.getStartDate()).closeDate((request.getCloseDate() != null) ? request.getCloseDate() : campaign.getEndDate()).status(Status.OPEN_ADMISSION_CAMPAIGN).build());
+        campusProgramOfferingRepo.save(CampusProgramOffering.builder().campus(targetCampus).admissionCampaign(campaign).program(program).quota(request.getQuota()).remainingQuota(request.getQuota()).learningMode(request.getLearningMode()).priceAdjustmentPercentage(adjustmentPercent).finalTuitionFee(finalTuition).applicationStatus(Status.OPEN).openDate((request.getOpenDate() != null) ? request.getOpenDate() : campaign.getStartDate()).closeDate((request.getCloseDate() != null) ? request.getCloseDate() : campaign.getEndDate()).status(Status.OPEN_ADMISSION_CAMPAIGN).build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Create campus offering successfully", null);
     }
@@ -1073,7 +1073,7 @@ public class SchoolServiceImpl implements SchoolService {
         offering.setLearningMode(request.getLearningMode() != null ? request.getLearningMode() : offering.getLearningMode());
         offering.setQuota(request.getQuota() != null ? request.getQuota() : offering.getQuota());
         offering.setRemainingQuota(targetRemainingQuota);
-        offering.setTuitionFee(request.getTuitionFee() != null ? request.getTuitionFee() : offering.getTuitionFee());
+        offering.setFinalTuitionFee(request.getTuitionFee() != null ? request.getTuitionFee() : offering.getFinalTuitionFee());
         offering.setOpenDate(request.getOpenDate() != null ? request.getOpenDate() : offering.getOpenDate());
         offering.setCloseDate(request.getCloseDate() != null ? request.getCloseDate() : offering.getCloseDate());
 
@@ -1265,7 +1265,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("quota", offering.getQuota());
         data.put("remainingQuota", offering.getRemainingQuota());
         data.put("learningMode", offering.getLearningMode());
-        data.put("tuitionFee", offering.getTuitionFee());
+        data.put("tuitionFee", offering.getFinalTuitionFee());
         data.put("baseTuitionFee", offering.getProgram().getBaseTuitionFee());
         data.put("priceAdjustmentPercentage", offering.getPriceAdjustmentPercentage());
         data.put("applicationStatus", offering.getApplicationStatus());
@@ -1514,7 +1514,7 @@ public class SchoolServiceImpl implements SchoolService {
             Map<String, Object> data = new HashMap<>();
             data.put("learningMode", campusProgramOffering.getLearningMode());
             data.put("quota", campusProgramOffering.getQuota());
-            data.put("tuitionFee", campusProgramOffering.getTuitionFee());
+            data.put("tuitionFee", campusProgramOffering.getFinalTuitionFee());
             data.put("openDate", campusProgramOffering.getOpenDate());
             data.put("closeDate", campusProgramOffering.getCloseDate());
             data.put("status", campusProgramOffering.getStatus());
