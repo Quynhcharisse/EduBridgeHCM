@@ -9,5 +9,9 @@ import java.util.Optional;
 public interface SchoolConfigRepo extends JpaRepository<SchoolConfig, Integer> {
 
     Optional<SchoolConfig> findBySchoolIdAndKey(int schoolId, String key);
+
+    List<SchoolConfig> findAllBySchoolId(int schoolId);
+
+    Optional<SchoolConfig> findByKey(String k);
 }
 
