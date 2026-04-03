@@ -2,7 +2,6 @@ package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
-import com.sp26se041.edubridgehcm.requests.CreateFacilityTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.SchoolConfigRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolConfigService;
@@ -332,25 +331,6 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         data.put(key, value);
 
         return data;
-    }
-
-    @Override
-    @Transactional
-    public ResponseEntity<ResponseObject> createOrUpdateFacilityTemplate(int schoolId, CreateFacilityTemplateRequest request) {
-
-
-        return ResponseBuilder.build(HttpStatus.OK, "Facility template upsert successfully", null);
-    }
-
-    @Override
-    public ResponseEntity<ResponseObject> getFacilityTemplate(int schoolId) {
-
-        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "facility_template").orElse(null);
-
-        if (config == null || config.getValue() == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No facility template found for this school", null);
-        }
-        return ResponseBuilder.build(HttpStatus.OK, "", config.getValue());
     }
 }
 
