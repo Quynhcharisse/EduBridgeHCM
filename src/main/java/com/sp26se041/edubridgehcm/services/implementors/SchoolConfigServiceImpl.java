@@ -91,7 +91,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         List<Map<String, Object>> mandatoryAllJson = documentRequirementsData.getMandatoryAll().stream()
                 .map(doc -> {
                     Map<String, Object> map = new HashMap<>();
-                    map.put("id", doc.getId());
+                    map.put("code", doc.getCode());
                     map.put("name", doc.getName());
                     map.put("required", doc.isRequired());
                     return map;
@@ -105,7 +105,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                     data.put("documents", method.getDocuments().stream()
                             .map(doc -> {
                                 Map<String, Object> docMap = new HashMap<>();
-                                docMap.put("id", doc.getId());
+                                docMap.put("code", doc.getCode());
                                 docMap.put("name", doc.getName());
                                 docMap.put("required", doc.isRequired());
                                 return docMap;

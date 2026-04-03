@@ -67,7 +67,7 @@ public class SchoolConfigRequest {
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class DocumentDetail {
-        String id;
+        String code;
         String name;
         boolean required;
     }
@@ -181,7 +181,7 @@ public class SchoolConfigRequest {
     public static class FacilityItem {
         String facilityCode;
         String name;
-        String value;
+        int value;
         String unit;
         String category;
     }
