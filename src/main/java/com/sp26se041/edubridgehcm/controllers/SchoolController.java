@@ -1,16 +1,11 @@
 package com.sp26se041.edubridgehcm.controllers;
 
-import com.sp26se041.edubridgehcm.enums.Status;
-import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
-import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
 import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
 import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
 import com.sp26se041.edubridgehcm.requests.ProgramRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -128,51 +123,6 @@ public class SchoolController {
         return schoolService.upsertProgram(request);
     }
 
-    @PostMapping("/campus/offering")
-    @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> createCampusProgramOffering(@RequestBody CreateCampusProgramOfferingRequest request) {
-        return schoolService.createCampusProgramOffering(request);
-    }
-
-    @GetMapping("{campusId}/campus/offering/list")
-    @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(@PathVariable int campusId,
-                                                                        @RequestParam(defaultValue = "0") int page,
-                                                                        @RequestParam(defaultValue = "10") int pageSize) {
-        return schoolService.viewCampusProgramOfferingList(campusId, page, pageSize);
-    }
-
-    @PutMapping("/campus/offering/list")
-    @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> updateCampusProgramOffering(@RequestBody UpdateCampusProgramOfferingRequest request) {
-        return schoolService.updateCampusProgramOffering(request);
-    }
-
-    @PutMapping("/{offeringId}/campus/offering/status")
-    @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(@PathVariable int offeringId, @RequestParam Status targetStatus) {
-        return schoolService.changeCampusProgramOfferingStatus(offeringId, targetStatus);
-    }
-
-    @PutMapping("/{offeringId}/campus/offering/close")
-    @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> closeCampusProgramOffering(@PathVariable int offeringId) {
-        return schoolService.closeCampusProgramOffering(offeringId);
-    }
-
-    @PostMapping("/counsellor")
-    @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> createAccountCounsellor(@RequestBody CreateAccountCounsellorRequest request) {
-        return schoolService.createAccountCounsellor(request);
-    }
-
-    @GetMapping("/counsellor/list")
-    @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewAccountCounsellorList(@RequestParam(defaultValue = "0") int page,
-                                                                    @RequestParam(defaultValue = "10") int pageSize) {
-        return schoolService.viewAccountCounsellorList(page, pageSize);
-    }
-
     @GetMapping("/public/list")
     public ResponseEntity<ResponseObject> viewSchoolList() {
         return schoolService.viewSchoolList();
@@ -194,10 +144,5 @@ public class SchoolController {
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> viewOpenDayEventList(@RequestParam int page, @RequestParam int pageSize) {
         return schoolService.viewOpenDayEventList(page, pageSize);
-    }
-
-    @PutMapping("/campus/{campusId}/facility")
-    public ResponseEntity<ResponseObject> updateCampusConfig(@PathVariable int campusId, @RequestBody UpdateCampusConfigRequest request) {
-        return schoolService.updateCampusConfig(campusId, request);
     }
 }
