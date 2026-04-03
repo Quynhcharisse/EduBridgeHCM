@@ -7,7 +7,10 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @NoArgsConstructor
@@ -19,9 +22,11 @@ public class CreateConfigDataRequest {
 
     MediaData mediaData;
 
-    DesignData designData;
-
     ReportData reportData;
+
+    SubscriptionData subscriptionData;
+
+    AdmissionQuotaData admissionQuotaData;
 
     @Data
     @NoArgsConstructor
@@ -74,22 +79,25 @@ public class CreateConfigDataRequest {
     }
 
     @Data
-    @AllArgsConstructor
     @NoArgsConstructor
+    @AllArgsConstructor
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class DesignData {
-        String illustrationImage;
-        List<LogoPosition> positions;
+    public static class SubscriptionData {
+        int trialDays;      // Số ngày dùng thử mặc định
+        int gracePeriod;    // Thời gian gia hạn (ân hạn) trước khi khóa
+        int minSubscriptionMonth; // Số tháng mua tối thiểu (VD: 3 tháng)
     }
 
     @Data
-    @AllArgsConstructor
     @NoArgsConstructor
+    @AllArgsConstructor
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class LogoPosition {
-        String position;
+    public static class AdmissionQuotaData {
+        String year;
+        String sourceUrl;
+        Map<Integer, Integer> quotas;
     }
 
     @Data
@@ -98,8 +106,13 @@ public class CreateConfigDataRequest {
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class ReportData {
-        int maxDisbursementDay;
-        List<SeverityLevel> levels;
+        int maxResolutionDay;
+        LocalDateTime responseDeadline;
+        LocalDateTime activationDeadline;
+        int bonusDays; //số ngày
+        String bonusCondition;
+        String description;
+        List<resolutionLevels> levels;
     }
 
     @Data
@@ -107,8 +120,7 @@ public class CreateConfigDataRequest {
     @NoArgsConstructor
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class SeverityLevel {
+    public static class resolutionLevels {
         String name;
-        String compensation;
     }
 }

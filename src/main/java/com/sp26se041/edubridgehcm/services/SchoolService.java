@@ -9,6 +9,7 @@ import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
 import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
 import com.sp26se041.edubridgehcm.requests.ProgramRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import org.springframework.http.ResponseEntity;
@@ -21,21 +22,29 @@ public interface SchoolService {
 
     ResponseEntity<ResponseObject> createAdmissionCampaignTemplate(CreateAdmissionCampaignTemplateRequest request);
 
+    ResponseEntity<ResponseObject> cloneAdmissionCampaign(int id);
+
     ResponseEntity<ResponseObject> updateAdmissionCampaignTemplate(UpdateAdmissionCampaignTemplateRequest request);
 
-    ResponseEntity<ResponseObject> changeAdmissionCampaignStatus(Integer id, Status targetStatus);
+    ResponseEntity<ResponseObject> publishAdmissionCampaignStatus(int id);
+
+    ResponseEntity<ResponseObject> cancelAdmissionCampaign(int id, String reason);
 
     ResponseEntity<ResponseObject> viewAdmissionCampaignTemplate(int year);
 
     ResponseEntity<ResponseObject> upsertCurriculum(CurriculumRequest request);
 
-    ResponseEntity<ResponseObject> activateCurriculum(int id);
+    ResponseEntity<ResponseObject> handleCurriculumAction(int id, String action);
 
     ResponseEntity<ResponseObject> viewCurriculumList(int page, int pageSize);
 
     ResponseEntity<ResponseObject> viewProgramList(int page, int pageSize);
 
     ResponseEntity<ResponseObject> upsertProgram(ProgramRequest request);
+
+    ResponseEntity<ResponseObject> cloneProgram(int id);
+
+    ResponseEntity<ResponseObject> handleProgramAction(int id, String action);
 
     ResponseEntity<ResponseObject> createCampusProgramOffering(CreateCampusProgramOfferingRequest request);
 
@@ -58,4 +67,6 @@ public interface SchoolService {
     ResponseEntity<ResponseObject> createOpenDayEvent(CreateOpenDayEventRequest request);
 
     ResponseEntity<ResponseObject> viewOpenDayEventList(int currentPage, int pageSize);
+
+    ResponseEntity<ResponseObject> updateCampusConfig(int campusId, UpdateCampusConfigRequest request);
 }

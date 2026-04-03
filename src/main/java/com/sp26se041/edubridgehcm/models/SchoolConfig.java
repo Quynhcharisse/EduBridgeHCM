@@ -1,22 +1,28 @@
 package com.sp26se041.edubridgehcm.models;
 
+import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.Type;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Table(name = "`school_config`")
+@Entity
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class SchoolConfig {
 
@@ -24,12 +30,15 @@ public class SchoolConfig {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
 
-    @Column(name = "config_key")
-    String configKey;
+    @Column(name = "school_id")
+    int schoolId;
 
-    @Column(name = "config_value")
-    String configValue;
+    String key;
+
+    @Type(JsonBinaryType.class)
+    @Column(columnDefinition = "jsonb")
+    Object value;
 
     @Column(name = "updated_at")
-    LocalDate updatedAt;
+    LocalDateTime updatedAt;
 }

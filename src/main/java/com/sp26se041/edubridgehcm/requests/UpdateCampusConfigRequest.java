@@ -7,24 +7,21 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
-import java.time.LocalDate;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class UpdateAdmissionCampaignTemplateRequest {
+public class UpdateCampusConfigRequest {
 
-    int admissionCampaignTemplateId;
+    String policyDetail;
 
-    String name;
+    String overview;
 
-    int year;
+    List<CreateFacilityTemplateRequest.FacilityItem> itemList;
 
-    String description;
-
-    LocalDate startDate;
-
-    LocalDate endDate;
+    CreateFacilityTemplateRequest.ImageJsonData imageJsonData;
 }
+

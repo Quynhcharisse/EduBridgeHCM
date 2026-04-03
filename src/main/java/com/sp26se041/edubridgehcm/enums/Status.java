@@ -17,7 +17,12 @@ public enum Status {
     REJECTED("rejected"),
 
     //With status for admissions
-    OPEN("open"), //tao moi
+    OPEN_ADMISSION_CAMPAIGN("open"), //tao moi
+    CANCELLED_ADMISSION_CAMPAIGN("cancelled"),
+    DRAFT_ADMISSION_CAMPAIGN("draft"), //tạo mới ban đầu admission campaign
+
+    OPEN("open"),
+    DRAFT("draft"),
     CLOSED("closed"), //schoo admin pause thu cong
     PAUSED("paused"), //school admin dong thu cong
     FULL("fulled"), //offering het quota
@@ -30,6 +35,7 @@ public enum Status {
 
     //With status for program
     PRO_ACTIVE("active"),    // Đang áp dụng cho khóa học
+    PRO_DRAFT("draft"),
     PRO_INACTIVE("inactive"), // Không còn áp dụng cho khóa học nhưng vẫn giữ lại để tham chiếu lịch sử
 
     //With status consultation appointment

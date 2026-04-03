@@ -28,8 +28,6 @@ public class CurriculumRequest {
 
     int enrollmentYear;
 
-    Boolean publishNow;
-
     List<SubjectOptionRequest> subjectOptions;
 
     @Data

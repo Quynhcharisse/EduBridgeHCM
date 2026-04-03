@@ -22,10 +22,27 @@ public class SystemController {
 
     private final SystemService systemService;
 
+    @GetMapping("/config")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL', 'PARENT', 'COUNSELLOR')")
+    public ResponseEntity<ResponseObject> getConfigData() {
+        return systemService.getConfigData();
+    }
+
+    @GetMapping("/config/key")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL', 'PARENT', 'COUNSELLOR')")
+    public ResponseEntity<ResponseObject> getConfigDataByKey(@RequestParam String k) {
+        return systemService.getConfigDataByKey(k);
+    }
+
     @PutMapping("/config")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ResponseObject> updateConfigData(@RequestBody CreateConfigDataRequest request) {
         return systemService.updateConfigData(request);
     }
 
+    @GetMapping("/school/quota/year")
+    @PreAuthorize("hasAnyRole('ADMIN')")
+    public ResponseEntity<ResponseObject> getQuotaByYear(@RequestParam String year) {
+        return systemService.getQuotaByYear(year);
+    }
 }

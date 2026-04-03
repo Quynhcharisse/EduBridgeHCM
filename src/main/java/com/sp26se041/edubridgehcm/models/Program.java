@@ -1,7 +1,13 @@
 package com.sp26se041.edubridgehcm.models;
 
+import com.sp26se041.edubridgehcm.enums.FeeUnit;
+import com.sp26se041.edubridgehcm.enums.LanguageInstruction;
+import com.sp26se041.edubridgehcm.enums.ProgramCategory;
+import com.sp26se041.edubridgehcm.enums.Status;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -42,19 +48,37 @@ public class Program {
     @JoinColumn(name = "curriculum_id")
     Curriculum curriculum;
 
-    @OneToMany(mappedBy = "program")
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    List<CampusProgramOffering> campusProgramOfferingList;
+    // --- NHÓM TRƯỜNG PHỤC VỤ SEARCH & SO SÁNH (Ý THẦY) --
 
     @Column(name = "graduation_standard")
     String graduationStandard;
 
-    @Column(name = "target_student_description")
-    String targetStudentDescription;
+    @Column(name = "language_of_instruction")
+    @Enumerated(EnumType.STRING)
+    LanguageInstruction languageOfInstruction; // Vietnamese, English, Bilingual
+
+    @Column(name = "program_category")
+    @Enumerated(EnumType.STRING)
+    ProgramCategory programCategory;
+
+    // --- NHÓM TÀI CHÍNH GỐC ---
 
     @Column(name = "base_tuition_fee")
     BigDecimal baseTuitionFee;
 
-    boolean isActive;
+    @Column(name = "fee_unit")
+    @Enumerated(EnumType.STRING)
+    FeeUnit feeUnit; // "Year", "Semester" -> Để so sánh "giá theo năm"
+
+    // --- QUẢN TRỊ ---
+    @Column(name = "target_student_description")
+    String targetStudentDescription;
+
+    @Enumerated(EnumType.STRING)
+    Status status;
+
+    @OneToMany(mappedBy = "program")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<CampusProgramOffering> campusProgramOfferingList;
 }

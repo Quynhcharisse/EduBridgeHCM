@@ -53,8 +53,9 @@ public class CampusProgramOfferingValidation {
             return "Campaign is out of your school scope";
         }
 
-        if (campaign.getStatus() == Status.CLOSED || campaign.getStatus() == Status.EXPIRED) {
-            return "Cannot add offering to closed/expired campaign";
+        // ko đc create campusProgramOffering khi chưa open
+        if (!campaign.getStatus().equals(Status.OPEN_ADMISSION_CAMPAIGN)) {
+            return "Offering can only be created when the campaign is officially OPEN. Current status: " + campaign.getStatus();
         }
 
         Program program = programRepo.findByIdAndCurriculum_School_Id(request.getProgramId(), actorCampus.getSchool().getId());
@@ -63,7 +64,7 @@ public class CampusProgramOfferingValidation {
             return "Program not found";
         }
 
-        if (!program.isActive()) {
+        if (!program.getStatus().equals(Status.PRO_INACTIVE)) {
             return "Program is inactive";
         }
 
@@ -94,15 +95,19 @@ public class CampusProgramOfferingValidation {
         }
 
         LocalDate openDate = request.getOpenDate() != null ? request.getOpenDate() : campaign.getStartDate();
-
         LocalDate closeDate = request.getCloseDate() != null ? request.getCloseDate() : campaign.getEndDate();
+
+        if (closeDate.isBefore(LocalDate.now())) {
+            return "The offering's closing date cannot be in the past";
+        }
 
         if (closeDate.isBefore(openDate)) {
             return "Close date must be after or equal to open date";
         }
 
         if (openDate.isBefore(campaign.getStartDate()) || closeDate.isAfter(campaign.getEndDate())) {
-            return "Offering open/close date must be within campaign date range";
+            return "Offering registration period must be within the campaign timeframe ("
+                    + campaign.getStartDate() + " to " + campaign.getEndDate() + ")";
         }
 
         if (campusProgramOfferingRepo.existsByAdmissionCampaignIdAndCampusIdAndProgramIdAndLearningMode(
@@ -138,8 +143,9 @@ public class CampusProgramOfferingValidation {
             return "Target program is invalid";
         }
 
-        if (!targetProgram.isActive()) {
-            return "Program is inactive";
+        // Nếu status LÀ INACTIVE
+        if (Status.PRO_INACTIVE.equals(targetProgram.getStatus())) {
+            return "This program has been inactivated by the school.";
         }
 
         if (targetProgram.getCurriculum().getCurriculumStatus() != Status.CUR_ACTIVE) {

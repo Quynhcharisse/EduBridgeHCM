@@ -153,30 +153,6 @@ public class AccountValidation {
                 return "Campus address must not exceed 100 words";
             }
 
-            if (request.getCampusData().getImageJson() == null) {
-                return "Require campus imageJson";
-            }
-
-            if (request.getCampusData().getImageJson().getItemList() == null) {
-                return "Require image itemList";
-            }
-
-            if (request.getCampusData().getImageJson().getItemList().stream().anyMatch(item -> item == null || normalize(item.getUrl()) == null)) {
-                return "Invalid image item";
-            }
-
-            if (request.getCampusData().getFacilityJson() == null) {
-                return "Require campus facilityJson";
-            }
-
-            if (request.getCampusData().getFacilityJson().getItemList() == null) {
-                return "Require facility itemList";
-            }
-
-            if (request.getCampusData().getFacilityJson().getItemList().stream().anyMatch(item -> item == null || normalize(item.getFacilityCode()) == null || normalize(item.getName()) == null)) {
-                return "Invalid facility item";
-            }
-
             if (account.getCampus().getIsPrimaryBranch()) {
                 if (request.getCampusData().getSchoolData() == null) {
                     return "Require school data for primary branch";
