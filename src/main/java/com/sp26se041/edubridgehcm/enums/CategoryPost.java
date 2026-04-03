@@ -6,10 +6,10 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum CategoryPost {
+
     PLATFORM_NEWS("platform news"),
-    OFFICIAL_DECISION("official decision"),
-    SCHOOL_NEWS("school news"),
-    ADMISSION_POLICY("admission policy");
+    DOET_NEWS("doet news"),
+    SCHOOL_NEWS("school news");
 
     private final String value;
 }
