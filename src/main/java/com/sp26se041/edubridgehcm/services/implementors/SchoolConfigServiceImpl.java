@@ -1,10 +1,14 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.sp26se041.edubridgehcm.enums.Role;
+import com.sp26se041.edubridgehcm.models.Account;
+import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.requests.SchoolConfigRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolConfigService;
+import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,6 +31,23 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
     @Override
     @Transactional
     public ResponseEntity<ResponseObject> updateSchoolConfig(int schoolId, SchoolConfigRequest request) {
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "School base account not found", null);
+        }
+
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN,
+                    "Only the main facility has the authority to change the system configuration.", null);
+        }
+
+        if (actorCampus.getSchool().getId() != schoolId) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN,
+                    "You do not have permission to modify the configuration for this field.", null);
+        }
+
 
         if (request.getAdmissionSettingsData() == null &&
                 request.getDocumentRequirementsData() == null &&
@@ -293,7 +314,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "quota_config")
                 .orElse(SchoolConfig.builder()
                         .schoolId(schoolId)
-                        .key("quota-config")
+                        .key("quota_config")
                         .build());
 
         config.setValue(quotaJson);
@@ -332,5 +353,14 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
 
         return data;
     }
+
+    private Campus extractActorCampus() {
+        Account account = AuthRequestUtil.extractAuthenticatedAccount();
+        if (account == null || account.getRole() != Role.SCHOOL) {
+            return null;
+        }
+        return account.getCampus();
+    }
+
 }
 

@@ -70,6 +70,7 @@ public class SystemServiceImpl implements SystemService {
     @Override
     @Transactional
     public ResponseEntity<ResponseObject> updateConfigData(CreateConfigDataRequest request) {
+
         if (request.getBusinessData() == null
                 && request.getMediaData() == null
                 && request.getSubscriptionData() == null
