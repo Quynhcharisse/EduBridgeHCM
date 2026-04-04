@@ -467,14 +467,13 @@ public class CampusServiceImpl implements CampusService {
         if (campus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campus not found", null);
         }
-      
+
         Map<String, Object> facilityMap = new HashMap<>();
         facilityMap.put("overview", request.getOverview());
         facilityMap.put("itemList", request.getItemList());
         facilityMap.put("imageJsonData", request.getImageJsonData());
 
         campus.setFacility(facilityMap);
-        campus.setPolicyDetail(request.getPolicyDetail());
         campusRepo.save(campus);
 
         return ResponseBuilder.build(HttpStatus.OK, "Campus facility updated successfully", null);

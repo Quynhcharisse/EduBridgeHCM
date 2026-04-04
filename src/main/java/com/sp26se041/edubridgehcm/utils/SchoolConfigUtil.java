@@ -30,7 +30,7 @@ public class SchoolConfigUtil {
                 newItem.put("value", req.getValue());
                 newItem.put("unit", req.getUnit());
                 newItem.put("isUsage", true);
-                newItem.put("isCustom", false); // Mục này mượn từ HQ
+                newItem.put("isCustom", false);
             } else {
                 newItem.put("isUsage", false);
                 newItem.put("value", 0);
