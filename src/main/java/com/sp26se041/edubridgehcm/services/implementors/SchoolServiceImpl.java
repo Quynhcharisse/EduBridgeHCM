@@ -1052,6 +1052,7 @@ public class SchoolServiceImpl implements SchoolService {
 
     Map<String, Object> buildPublicCampusData(Campus campus) {
         Map<String, Object> data = new HashMap<>();
+        data.put("id", campus.getId());
         data.put("name", campus.getName());
         data.put("phoneNumber", campus.getPhoneNumber());
         data.put("address", campus.getAddress());
