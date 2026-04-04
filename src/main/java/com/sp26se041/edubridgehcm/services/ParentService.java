@@ -8,7 +8,7 @@ import org.springframework.http.ResponseEntity;
 
 public interface ParentService {
     ResponseEntity<ResponseObject> getConversations(Long cursorId);
-
+    ResponseEntity<ResponseObject> getChatHistory(String parentEmail, int campusId, int studentProfileId, Long cursorId);
     //Personality types
     ResponseEntity<ResponseObject> getPersonalityTypes();
 

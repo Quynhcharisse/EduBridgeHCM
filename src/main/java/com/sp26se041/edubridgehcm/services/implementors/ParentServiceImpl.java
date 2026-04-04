@@ -2,9 +2,9 @@ package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.Gender;
 import com.sp26se041.edubridgehcm.enums.GradeLevel;
-import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
+import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.models.Conversation;
 import com.sp26se041.edubridgehcm.models.Counsellor;
@@ -16,9 +16,9 @@ import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.StudentProfile;
 import com.sp26se041.edubridgehcm.models.Subject;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
 import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
-import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.FavouriteSchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.MajorRepo;
 import com.sp26se041.edubridgehcm.repositories.ParentRepo;
@@ -44,6 +44,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -78,6 +80,8 @@ public class ParentServiceImpl implements ParentService {
 
     private final FavouriteSchoolRepo favouriteSchoolRepo;
 
+    private final CampusRepo campusRepo;
+
 
     @Override
     public  ResponseEntity<ResponseObject> getConversations(Long cursorId) {
@@ -86,13 +90,15 @@ public class ParentServiceImpl implements ParentService {
                     .getContext()
                     .getAuthentication()
                     .getName();
+
             List<Conversation> conversations;
+
             if (cursorId == null) {
                 conversations = conversationRepo
-                            .findTop20ByParentEmailAndStudentProfileIsNotNullOrderByUpdatedDateDesc(email);
+                            .findTop20ByParentEmailAndStudentProfileIsNotNullOrderByIdDesc(email);
             } else {
                     conversations = conversationRepo
-                            .findTop20ByParentEmailAndIdLessThanAndStudentProfileIsNotNullOrderByUpdatedDateDesc(email, cursorId);
+                            .findTop20ByParentEmailAndIdLessThanAndStudentProfileIsNotNullOrderByIdDesc(email, cursorId);
             }
             List<Map<String, Object>> items = buildConversationList(conversations, email);
 
@@ -120,6 +126,123 @@ public class ParentServiceImpl implements ParentService {
         }
     }
 
+    @Override
+    public ResponseEntity<ResponseObject> getChatHistory(String parentEmail, int campusId, int studentProfileId, Long cursorId) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Optional<Account> accParent = accountRepo.findByEmail(parentEmail);
+
+        if (accParent.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Parent not found or be deleted", null);
+        }
+
+        Optional<Campus> campus = campusRepo.findById(campusId);
+
+        if (campus.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campus not found or be deleted", null);
+        }
+
+        Optional<StudentProfile> studentProfile = studentInfoRepo.findById(studentProfileId);
+
+        if(studentProfile.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Student profile not found or be deleted", null);
+        }
+
+        Optional<Conversation> existingConversation =
+                conversationRepo.findByParentEmailAndCampusIdAndStudentProfile(parentEmail, campusId, studentProfile.get());
+
+        List<ChatMessage> messages = new ArrayList<>();
+
+        boolean hasMore = false;
+        Long nextCursorId = null;
+
+        if (existingConversation.isPresent()) {
+
+            Optional<Account> counsellorAcc = accountRepo.findByEmail(existingConversation.get().getCounsellorEmail());
+
+            if (counsellorAcc.isEmpty()) {
+                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Counsellor not found or be deleted", null);
+            }
+
+            if(AccountRestrictionUtil.isRestricted(counsellorAcc.get())) {
+                return ResponseBuilder.build(HttpStatus.CONFLICT, "Counsellor account is not active. Please create a new conversation.", null);
+            }
+
+            if (cursorId == null) {
+                messages = chatMessageRepo.findTop20ByConversationIdOrderByTimestampDesc(existingConversation.get().getId());
+            } else {
+                messages = chatMessageRepo.findTop20ByConversationIdAndIdLessThanOrderByIdDesc(existingConversation.get().getId(), cursorId);
+                hasMore = messages.size() == 20;
+                nextCursorId = messages.isEmpty() ? null : messages.get(messages.size() - 1).getId();
+            }
+
+            return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(existingConversation.get(), studentProfile.get(), messages, hasMore, nextCursorId));
+
+        }
+             Conversation conservation = Conversation.builder()
+                    .parentEmail(parentEmail)
+                    .counsellorEmail("N/A")
+                    .campusId(campusId)
+                    .studentProfile(studentProfile.get())
+                    .status(Status.CONVERSATION_PENDING)
+                    .build();
+            conversationRepo.save(conservation);
+
+            return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(conservation, studentProfile.get(), messages, hasMore, cursorId));
+
+    }
+
+    private Map<String, Object> buildHistoryMessages(Conversation conversation, StudentProfile childProfile, List<ChatMessage> messages, boolean hasMore, Long nextCursorId) {
+
+        Map<String, Object> response = new HashMap<>();
+
+        response.put("conversationId", conversation.getId());
+
+        response.put("childName", childProfile.getStudentName());
+        response.put("gender", childProfile.getGender());
+
+        Optional<PersonalityType> personalityType =
+                personalityTypeRepo.findByCode(childProfile.getPersonalityTypeName());
+        response.put("personalityCode",
+                personalityType.map(PersonalityType::getCode).orElse("N/A"));
+        response.put("traits",
+                personalityType.map(PersonalityType::getTraits).orElse(List.of()));
+
+        response.put("favouriteJob", childProfile.getFavouriteJob());
+        response.put("academicProfileMetadata", childProfile.getAcademicProfileMetadata());
+
+        response.put("messages", buildMessages(messages));
+        response.put("hasMore", hasMore);
+        response.put("nextCursorId", nextCursorId);
+
+        return response;
+    }
+
+    private List<Map<String, Object>> buildMessages(List<ChatMessage> messages) {
+
+        if (messages == null || messages.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return messages.stream()
+                .sorted(Comparator.comparing(ChatMessage::getTimestamp))
+                .map(this::buildMessage)
+                .toList();
+    }
+
+    private Map<String, Object> buildMessage(ChatMessage message) {
+        Map<String, Object> msg = new HashMap<>();
+        msg.put("id", message.getId());
+        msg.put("senderName", message.getSenderName());
+        msg.put("receiverName", message.getReceiverName());
+        msg.put("message", message.getMessage());
+        msg.put("timestamp", message.getTimestamp());
+        msg.put("status", message.getStatus());
+        return msg;
+    }
 
     private List<Map<String, Object>> buildConversationList(
             List<Conversation> conversations,
@@ -145,42 +268,25 @@ public class ParentServiceImpl implements ParentService {
                             );
 
                     Map<String, Object> map = new HashMap<>();
+
+                    Optional<Campus> campus = campusRepo.findById(conversation.getCampusId());
+
+                    if (campus.isEmpty()) {
+                        return map;
+                    }
+
                     map.put("conversationId", conversation.getId());
 
                     map.put("lastMessage", lastMessage != null ? lastMessage.getMessage() : null);
                     map.put("updatedAt", conversation.getUpdatedDate());
                     map.put("unreadCount", unreadCount != null ? unreadCount : 0L);
-                    String otherUser = conversation.getParentEmail().equals(email)
-                            ? conversation.getCounsellorEmail()
-                            : conversation.getParentEmail();
-
-                    map.put("otherUser", otherUser);
-
-                    String schoolName = accountRepo.findByEmail(otherUser)
-                            .map(Account::getCounsellor)
-                            .map(c -> c.getCampus())
-                            .map(campus -> campus.getSchool())
-                            .map(s -> s.getName())
-                            .orElse("N/A");
-
-                    String schoolLogoUrl = accountRepo.findByEmail(otherUser)
-                            .map(Account::getCounsellor)
-                            .map(c -> c.getCampus())
-                            .map(campus -> campus.getSchool())
-                            .map(s -> s.getLogoUrl())
-                            .orElse("N/A");
-
-
-                    String avatarUrl = accountRepo.findByEmail(otherUser)
-                            .map(Account::getCounsellor)
-                            .map( c -> c.getAvatar())
-                            .orElse("N/A");
-
-                    map.put("avatarUrl", avatarUrl);
-                    map.put("schoolName", schoolName);
-                    map.put("schoolLogoUrl", schoolLogoUrl);
+                    map.put("otherUser", conversation.getCounsellorEmail());
+                    map.put("schoolId", campus.get().getSchool().getId());
+                    map.put("schoolName", campus.get().getSchool().getName());
+                    map.put("schoolLogoUrl", campus.get().getSchool().getLogoUrl());
                     map.put("studentId", conversation.getStudentProfile().getId());
                     map.put("studentName", conversation.getStudentProfile().getStudentName());
+                    map.put("status", conversation.getStatus());
 
                     return map;
 

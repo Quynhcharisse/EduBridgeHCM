@@ -14,8 +14,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDateTime;
-
 @RestController
 @RequestMapping("/api/v1/counsellor")
 @RequiredArgsConstructor
@@ -29,17 +27,18 @@ public class CounsellorController {
 
     @GetMapping("/messages/history/{parentEmail}/{counsellorEmail}/{studentProfileId}")
     public ResponseEntity<ResponseObject> getChatHistory(@PathVariable String parentEmail, @PathVariable String counsellorEmail, @PathVariable int studentProfileId,@RequestParam(required = false) Long cursorId) {
-        return webSocketService.getChatHistory(parentEmail, counsellorEmail, studentProfileId, cursorId);
-    }
-
-    @PutMapping("/messages/read/{conversationId}/{username}")
-    public ResponseEntity<ResponseObject> readMessages(@PathVariable Long conversationId, @PathVariable String username) {
-        return webSocketService.markConversationAsRead(conversationId, username);
+        return counsellorService.getChatHistory(parentEmail, counsellorEmail, studentProfileId, cursorId);
     }
 
     @GetMapping("/conversations")
     @PreAuthorize("hasRole('COUNSELLOR')")
-    public ResponseEntity<?> getConversations(@RequestParam (required = false) Long cursorId){
-        return counsellorService.getConversations(cursorId);
+    public ResponseEntity<?> getConversations(@RequestParam String status, @RequestParam (required = false) Long cursorId){
+        return counsellorService.getConversations(status, cursorId);
+    }
+
+    @PutMapping("/messages/read/{conversationId}/{username}")
+    @PreAuthorize("hasRole('COUNSELLOR')")
+    public ResponseEntity<ResponseObject> readMessages(@PathVariable Long conversationId, @PathVariable String username) {
+        return webSocketService.markConversationAsRead(conversationId, username);
     }
 }

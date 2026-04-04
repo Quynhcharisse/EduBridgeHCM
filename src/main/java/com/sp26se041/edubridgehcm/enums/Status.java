@@ -48,6 +48,7 @@ public enum Status {
 
     //With status conservation
     CONVERSATION_ACTIVE("active"),
+    CONVERSATION_PENDING("pending"),
     CONVERSATION_BLOCKED("blocked"),
 
     //With status message
