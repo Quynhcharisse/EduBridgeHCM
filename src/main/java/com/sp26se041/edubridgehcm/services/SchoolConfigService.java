@@ -11,5 +11,7 @@ public interface SchoolConfigService {
     ResponseEntity<ResponseObject> getSchoolConfigList(int schoolId);
 
     ResponseEntity<ResponseObject> getSchoolConfigByKey(String k);
+
+    ResponseEntity<ResponseObject> getCampusConfigList();
 }
 

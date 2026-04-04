@@ -39,5 +39,11 @@ public class SchoolConfigController {
     public ResponseEntity<ResponseObject> updateSchoolConfig(@PathVariable int schoolId, @RequestBody SchoolConfigRequest request) {
         return schoolConfigService.updateSchoolConfig(schoolId, request);
     }
+
+    @GetMapping("/campus/list")
+    @PreAuthorize("hasAnyRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> getCampusConfigList() {
+        return schoolConfigService.getCampusConfigList();
+    }
 }
 
