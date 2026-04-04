@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.repositories;
 
 
+import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.PersonalityType;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -11,4 +12,6 @@ public interface PersonalityTypeRepo extends JpaRepository<PersonalityType, Long
     boolean existsByCode(String code);
 
     Optional<PersonalityType> findByCode(String code);
+
+    List<PersonalityType> findAllByStatus(Status status);
 }

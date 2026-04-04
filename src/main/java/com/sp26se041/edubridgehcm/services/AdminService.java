@@ -20,4 +20,8 @@ public interface AdminService {
     ResponseEntity<ResponseObject> viewServicePackageFeeList();
 
     ResponseEntity<ResponseObject> updateStatusServicePackageFee(UpdateStatusServicePackageFeeRequest request);
+
+    ResponseEntity<ResponseObject> createPersonalityType(CreatePersonalityTypeRequest request);
+
+    ResponseEntity<ResponseObject> getPersonalityTypeList();
 }

@@ -1,15 +1,19 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.sp26se041.edubridgehcm.enums.PersonalityTypeGroup;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
+import com.sp26se041.edubridgehcm.models.PersonalityType;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolRegistrationRequest;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
+import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRegistrationRequestRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
+import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
 import com.sp26se041.edubridgehcm.requests.CreateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
@@ -23,7 +27,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -38,6 +44,7 @@ public class AdminServiceImpl implements AdminService {
     private final SchoolRepo schoolRepo;
 
     private final CampusRepo campusRepo;
+    private final PersonalityTypeRepo personalityTypeRepo;
 
     @Override
     @Transactional
@@ -170,5 +177,173 @@ public class AdminServiceImpl implements AdminService {
     @Override
     public ResponseEntity<ResponseObject> updateStatusServicePackageFee(UpdateStatusServicePackageFeeRequest request) {
         return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> createPersonalityType(CreatePersonalityTypeRequest request) {
+
+        String error = validateCreatePersonalityType(request);
+
+        if(!error.isEmpty()){
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+        }
+
+        if(personalityTypeRepo.existsByCode(request.getCode())){
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Personality type code already exists in the system", null);
+        }
+
+        PersonalityTypeGroup group;
+        try {
+            group = parsePersonalityTypeGroup(request.getPersonalityTypeGroup());
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
+
+        PersonalityType personalityType = PersonalityType.builder()
+                .personalityTypeGroup(group)
+                .name(normalize(request.getName()))
+                .description(normalize(request.getDescription()))
+                .code(normalize(request.getCode()))
+                .quote(request.getQuoteInfo())
+                .traits(request.getTraits())
+                .strengths(request.getStrengths())
+                .weaknesses(request.getWeaknesses())
+                .sources(request.getSources())
+                .recommendedCareers(request.getRecommendedCareers())
+                .build();
+
+        personalityTypeRepo.save(personalityType);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Create personality type successfully", null);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getPersonalityTypeList() {
+
+        List<PersonalityType> personalityTypes = personalityTypeRepo.findAll();
+
+        Map<String, List<PersonalityType>> result = new LinkedHashMap<>();
+
+        for (PersonalityType p : personalityTypes) {
+            String group = p.getPersonalityTypeGroup().getValue();
+            result
+                    .computeIfAbsent(group, k -> new ArrayList<>())
+                    .add(p);
+        }
+
+        return ResponseBuilder.build(HttpStatus.OK, "Get personality types successfully", result);
+    }
+
+    private PersonalityTypeGroup parsePersonalityTypeGroup(String group) {
+        if (group == null || group.isBlank()) {
+            throw new IllegalArgumentException("Personality type group must not be blank");
+        }
+
+        try {
+            return PersonalityTypeGroup.valueOf(group.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "Invalid personality type group. Allowed values: ANALYST, DIPLOMAT, SENTINEL, EXPLORER"
+            );
+        }
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+
+    private String validateCreatePersonalityType(CreatePersonalityTypeRequest request) {
+
+        if(request == null) {
+            return "Request must not be null";
+        }
+
+        if(isBlank(request.getCode())){
+            return "Code must not be blank";
+        }
+
+        if(isBlank(request.getName())) {
+            return "Name must not be blank";
+        }
+
+        if(isBlank(request.getDescription())) {
+            return "Description must not be blank";
+        }
+
+        if(request.getQuoteInfo() == null) {
+            return "QuoteInfo must not be null";
+        }
+
+        if(isBlank(request.getQuoteInfo().getAuthor())){
+            return "Author must not be blank";
+        }
+
+        if(isBlank(request.getQuoteInfo().getContent())){
+            return "Content must not be blank";
+        }
+
+        if (request.getTraits().size() != 4) {
+            return
+                    "Traits must contain exactly 4 items";
+        }
+
+        for (int i = 0; i < request.getTraits().size(); i++ ) {
+            if(isBlank(request.getTraits().get(i).getName())) {
+                return "Trait name at index ["+ i + "] must not be blank";
+            }
+            if(isBlank(request.getTraits().get(i).getDescription())) {
+                return "Trait description at index ["+ i + "] must not be blank";
+            }
+        }
+
+        if (request.getStrengths().isEmpty()) {
+           return "Strengths must not be empty";
+        }
+
+        for (int j = 0; j < request.getStrengths().size(); j++ ) {
+            if (isBlank(request.getStrengths().get(j))){
+                return "Strength at index ["+ j + "] must not be blank";
+            }
+        }
+
+        for (int i = 0; i < request.getWeaknesses().size(); i++ ) {
+            if (isBlank(request.getWeaknesses().get(i))){
+                return "Weakness at index ["+ i + "] must not be blank";
+            }
+        }
+
+        for (int i = 0; i < request.getSources().size(); i++ ) {
+            if(isBlank(request.getSources().get(i).getTitle())){
+                return "Display name source at index ["+ i + "] must not be blank";
+            }
+            if(isBlank(request.getSources().get(i).getUrl())){
+                return "Url source at index ["+ i + "] must not be blank";
+            }
+        }
+
+        if(request.getRecommendedCareers().isEmpty()) {
+            return "Recommended careers must not be empty";
+        }
+
+        for (int j = 0; j < request.getRecommendedCareers().size(); j++ ) {
+            if (isBlank(request.getRecommendedCareers().get(j).getName())){
+               return "Recommended career name at index ["+ j + "] must not be blank";
+            }
+            if(isBlank(request.getRecommendedCareers().get(j).getExplainText())){
+                return "Explain text for recommended career at index ["+ j + "] must not be blank";
+            }
+        }
+
+        return "";
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }

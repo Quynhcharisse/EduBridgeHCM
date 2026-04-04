@@ -22,7 +22,7 @@ public class UpdateStudentInfoRequest {
     String gender;
     String personalityTypeCode;
     String favouriteJob;
-    List<AddStudentInfoRequest.AcademicInfo> academicInfos;
+    List<UpdateStudentInfoRequest.AcademicInfo> academicInfos;
 
     @Data
     @NoArgsConstructor
@@ -30,7 +30,7 @@ public class UpdateStudentInfoRequest {
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class AcademicInfo {
-        List<AddStudentInfoRequest.SubjectResult>  subjectResults;
+        List<UpdateStudentInfoRequest.SubjectResult>  subjectResults;
         String gradeLevel;
     }
     @Data

@@ -48,6 +48,7 @@ public enum Status {
 
     //With status conservation
     CONVERSATION_ACTIVE("active"),
+    CONVERSATION_PENDING("pending"),
     CONVERSATION_BLOCKED("blocked"),
 
     //With status message
@@ -58,7 +59,11 @@ public enum Status {
     EVENT_UPCOMING("upcoming"),
     EVENT_ONGOING("ongoing"),
     EVENT_FINISHED("finished"),
-    EVENT_CANCELLED("cancelled");
+    EVENT_CANCELLED("cancelled"),
 
+    //PERSONALITY TYPE STATUS
+    PERSONALITY_TYPE_ACTIVE("active"),
+    PERSONALITY_TYPE_INACTIVE("inactive");
+    
     private final String value;
 }

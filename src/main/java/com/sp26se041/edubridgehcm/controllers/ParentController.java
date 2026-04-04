@@ -6,8 +6,10 @@ import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.ParentService;
 import com.sp26se041.edubridgehcm.services.WebSocketService;
+import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -38,6 +40,7 @@ public class ParentController {
     @MessageMapping("/private-message")
     public void privateMessage(ChatMessage message) {
         String error = webSocketService.createChatMessage(message);
+
         if (error != null && !error.isBlank()) {
             ChatMessage systemMessage = ChatMessage.builder()
                     .senderName("System")
@@ -65,9 +68,9 @@ public class ParentController {
         );
     }
       
-    @GetMapping("/messages/history/{parentEmail}/{counsellorEmail}/{studentProfileId}")
-    public ResponseEntity<ResponseObject> getChatHistory(@PathVariable String parentEmail, @PathVariable String counsellorEmail, @PathVariable int studentProfileId, @RequestParam (required = false) Long cursorId) {
-        return webSocketService.getChatHistory(parentEmail, counsellorEmail, studentProfileId,cursorId);
+    @GetMapping("/messages/history/{parentEmail}/{campusId}/{studentProfileId}")
+    public ResponseEntity<ResponseObject> getChatHistory(@PathVariable String parentEmail, @PathVariable int campusId, @PathVariable int studentProfileId, @RequestParam (required = false) Long cursorId) {
+        return parentService.getChatHistory(parentEmail, campusId, studentProfileId, cursorId);
     }
 
     @PutMapping("/messages/read/{conversationId}/{username}")
