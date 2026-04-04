@@ -7,7 +7,6 @@ import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.models.Conversation;
-import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.FavouriteSchool;
 import com.sp26se041.edubridgehcm.models.Major;
 import com.sp26se041.edubridgehcm.models.Parent;
@@ -28,6 +27,7 @@ import com.sp26se041.edubridgehcm.repositories.StudentInfoRepo;
 import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
 import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
 import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
+import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.ParentService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
@@ -347,6 +347,8 @@ public class ParentServiceImpl implements ParentService {
         return ResponseBuilder.build(HttpStatus.OK, "Add favourite school successfully", null);
     }
 
+
+
     @Override
     public ResponseEntity<ResponseObject> getFavouriteSchools(int page, int size) {
 
@@ -369,9 +371,60 @@ public class ParentServiceImpl implements ParentService {
 
         Page<FavouriteSchool> favouriteSchoolPage = favouriteSchoolRepo.findByParentId(parent.getId(), pageable);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Get favourite school successfully", favouriteSchoolPage);
+        PageResponse<Map<String, Object>> result = PaginationUtil.buildPageResponse(favouriteSchoolPage, this::buildFavouriteSchool);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Get favourite school successfully", result);
     }
 
+    @Override
+    public ResponseEntity<ResponseObject> removeFavouriteSchool(int favouriteSchoolId) {
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        Parent parent = parentRepo.findByAccount_Email(email)
+                .orElse(null);
+
+        if (parent == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Parent not found", null);
+        }
+
+        Optional<FavouriteSchool> favouriteSchool = favouriteSchoolRepo.findById(favouriteSchoolId);
+
+        if(favouriteSchool.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Already remove favourite school", null);
+        }
+
+        favouriteSchoolRepo.delete(favouriteSchool.get());
+
+        return ResponseBuilder.build(HttpStatus.OK, "Remove favourite school successfully", null);
+    }
+
+    private Map<String, Object> buildFavouriteSchool(FavouriteSchool favouriteSchool) {
+
+        Map<String, Object> map = new HashMap<>();
+
+        School school = favouriteSchool.getSchool();
+
+        if (school == null) {
+            return map;
+        }
+
+        map.put("id", favouriteSchool.getId());
+        map.put("schoolId", school.getId());
+        map.put("name", school.getName());
+        map.put("description", school.getDescription());
+        map.put("totalCampus", school.getCampusList() != null ? school.getCampusList().size() : 0);
+        map.put("logoUrl", school.getLogoUrl());
+        map.put("websiteUrl", school.getWebsiteUrl());
+        map.put("representativeName", school.getRepresentativeName());
+        map.put("hotline", school.getHotline());
+        map.put("averageRating", school.getAverageRating());
+        map.put("foundingDate", school.getFoundingDate());
+        return map;
+    }
 
     private Map<String, Object> buildStudentProfile(StudentProfile studentProfile) {
         Map<String, Object> result = new HashMap<>();
