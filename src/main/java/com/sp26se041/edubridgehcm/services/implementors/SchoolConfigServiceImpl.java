@@ -1,11 +1,14 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.sp26se041.edubridgehcm.enums.Role;
+import com.sp26se041.edubridgehcm.models.Account;
+import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
-import com.sp26se041.edubridgehcm.requests.CreateFacilityTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.SchoolConfigRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolConfigService;
+import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -29,13 +32,30 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
     @Transactional
     public ResponseEntity<ResponseObject> updateSchoolConfig(int schoolId, SchoolConfigRequest request) {
 
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "School base account not found", null);
+        }
+
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN,
+                    "Only the main facility has the authority to change the system configuration.", null);
+        }
+
+        if (actorCampus.getSchool().getId() != schoolId) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN,
+                    "You do not have permission to modify the configuration for this field.", null);
+        }
+
         if (request.getAdmissionSettingsData() == null &&
                 request.getDocumentRequirementsData() == null &&
                 request.getFinancePolicyData() == null &&
                 request.getOperationSettingsData() == null &&
                 request.getFacilityData() == null &&
                 request.getQuotaConfigData() == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Data missing", null);
+
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "The updated data must not be left blank.", null);
         }
 
         updateConfig(schoolId, request);
@@ -72,10 +92,10 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         admissionJson.put("quotaAlertThresholdPercent", admissionSettingsData.getQuotaAlertThresholdPercent());
         admissionJson.put("itemList", admissionSettingsData.isAutoCloseOnFull());
 
-        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "admission_settings")
+        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "admissionSettingsData")
                 .orElse(SchoolConfig.builder()
                         .schoolId(schoolId)
-                        .key("admission_settings")
+                        .key("admissionSettingsData")
                         .build());
 
         config.setValue(admissionJson);
@@ -119,10 +139,10 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         admissionJson.put("mandatoryAll", mandatoryAllJson);
         admissionJson.put("byMethod", byMethodJson);
 
-        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "document_requirements")
+        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData")
                 .orElse(SchoolConfig.builder()
                         .schoolId(schoolId)
-                        .key("document_requirements")
+                        .key("documentRequirementsData")
                         .build());
 
         config.setValue(admissionJson);
@@ -149,10 +169,10 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         financePolicyJson.put("priceAdjustment", priceAdjustmentJson);
         financePolicyJson.put("paymentNotes", financePolicyData.getPaymentNotes());
 
-        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "finance_policy")
+        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "financePolicyData")
                 .orElse(SchoolConfig.builder()
                         .schoolId(schoolId)
-                        .key("finance_policy")
+                        .key("financePolicyData")
                         .build());
 
         config.setValue(financePolicyJson);
@@ -202,10 +222,10 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         operationJson.put("workingConfig", workingConfigMap);
         operationJson.put("admissionSteps", stepsJson);
 
-        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "operation_settings")
+        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "operationSettingsData")
                 .orElse(SchoolConfig.builder()
                         .schoolId(schoolId)
-                        .key("operation_settings")
+                        .key("operationSettingsData")
                         .build());
 
         config.setValue(operationJson);
@@ -251,7 +271,8 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         facilityJson.put("imageData", imageMap); // Đổi tên cho khớp với DTO
         facilityJson.put("itemList", facilityItems);
 
-        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "facility_template").orElse(SchoolConfig.builder().schoolId(schoolId).key("facility_template").build());
+        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "facilityData")
+                .orElse(SchoolConfig.builder().schoolId(schoolId).key("facilityData").build());
 
         config.setValue(facilityJson);
         config.setUpdatedAt(LocalDateTime.now());
@@ -291,10 +312,10 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         quotaJson.put("totalSystemQuota", quotaConfigData.getTotalSystemQuota());
         quotaJson.put("campusAssignments", campusAssignmentsJson);
 
-        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "quota_config")
+        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "quotaConfigData")
                 .orElse(SchoolConfig.builder()
                         .schoolId(schoolId)
-                        .key("quota-config")
+                        .key("quotaConfigData")
                         .build());
 
         config.setValue(quotaJson);
@@ -313,6 +334,17 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
 
     @Override
     public ResponseEntity<ResponseObject> getSchoolConfigByKey(String k) {
+
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "Unauthorized", null);
+        }
+
+        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), k).orElse(null);
+
+        if (config == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Configuration not found for this school", null);
+        }
 
         Map<String, Object> data = getConfigByKey(k);
 
@@ -334,23 +366,13 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         return data;
     }
 
-    @Override
-    @Transactional
-    public ResponseEntity<ResponseObject> createOrUpdateFacilityTemplate(int schoolId, CreateFacilityTemplateRequest request) {
-
-
-        return ResponseBuilder.build(HttpStatus.OK, "Facility template upsert successfully", null);
-    }
-
-    @Override
-    public ResponseEntity<ResponseObject> getFacilityTemplate(int schoolId) {
-
-        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "facility_template").orElse(null);
-
-        if (config == null || config.getValue() == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No facility template found for this school", null);
+    private Campus extractActorCampus() {
+        Account account = AuthRequestUtil.extractAuthenticatedAccount();
+        if (account == null || account.getRole() != Role.SCHOOL) {
+            return null;
         }
-        return ResponseBuilder.build(HttpStatus.OK, "", config.getValue());
+        return account.getCampus();
     }
+
 }
 

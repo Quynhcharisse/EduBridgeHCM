@@ -1,4 +1,4 @@
-package com.sp26se041.edubridgehcm.validations.school;
+package com.sp26se041.edubridgehcm.validations.campus;
 
 import com.sp26se041.edubridgehcm.enums.LearningMode;
 import com.sp26se041.edubridgehcm.enums.Status;

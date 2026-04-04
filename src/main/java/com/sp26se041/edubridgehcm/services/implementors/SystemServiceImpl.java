@@ -70,6 +70,7 @@ public class SystemServiceImpl implements SystemService {
     @Override
     @Transactional
     public ResponseEntity<ResponseObject> updateConfigData(CreateConfigDataRequest request) {
+
         if (request.getBusinessData() == null
                 && request.getMediaData() == null
                 && request.getSubscriptionData() == null
@@ -225,9 +226,9 @@ public class SystemServiceImpl implements SystemService {
         admissData.getQuotas().forEach((id, val) -> formattedQuotas.put(id.toString(), val));
         currentYearInfo.put("quotas", formattedQuotas);
 
-        PlatformConfig config = platformConfigRepo.findByKey("admission_quota")
+        PlatformConfig config = platformConfigRepo.findByKey("admissionQuota")
                 .orElse(PlatformConfig.builder()
-                        .key("admission_quota")
+                        .key("admissionQuota")
                         .creationDate(LocalDateTime.now())
                         .build());
 
