@@ -23,7 +23,47 @@ public class UpdateCampusConfigRequest {
 
     Map<String, Object> imageJsonData;
 
+    String hotline;
+
+    String emailSupport;
+
+    CampusWorkingOverride workingOverride;
+
+    List<AdmissionStepOverride> admissionStepsOverride;
+
     String policyDetail;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class CampusWorkingOverride {
+        String note;
+        Boolean isOpenSunday;
+        List<WorkShiftRequest> workShifts;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class AdmissionStepOverride {
+        int stepOrder;
+        String description;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class WorkShiftRequest {
+        String name;
+        String startTime;
+        String endTime;
+    }
 
     @Data
     @NoArgsConstructor

@@ -25,4 +25,6 @@ public interface CampusService {
     ResponseEntity<ResponseObject> viewAccountCounsellorList(int page, int size);
 
     ResponseEntity<ResponseObject> updateCampusConfig(int campusId, UpdateCampusConfigRequest request);
+
+    ResponseEntity<ResponseObject> getSchoolConfig(int campusId);
 }
