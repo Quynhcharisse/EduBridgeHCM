@@ -31,7 +31,7 @@ import java.util.List;
 @Table(name = "campus_schedule_template")
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @NullMarked
-public class CampusScheduleTemplate {
+public class    CampusScheduleTemplate {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
