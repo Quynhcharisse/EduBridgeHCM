@@ -378,18 +378,10 @@ public class ParentServiceImpl implements ParentService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> removeFavouriteSchool(int favouriteSchoolId) {
+    public ResponseEntity<ResponseObject> removeFavouriteSchool(long favouriteSchoolId) {
+
         if (AccountRestrictionUtil.isRestrictedActor()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
-        }
-
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-
-        Parent parent = parentRepo.findByAccount_Email(email)
-                .orElse(null);
-
-        if (parent == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Parent not found", null);
         }
 
         Optional<FavouriteSchool> favouriteSchool = favouriteSchoolRepo.findById(favouriteSchoolId);

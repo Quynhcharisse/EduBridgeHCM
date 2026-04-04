@@ -26,5 +26,5 @@ public interface ParentService {
 
     ResponseEntity<ResponseObject> addFavouriteSchool(AddFavouriteSchoolRequest request);
     ResponseEntity<ResponseObject> getFavouriteSchools(int page, int size);
-    ResponseEntity<ResponseObject> removeFavouriteSchool(int favouriteSchoolId);
+    ResponseEntity<ResponseObject> removeFavouriteSchool(long favouriteSchoolId);
 }
