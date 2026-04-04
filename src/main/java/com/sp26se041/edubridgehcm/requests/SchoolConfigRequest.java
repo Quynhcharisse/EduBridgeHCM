@@ -216,7 +216,7 @@ public class SchoolConfigRequest {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class QuotaConfigData {
         String academicYear;
-        int totalSystemQuota; // Con số này lấy từ PlatformConfig để hiển thị (Read-only)
+        int totalSystemQuota;
         List<CampusQuotaAssignment> campusAssignments;
 
         @Data

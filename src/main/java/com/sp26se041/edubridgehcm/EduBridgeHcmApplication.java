@@ -239,7 +239,7 @@ public class EduBridgeHcmApplication {
                         .modifiedDate(today)
                         .build(),
                 PlatformConfig.builder()
-                        .key("quota")
+                        .key("admissionQuota")
                         .value(quotaData)
                         .creationDate(today)
                         .modifiedDate(today).build(),
