@@ -90,7 +90,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         Map<String, Object> admissionJson = new HashMap<>();
         admissionJson.put("allowedMethods", allowedMethodsJson);
         admissionJson.put("quotaAlertThresholdPercent", admissionSettingsData.getQuotaAlertThresholdPercent());
-        admissionJson.put("itemList", admissionSettingsData.isAutoCloseOnFull());
+        admissionJson.put("autoCloseOnFull", admissionSettingsData.isAutoCloseOnFull());
 
         SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "admissionSettingsData")
                 .orElse(SchoolConfig.builder()
