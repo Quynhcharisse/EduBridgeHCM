@@ -458,7 +458,6 @@ public class CampusServiceImpl implements CampusService {
         return account.getCampus();
     }
 
-
     @Override
     @Transactional
     public ResponseEntity<ResponseObject> updateCampusConfig(int campusId, UpdateCampusConfigRequest request) {
@@ -470,15 +469,8 @@ public class CampusServiceImpl implements CampusService {
         }
         // Validate: chỉ cho phép sửa value, unit, isUsage của facility mẫu, cho phép thêm mới (isCustom)
         // (Có thể bổ sung validate nâng cao nếu cần)
-        Map<String, Object> facilityMap = new HashMap<>();
-        facilityMap.put("overview", request.getOverview());
-        facilityMap.put("itemList", request.getItemList());
-        facilityMap.put("imageJsonData", request.getImageJsonData());
 
-        campus.setFacility(facilityMap);
-        campus.setPolicyDetail(request.getPolicyDetail());
-        campusRepo.save(campus);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Campus facility updated successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Campus config updated successfully", null);
     }
 }
