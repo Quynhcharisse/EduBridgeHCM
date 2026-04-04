@@ -73,7 +73,7 @@ public class CampusController {
         return campusService.viewAccountCounsellorList(page, pageSize);
     }
 
-    @PutMapping("/{campusId}/facility")
+    @PutMapping("/{campusId}/config")
     public ResponseEntity<ResponseObject> updateCampusConfig(@PathVariable int campusId, @RequestBody UpdateCampusConfigRequest request) {
         return campusService.updateCampusConfig(campusId, request);
     }

@@ -69,8 +69,12 @@ public class SchoolConfigUtil {
 
         StringBuilder sb = new StringBuilder();
         sb.append("===== THÔNG TIN VẬN HÀNH CHUNG =====\n");
-        sb.append("📞 Đường dây nóng: ").append(operationData.getOrDefault("hotline", "Không có")).append("\n");
-        sb.append("📧 Email hỗ trợ: ").append(operationData.getOrDefault("emailSupport", "Không có")).append("\n\n");
+
+        String hotline = String.valueOf(operationData.getOrDefault("hotline", "Không có"));
+        sb.append("📞 Đường dây nóng: ").append(hotline).append("\n");
+
+        String emailSupport = String.valueOf(operationData.getOrDefault("emailSupport", "Không có"));
+        sb.append("📧 Email hỗ trợ: ").append(emailSupport).append("\n");
 
         Map<String, Object> working = (Map<String, Object>) operationData.get("workingConfig");
 

@@ -23,6 +23,8 @@ public class UpdateCampusConfigRequest {
 
     Map<String, Object> imageJsonData;
 
+    String policyDetail;
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

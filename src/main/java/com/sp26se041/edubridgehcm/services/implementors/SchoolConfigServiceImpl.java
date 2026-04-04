@@ -335,6 +335,17 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
     @Override
     public ResponseEntity<ResponseObject> getSchoolConfigByKey(String k) {
 
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "Unauthorized", null);
+        }
+
+        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), k).orElse(null);
+
+        if (config == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Configuration not found for this school", null);
+        }
+
         Map<String, Object> data = getConfigByKey(k);
 
         if (data == null) return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Data invalid", null);

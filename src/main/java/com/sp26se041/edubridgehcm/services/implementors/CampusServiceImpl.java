@@ -8,6 +8,7 @@ import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
 import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Program;
+import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionReservationFormRepo;
@@ -15,6 +16,7 @@ import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
@@ -26,6 +28,7 @@ import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
+import com.sp26se041.edubridgehcm.utils.SchoolConfigUtil;
 import com.sp26se041.edubridgehcm.validations.campus.CampusProgramOfferingValidation;
 import com.sp26se041.edubridgehcm.validations.campus.CounsellorValidation;
 import lombok.RequiredArgsConstructor;
@@ -39,7 +42,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -60,6 +65,7 @@ public class CampusServiceImpl implements CampusService {
     private final CounsellorRepo counsellorRepo;
 
     private final AdmissionReservationFormRepo admissionReservationFormRepo;
+    private final SchoolConfigRepo schoolConfigRepo;
 
     @Override
     @Transactional
@@ -468,14 +474,44 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campus not found", null);
         }
 
-        Map<String, Object> facilityMap = new HashMap<>();
-        facilityMap.put("overview", request.getOverview());
-        facilityMap.put("itemList", request.getItemList());
-        facilityMap.put("imageJsonData", request.getImageJsonData());
+        // campus xử lý facility
+        SchoolConfig facilityData = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "facilityData").orElse(null);
 
-        campus.setFacility(facilityMap);
+        List<Map<String, Object>> itemList = new ArrayList<>();
+
+        if (facilityData != null && facilityData.getValue() instanceof Map) {
+            Map<String, Object> val = (Map<String, Object>) facilityData.getValue();
+            itemList = (List<Map<String, Object>>) val.get("itemList");
+        }
+
+        List<Map<String, Object>> mergedFacilityItems = SchoolConfigUtil.mergeFacilityItems(itemList, request.getItemList());
+
+        Map<String, Object> facilityJson = new HashMap<>();
+        facilityJson.put("overview", request.getOverview());
+        facilityJson.put("itemList", mergedFacilityItems);
+        facilityJson.put("imageData", request.getImageJsonData());
+
+        campus.setFacility(facilityJson);
+
+        // campus xử lý operating --> policy detail
+        SchoolConfig operationSettingsData = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "operationSettingsData").orElse(null);
+
+        String hqPolicyBase = "";
+        if (operationSettingsData != null && operationSettingsData.getValue() instanceof Map) {
+            hqPolicyBase = SchoolConfigUtil.convertOperationToPolicyString((Map<String, Object>) operationSettingsData.getValue());
+        }
+
+        StringBuilder finalPolicy = new StringBuilder(hqPolicyBase);
+        if (request.getPolicyDetail() != null && !request.getPolicyDetail().trim().isEmpty()) {
+            finalPolicy.append("\n------------------------------------------\n");
+            finalPolicy.append("📌 LƯU Ý RIÊNG TẠI CƠ SỞ:\n");
+            finalPolicy.append(request.getPolicyDetail());
+        }
+
+        campus.setPolicyDetail(finalPolicy.toString());
+
         campusRepo.save(campus);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Campus facility updated successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Campus config updated successfully", null);
     }
 }

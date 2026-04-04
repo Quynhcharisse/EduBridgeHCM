@@ -17,7 +17,7 @@ public enum Status {
     REJECTED("rejected"),
 
     //With status for admissions
-    OPEN_ADMISSION_CAMPAIGN("open"), //tao moi
+    OPEN_ADMISSION_CAMPAIGN("open"),
     CANCELLED_ADMISSION_CAMPAIGN("cancelled"),
     DRAFT_ADMISSION_CAMPAIGN("draft"), //tạo mới ban đầu admission campaign
 
