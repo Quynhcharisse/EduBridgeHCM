@@ -29,33 +29,31 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "assignment")
+@Table(name = "counsellor_slot")
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @NullMarked
-public class Assignment {
+public class CounsellorSlot {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
 
     @ManyToOne
-    @JoinColumn(name = "`slot_id`")
+    @JoinColumn(name = "`campus_schedule_templete_id`")
     CampusScheduleTemplate campusScheduleTemplate;
 
     @ManyToOne
     @JoinColumn(name = "`counsellor_id`")
     Counsellor counsellor;
 
-    @Column(name = "date_applied")
-    LocalDate dateApplied;
+    @Column(name = "start_date")
+    LocalDate startDate;
 
-    @Column(name = "date_unassigned")
-    LocalDate dateUnassigned;
+    @Column(name = "end_date")
+    LocalDate endDate;
 
-    @OneToMany(mappedBy = "assignment", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "counsellorSlot", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     List<ConsultationOfflineRequest> consultationOfflineRequests;
-
-
 }

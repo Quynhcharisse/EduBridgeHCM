@@ -1,7 +1,10 @@
 package com.sp26se041.edubridgehcm.models;
 
+import com.sp26se041.edubridgehcm.enums.SessionType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -31,7 +34,7 @@ import java.util.List;
 @Table(name = "campus_schedule_template")
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @NullMarked
-public class    CampusScheduleTemplate {
+public class CampusScheduleTemplate {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -56,8 +59,12 @@ public class    CampusScheduleTemplate {
     @Column(name = "updated_date")
     LocalDate updatedDate;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "session_type")
+    SessionType sessionType;
+
     @OneToMany(mappedBy = "campusScheduleTemplate")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    List<Assignment> assignmentList;
+    List<CounsellorSlot> counsellorSlotList;
 }

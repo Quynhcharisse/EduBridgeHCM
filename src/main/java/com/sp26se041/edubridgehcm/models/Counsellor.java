@@ -40,6 +40,6 @@ public class Counsellor {
     @OneToMany(mappedBy = "counsellor", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    List<Assignment> assignmentList;
+    List<CounsellorSlot> counsellorSlotList;
 
 }
