@@ -496,22 +496,53 @@ public class CampusServiceImpl implements CampusService {
         // campus xử lý operating --> policy detail
         SchoolConfig operationSettingsData = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "operationSettingsData").orElse(null);
 
-        String hqPolicyBase = "";
-        if (operationSettingsData != null && operationSettingsData.getValue() instanceof Map) {
-            hqPolicyBase = SchoolConfigUtil.convertOperationToPolicyString((Map<String, Object>) operationSettingsData.getValue());
-        }
+        if (operationSettingsData != null) {
+            Map<String, Object> mergedOp = SchoolConfigUtil.mergeOperationConfig(
+                    (Map<String, Object>) operationSettingsData.getValue(),
+                    request
+            );
 
-        StringBuilder finalPolicy = new StringBuilder(hqPolicyBase);
-        if (request.getPolicyDetail() != null && !request.getPolicyDetail().trim().isEmpty()) {
-            finalPolicy.append("\n------------------------------------------\n");
-            finalPolicy.append("📌 LƯU Ý RIÊNG TẠI CƠ SỞ:\n");
-            finalPolicy.append(request.getPolicyDetail());
+            String finalPolicyStr = SchoolConfigUtil.convertOperationToPolicyString(mergedOp);
+            if (request.getPolicyDetail() != null && !request.getPolicyDetail().isBlank()) {
+                finalPolicyStr += "\n------------------------------------------\n";
+                finalPolicyStr += "📌 LƯU Ý RIÊNG TẠI CƠ SỞ:\n" + request.getPolicyDetail();
+            }
+            campus.setPolicyDetail(finalPolicyStr);
         }
-
-        campus.setPolicyDetail(finalPolicy.toString());
 
         campusRepo.save(campus);
 
         return ResponseBuilder.build(HttpStatus.OK, "Campus config updated successfully", null);
     }
+
+    @Override
+    public ResponseEntity<ResponseObject> getSchoolConfig(int campusId) {
+
+        Campus campus = campusRepo.findById(campusId).orElse(null);
+
+        if (campus == null) {
+            return ResponseBuilder.build(HttpStatus.OK, "Campus not found", null);
+        }
+
+        SchoolConfig hqFacility = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "facilityData").orElse(null);
+
+        SchoolConfig hqOperation = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "operationSettingsData").orElse(null);
+
+        Map<String, Object> result = new HashMap<>();
+
+        Map<String, Object> hqSection = new HashMap<>();
+
+        hqSection.put("facility", hqFacility != null ? hqFacility.getValue() : null);
+        hqSection.put("operation", hqOperation != null ? hqOperation.getValue() : null);
+        result.put("hqDefault", hqSection);
+
+        Map<String, Object> campusSection = new HashMap<>();
+        campusSection.put("facilityJson", campus.getFacility());
+        campusSection.put("policyDetailRendered", campus.getPolicyDetail());
+
+        result.put("campusCurrent", campusSection);
+
+        return ResponseBuilder.build(HttpStatus.OK, "", result);
+    }
+    
 }

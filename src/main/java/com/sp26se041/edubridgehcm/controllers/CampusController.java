@@ -74,7 +74,14 @@ public class CampusController {
     }
 
     @PutMapping("/{campusId}/config")
+    @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> updateCampusConfig(@PathVariable int campusId, @RequestBody UpdateCampusConfigRequest request) {
         return campusService.updateCampusConfig(campusId, request);
+    }
+
+    @GetMapping("/{campusId}/config")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> getSchoolConfig(@PathVariable int campusId) {
+        return campusService.getSchoolConfig(campusId);
     }
 }
