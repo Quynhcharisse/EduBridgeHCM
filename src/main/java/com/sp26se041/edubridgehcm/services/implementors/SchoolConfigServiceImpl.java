@@ -48,14 +48,14 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                     "You do not have permission to modify the configuration for this field.", null);
         }
 
-
         if (request.getAdmissionSettingsData() == null &&
                 request.getDocumentRequirementsData() == null &&
                 request.getFinancePolicyData() == null &&
                 request.getOperationSettingsData() == null &&
                 request.getFacilityData() == null &&
                 request.getQuotaConfigData() == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Data missing", null);
+
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "The updated data must not be left blank.", null);
         }
 
         updateConfig(schoolId, request);
@@ -92,10 +92,10 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         admissionJson.put("quotaAlertThresholdPercent", admissionSettingsData.getQuotaAlertThresholdPercent());
         admissionJson.put("itemList", admissionSettingsData.isAutoCloseOnFull());
 
-        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "admission_settings")
+        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "admissionSettingsData")
                 .orElse(SchoolConfig.builder()
                         .schoolId(schoolId)
-                        .key("admission_settings")
+                        .key("admissionSettingsData")
                         .build());
 
         config.setValue(admissionJson);
@@ -139,10 +139,10 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         admissionJson.put("mandatoryAll", mandatoryAllJson);
         admissionJson.put("byMethod", byMethodJson);
 
-        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "document_requirements")
+        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData")
                 .orElse(SchoolConfig.builder()
                         .schoolId(schoolId)
-                        .key("document_requirements")
+                        .key("documentRequirementsData")
                         .build());
 
         config.setValue(admissionJson);
@@ -169,10 +169,10 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         financePolicyJson.put("priceAdjustment", priceAdjustmentJson);
         financePolicyJson.put("paymentNotes", financePolicyData.getPaymentNotes());
 
-        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "finance_policy")
+        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "financePolicyData")
                 .orElse(SchoolConfig.builder()
                         .schoolId(schoolId)
-                        .key("finance_policy")
+                        .key("financePolicyData")
                         .build());
 
         config.setValue(financePolicyJson);
@@ -222,10 +222,10 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         operationJson.put("workingConfig", workingConfigMap);
         operationJson.put("admissionSteps", stepsJson);
 
-        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "operation_settings")
+        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "operationSettingsData")
                 .orElse(SchoolConfig.builder()
                         .schoolId(schoolId)
-                        .key("operation_settings")
+                        .key("operationSettingsData")
                         .build());
 
         config.setValue(operationJson);
@@ -271,7 +271,8 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         facilityJson.put("imageData", imageMap); // Đổi tên cho khớp với DTO
         facilityJson.put("itemList", facilityItems);
 
-        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "facility_template").orElse(SchoolConfig.builder().schoolId(schoolId).key("facility_template").build());
+        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "facilityData")
+                .orElse(SchoolConfig.builder().schoolId(schoolId).key("facilityData").build());
 
         config.setValue(facilityJson);
         config.setUpdatedAt(LocalDateTime.now());
@@ -311,10 +312,10 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         quotaJson.put("totalSystemQuota", quotaConfigData.getTotalSystemQuota());
         quotaJson.put("campusAssignments", campusAssignmentsJson);
 
-        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "quota_config")
+        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "quotaConfigData")
                 .orElse(SchoolConfig.builder()
                         .schoolId(schoolId)
-                        .key("quota_config")
+                        .key("quotaConfigData")
                         .build());
 
         config.setValue(quotaJson);
