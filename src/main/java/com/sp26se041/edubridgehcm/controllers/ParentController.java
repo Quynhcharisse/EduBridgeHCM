@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -88,8 +89,14 @@ public class ParentController {
 
     @PostMapping("/favourite/school")
     @PreAuthorize("hasRole('PARENT')")
-    public ResponseEntity<?> addFavouriteSchool(@RequestBody AddFavouriteSchoolRequest request) {
+    public ResponseEntity<ResponseObject> addFavouriteSchool(@RequestBody AddFavouriteSchoolRequest request) {
          return parentService.addFavouriteSchool(request);
+    }
+
+    @DeleteMapping("/favourite/school/{id}")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<ResponseObject> removeFavouriteSchool(@PathVariable long id) {
+        return parentService.removeFavouriteSchool(id);
     }
 
     @GetMapping("/favourite/school")

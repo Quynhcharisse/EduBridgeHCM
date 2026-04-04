@@ -9,7 +9,7 @@ import org.springframework.data.repository.CrudRepository;
 
 import java.util.List;
 
-public interface FavouriteSchoolRepo extends CrudRepository<FavouriteSchool, Integer> {
+public interface FavouriteSchoolRepo extends CrudRepository<FavouriteSchool, Long> {
 
     boolean existsByParentAndSchool(Parent parent, School school);
 
