@@ -71,6 +71,6 @@ public class ConsultationOfflineRequest {
 
     @ManyToOne
     @JoinColumn(name = "counsellor_slot_id")
-    Assignment assignment;
+    CounsellorSlot counsellorSlot;
 
 }

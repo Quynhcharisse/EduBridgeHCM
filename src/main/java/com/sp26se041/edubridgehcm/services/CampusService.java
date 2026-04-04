@@ -26,5 +26,5 @@ public interface CampusService {
 
     ResponseEntity<ResponseObject> updateCampusConfig(int campusId, UpdateCampusConfigRequest request);
 
-    ResponseEntity<ResponseObject> getSchoolConfig(int campusId);
+    ResponseEntity<ResponseObject> getCampusConfig(int campusId);
 }
