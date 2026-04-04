@@ -6,6 +6,5 @@ import org.springframework.http.ResponseEntity;
 
 public interface WebSocketService {
     String createChatMessage(ChatMessage chatMessage);
-    ResponseEntity<ResponseObject> getChatHistory(String parentEmail, String counsellorEmail, int studentProfileId,Long cursorId);
     ResponseEntity<ResponseObject> markConversationAsRead(Long conversationId, String receiverEmail);
 }

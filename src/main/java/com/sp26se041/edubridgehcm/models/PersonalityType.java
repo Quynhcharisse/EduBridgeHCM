@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.models;
 
 import com.sp26se041.edubridgehcm.enums.PersonalityTypeGroup;
+import com.sp26se041.edubridgehcm.enums.Status;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -77,5 +78,8 @@ public class PersonalityType {
 
     @Column(name = "updated_at")
     LocalDateTime updatedAt;
+
+    @Enumerated(EnumType.STRING)
+    Status status;
 
 }

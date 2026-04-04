@@ -1,11 +1,11 @@
 package com.sp26se041.edubridgehcm.controllers;
 
+import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
 import com.sp26se041.edubridgehcm.requests.CreateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AdminService;
-import com.sp26se041.edubridgehcm.services.CounsellorService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -60,6 +60,18 @@ public class AdminController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ResponseObject> viewServicePackageFeeList() {
         return adminService.viewServicePackageFeeList();
+    }
+
+    @PostMapping("/personality/type")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ResponseObject> createPersonalityType(@RequestBody CreatePersonalityTypeRequest request) {
+     return adminService.createPersonalityType(request);
+    }
+
+    @GetMapping("/personality/type")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ResponseObject> viewPersonalityTypes() {
+        return adminService.getPersonalityTypeList();
     }
 
 }

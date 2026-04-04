@@ -31,11 +31,13 @@ public class CreatePersonalityTypeRequest {
 
     List<String> strengths;
 
-    List<String> weaknesses; // 👉 sửa lại cho đúng naming
+    List<String> weaknesses;
 
     List<SourceInfo> sources;
 
     List<CareerInfo> recommendedCareers;
+
+    String personalityTypeGroup;
 
     // ================== INNER CLASSES ==================
 

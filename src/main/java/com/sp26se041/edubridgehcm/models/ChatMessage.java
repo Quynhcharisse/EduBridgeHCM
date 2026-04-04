@@ -37,6 +37,8 @@ public class ChatMessage {
 
     private String receiverName;
 
+    private int campusId;
+
     private String message;
 
     private Long conversationId;

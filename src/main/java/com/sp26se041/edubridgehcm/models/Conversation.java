@@ -45,6 +45,9 @@ public class Conversation {
     @Column(name = "counsellor_email")
     String counsellorEmail;
 
+    @Column(name = "campus_id")
+    int campusId;
+
     @Column(name = "created_date")
     LocalDateTime createdDate;
 
