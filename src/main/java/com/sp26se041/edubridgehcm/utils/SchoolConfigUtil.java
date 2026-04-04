@@ -89,14 +89,22 @@ public class SchoolConfigUtil {
     private static Map<String, Object> mergeWorkingConfig(Map<String, Object> hqWorking,
                                                           UpdateCampusConfigRequest.CampusWorkingOverride override) {
 
-        Map<String, Object> mergedWorking = new HashMap<>(hqWorking);
+        Map<String, Object> mergedWorking = (hqWorking != null) ? new HashMap<>(hqWorking) : new HashMap<>();
 
         if (override.getNote() != null) mergedWorking.put("note", override.getNote());
         if (override.getIsOpenSunday() != null) mergedWorking.put("isOpenSunday", override.getIsOpenSunday());
 
         // Nếu Campus gửi danh sách ca làm việc mới, dùng cái đó
         if (override.getWorkShifts() != null && !override.getWorkShifts().isEmpty()) {
-            mergedWorking.put("workShifts", override.getWorkShifts());
+            List<Map<String, Object>> shiftMaps = override.getWorkShifts().stream().map(shift -> {
+                Map<String, Object> m = new HashMap<>();
+                m.put("name", shift.getName());
+                m.put("startTime", shift.getStartTime());
+                m.put("endTime", shift.getEndTime());
+                return m;
+            }).collect(Collectors.toList());
+
+            mergedWorking.put("workShifts", shiftMaps);
         }
 
         return mergedWorking;
@@ -113,7 +121,7 @@ public class SchoolConfigUtil {
 
         for (var override : overrides) {
             mergedSteps.stream()
-                    .filter(s -> (int) s.get("stepOrder") == override.getStepOrder())
+                    .filter(s -> String.valueOf(s.get("stepOrder")).equals(String.valueOf(override.getStepOrder())))
                     .findFirst()
                     .ifPresent(s -> s.put("description", override.getDescription()));
         }
