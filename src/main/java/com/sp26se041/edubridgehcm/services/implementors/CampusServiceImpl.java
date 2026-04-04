@@ -17,10 +17,14 @@ import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
+import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.CreateCampusScheduleTemplateRequest;
+import com.sp26se041.edubridgehcm.requests.UnAssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateCampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.CampusService;
@@ -544,5 +548,43 @@ public class CampusServiceImpl implements CampusService {
 
         return ResponseBuilder.build(HttpStatus.OK, "", result);
     }
-    
+
+    @Override
+    @Transactional
+    public ResponseEntity<ResponseObject> createCampusScheduleTemplate(CreateCampusScheduleTemplateRequest request) {
+        return null;
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<ResponseObject> updateCampusScheduleTemplate(UpdateCampusScheduleTemplateRequest request) {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewCampusScheduleTemplateList() {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> deleteCampusScheduleTemplateList(int id) {
+        return null;
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<ResponseObject> assignCounsellorIntoSlots(AssignCounsellorIntoSlotsRequest request) {
+        return null;
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<ResponseObject> unAssignCounsellorIntoSlots(UnAssignCounsellorIntoSlotsRequest request) {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewAssignCounsellorIntoSlotList() {
+        return null;
+    }
 }
