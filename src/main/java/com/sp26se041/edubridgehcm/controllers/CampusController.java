@@ -81,7 +81,7 @@ public class CampusController {
 
     @GetMapping("/{campusId}/config")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> getSchoolConfig(@PathVariable int campusId) {
-        return campusService.getSchoolConfig(campusId);
+    public ResponseEntity<ResponseObject> getCampusConfig(@PathVariable int campusId) {
+        return campusService.getCampusConfig(campusId);
     }
 }

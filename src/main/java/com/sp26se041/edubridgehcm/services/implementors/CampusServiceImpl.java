@@ -516,7 +516,7 @@ public class CampusServiceImpl implements CampusService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> getSchoolConfig(int campusId) {
+    public ResponseEntity<ResponseObject> getCampusConfig(int campusId) {
 
         Campus campus = campusRepo.findById(campusId).orElse(null);
 
