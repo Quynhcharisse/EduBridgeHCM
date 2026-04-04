@@ -4,6 +4,7 @@ import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
+import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.requests.SchoolConfigRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -27,6 +28,7 @@ import java.util.stream.Collectors;
 public class SchoolConfigServiceImpl implements SchoolConfigService {
 
     private final SchoolConfigRepo schoolConfigRepo;
+    private final CampusRepo campusRepo;
 
     @Override
     @Transactional
@@ -351,6 +353,25 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         if (data == null) return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Data invalid", null);
 
         return ResponseBuilder.build(HttpStatus.OK, "", data);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getCampusConfigList() {
+
+        List<Campus> campusList = campusRepo.findAll();
+
+        List<Map<String, Object>> campusConfigJson = campusList.stream()
+                .map(campus -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("campusId", campus.getId());
+                    map.put("campusName", campus.getName());
+                    map.put("facilityConfig", campus.getFacility());
+                    map.put("policyDetail", campus.getPolicyDetail());
+                    return map;
+                })
+                .collect(Collectors.toList());
+
+        return ResponseBuilder.build(HttpStatus.OK, "Fetch campus configs successfully", campusConfigJson);
     }
 
     private Map<String, Object> getConfigByKey(String key) {
