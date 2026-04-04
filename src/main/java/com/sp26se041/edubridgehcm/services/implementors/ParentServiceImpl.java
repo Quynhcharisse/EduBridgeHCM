@@ -27,6 +27,7 @@ import com.sp26se041.edubridgehcm.repositories.StudentInfoRepo;
 import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
 import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
 import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.ParentService;
@@ -471,48 +472,6 @@ public class ParentServiceImpl implements ParentService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    private String validateAcademicInfoSubjects(
-            AddStudentInfoRequest.AcademicInfo academicInfo,
-            int academicIndex
-    ) {
-        List<AddStudentInfoRequest.SubjectResult> subjectResults = academicInfo.getSubjectResults();
-
-        if (subjectResults == null) {
-           return "Subject results must not be null at academic info index " + academicIndex;
-        }
-        Set<String> providedSubjectIds = new HashSet<>();
-        for (int j = 0; j < subjectResults.size(); j++) {
-            AddStudentInfoRequest.SubjectResult subjectResult = subjectResults.get(j);
-            if (subjectResult == null) {
-              return "Subject result must not be null at academic info index "
-                      + academicIndex + ", subject index " + j;
-            }
-            if (subjectResult.getSubjectName() == null) {
-               return "Subject name is required at academic info index "
-                    + academicIndex + ", subject index " + j;
-            }
-            if (!providedSubjectIds.add(subjectResult.getSubjectName())) {
-                return  "Duplicate subject name: " + subjectResult.getSubjectName()
-                        + " at academic info index " + academicIndex;
-            }
-            Optional<Subject> subject = subjectRepo.findByName((subjectResult.getSubjectName()));
-            if(subject.isEmpty()) {
-                return "Subject not found with name: " + subjectResult.getSubjectName();
-            }
-            Double score = subjectResult.getScore();
-            if (score == null){
-                return  "";
-            }
-            if (score < 0 || score > 10) {
-                return "Score must be between 0 and 10 for subject '"
-                                + subject.get().getName()
-                                + "' at academic info index " + academicIndex
-                                + ", subject index " + j;
-            }
-        }
-        return "";
-    }
-
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
     }
@@ -525,11 +484,6 @@ public class ParentServiceImpl implements ParentService {
         if (AccountRestrictionUtil.isRestrictedActor()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
         }
-
-        String email = SecurityContextHolder
-                .getContext()
-                .getAuthentication()
-                .getName();
 
         Account account = AuthRequestUtil.extractAuthenticatedAccount();
 
@@ -568,6 +522,114 @@ public class ParentServiceImpl implements ParentService {
                 .academicProfileMetadata(academicProfileMetaData)
                 .build());
         return ResponseBuilder.build(HttpStatus.OK, "Add student info successfully", null);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> updateStudentInfo(UpdateStudentInfoRequest request) {
+
+        Optional<StudentProfile> studentProfile = studentInfoRepo.findById(request.getStudentId());
+
+        if(studentProfile.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Student profile not found", null);
+        }
+
+        String error = validateUpdateStudentInfoRequest(request);
+
+        if (!error.isEmpty()){
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+        }
+
+        List<Map<String, Object>> academicProfileMetaData = new ArrayList<>();
+
+        for (UpdateStudentInfoRequest.AcademicInfo academicInfo : request.getAcademicInfos()) {
+            Map<String, Object> academicMap = new HashMap<>();
+            academicMap.put("gradeLevel", normalize(academicInfo.getGradeLevel()));
+
+            List<Map<String, Object>> subjectResultList = new ArrayList<>();
+
+            if (academicInfo.getSubjectResults() != null) {
+                for (UpdateStudentInfoRequest.SubjectResult subjectResult : academicInfo.getSubjectResults()) {
+                    Map<String, Object> subjectMap = new HashMap<>();
+                    subjectMap.put("subjectName", subjectResult.getSubjectName());
+                    subjectMap.put("score", subjectResult.getScore());
+                    subjectResultList.add(subjectMap);
+                }
+            }
+            academicMap.put("subjectResults", subjectResultList);
+            academicProfileMetaData.add(academicMap);
+        }
+
+        studentProfile.get().setStudentName(normalize(request.getStudentName()));
+        studentProfile.get().setGender(parseGender(request.getGender()));
+        studentProfile.get().setFavouriteJob(normalize(request.getFavouriteJob()));
+        studentProfile.get().setPersonalityTypeName(normalize(request.getPersonalityTypeCode()));
+        studentProfile.get().setAcademicProfileMetadata(academicProfileMetaData);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Update student info successfully", null);
+    }
+
+    private String validateUpdateStudentInfoRequest(UpdateStudentInfoRequest request) {
+        if (request == null) {
+            return "Request must not be null";
+        }
+        if (isBlank(request.getStudentName())) {
+            return "Child name must not be blank";
+        }
+        if (request.getStudentName().length() > 200) {
+            return "Child name must be less than or equal to 200 characters";
+        }
+
+        if (isBlank(request.getGender())) {
+            return "Gender is required";
+        }
+        if (parseGender(request.getGender()) == null) {
+            return "Invalid gender";
+        }
+        if (request.getAcademicInfos() == null || request.getAcademicInfos().isEmpty()) {
+            return "Academic infos must not be empty";
+        }
+
+        Optional<PersonalityType> personalityType = personalityTypeRepo.findByCode(request.getPersonalityTypeCode());
+
+        if(personalityType.isEmpty()){
+            return "Invalid personality type";
+        }
+
+        Optional<Major> major = majorRepo.findByName(request.getFavouriteJob());
+
+        if(major.isEmpty()){
+            return "Invalid major";
+        }
+
+        List<Subject> allSubjects = subjectRepo.findAll();
+        if (allSubjects.isEmpty()) {
+            return  "Subject data is empty";
+        }
+
+        Set<String> gradeLevels = new HashSet<>();
+        for (int i = 0; i < request.getAcademicInfos().size(); i++) {
+
+            UpdateStudentInfoRequest.AcademicInfo academicInfo = request.getAcademicInfos().get(i);
+            if (academicInfo == null) {
+                return  "Academic info at index " + i + " must not be null";
+            }
+
+            if (isBlank(academicInfo.getGradeLevel())) {
+                return "Grade level is required at academic info index " + i;
+            }
+            if (parseGrade(academicInfo.getGradeLevel()) == null) {
+                return "Invalid grade level";
+            }
+            String normalizedGradeLevel = academicInfo.getGradeLevel().trim().toLowerCase();
+            if (!gradeLevels.add(normalizedGradeLevel)) {
+                return  "Duplicate grade level: " + academicInfo.getGradeLevel();
+            }
+            String error = validateAcademicSubjectsForUpdate(academicInfo, i);
+            if(!error.isEmpty()){
+                return error;
+            }
+        }
+        return "";
     }
 
     private String validateAddStudentInfoRequest(AddStudentInfoRequest request) {
@@ -626,7 +688,7 @@ public class ParentServiceImpl implements ParentService {
             if (!gradeLevels.add(normalizedGradeLevel)) {
                 return  "Duplicate grade level: " + academicInfo.getGradeLevel();
             }
-            String error = validateAcademicInfoSubjects(academicInfo, i);
+            String error = validateAcademicSubjectsForCreate(academicInfo, i);
             if(!error.isEmpty()){
                 return error;
             }
@@ -634,6 +696,89 @@ public class ParentServiceImpl implements ParentService {
         return "";
     }
 
+    private String validateAcademicSubjectsForCreate(
+            AddStudentInfoRequest.AcademicInfo academicInfo,
+            int academicIndex
+    ) {
+        List<AddStudentInfoRequest.SubjectResult> subjectResults = academicInfo.getSubjectResults();
+
+        if (subjectResults == null) {
+            return "Subject results must not be null at academic info index " + academicIndex;
+        }
+        Set<String> providedSubjectIds = new HashSet<>();
+        for (int j = 0; j < subjectResults.size(); j++) {
+            AddStudentInfoRequest.SubjectResult subjectResult = subjectResults.get(j);
+            if (subjectResult == null) {
+                return "Subject result must not be null at academic info index "
+                        + academicIndex + ", subject index " + j;
+            }
+            if (subjectResult.getSubjectName() == null) {
+                return "Subject name is required at academic info index "
+                        + academicIndex + ", subject index " + j;
+            }
+            if (!providedSubjectIds.add(subjectResult.getSubjectName())) {
+                return  "Duplicate subject name: " + subjectResult.getSubjectName()
+                        + " at academic info index " + academicIndex;
+            }
+            Optional<Subject> subject = subjectRepo.findByName((subjectResult.getSubjectName()));
+            if(subject.isEmpty()) {
+                return "Subject not found with name: " + subjectResult.getSubjectName();
+            }
+            Double score = subjectResult.getScore();
+            if (score == null){
+                return  "";
+            }
+            if (score < 0 || score > 10) {
+                return "Score must be between 0 and 10 for subject '"
+                        + subject.get().getName()
+                        + "' at academic info index " + academicIndex
+                        + ", subject index " + j;
+            }
+        }
+        return "";
+    }
+
+    private String validateAcademicSubjectsForUpdate(
+            UpdateStudentInfoRequest.AcademicInfo academicInfo,
+            int academicIndex
+    ) {
+        List<UpdateStudentInfoRequest.SubjectResult> subjectResults = academicInfo.getSubjectResults();
+
+        if (subjectResults == null) {
+            return "Subject results must not be null at academic info index " + academicIndex;
+        }
+        Set<String> providedSubjectIds = new HashSet<>();
+        for (int j = 0; j < subjectResults.size(); j++) {
+            UpdateStudentInfoRequest.SubjectResult subjectResult = subjectResults.get(j);
+            if (subjectResult == null) {
+                return "Subject result must not be null at academic info index "
+                        + academicIndex + ", subject index " + j;
+            }
+            if (subjectResult.getSubjectName() == null) {
+                return "Subject name is required at academic info index "
+                        + academicIndex + ", subject index " + j;
+            }
+            if (!providedSubjectIds.add(subjectResult.getSubjectName())) {
+                return  "Duplicate subject name: " + subjectResult.getSubjectName()
+                        + " at academic info index " + academicIndex;
+            }
+            Optional<Subject> subject = subjectRepo.findByName((subjectResult.getSubjectName()));
+            if(subject.isEmpty()) {
+                return "Subject not found with name: " + subjectResult.getSubjectName();
+            }
+            Double score = subjectResult.getScore();
+            if (score == null){
+                return  "";
+            }
+            if (score < 0 || score > 10) {
+                return "Score must be between 0 and 10 for subject '"
+                        + subject.get().getName()
+                        + "' at academic info index " + academicIndex
+                        + ", subject index " + j;
+            }
+        }
+        return "";
+    }
 
     // Get config admin persona, subject, major
     @Override
