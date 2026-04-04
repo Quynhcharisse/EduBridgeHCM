@@ -783,14 +783,18 @@ public class ParentServiceImpl implements ParentService {
     // Get config admin persona, subject, major
     @Override
     public ResponseEntity<ResponseObject> getPersonalityTypes() {
-        List<PersonalityType> personalityTypes = personalityTypeRepo.findAll();
+
+        List<PersonalityType> personalityTypes = personalityTypeRepo.findAllByStatus(Status.PERSONALITY_TYPE_ACTIVE);
+
         Map<String, List<PersonalityType>> result = new LinkedHashMap<>();
+
         for (PersonalityType p : personalityTypes) {
             String group = p.getPersonalityTypeGroup().getValue();
             result
                     .computeIfAbsent(group, k -> new ArrayList<>())
                     .add(p);
         }
+
         return ResponseBuilder.build(HttpStatus.OK, "Get personality types successfully", result);
     }
 

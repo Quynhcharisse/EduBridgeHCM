@@ -59,7 +59,11 @@ public enum Status {
     EVENT_UPCOMING("upcoming"),
     EVENT_ONGOING("ongoing"),
     EVENT_FINISHED("finished"),
-    EVENT_CANCELLED("cancelled");
+    EVENT_CANCELLED("cancelled"),
 
+    //PERSONALITY TYPE STATUS
+    PERSONALITY_TYPE_ACTIVE("active"),
+    PERSONALITY_TYPE_INACTIVE("inactive");
+    
     private final String value;
 }

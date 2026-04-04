@@ -37,6 +37,8 @@ public class CreatePersonalityTypeRequest {
 
     List<CareerInfo> recommendedCareers;
 
+    String personalityTypeGroup;
+
     // ================== INNER CLASSES ==================
 
     @Data

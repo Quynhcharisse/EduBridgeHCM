@@ -68,4 +68,10 @@ public class AdminController {
      return adminService.createPersonalityType(request);
     }
 
+    @GetMapping("/personality/type")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ResponseObject> viewPersonalityTypes() {
+        return adminService.getPersonalityTypeList();
+    }
+
 }

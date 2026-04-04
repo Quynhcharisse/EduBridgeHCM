@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.sp26se041.edubridgehcm.enums.PersonalityTypeGroup;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
@@ -26,7 +27,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -189,7 +192,15 @@ public class AdminServiceImpl implements AdminService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Personality type code already exists in the system", null);
         }
 
+        PersonalityTypeGroup group;
+        try {
+            group = parsePersonalityTypeGroup(request.getPersonalityTypeGroup());
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
+
         PersonalityType personalityType = PersonalityType.builder()
+                .personalityTypeGroup(group)
                 .name(normalize(request.getName()))
                 .description(normalize(request.getDescription()))
                 .code(normalize(request.getCode()))
@@ -204,6 +215,37 @@ public class AdminServiceImpl implements AdminService {
         personalityTypeRepo.save(personalityType);
 
         return ResponseBuilder.build(HttpStatus.OK, "Create personality type successfully", null);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getPersonalityTypeList() {
+
+        List<PersonalityType> personalityTypes = personalityTypeRepo.findAll();
+
+        Map<String, List<PersonalityType>> result = new LinkedHashMap<>();
+
+        for (PersonalityType p : personalityTypes) {
+            String group = p.getPersonalityTypeGroup().getValue();
+            result
+                    .computeIfAbsent(group, k -> new ArrayList<>())
+                    .add(p);
+        }
+
+        return ResponseBuilder.build(HttpStatus.OK, "Get personality types successfully", result);
+    }
+
+    private PersonalityTypeGroup parsePersonalityTypeGroup(String group) {
+        if (group == null || group.isBlank()) {
+            throw new IllegalArgumentException("Personality type group must not be blank");
+        }
+
+        try {
+            return PersonalityTypeGroup.valueOf(group.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "Invalid personality type group. Allowed values: ANALYST, DIPLOMAT, SENTINEL, EXPLORER"
+            );
+        }
     }
 
     private String normalize(String value) {
