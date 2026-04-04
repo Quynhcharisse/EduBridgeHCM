@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 @NoArgsConstructor
@@ -16,12 +17,23 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateCampusConfigRequest {
 
-    String policyDetail;
-
     String overview;
 
-    List<CreateFacilityTemplateRequest.FacilityItem> itemList;
+    List<FacilityItemRequest> itemList;
 
-    CreateFacilityTemplateRequest.ImageJsonData imageJsonData;
+    Map<String, Object> imageJsonData;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class FacilityItemRequest {
+        String facilityCode;
+        String name;
+        int value;
+        String unit;
+        String category;
+    }
 }
 

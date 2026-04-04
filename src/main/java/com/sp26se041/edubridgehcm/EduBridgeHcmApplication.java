@@ -399,7 +399,7 @@ public class EduBridgeHcmApplication {
 
         Map<String, Object> imageData = new HashMap<>();
 
-        imageData.put("coverUrl", "Cơ sở vật chất hiện đại chuẩn quốc tế.");
+        imageData.put("coverUrl", "https://cdn.school.com/cover.jpg");
         imageData.put("imageList", imageList);
 
         List<Map<String, Object>> itemList = new ArrayList<>(List.of(
@@ -412,7 +412,7 @@ public class EduBridgeHcmApplication {
                 ))
         ));
 
-        facilityData.put("overview", "https://cdn.school.com/cover.jpg");
+        facilityData.put("overview", "Cơ sở vật chất hiện đại chuẩn quốc tế.");
         facilityData.put("imageData", imageData);
         facilityData.put("itemList", itemList);
 

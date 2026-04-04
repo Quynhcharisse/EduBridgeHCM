@@ -210,12 +210,20 @@ public class SchoolConfigRequest {
     }
 
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class QuotaConfigData {
         String academicYear;
         int totalSystemQuota; // Con số này lấy từ PlatformConfig để hiển thị (Read-only)
         List<CampusQuotaAssignment> campusAssignments;
 
         @Data
+        @NoArgsConstructor
+        @AllArgsConstructor
+        @Builder
+        @FieldDefaults(level = AccessLevel.PRIVATE)
         public static class CampusQuotaAssignment {
             int campusId;
             String campusName;

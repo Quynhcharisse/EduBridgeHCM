@@ -458,7 +458,6 @@ public class CampusServiceImpl implements CampusService {
         return account.getCampus();
     }
 
-
     @Override
     @Transactional
     public ResponseEntity<ResponseObject> updateCampusConfig(int campusId, UpdateCampusConfigRequest request) {
@@ -468,8 +467,7 @@ public class CampusServiceImpl implements CampusService {
         if (campus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campus not found", null);
         }
-        // Validate: chỉ cho phép sửa value, unit, isUsage của facility mẫu, cho phép thêm mới (isCustom)
-        // (Có thể bổ sung validate nâng cao nếu cần)
+      
         Map<String, Object> facilityMap = new HashMap<>();
         facilityMap.put("overview", request.getOverview());
         facilityMap.put("itemList", request.getItemList());
