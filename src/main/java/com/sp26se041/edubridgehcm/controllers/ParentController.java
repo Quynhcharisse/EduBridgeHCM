@@ -3,6 +3,7 @@ package com.sp26se041.edubridgehcm.controllers;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
 import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.ParentService;
 import com.sp26se041.edubridgehcm.services.WebSocketService;
@@ -131,6 +132,12 @@ public class ParentController {
     @PreAuthorize("hasRole('PARENT')")
     public ResponseEntity<ResponseObject> addStudentInfo(@RequestBody AddStudentInfoRequest request) {
         return parentService.addStudentInfo(request);
+    }
+
+    @PutMapping("/student")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<ResponseObject> updateStudentInfo(@RequestBody UpdateStudentInfoRequest request) {
+        return parentService.updateStudentInfo(request);
     }
 
     @GetMapping("/student")
