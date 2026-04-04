@@ -162,16 +162,6 @@ public class ParentServiceImpl implements ParentService {
 
         if (existingConversation.isPresent()) {
 
-            Optional<Account> counsellorAcc = accountRepo.findByEmail(existingConversation.get().getCounsellorEmail());
-
-            if (counsellorAcc.isEmpty()) {
-                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Counsellor not found or be deleted", null);
-            }
-
-            if(AccountRestrictionUtil.isRestricted(counsellorAcc.get())) {
-                return ResponseBuilder.build(HttpStatus.CONFLICT, "Counsellor account is not active. Please create a new conversation.", null);
-            }
-
             if (cursorId == null) {
                 messages = chatMessageRepo.findTop20ByConversationIdOrderByTimestampDesc(existingConversation.get().getId());
             } else {
