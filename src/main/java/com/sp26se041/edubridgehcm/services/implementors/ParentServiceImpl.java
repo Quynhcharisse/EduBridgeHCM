@@ -42,7 +42,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -331,6 +333,7 @@ public class ParentServiceImpl implements ParentService {
         FavouriteSchool favouriteSchool = FavouriteSchool.builder()
                 .parent(parent)
                 .school(school)
+                .createdAt(LocalDateTime.now())
                 .build();
 
         favouriteSchoolRepo.save(favouriteSchool);
@@ -360,13 +363,14 @@ public class ParentServiceImpl implements ParentService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
         }
 
-        Page<FavouriteSchool> favouriteSchoolPage = favouriteSchoolRepo.findByParentId(parent.getId(), pageable);
+        Page<FavouriteSchool> favouriteSchoolPage = favouriteSchoolRepo.findByParentIdOrderByCreatedAtDesc(parent.getId(), pageable);
 
         PageResponse<Map<String, Object>> result = PaginationUtil.buildPageResponse(favouriteSchoolPage, this::buildFavouriteSchool);
 
         return ResponseBuilder.build(HttpStatus.OK, "Get favourite school successfully", result);
     }
 
+    @Transactional
     @Override
     public ResponseEntity<ResponseObject> removeFavouriteSchool(long favouriteSchoolId) {
 
@@ -374,13 +378,14 @@ public class ParentServiceImpl implements ParentService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
         }
 
-        Optional<FavouriteSchool> favouriteSchool = favouriteSchoolRepo.findById(favouriteSchoolId);
+        boolean exists = favouriteSchoolRepo.existsById(favouriteSchoolId);
 
-        if(favouriteSchool.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Already remove favourite school", null);
+        if (!exists) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Favourite school not found", null);
         }
 
-        favouriteSchoolRepo.delete(favouriteSchool.get());
+        favouriteSchoolRepo.deleteAllByIdInBatch(List.of(favouriteSchoolId));
+        favouriteSchoolRepo.flush();
 
         return ResponseBuilder.build(HttpStatus.OK, "Remove favourite school successfully", null);
     }
