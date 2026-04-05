@@ -520,7 +520,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         targetCurriculum.setCurriculumStatus(Status.CUR_DRAFT);
         curriculumRepo.save(targetCurriculum);
-        return ResponseBuilder.build(HttpStatus.OK, isNew ? "Created draft successfully" : "Updated draft successfully", null);
+        return ResponseBuilder.build(isNew ? HttpStatus.CREATED : HttpStatus.OK, isNew ? "Created draft successfully" : "Updated draft successfully", null);
     }
 
     @Override

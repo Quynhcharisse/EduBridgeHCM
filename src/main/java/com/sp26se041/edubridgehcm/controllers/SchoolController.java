@@ -2,7 +2,6 @@ package com.sp26se041.edubridgehcm.controllers;
 
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
-import com.sp26se041.edubridgehcm.requests.CreateCampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
 import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
 import com.sp26se041.edubridgehcm.requests.ProgramRequest;

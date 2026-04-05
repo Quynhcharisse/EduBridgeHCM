@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.utils;
 
+import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 
 import java.util.ArrayList;
@@ -205,6 +206,20 @@ public class SchoolConfigUtil {
             default:
                 return day;
         }
+    }
+
+    public static Map<String, Object> getWorkingConfig(SchoolConfig operationConfig) {
+        if (operationConfig != null && operationConfig.getValue() instanceof Map) {
+
+            Map<String, Object> value = (Map<String, Object>) operationConfig.getValue();
+
+            Object workingConfig = value.get("workingConfig");
+
+            if (workingConfig instanceof Map) {
+                return (Map<String, Object>) workingConfig;
+            }
+        }
+        return null;
     }
 }
 

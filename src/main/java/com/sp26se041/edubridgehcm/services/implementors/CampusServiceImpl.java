@@ -1,11 +1,13 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.Role;
+import com.sp26se041.edubridgehcm.enums.SessionType;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
+import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
 import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
@@ -14,17 +16,17 @@ import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionReservationFormRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
+import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.CreateCampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.UnAssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateCampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.CampusService;
@@ -34,6 +36,7 @@ import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.utils.SchoolConfigUtil;
 import com.sp26se041.edubridgehcm.validations.campus.CampusProgramOfferingValidation;
+import com.sp26se041.edubridgehcm.validations.campus.CampusScheduleTemplateValidation;
 import com.sp26se041.edubridgehcm.validations.campus.CounsellorValidation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -46,6 +49,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -69,7 +73,10 @@ public class CampusServiceImpl implements CampusService {
     private final CounsellorRepo counsellorRepo;
 
     private final AdmissionReservationFormRepo admissionReservationFormRepo;
+
     private final SchoolConfigRepo schoolConfigRepo;
+
+    private final CampusScheduleTemplateRepo campusScheduleTemplateRepo;
 
     @Override
     @Transactional
@@ -551,14 +558,54 @@ public class CampusServiceImpl implements CampusService {
 
     @Override
     @Transactional
-    public ResponseEntity<ResponseObject> createCampusScheduleTemplate(CreateCampusScheduleTemplateRequest request) {
-        return null;
-    }
+    public ResponseEntity<ResponseObject> upsertCampusScheduleTemplate(CampusScheduleTemplateRequest request) {
 
-    @Override
-    @Transactional
-    public ResponseEntity<ResponseObject> updateCampusScheduleTemplate(UpdateCampusScheduleTemplateRequest request) {
-        return null;
+        Campus campus = campusRepo.findById(request.getCampusId()).orElse(null);
+
+        if (campus == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campus not found", null);
+        }
+
+        SchoolConfig operationConfig = schoolConfigRepo
+                .findBySchoolIdAndKey(campus.getSchool().getId(), "operationSettingsData")
+                .orElse(null);
+
+        Map<String, Object> workingConfig = SchoolConfigUtil.getWorkingConfig(operationConfig);
+
+        String error = CampusScheduleTemplateValidation.validateCampusScheduleTemplate(request.getTemplateId(), request, workingConfig, campusScheduleTemplateRepo);
+
+        if (error != null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+        }
+
+        CampusScheduleTemplate template;
+
+        boolean isUpdate = request.getTemplateId() > 0;
+
+        if (isUpdate) {
+
+            template = campusScheduleTemplateRepo.findById(request.getTemplateId()).orElse(null);
+
+            if (template == null) {
+                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Template not found", null);
+            }
+
+        } else {
+
+            template = new CampusScheduleTemplate();
+            template.setCampus(campus);
+            template.setCreatedDate(LocalDate.now());
+        }
+
+        template.setDayOfWeek(request.getDayOfWeek().toUpperCase());
+        template.setStartTime(LocalTime.parse(request.getStartTime()));
+        template.setEndTime(LocalTime.parse(request.getEndTime()));
+        template.setSessionType(SessionType.valueOf(request.getSessionType()));
+        template.setUpdatedDate(LocalDate.now());
+
+        campusScheduleTemplateRepo.save(template);
+
+        return ResponseBuilder.build(isUpdate ? HttpStatus.CREATED : HttpStatus.OK, isUpdate ? "Campus schedule template created successfully" : "Campus schedule template updated successfully", null);
     }
 
     @Override

@@ -12,6 +12,17 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class CreateCampusScheduleTemplateRequest {
-    int id;
+public class CampusScheduleTemplateRequest {
+
+    int templateId;
+
+    int campusId;
+
+    String dayOfWeek;
+
+    String startTime;
+
+    String endTime;
+
+    String sessionType;
 }

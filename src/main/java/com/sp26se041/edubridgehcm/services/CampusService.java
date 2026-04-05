@@ -2,13 +2,12 @@ package com.sp26se041.edubridgehcm.services;
 
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
+import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.CreateCampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.UnAssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateCampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import org.springframework.http.ResponseEntity;
 
@@ -32,9 +31,7 @@ public interface CampusService {
 
     ResponseEntity<ResponseObject> getCampusConfig(int campusId);
 
-    ResponseEntity<ResponseObject> createCampusScheduleTemplate(CreateCampusScheduleTemplateRequest request);
-
-    ResponseEntity<ResponseObject> updateCampusScheduleTemplate(UpdateCampusScheduleTemplateRequest request);
+    ResponseEntity<ResponseObject> upsertCampusScheduleTemplate(CampusScheduleTemplateRequest request);
 
     ResponseEntity<ResponseObject> viewCampusScheduleTemplateList();
 

@@ -2,13 +2,12 @@ package com.sp26se041.edubridgehcm.controllers;
 
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
+import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.CreateCampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.UnAssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateCampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.CampusService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -92,14 +91,8 @@ public class CampusController {
 
     @PostMapping("/schedule/templete")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> createCampusScheduleTemplate(@RequestBody CreateCampusScheduleTemplateRequest request) {
-        return campusService.createCampusScheduleTemplate(request);
-    }
-
-    @PutMapping("/schedule/templete")
-    @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> updateCampusScheduleTemplate(@RequestBody UpdateCampusScheduleTemplateRequest request) {
-        return campusService.updateCampusScheduleTemplate(request);
+    public ResponseEntity<ResponseObject> upsertCampusScheduleTemplate(@RequestBody CampusScheduleTemplateRequest request) {
+        return campusService.upsertCampusScheduleTemplate(request);
     }
 
     @GetMapping("/schedule/templete/list")
