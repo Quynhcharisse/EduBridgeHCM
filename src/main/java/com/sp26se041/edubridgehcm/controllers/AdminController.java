@@ -86,4 +86,5 @@ public class AdminController {
     public ResponseEntity<ResponseObject> getAllSubjects(){
         return adminService.getAllSubjects();
     }
+
 }

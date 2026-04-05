@@ -5,15 +5,15 @@ import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.School;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.repository.CrudRepository;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
-public interface FavouriteSchoolRepo extends CrudRepository<FavouriteSchool, Long> {
+public interface FavouriteSchoolRepo extends JpaRepository<FavouriteSchool, Long> {
 
     boolean existsByParentAndSchool(Parent parent, School school);
 
-    Page<FavouriteSchool> findByParentId(Integer parentId, Pageable pageable);
+    Page<FavouriteSchool> findByParentIdOrderByCreatedAtDesc(Integer parentId, Pageable pageable);
 
     List<FavouriteSchool> findByParentId(Integer parentId);
 }
