@@ -3,16 +3,20 @@ package com.sp26se041.edubridgehcm.services.implementors;
 import com.sp26se041.edubridgehcm.enums.PersonalityTypeGroup;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
+import com.sp26se041.edubridgehcm.enums.SubjectType;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.PersonalityType;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolRegistrationRequest;
+import com.sp26se041.edubridgehcm.models.Subject;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRegistrationRequestRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
+import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
+import com.sp26se041.edubridgehcm.requests.AddSubjectRequest;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
 import com.sp26se041.edubridgehcm.requests.CreateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateServicePackageFeeRequest;
@@ -44,7 +48,9 @@ public class AdminServiceImpl implements AdminService {
     private final SchoolRepo schoolRepo;
 
     private final CampusRepo campusRepo;
+
     private final PersonalityTypeRepo personalityTypeRepo;
+    private final SubjectRepo subjectRepo;
 
     @Override
     @Transactional
@@ -232,6 +238,48 @@ public class AdminServiceImpl implements AdminService {
         }
 
         return ResponseBuilder.build(HttpStatus.OK, "Get personality types successfully", result);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> createSubject(AddSubjectRequest request) {
+
+        String error = validateSubjectInfo(request);
+
+        if(!error.isEmpty()){
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+        }
+
+        SubjectType subjectType = parseSubjectType(request.getSubjectType());
+
+        Subject subject = Subject.builder()
+                .type(subjectType)
+                .name(normalize(request.getName()))
+                .build();
+
+        subjectRepo.save(subject);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Create subject successfully", subject);
+    }
+
+    private String validateSubjectInfo(AddSubjectRequest request) {
+
+        if(isBlank(request.getName())){
+            return "Subject name must not be blank";
+        }
+        if(request.getSubjectType() == null || request.getSubjectType().isBlank() ) {
+            return "Subject type must not be blank";
+        }
+        return "";
+    }
+
+    private SubjectType parseSubjectType(String subjectType) {
+        try {
+            return SubjectType.valueOf(subjectType.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "Invalid subject type. Allowed values: REGULAR_SUBJECT, FOREIGN_LANGUAGE_SUBJECT"
+            );
+        }
     }
 
     private PersonalityTypeGroup parsePersonalityTypeGroup(String group) {

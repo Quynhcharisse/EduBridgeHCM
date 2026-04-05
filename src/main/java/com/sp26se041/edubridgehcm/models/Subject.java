@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.models;
 
+import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.enums.SubjectType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -33,4 +34,8 @@ public class Subject {
 
     @Enumerated(EnumType.STRING)
     private SubjectType type;
+
+    @Enumerated(EnumType.STRING)
+    private Status status;
+    
 }
