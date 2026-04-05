@@ -1,8 +1,12 @@
 package com.sp26se041.edubridgehcm.validations.campus;
 
+import com.sp26se041.edubridgehcm.enums.SessionType;
+import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
 import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
+import com.sp26se041.edubridgehcm.utils.SchoolConfigUtil;
 
+import java.time.Duration;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
@@ -12,7 +16,7 @@ public class CampusScheduleTemplateValidation {
     // regex to validate HH:mm format (00:00 to 23:59)
     private static final String TIME_REGEX = "^([01]?[0-9]|2[0-3]):[0-5][0-9]$";
 
-    public static String validateCampusScheduleTemplate(int templateId, CampusScheduleTemplateRequest request, Map<String, Object> workingConfig, CampusScheduleTemplateRepo campusScheduleTemplateRepo) {
+    public static String validateCampusScheduleTemplate(Integer templateId, CampusScheduleTemplateRequest request, String currentDay, Map<String, Object> workingConfig, CampusScheduleTemplateRepo campusScheduleTemplateRepo) {
 
         if (request.getStartTime() == null || !request.getStartTime().matches(TIME_REGEX) ||
                 request.getEndTime() == null || !request.getEndTime().matches(TIME_REGEX)) {
@@ -26,45 +30,43 @@ public class CampusScheduleTemplateValidation {
             return "Start time must be earlier than end time.";
         }
 
-        // 2. Operational Config Check
-        String dayReq = request.getDayOfWeek() != null ? request.getDayOfWeek().toUpperCase() : "";
-
-        if (workingConfig != null) {
-            List<String> regularDays = (List<String>) workingConfig.get("regularDays");
-            List<String> weekendDays = (List<String>) workingConfig.get("weekendDays");
-            boolean isOpenSunday = Boolean.TRUE.equals(workingConfig.get("isOpenSunday"));
-
-            // Check validity without throwing Enum Exception
-            boolean isRegular = regularDays != null && regularDays.contains(dayReq);
-            boolean isWeekend = weekendDays != null && weekendDays.contains(dayReq);
-            boolean isSunOpen = "SUN".equals(dayReq) && isOpenSunday;
-
-            if (!isRegular && !isWeekend && !isSunOpen) {
-                return "The campus is not operational on " + dayReq + ".";
-            }
-
-            // 3. Work Shift Check
-            List<Map<String, Object>> workShifts = (List<Map<String, Object>>) workingConfig.get("workShifts");
-            if (workShifts != null && !workShifts.isEmpty()) {
-                boolean isInShift = workShifts.stream().anyMatch(shift -> {
-                    LocalTime sStart = LocalTime.parse(String.valueOf(shift.get("startTime")));
-                    LocalTime sEnd = LocalTime.parse(String.valueOf(shift.get("endTime")));
-                    return (start.equals(sStart) || start.isAfter(sStart)) &&
-                            (end.equals(sEnd) || end.isBefore(sEnd));
-                });
-
-                if (!isInShift) {
-                    return "The requested time slot falls outside of operational shifts.";
-                }
-            }
+        long durationInMinutes = Duration.between(start, end).toMinutes();
+        if (durationInMinutes < 30) {
+            return "A session must last at least 30 minutes.";
         }
 
-        // 4. Duplicate Check (Using ID Not to exclude self during update)
-        if (campusScheduleTemplateRepo.existsByCampusIdAndDayOfWeekAndStartTimeAndEndTimeAndIdNot(
-                request.getCampusId(), dayReq, start, end, templateId)) {
+        if (!isValidSessionType(request.getSessionType())) {
+            return "Invalid session type";
+        }
+
+        String configError = SchoolConfigUtil.validateWithWorkingConfig(currentDay, start, end, workingConfig);
+        if (configError != null) {
+            return configError;
+        }
+
+        List<CampusScheduleTemplate> existingTemplates = campusScheduleTemplateRepo.findByCampusIdAndDayOfWeekAndActiveTrue(request.getCampusId(), currentDay.toUpperCase());
+
+        boolean isOverLap = existingTemplates.stream()
+                .filter(t -> !t.getId().equals(templateId))
+                .anyMatch(t -> start.isBefore(t.getEndTime()) && end.isAfter(t.getStartTime()));
+
+        if (isOverLap) {
             return "This time slot conflicts with an existing template.";
         }
 
         return null;
+    }
+
+    private static boolean isValidSessionType(String sessionType) {
+
+        if (sessionType == null) return false;
+
+        for (SessionType sesions : SessionType.values()) {
+            if (sesions.name().equalsIgnoreCase(sessionType)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

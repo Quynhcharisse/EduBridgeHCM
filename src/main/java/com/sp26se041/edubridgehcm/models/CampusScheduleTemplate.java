@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.sp26se041.edubridgehcm.enums.SessionType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -42,6 +43,7 @@ public class CampusScheduleTemplate {
 
     @ManyToOne
     @JoinColumn(name = "campus_id")
+    @JsonIgnoreProperties({"school", "counsellorSlotList"})
     Campus campus;
 
     @Column(name = "day_of_week")
@@ -62,6 +64,8 @@ public class CampusScheduleTemplate {
     @Enumerated(EnumType.STRING)
     @Column(name = "session_type")
     SessionType sessionType;
+
+    boolean active;
 
     @OneToMany(mappedBy = "campusScheduleTemplate")
     @ToString.Exclude

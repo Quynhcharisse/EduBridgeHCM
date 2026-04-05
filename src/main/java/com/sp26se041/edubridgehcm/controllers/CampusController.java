@@ -14,7 +14,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -95,10 +94,10 @@ public class CampusController {
         return campusService.upsertCampusScheduleTemplate(request);
     }
 
-    @GetMapping("/schedule/templete/list")
+    @GetMapping("/{campusId}/schedule/templete/list")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewCampusScheduleTemplateList() {
-        return campusService.viewCampusScheduleTemplateList();
+    public ResponseEntity<ResponseObject> viewCampusScheduleTemplateByEachCampus(@PathVariable Integer campusId) {
+        return campusService.viewCampusScheduleTemplateByEachCampus(campusId);
     }
 
     @PostMapping("/counsellor/assign")
@@ -117,11 +116,5 @@ public class CampusController {
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> viewAssignCounsellorIntoSlotList() {
         return campusService.viewAssignCounsellorIntoSlotList();
-    }
-
-    @DeleteMapping("/schedule/templete")
-    @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> deleteCampusScheduleTemplateList(@PathVariable int id) {
-        return campusService.deleteCampusScheduleTemplateList(id);
     }
 }

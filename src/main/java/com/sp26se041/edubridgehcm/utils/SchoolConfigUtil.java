@@ -3,6 +3,7 @@ package com.sp26se041.edubridgehcm.utils;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -219,6 +220,42 @@ public class SchoolConfigUtil {
                 return (Map<String, Object>) workingConfig;
             }
         }
+        return null;
+    }
+
+    public static String validateWithWorkingConfig(String dayOfWeek, LocalTime start, LocalTime end, Map<String, Object> workingConfig) {
+        if (workingConfig == null) return null;
+
+        String dayReq = (dayOfWeek != null) ? dayOfWeek.toUpperCase() : "";
+
+        // 1. Kiểm tra ngày hoạt động
+        List<String> regularDays = (List<String>) workingConfig.get("regularDays");
+        List<String> weekendDays = (List<String>) workingConfig.get("weekendDays");
+        boolean isOpenSunday = Boolean.TRUE.equals(workingConfig.get("isOpenSunday"));
+
+        boolean isWorkingDay = (regularDays != null && regularDays.contains(dayReq)) ||
+                (weekendDays != null && weekendDays.contains(dayReq)) ||
+                ("SUN".equals(dayReq) && isOpenSunday);
+
+        if (!isWorkingDay) {
+            return "The campus is not operational on " + dayReq + ".";
+        }
+
+        // 2. Kiểm tra khung giờ (Work Shifts)
+        List<Map<String, Object>> workShifts = (List<Map<String, Object>>) workingConfig.get("workShifts");
+        if (workShifts != null && !workShifts.isEmpty()) {
+            boolean isInShift = workShifts.stream().anyMatch(shift -> {
+                LocalTime sStart = LocalTime.parse(String.valueOf(shift.get("startTime")));
+                LocalTime sEnd = LocalTime.parse(String.valueOf(shift.get("endTime")));
+                return (start.equals(sStart) || start.isAfter(sStart)) &&
+                        (end.equals(sEnd) || end.isBefore(sEnd));
+            });
+
+            if (!isInShift) {
+                return "The requested time slot falls outside of operational shifts.";
+            }
+        }
+
         return null;
     }
 }

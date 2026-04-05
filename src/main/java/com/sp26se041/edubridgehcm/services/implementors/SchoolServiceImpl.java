@@ -1253,4 +1253,9 @@ public class SchoolServiceImpl implements SchoolService {
 
         return data;
     }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewCampusScheduleTemplateListBySchool(int campusId, int page, int pageSize) {
+        return null;
+    }
 }

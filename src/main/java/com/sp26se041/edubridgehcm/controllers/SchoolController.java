@@ -145,4 +145,10 @@ public class SchoolController {
     public ResponseEntity<ResponseObject> viewOpenDayEventList(@RequestParam int page, @RequestParam int pageSize) {
         return schoolService.viewOpenDayEventList(page, pageSize);
     }
+
+    @GetMapping("/campus/schedule/template/list")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> viewCampusScheduleTemplateListBySchool(@RequestParam int page, @RequestParam int pageSize, @PathVariable int templateId) {
+        return schoolService.viewCampusScheduleTemplateListBySchool(page, pageSize, templateId);
+    }
 }

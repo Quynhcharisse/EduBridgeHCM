@@ -48,4 +48,6 @@ public interface SchoolService {
     ResponseEntity<ResponseObject> createOpenDayEvent(CreateOpenDayEventRequest request);
 
     ResponseEntity<ResponseObject> viewOpenDayEventList(int currentPage, int pageSize);
+
+    ResponseEntity<ResponseObject> viewCampusScheduleTemplateListBySchool(int campusId, int page, int pageSize);
 }
