@@ -533,13 +533,19 @@ public class CampusServiceImpl implements CampusService {
 
             Map<String, Object> policyJsonb = new HashMap<>();
 
-            policyJsonb.put("minCounsellorPerSlot", request.getMinCounsellorPerSlot());
+            policyJsonb.put("minCounsellorPerSlot", mergedOp.get("minCounsellorPerSlot"));
+
+            policyJsonb.put("slotDurationInMinutes", mergedOp.get("slotDurationInMinutes"));
+
+            policyJsonb.put("maxBookingPerSlot", mergedOp.get("maxBookingPerSlot"));
+
+            policyJsonb.put("allowBookingBeforeHours", mergedOp.get("allowBookingBeforeHours"));
 
             policyJsonb.put("fullTextRendered", finalPolicyStr);
 
             policyJsonb.put("rawCustomNote", request.getPolicyDetail());
 
-            campus.setPolicyDetail(finalPolicyStr);
+            campus.setPolicyDetail(policyJsonb);
         }
 
         campusRepo.save(campus);

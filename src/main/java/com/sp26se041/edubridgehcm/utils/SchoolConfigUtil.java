@@ -76,6 +76,16 @@ public class SchoolConfigUtil {
             merged.put("minCounsellorPerSlot", request.getMinCounsellorPerSlot());
         }
 
+        if (request.getSlotDurationInMinutes() != null) {
+            merged.put("slotDurationInMinutes", request.getSlotDurationInMinutes());
+        }
+        if (request.getMaxBookingPerSlot() != null) {
+            merged.put("maxBookingPerSlot", request.getMaxBookingPerSlot());
+        }
+        if (request.getAllowBookingBeforeHours() != null) {
+            merged.put("allowBookingBeforeHours", request.getAllowBookingBeforeHours());
+        }
+
         if (request.getWorkingOverride() != null) {
             merged.put("workingConfig", mergeWorkingConfig(
                     (Map<String, Object>) hqData.get("workingConfig"),
@@ -151,6 +161,16 @@ public class SchoolConfigUtil {
             sb.append("👥 Số tư vấn viên tối thiểu mỗi ca: ")
                     .append(operationData.get("minCounsellorPerSlot"))
                     .append(" người\n");
+        }
+
+        if (operationData.get("slotDurationInMinutes") != null) {
+            sb.append("⏱️ Thời lượng mỗi ca tư vấn: ").append(operationData.get("slotDurationInMinutes")).append(" phút\n");
+        }
+        if (operationData.get("maxBookingPerSlot") != null) {
+            sb.append("🎟️ Số khách tối đa mỗi ca: ").append(operationData.get("maxBookingPerSlot")).append(" người\n");
+        }
+        if (operationData.get("allowBookingBeforeHours") != null) {
+            sb.append("🛡️ Yêu cầu đặt lịch trước: ").append(operationData.get("allowBookingBeforeHours")).append(" giờ\n");
         }
 
         Map<String, Object> working = (Map<String, Object>) operationData.get("workingConfig");
