@@ -2,7 +2,6 @@ package com.sp26se041.edubridgehcm.controllers;
 
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
-import com.sp26se041.edubridgehcm.requests.CreateCampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
 import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
 import com.sp26se041.edubridgehcm.requests.ProgramRequest;
@@ -145,5 +144,11 @@ public class SchoolController {
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> viewOpenDayEventList(@RequestParam int page, @RequestParam int pageSize) {
         return schoolService.viewOpenDayEventList(page, pageSize);
+    }
+
+    @GetMapping("/campus/schedule/template/list")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> viewCampusScheduleTemplateListBySchool(@RequestParam int page, @RequestParam int pageSize, @PathVariable int templateId) {
+        return schoolService.viewCampusScheduleTemplateListBySchool(page, pageSize, templateId);
     }
 }

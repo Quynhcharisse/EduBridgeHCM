@@ -7,11 +7,24 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class CreateCampusScheduleTemplateRequest {
-    int id;
+public class CampusScheduleTemplateRequest {
+
+    Integer templateId;
+
+    Integer campusId;
+
+    List<String> dayOfWeek;
+
+    String startTime;
+
+    String endTime;
+
+    String sessionType;
 }

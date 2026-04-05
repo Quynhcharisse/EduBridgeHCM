@@ -94,7 +94,7 @@ public class Campus {
     @OneToMany(mappedBy = "campus")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    List<CampusScheduleTemplate> campusScheduleTemplate;
+    List<CampusScheduleTemplate> campusScheduleTemplateList;
 
     @OneToMany(mappedBy = "campus")
     @ToString.Exclude
