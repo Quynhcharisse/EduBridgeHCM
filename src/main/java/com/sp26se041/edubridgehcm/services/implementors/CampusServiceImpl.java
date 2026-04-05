@@ -25,7 +25,6 @@ import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.UnAssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
@@ -515,7 +514,6 @@ public class CampusServiceImpl implements CampusService {
         facilityJson.put("overview", request.getOverview());
         facilityJson.put("itemList", mergedFacilityItems);
         facilityJson.put("imageData", request.getImageJsonData());
-
         campus.setFacility(facilityJson);
 
         // campus xử lý operating --> policy detail
@@ -532,6 +530,15 @@ public class CampusServiceImpl implements CampusService {
                 finalPolicyStr += "\n------------------------------------------\n";
                 finalPolicyStr += "📌 LƯU Ý RIÊNG TẠI CƠ SỞ:\n" + request.getPolicyDetail();
             }
+
+            Map<String, Object> policyJsonb = new HashMap<>();
+
+            policyJsonb.put("minCounsellorPerSlot", request.getMinCounsellorPerSlot());
+
+            policyJsonb.put("fullTextRendered", finalPolicyStr);
+
+            policyJsonb.put("rawCustomNote", request.getPolicyDetail());
+
             campus.setPolicyDetail(finalPolicyStr);
         }
 
@@ -682,13 +689,7 @@ public class CampusServiceImpl implements CampusService {
 
     @Override
     @Transactional
-    public ResponseEntity<ResponseObject> assignCounsellorIntoSlots(AssignCounsellorIntoSlotsRequest request) {
-        return null;
-    }
-
-    @Override
-    @Transactional
-    public ResponseEntity<ResponseObject> unAssignCounsellorIntoSlots(UnAssignCounsellorIntoSlotsRequest request) {
+    public ResponseEntity<ResponseObject> syncCounsellorIntoSlots(AssignCounsellorIntoSlotsRequest request) {
         return null;
     }
 

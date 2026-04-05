@@ -27,6 +27,8 @@ public class UpdateCampusConfigRequest {
 
     String emailSupport;
 
+    Integer minCounsellorPerSlot;
+
     CampusWorkingOverride workingOverride;
 
     List<AdmissionStepOverride> admissionStepsOverride;

@@ -122,6 +122,10 @@ public class SchoolConfigRequest {
     public static class OperationSettingsData {
         String hotline;
         String emailSupport;
+        int minCounsellorPerSlot;
+        int slotDurationInMinutes;   // Thời lượng 1 ca (ví dụ: 30, 45, 60)
+        int maxBookingPerSlot;       // Số học sinh tối đa trong 1 ca
+        int allowBookingBeforeHours; // Chặn đặt lịch sát giờ (ví dụ: phải đặt trước 24h)
         WorkingConfig workingConfig;
         // Phần quy trình đây:
         List<AdmissionStep> admissionSteps;

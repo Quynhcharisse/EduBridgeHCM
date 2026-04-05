@@ -35,9 +35,7 @@ public interface CampusService {
 
     ResponseEntity<ResponseObject> viewCampusScheduleTemplateByEachCampus(Integer campusId);
 
-    ResponseEntity<ResponseObject> assignCounsellorIntoSlots(AssignCounsellorIntoSlotsRequest request);
-
-    ResponseEntity<ResponseObject> unAssignCounsellorIntoSlots(UnAssignCounsellorIntoSlotsRequest request);
+    ResponseEntity<ResponseObject> syncCounsellorIntoSlots(AssignCounsellorIntoSlotsRequest request);
 
     ResponseEntity<ResponseObject> viewAssignCounsellorIntoSlotList();
 }

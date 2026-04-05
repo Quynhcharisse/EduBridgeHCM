@@ -7,11 +7,21 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
+import java.time.LocalDate;
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AssignCounsellorIntoSlotsRequest {
-    int id;
+
+    Integer templateId;
+
+    List<Integer> counsellorIds; // Danh sách ID các counsellor muốn có trong slot này
+
+    LocalDate startDate;
+
+    LocalDate endDate;
 }

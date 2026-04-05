@@ -88,8 +88,9 @@ public class Campus {
     @Column(columnDefinition = "jsonb", name = "facility")
     Object facility;
 
-    @Column(name = "policy_detail", columnDefinition = "TEXT")
-    String policyDetail; //quy định riêng của từng cơ sở (open time, close time)
+    @Type(JsonBinaryType.class)
+    @Column(columnDefinition = "jsonb", name = "policy_detail")
+    Object policyDetail; //quy định riêng của từng cơ sở (open time, close time)
 
     @OneToMany(mappedBy = "campus")
     @ToString.Exclude
