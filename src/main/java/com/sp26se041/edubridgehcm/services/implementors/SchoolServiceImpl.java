@@ -12,6 +12,7 @@ import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
+import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
 import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Curriculum;
 import com.sp26se041.edubridgehcm.models.OpenDayEvent;
@@ -23,6 +24,7 @@ import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionReservationFormRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
 import com.sp26se041.edubridgehcm.repositories.CurriculumRepo;
 import com.sp26se041.edubridgehcm.repositories.FavouriteSchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.OpenDayEventRepo;
@@ -50,6 +52,7 @@ import com.sp26se041.edubridgehcm.validations.school.ProgramValidation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -63,6 +66,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -95,6 +99,8 @@ public class SchoolServiceImpl implements SchoolService {
     private final FavouriteSchoolRepo favouriteSchoolRepo;
 
     private final ParentRepo parentRepo;
+
+    private final CampusScheduleTemplateRepo campusScheduleTemplateRepo;
 
     @Override
     @Transactional
@@ -1255,7 +1261,29 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> viewCampusScheduleTemplateListBySchool(int campusId, int page, int pageSize) {
-        return null;
+    public ResponseEntity<ResponseObject> viewCampusScheduleTemplateListBySchool(int page, int pageSize) {
+
+        Pageable pageable = PageRequest.of(page, pageSize);
+
+        Page<CampusScheduleTemplate> templatePage = campusScheduleTemplateRepo.findAllByActiveTrue(pageable);
+
+        PageResponse<Map<String, Object>> pageResponse = PaginationUtil.buildPageResponse(templatePage, this::buildCampusScheduleTemplateData);
+
+        return ResponseBuilder.build(HttpStatus.OK, "", pageResponse);
+    }
+
+    private Map<String, Object> buildCampusScheduleTemplateData(CampusScheduleTemplate scheduleTemplate) {
+        Map<String, Object> data = new LinkedHashMap<>();
+
+        data.put("templateId", scheduleTemplate.getId());
+        data.put("campusId", scheduleTemplate.getCampus().getId());
+        data.put("campusName", scheduleTemplate.getCampus().getName());
+        data.put("dayOfWeek", List.of(scheduleTemplate.getDayOfWeek()));
+        data.put("startTime", scheduleTemplate.getStartTime().toString());
+        data.put("endTime", scheduleTemplate.getEndTime().toString());
+        data.put("sessionType", scheduleTemplate.getSessionType().name());
+        data.put("active", scheduleTemplate.isActive());
+
+        return data;
     }
 }
