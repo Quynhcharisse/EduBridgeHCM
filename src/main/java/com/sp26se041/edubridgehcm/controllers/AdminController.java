@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.controllers;
 
+import com.sp26se041.edubridgehcm.requests.AddSubjectRequest;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
 import com.sp26se041.edubridgehcm.requests.CreateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateServicePackageFeeRequest;
@@ -74,4 +75,15 @@ public class AdminController {
         return adminService.getPersonalityTypeList();
     }
 
+    @PostMapping("/subject")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ResponseObject> createSubject(AddSubjectRequest request){
+        return adminService.createSubject(request);
+    }
+
+    @GetMapping("/subject")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ResponseObject> getAllSubjects(){
+        return adminService.getAllSubjects();
+    }
 }

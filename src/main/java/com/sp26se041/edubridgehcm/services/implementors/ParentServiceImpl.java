@@ -820,7 +820,7 @@ public class ParentServiceImpl implements ParentService {
     @Override
     public ResponseEntity<ResponseObject> getAllSubjects() {
 
-        List<Subject> subjects = subjectRepo.findAll();
+        List<Subject> subjects = subjectRepo.findByStatus(Status.SUBJECT_ACTIVE);
 
         List<Map<String, Object>> result = subjects.stream()
                 .collect(Collectors.groupingBy(Subject::getType))

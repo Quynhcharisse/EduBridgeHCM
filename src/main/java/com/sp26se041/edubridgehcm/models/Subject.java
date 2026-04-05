@@ -37,5 +37,5 @@ public class Subject {
 
     @Enumerated(EnumType.STRING)
     private Status status;
-    
+
 }
