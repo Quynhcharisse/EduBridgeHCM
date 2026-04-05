@@ -520,7 +520,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         targetCurriculum.setCurriculumStatus(Status.CUR_DRAFT);
         curriculumRepo.save(targetCurriculum);
-        return ResponseBuilder.build(HttpStatus.OK, isNew ? "Created draft successfully" : "Updated draft successfully", null);
+        return ResponseBuilder.build(isNew ? HttpStatus.CREATED : HttpStatus.OK, isNew ? "Created draft successfully" : "Updated draft successfully", null);
     }
 
     @Override
@@ -1252,5 +1252,10 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("updatedAt", openDayEvent.getUpdatedAt());
 
         return data;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewCampusScheduleTemplateListBySchool(int campusId, int page, int pageSize) {
+        return null;
     }
 }

@@ -1,11 +1,13 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.Role;
+import com.sp26se041.edubridgehcm.enums.SessionType;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
+import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
 import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
@@ -14,17 +16,18 @@ import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionReservationFormRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
+import com.sp26se041.edubridgehcm.repositories.CounsellorSlotRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
+import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.CreateCampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.UnAssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateCampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.CampusService;
@@ -34,6 +37,7 @@ import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.utils.SchoolConfigUtil;
 import com.sp26se041.edubridgehcm.validations.campus.CampusProgramOfferingValidation;
+import com.sp26se041.edubridgehcm.validations.campus.CampusScheduleTemplateValidation;
 import com.sp26se041.edubridgehcm.validations.campus.CounsellorValidation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -46,8 +50,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -69,7 +75,12 @@ public class CampusServiceImpl implements CampusService {
     private final CounsellorRepo counsellorRepo;
 
     private final AdmissionReservationFormRepo admissionReservationFormRepo;
+
     private final SchoolConfigRepo schoolConfigRepo;
+
+    private final CampusScheduleTemplateRepo campusScheduleTemplateRepo;
+
+    private final CounsellorSlotRepo counsellorSlotRepo;
 
     @Override
     @Transactional
@@ -551,24 +562,101 @@ public class CampusServiceImpl implements CampusService {
 
     @Override
     @Transactional
-    public ResponseEntity<ResponseObject> createCampusScheduleTemplate(CreateCampusScheduleTemplateRequest request) {
-        return null;
+    public ResponseEntity<ResponseObject> upsertCampusScheduleTemplate(CampusScheduleTemplateRequest request) {
+
+        Campus campus = campusRepo.findById(request.getCampusId()).orElse(null);
+
+        if (campus == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campus not found", null);
+        }
+
+        Map<String, Object> workingConfig = SchoolConfigUtil.getWorkingConfig(schoolConfigRepo
+                .findBySchoolIdAndKey(campus.getSchool().getId(), "operationSettingsData")
+                .orElse(null));
+
+        for (String day : request.getDayOfWeek()) {
+
+            String error = CampusScheduleTemplateValidation.validateCampusScheduleTemplate(
+                    request.getTemplateId(),
+                    request,
+                    day,
+                    workingConfig,
+                    campusScheduleTemplateRepo);
+
+            if (error != null) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+            }
+
+            saveSingleTemplate(request, day, campus);
+        }
+
+        return ResponseBuilder.build(HttpStatus.OK, "Templates processed successfully", null);
+    }
+
+    private void saveSingleTemplate(CampusScheduleTemplateRequest request, String day, Campus campus) {
+        CampusScheduleTemplate template;
+
+        boolean isUpdate = request.getTemplateId() != null && request.getTemplateId() > 0 && request.getDayOfWeek().size() == 1;
+
+        if (isUpdate) {
+            template = campusScheduleTemplateRepo.findById(request.getTemplateId()).get();
+        } else {
+
+            template = new CampusScheduleTemplate();
+            template.setCampus(campus);
+            template.setCreatedDate(LocalDate.now());
+        }
+
+        template.setDayOfWeek(day.toUpperCase());
+        template.setStartTime(LocalTime.parse(request.getStartTime()));
+        template.setEndTime(LocalTime.parse(request.getEndTime()));
+        template.setSessionType(SessionType.valueOf(request.getSessionType()));
+        template.setUpdatedDate(LocalDate.now());
+        template.setActive(true);
+
+        campusScheduleTemplateRepo.save(template);
     }
 
     @Override
-    @Transactional
-    public ResponseEntity<ResponseObject> updateCampusScheduleTemplate(UpdateCampusScheduleTemplateRequest request) {
-        return null;
+    public ResponseEntity<ResponseObject> viewCampusScheduleTemplateByEachCampus(Integer campusId) {
+
+        Campus campus = campusRepo.findById(campusId).orElse(null);
+
+        if (campus == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campus not found", null);
+        }
+
+        List<CampusScheduleTemplate> templates = campusScheduleTemplateRepo.findByCampusIdAndActiveTrueOrderByStartTimeAsc(campusId);
+
+        List<String> daysOfWeekOrder = List.of("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN");
+
+        Map<String, List<Map<String, Object>>> groupedTemplates = new LinkedHashMap<>();
+
+        for (String day : daysOfWeekOrder) {
+            groupedTemplates.put(day, new ArrayList<>());
+        }
+
+        for (CampusScheduleTemplate t : templates) {
+            String day = t.getDayOfWeek().toUpperCase();
+
+            if (groupedTemplates.containsKey(day)) {
+                groupedTemplates.get(day).add(buildTemplateData(t));
+            }
+        }
+
+        return ResponseBuilder.build(HttpStatus.OK, "View campus schedule templates successfully", groupedTemplates);
     }
 
-    @Override
-    public ResponseEntity<ResponseObject> viewCampusScheduleTemplateList() {
-        return null;
-    }
-
-    @Override
-    public ResponseEntity<ResponseObject> deleteCampusScheduleTemplateList(int id) {
-        return null;
+    private Map<String, Object> buildTemplateData(CampusScheduleTemplate template) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("id", template.getId());
+        data.put("dayOfWeek", template.getDayOfWeek());
+        data.put("startTime", template.getStartTime().toString());
+        data.put("endTime", template.getEndTime().toString());
+        data.put("sessionType", template.getSessionType());
+        data.put("active", template.isActive());
+        data.put("campusId", template.getCampus().getId());
+        return data;
     }
 
     @Override
