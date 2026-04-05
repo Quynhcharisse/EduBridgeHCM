@@ -483,6 +483,16 @@ public class CampusServiceImpl implements CampusService {
     @Transactional
     public ResponseEntity<ResponseObject> updateCampusConfig(int campusId, UpdateCampusConfigRequest request) {
 
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
         Campus campus = campusRepo.findById(campusId).orElse(null);
 
         if (campus == null) {
@@ -564,10 +574,21 @@ public class CampusServiceImpl implements CampusService {
     @Transactional
     public ResponseEntity<ResponseObject> upsertCampusScheduleTemplate(CampusScheduleTemplateRequest request) {
 
-        Campus campus = campusRepo.findById(request.getCampusId()).orElse(null);
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
 
-        if (campus == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campus not found", null);
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        Campus campus = campusRepo.findById(request.getCampusId()).orElse(null);
+        if (campus == null) return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Target campus not found", null);
+
+        // 3. Security Check: Đảm bảo cùng School
+        if (!campus.getSchool().getId().equals(actorCampus.getSchool().getId())) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Permission denied", null);
         }
 
         Map<String, Object> workingConfig = SchoolConfigUtil.getWorkingConfig(schoolConfigRepo
