@@ -72,6 +72,10 @@ public class SchoolConfigUtil {
             merged.put("emailSupport", request.getEmailSupport());
         }
 
+        if (request.getMinCounsellorPerSlot() != null) {
+            merged.put("minCounsellorPerSlot", request.getMinCounsellorPerSlot());
+        }
+
         if (request.getWorkingOverride() != null) {
             merged.put("workingConfig", mergeWorkingConfig(
                     (Map<String, Object>) hqData.get("workingConfig"),
@@ -142,6 +146,12 @@ public class SchoolConfigUtil {
 
         String emailSupport = String.valueOf(operationData.getOrDefault("emailSupport", "Không có"));
         sb.append("📧 Email hỗ trợ: ").append(emailSupport).append("\n");
+
+        if (operationData.get("minCounsellorPerSlot") != null) {
+            sb.append("👥 Số tư vấn viên tối thiểu mỗi ca: ")
+                    .append(operationData.get("minCounsellorPerSlot"))
+                    .append(" người\n");
+        }
 
         Map<String, Object> working = (Map<String, Object>) operationData.get("workingConfig");
 

@@ -382,6 +382,10 @@ public class EduBridgeHcmApplication {
 
         operationSettingsData.put("hotline", "1900 1234");
         operationSettingsData.put("emailSupport", "tuyensinh@edubridge.edu.vn");
+        operationSettingsData.put("minCounsellorPerSlot", 1);
+        operationSettingsData.put("slotDurationInMinutes", 30);    // Mỗi ca tư vấn mặc định 30 phút
+        operationSettingsData.put("maxBookingPerSlot", 1);         // Mỗi ca 1 khách (Tư vấn 1 kèm 1)
+        operationSettingsData.put("allowBookingBeforeHours", 24);  // Phải đặt trước 24h
         operationSettingsData.put("workingConfig", workingConfig);
         operationSettingsData.put("admissionSteps", admissionSteps);
 

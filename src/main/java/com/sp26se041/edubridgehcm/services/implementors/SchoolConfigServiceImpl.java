@@ -221,6 +221,10 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         Map<String, Object> operationJson = new HashMap<>();
         operationJson.put("hotline", operationSettingsData.getHotline());
         operationJson.put("emailSupport", operationSettingsData.getEmailSupport());
+        operationJson.put("minCounsellorPerSlot", operationSettingsData.getMinCounsellorPerSlot());
+        operationJson.put("slotDurationInMinutes", operationSettingsData.getSlotDurationInMinutes());
+        operationJson.put("maxBookingPerSlot", operationSettingsData.getMaxBookingPerSlot());
+        operationJson.put("allowBookingBeforeHours", operationSettingsData.getAllowBookingBeforeHours());
         operationJson.put("workingConfig", workingConfigMap);
         operationJson.put("admissionSteps", stepsJson);
 

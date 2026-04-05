@@ -103,13 +103,7 @@ public class CampusController {
     @PostMapping("/counsellor/assign")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> assignCounsellorIntoSlots(@RequestBody AssignCounsellorIntoSlotsRequest request) {
-        return campusService.assignCounsellorIntoSlots(request);
-    }
-
-    @PutMapping("/counsellor/unassign")
-    @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> unAssignCounsellorIntoSlots(@RequestBody UnAssignCounsellorIntoSlotsRequest request) {
-        return campusService.unAssignCounsellorIntoSlots(request);
+        return campusService.syncCounsellorIntoSlots(request);
     }
 
     @GetMapping("/counsellor/assign/list")
