@@ -63,7 +63,11 @@ public enum Status {
 
     //PERSONALITY TYPE STATUS
     PERSONALITY_TYPE_ACTIVE("active"),
-    PERSONALITY_TYPE_INACTIVE("inactive");
-    
+    PERSONALITY_TYPE_INACTIVE("inactive"),
+
+    //SUBJECT STATUS
+    SUBJECT_ACTIVE("active"),
+    SUBJECT_INACTIVE("inactive");
+
     private final String value;
 }

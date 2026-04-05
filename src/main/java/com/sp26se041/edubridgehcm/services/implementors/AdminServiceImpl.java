@@ -3,16 +3,20 @@ package com.sp26se041.edubridgehcm.services.implementors;
 import com.sp26se041.edubridgehcm.enums.PersonalityTypeGroup;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
+import com.sp26se041.edubridgehcm.enums.SubjectType;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.PersonalityType;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolRegistrationRequest;
+import com.sp26se041.edubridgehcm.models.Subject;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRegistrationRequestRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
+import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
+import com.sp26se041.edubridgehcm.requests.AddSubjectRequest;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
 import com.sp26se041.edubridgehcm.requests.CreateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateServicePackageFeeRequest;
@@ -32,6 +36,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -44,7 +49,9 @@ public class AdminServiceImpl implements AdminService {
     private final SchoolRepo schoolRepo;
 
     private final CampusRepo campusRepo;
+
     private final PersonalityTypeRepo personalityTypeRepo;
+    private final SubjectRepo subjectRepo;
 
     @Override
     @Transactional
@@ -232,6 +239,97 @@ public class AdminServiceImpl implements AdminService {
         }
 
         return ResponseBuilder.build(HttpStatus.OK, "Get personality types successfully", result);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> createSubject(AddSubjectRequest request) {
+
+        String error = validateAddSubjectInfo(request);
+
+        if(!error.isEmpty()){
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+        }
+
+        SubjectType subjectType;
+
+        try {
+            subjectType = parseSubjectType(request.getSubjectType());
+        }catch (IllegalArgumentException e){
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
+        Subject subject = Subject.builder()
+                .type(subjectType)
+                .name(normalize(request.getName()))
+                .build();
+
+        subjectRepo.save(subject);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Create subject successfully", subject);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getAllSubjects() {
+
+        List<Subject> subjects = subjectRepo.findAll();
+
+        List<Map<String, Object>> result = subjects.stream()
+                .collect(Collectors.groupingBy(Subject::getType))
+                .entrySet()
+                .stream()
+                .map(entry -> {
+                    Map<String, Object> groupMap = new HashMap<>();
+
+                    // 🔥 dùng value thay vì name()
+                    groupMap.put("type", entry.getKey().getValue());
+
+                    // label cho FE
+                    String label = switch (entry.getKey()) {
+                        case REGULAR_SUBJECT -> "Môn học chính";
+                        case FOREIGN_LANGUAGE_SUBJECT -> "Ngoại ngữ";
+                    };
+                    groupMap.put("label", label);
+
+                    List<Map<String, Object>> subjectList = entry.getValue().stream()
+                            .map(s -> {
+                                Map<String, Object> item = new HashMap<>();
+                                item.put("id", s.getId());
+                                item.put("name", s.getName());
+                                return item;
+                            })
+                            .toList();
+
+                    groupMap.put("subjects", subjectList);
+
+                    return groupMap;
+                })
+                .toList();
+
+        return ResponseBuilder.build(
+                HttpStatus.OK,
+                "Get all subjects successfully",
+                result
+        );
+    }
+
+    private String validateAddSubjectInfo(AddSubjectRequest request) {
+
+        if(isBlank(request.getName())){
+            return "Subject name must not be blank";
+        }
+        if(request.getSubjectType() == null || request.getSubjectType().isBlank() ) {
+            return "Subject type must not be blank";
+        }
+        return "";
+    }
+
+    private SubjectType parseSubjectType(String subjectType) {
+        try {
+            return SubjectType.valueOf(subjectType.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "Invalid subject type. Allowed values: REGULAR_SUBJECT, FOREIGN_LANGUAGE_SUBJECT"
+            );
+        }
     }
 
     private PersonalityTypeGroup parsePersonalityTypeGroup(String group) {

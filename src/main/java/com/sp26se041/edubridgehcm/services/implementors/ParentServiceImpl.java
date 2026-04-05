@@ -161,7 +161,6 @@ public class ParentServiceImpl implements ParentService {
         Long nextCursorId = null;
 
         if (existingConversation.isPresent()) {
-
             Optional<Account> counsellorAcc = accountRepo.findByEmail(existingConversation.get().getCounsellorEmail());
 
             if (counsellorAcc.isEmpty()) {
@@ -821,7 +820,7 @@ public class ParentServiceImpl implements ParentService {
     @Override
     public ResponseEntity<ResponseObject> getAllSubjects() {
 
-        List<Subject> subjects = subjectRepo.findAll();
+        List<Subject> subjects = subjectRepo.findByStatus(Status.SUBJECT_ACTIVE);
 
         List<Map<String, Object>> result = subjects.stream()
                 .collect(Collectors.groupingBy(Subject::getType))

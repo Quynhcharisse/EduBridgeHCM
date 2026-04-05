@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.services;
 
+import com.sp26se041.edubridgehcm.requests.AddSubjectRequest;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
 import com.sp26se041.edubridgehcm.requests.CreateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateServicePackageFeeRequest;
@@ -24,4 +25,7 @@ public interface AdminService {
     ResponseEntity<ResponseObject> createPersonalityType(CreatePersonalityTypeRequest request);
 
     ResponseEntity<ResponseObject> getPersonalityTypeList();
+
+    ResponseEntity<ResponseObject> createSubject(AddSubjectRequest request);
+    ResponseEntity<ResponseObject> getAllSubjects();
 }
