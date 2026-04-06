@@ -86,7 +86,7 @@ public class AccountController {
         return accountService.exportSchoolList();
     }
 
-    @GetMapping("/counsellor/list/")
+    @GetMapping("/counsellor/list/export")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Resource> exportCounsellorListOfCampus() throws IOException {
         return accountService.exportCounsellorListOfCampus();
