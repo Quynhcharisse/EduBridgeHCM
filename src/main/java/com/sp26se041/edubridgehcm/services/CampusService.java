@@ -8,8 +8,10 @@ import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
+import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 
+import java.io.IOException;
 import java.time.LocalDate;
 
 public interface CampusService {
@@ -43,4 +45,8 @@ public interface CampusService {
     ResponseEntity<ResponseObject> getAssignedSlots(Integer counsellorId);
 
     ResponseEntity<ResponseObject> getCounsellorAvailableList();
+
+    ResponseEntity<Resource> exportCounsellorList() throws IOException;
+
+    ResponseEntity<Resource> exportCampusScheduleMatrix() throws IOException;
 }

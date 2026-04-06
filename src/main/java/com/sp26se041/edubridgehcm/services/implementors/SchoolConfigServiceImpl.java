@@ -398,6 +398,5 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         }
         return account.getCampus();
     }
-
 }
 

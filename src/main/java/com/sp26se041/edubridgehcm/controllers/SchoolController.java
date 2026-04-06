@@ -10,6 +10,7 @@ import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +22,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.io.IOException;
 
 @RestController
 @RequestMapping("/api/v1/school")
@@ -152,5 +155,17 @@ public class SchoolController {
     public ResponseEntity<ResponseObject> viewCampusScheduleTemplateListBySchool(@RequestParam(defaultValue = "0") int page,
                                                                                  @RequestParam(defaultValue = "10") int pageSize) {
         return schoolService.viewCampusScheduleTemplateListBySchool(page, pageSize);
+    }
+
+    @GetMapping("/campus/list/export")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<Resource> exportCampusList() throws IOException {
+        return schoolService.exportCampusList();
+    }
+
+    @GetMapping("/admission/campaign/list/export")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<Resource> exportAdmissionCampaign(int year) throws IOException {
+        return schoolService.exportAdmissionCampaign(year);
     }
 }

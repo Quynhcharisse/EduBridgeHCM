@@ -7,7 +7,10 @@ import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
 import com.sp26se041.edubridgehcm.requests.ProgramRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
+import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
+
+import java.io.IOException;
 
 public interface SchoolService {
 
@@ -50,4 +53,8 @@ public interface SchoolService {
     ResponseEntity<ResponseObject> viewOpenDayEventList(int currentPage, int pageSize);
 
     ResponseEntity<ResponseObject> viewCampusScheduleTemplateListBySchool(int page, int pageSize);
+
+    ResponseEntity<Resource> exportCampusList() throws IOException;
+
+    ResponseEntity<Resource> exportAdmissionCampaign(int year) throws IOException;
 }
