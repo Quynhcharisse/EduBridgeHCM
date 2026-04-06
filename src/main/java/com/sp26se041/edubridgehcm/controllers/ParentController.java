@@ -146,5 +146,10 @@ public class ParentController {
         return parentService.getStudents();
     }
 
+    @PostMapping("/folder")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<ResponseObject> createFolder() {
+        return parentService.createFolder();
+    }
 
 }
