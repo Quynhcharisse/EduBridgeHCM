@@ -79,14 +79,14 @@ public class CampusController {
 
     @PutMapping("/{campusId}/config")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> updateCampusConfig(@PathVariable int campusId, @RequestBody UpdateCampusConfigRequest request) {
-        return campusService.updateCampusConfig(campusId, request);
+    public ResponseEntity<ResponseObject> updateCampusConfig(@RequestBody UpdateCampusConfigRequest request) {
+        return campusService.updateCampusConfig(request);
     }
 
-    @GetMapping("/{campusId}/config")
+    @GetMapping("/config")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> getCampusConfig(@PathVariable int campusId) {
-        return campusService.getCampusConfig(campusId);
+    public ResponseEntity<ResponseObject> getCampusConfig() {
+        return campusService.getCampusConfig();
     }
 
     @PostMapping("/schedule/templete")
@@ -97,8 +97,8 @@ public class CampusController {
 
     @GetMapping("/{campusId}/schedule/templete/list")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewCampusScheduleTemplateByEachCampus(@PathVariable Integer campusId) {
-        return campusService.viewCampusScheduleTemplateByEachCampus(campusId);
+    public ResponseEntity<ResponseObject> viewCampusScheduleTemplateByEachCampus() {
+        return campusService.viewCampusScheduleTemplateByEachCampus();
     }
 
     @PostMapping("/counsellor/assign")
@@ -109,8 +109,8 @@ public class CampusController {
 
     @GetMapping("/counsellor/slot/available")
     @PreAuthorize("hasAnyRole('SCHOOL', 'PARENT', 'COUNSELLOR')")
-    public ResponseEntity<ResponseObject> getAvailableSlots(LocalDate targetDate, Integer campusId) {
-        return campusService.getAvailableSlots(targetDate, campusId);
+    public ResponseEntity<ResponseObject> getAvailableSlots(LocalDate targetDate) {
+        return campusService.getAvailableSlots(targetDate);
     }
 
     @GetMapping("/counsellor/slots/assigned")
@@ -118,12 +118,12 @@ public class CampusController {
     public ResponseEntity<ResponseObject> getAssignedSlots(
             @RequestParam Integer campusId,
             @RequestParam(required = false) Integer counsellorId) {
-        return campusService.getAssignedSlots(campusId, counsellorId);
+        return campusService.getAssignedSlots(counsellorId);
     }
 
     @GetMapping("/counsellor/available/list")
     @PreAuthorize("hasAnyRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> getCounsellorAvailableList(Integer campusId) {
-        return campusService.getCounsellorAvailableList(campusId);
+    public ResponseEntity<ResponseObject> getCounsellorAvailableList() {
+        return campusService.getCounsellorAvailableList();
     }
 }

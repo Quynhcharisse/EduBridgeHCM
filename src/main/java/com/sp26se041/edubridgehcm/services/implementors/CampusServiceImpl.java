@@ -57,6 +57,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -96,6 +97,10 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
+        if (request.getCampusId() != null && !request.getCampusId().equals(actorCampus.getId())) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "You do not have permission to create a program offering for another campus.", null);
+        }
+
         String error = CampusProgramOfferingValidation.validateCreateCampusProgramOffering(request, actorCampus, admissionCampaignRepo, programRepo, campusProgramOfferingRepo, campusRepo);
 
         if (error != null) {
@@ -129,34 +134,19 @@ public class CampusServiceImpl implements CampusService {
         BigDecimal multiplier = BigDecimal.valueOf(1 + (adjustmentPercent / 100));
         BigDecimal finalTuition = basePrice.multiply(multiplier).setScale(0, RoundingMode.HALF_UP); // Rounding for VND/Currency
 
-        Campus targetCampus = resolveTargetCampus(actorCampus, request.getCampusId());
-
-        if (targetCampus == null) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus is out of your scope", null);
-        }
-
-        campusProgramOfferingRepo.save(CampusProgramOffering.builder().campus(targetCampus).admissionCampaign(campaign).program(program).quota(request.getQuota()).remainingQuota(request.getQuota()).learningMode(request.getLearningMode()).priceAdjustmentPercentage(adjustmentPercent).finalTuitionFee(finalTuition).applicationStatus(Status.OPEN).openDate((request.getOpenDate() != null) ? request.getOpenDate() : campaign.getStartDate()).closeDate((request.getCloseDate() != null) ? request.getCloseDate() : campaign.getEndDate()).status(Status.OPEN_ADMISSION_CAMPAIGN).build());
+        campusProgramOfferingRepo.save(CampusProgramOffering.builder().campus(actorCampus).admissionCampaign(campaign).program(program).quota(request.getQuota()).remainingQuota(request.getQuota()).learningMode(request.getLearningMode()).priceAdjustmentPercentage(adjustmentPercent).finalTuitionFee(finalTuition).applicationStatus(Status.OPEN).openDate((request.getOpenDate() != null) ? request.getOpenDate() : campaign.getStartDate()).closeDate((request.getCloseDate() != null) ? request.getCloseDate() : campaign.getEndDate()).status(Status.OPEN_ADMISSION_CAMPAIGN).build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Create campus offering successfully", null);
     }
 
-    private Campus resolveTargetCampus(Campus actorCampus, Integer requestedCampusId) {
-        if (!actorCampus.getIsPrimaryBranch()) {
-            if (requestedCampusId != null && !requestedCampusId.equals(actorCampus.getId())) {
-                return null;
-            }
-            return actorCampus;
+    @Override
+    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(Integer campusId, int page, int pageSize) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
         }
 
-        Integer targetCampusId = requestedCampusId == null ? actorCampus.getId() : requestedCampusId;
-        return campusRepo.findByIdAndSchoolId(targetCampusId, actorCampus.getSchool().getId()).orElse(null);
-    }
-
-    @Override
-    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(int campusId, int page, int pageSize) {
-
         Campus actorCampus = extractActorCampus();
-
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
@@ -168,22 +158,23 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
         }
 
-        Integer requestedCampusId = campusId <= 0 ? null : campusId;
-
         Page<CampusProgramOffering> offeringPage;
+
         if (actorCampus.getIsPrimaryBranch()) {
-            if (requestedCampusId == null) {
-                offeringPage = campusProgramOfferingRepo.findByAdmissionCampaignSchoolIdOrderByIdDesc(actorCampus.getSchool().getId(), pageable);
+            if (campusId == null || campusId <= 0) {
+                // Xem toàn bộ Offering của cả School
+                offeringPage = campusProgramOfferingRepo.findByAdmissionCampaign_School_IdOrderByIdDesc(actorCampus.getSchool().getId(), pageable);
             } else {
-                Campus campus = campusRepo.findByIdAndSchoolId(requestedCampusId, actorCampus.getSchool().getId()).orElse(null);
-                if (campus == null) {
-                    return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus is out of your scope", null);
+                // Xem của một Campus cụ thể, nhưng phải thuộc cùng School
+                Optional<Campus> targetCampus = campusRepo.findByIdAndSchoolId(campusId, actorCampus.getSchool().getId());
+                if (targetCampus.isEmpty()) {
+                    return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Target campus is out of your school scope", null);
                 }
-                offeringPage = campusProgramOfferingRepo.findByCampusIdOrderByIdDesc(campus.getId(), pageable);
+                offeringPage = campusProgramOfferingRepo.findByCampusIdOrderByIdDesc(campusId, pageable);
             }
         } else {
-            if (requestedCampusId != null && !requestedCampusId.equals(actorCampus.getId())) {
-                return ResponseBuilder.build(HttpStatus.FORBIDDEN, "You can only view your campus data", null);
+            if (campusId != null && !campusId.equals(actorCampus.getId())) {
+                return ResponseBuilder.build(HttpStatus.FORBIDDEN, "You are only authorized to view your own campus data.", null);
             }
             offeringPage = campusProgramOfferingRepo.findByCampusIdOrderByIdDesc(actorCampus.getId(), pageable);
         }
@@ -202,9 +193,12 @@ public class CampusServiceImpl implements CampusService {
         }
 
         Campus actorCampus = extractActorCampus();
-
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        if (request.getCampusId() != null && !request.getCampusId().equals(actorCampus.getId())) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "You do not have permission to update a program offering for another campus.", null);
         }
 
         CampusProgramOffering offering = campusProgramOfferingRepo.findById(request.getId()).orElse(null);
@@ -222,10 +216,6 @@ public class CampusServiceImpl implements CampusService {
         }
 
         Campus targetCampus = offering.getCampus();
-
-        if (request.getCampusId() != null && !request.getCampusId().equals(targetCampus.getId())) {
-            targetCampus = resolveTargetCampus(actorCampus, request.getCampusId());
-        }
 
         Program targetProgram = offering.getProgram();
 
@@ -248,7 +238,6 @@ public class CampusServiceImpl implements CampusService {
 
         assert targetCampaign != null;
         offering.setAdmissionCampaign(targetCampaign);
-        assert targetCampus != null;
 
         offering.setCampus(targetCampus);
         offering.setProgram(targetProgram);
@@ -266,11 +255,15 @@ public class CampusServiceImpl implements CampusService {
 
     @Override
     @Transactional
-    public ResponseEntity<ResponseObject> closeCampusProgramOffering(int offeringId) {
+    public ResponseEntity<ResponseObject> closeCampusProgramOffering(Integer offeringId) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
 
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
         CampusProgramOffering offering = campusProgramOfferingRepo.findById(offeringId).orElse(null);
@@ -308,9 +301,13 @@ public class CampusServiceImpl implements CampusService {
     @Transactional
     public ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(int offeringId, Status targetStatus) {
 
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
         CampusProgramOffering offering = campusProgramOfferingRepo.findById(offeringId).orElse(null);
@@ -399,7 +396,6 @@ public class CampusServiceImpl implements CampusService {
         }
 
         Campus actorCampus = extractActorCampus();
-
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
@@ -416,7 +412,6 @@ public class CampusServiceImpl implements CampusService {
 
         return ResponseBuilder.build(HttpStatus.OK, "Create counsellor successfully", buildCounsellorData(counsellor));
     }
-
 
     @Override
     public ResponseEntity<ResponseObject> viewAccountCounsellorList(int page, int size) {
@@ -482,7 +477,7 @@ public class CampusServiceImpl implements CampusService {
 
     @Override
     @Transactional
-    public ResponseEntity<ResponseObject> updateCampusConfig(int campusId, UpdateCampusConfigRequest request) {
+    public ResponseEntity<ResponseObject> updateCampusConfig(UpdateCampusConfigRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
@@ -494,14 +489,8 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
-        Campus campus = campusRepo.findById(campusId).orElse(null);
-
-        if (campus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campus not found", null);
-        }
-
         // campus xử lý facility
-        SchoolConfig facilityData = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "facilityData").orElse(null);
+        SchoolConfig facilityData = schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), "facilityData").orElse(null);
 
         List<Map<String, Object>> itemList = new ArrayList<>();
 
@@ -516,16 +505,13 @@ public class CampusServiceImpl implements CampusService {
         facilityJson.put("overview", request.getOverview());
         facilityJson.put("itemList", mergedFacilityItems);
         facilityJson.put("imageData", request.getImageJsonData());
-        campus.setFacility(facilityJson);
+        actorCampus.setFacility(facilityJson);
 
         // campus xử lý operating --> policy detail
-        SchoolConfig operationSettingsData = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "operationSettingsData").orElse(null);
+        SchoolConfig operationSettingsData = schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), "operationSettingsData").orElse(null);
 
         if (operationSettingsData != null) {
-            Map<String, Object> mergedOp = SchoolConfigUtil.mergeOperationConfig(
-                    (Map<String, Object>) operationSettingsData.getValue(),
-                    request
-            );
+            Map<String, Object> mergedOp = SchoolConfigUtil.mergeOperationConfig((Map<String, Object>) operationSettingsData.getValue(), request);
 
             String finalPolicyStr = SchoolConfigUtil.convertOperationToPolicyString(mergedOp);
             if (request.getPolicyDetail() != null && !request.getPolicyDetail().isBlank()) {
@@ -547,26 +533,27 @@ public class CampusServiceImpl implements CampusService {
 
             policyJsonb.put("rawCustomNote", request.getPolicyDetail());
 
-            campus.setPolicyDetail(policyJsonb);
+            actorCampus.setPolicyDetail(policyJsonb);
         }
 
-        campusRepo.save(campus);
+        campusRepo.save(actorCampus);
 
         return ResponseBuilder.build(HttpStatus.OK, "Campus config updated successfully", null);
     }
 
     @Override
-    public ResponseEntity<ResponseObject> getCampusConfig(int campusId) {
+    public ResponseEntity<ResponseObject> getCampusConfig() {
 
-        Campus campus = campusRepo.findById(campusId).orElse(null);
+        Campus actorCampus = extractActorCampus();
 
-        if (campus == null) {
-            return ResponseBuilder.build(HttpStatus.OK, "Campus not found", null);
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
-        SchoolConfig hqFacility = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "facilityData").orElse(null);
 
-        SchoolConfig hqOperation = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "operationSettingsData").orElse(null);
+        SchoolConfig hqFacility = schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), "facilityData").orElse(null);
+
+        SchoolConfig hqOperation = schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), "operationSettingsData").orElse(null);
 
         Map<String, Object> result = new HashMap<>();
 
@@ -577,8 +564,8 @@ public class CampusServiceImpl implements CampusService {
         result.put("hqDefault", hqSection);
 
         Map<String, Object> campusSection = new HashMap<>();
-        campusSection.put("facilityJson", campus.getFacility());
-        campusSection.put("policyDetailRendered", campus.getPolicyDetail());
+        campusSection.put("facilityJson", actorCampus.getFacility());
+        campusSection.put("policyDetailRendered", actorCampus.getPolicyDetail());
 
         result.put("campusCurrent", campusSection);
 
@@ -594,36 +581,33 @@ public class CampusServiceImpl implements CampusService {
         }
 
         Campus actorCampus = extractActorCampus();
+
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
-        Campus campus = campusRepo.findById(request.getCampusId()).orElse(null);
-        if (campus == null) return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Target campus not found", null);
+        if (request.getTemplateId() != null && request.getTemplateId() > 0) {
+            CampusScheduleTemplate existing = campusScheduleTemplateRepo.findById(request.getTemplateId()).orElse(null);
+            if (existing == null) {
+                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Template does not exist.", null);
+            }
 
-        // 3. Security Check: Đảm bảo cùng School
-        if (!campus.getSchool().getId().equals(actorCampus.getSchool().getId())) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Permission denied", null);
+            if (!existing.getCampus().getId().equals(actorCampus.getId())) {
+                return ResponseBuilder.build(HttpStatus.FORBIDDEN, "You do not edit another campus template", null);
+            }
         }
 
-        Map<String, Object> workingConfig = SchoolConfigUtil.getWorkingConfig(schoolConfigRepo
-                .findBySchoolIdAndKey(campus.getSchool().getId(), "operationSettingsData")
-                .orElse(null));
+        Map<String, Object> workingConfig = SchoolConfigUtil.getWorkingConfig(schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), "operationSettingsData").orElse(null));
 
         for (String day : request.getDayOfWeek()) {
 
-            String error = CampusScheduleTemplateValidation.validateCampusScheduleTemplate(
-                    request.getTemplateId(),
-                    request,
-                    day,
-                    workingConfig,
-                    campusScheduleTemplateRepo);
+            String error = CampusScheduleTemplateValidation.validateCampusScheduleTemplate(request.getTemplateId(), request, day, workingConfig, campusScheduleTemplateRepo, actorCampus);
 
             if (error != null) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
             }
 
-            saveSingleTemplate(request, day, campus);
+            saveSingleTemplate(request, day, actorCampus);
         }
 
         return ResponseBuilder.build(HttpStatus.OK, "Templates processed successfully", null);
@@ -654,15 +638,15 @@ public class CampusServiceImpl implements CampusService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> viewCampusScheduleTemplateByEachCampus(Integer campusId) {
+    public ResponseEntity<ResponseObject> viewCampusScheduleTemplateByEachCampus() {
 
-        Campus campus = campusRepo.findById(campusId).orElse(null);
+        Campus actorCampus = extractActorCampus();
 
-        if (campus == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campus not found", null);
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
-        List<CampusScheduleTemplate> templates = campusScheduleTemplateRepo.findByCampusIdAndActiveTrueOrderByStartTimeAsc(campusId);
+        List<CampusScheduleTemplate> templates = campusScheduleTemplateRepo.findByCampusIdAndActiveTrueOrderByStartTimeAsc(actorCampus.getId());
 
         List<String> daysOfWeekOrder = List.of("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN");
 
@@ -708,17 +692,14 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
-        Campus campus = campusRepo.findById(request.getCampusId()).orElse(null);
-        if (campus == null) return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Target campus not found", null);
-
         CampusScheduleTemplate template = campusScheduleTemplateRepo.findById(request.getTemplateId()).orElse(null);
         if (template == null) return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Template not found", null);
 
-        List<CounsellorSlot> allCurrentSlots = counsellorSlotRepo.findByCampusScheduleTemplate_Campus_Id(request.getCampusId());
+        List<CounsellorSlot> allCurrentSlots = counsellorSlotRepo.findByCampusScheduleTemplate_Campus_Id(actorCampus.getId());
 
         List<Counsellor> counsellors = counsellorRepo.findAllById(request.getCounsellorIds());
 
-        String error = CounsellorSlotValidation.validateAssignRequest(request, campus, template, counsellors, allCurrentSlots);
+        String error = CounsellorSlotValidation.validateAssignRequest(request, actorCampus, template, counsellors, allCurrentSlots);
 
         if (error != null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
@@ -730,9 +711,7 @@ public class CampusServiceImpl implements CampusService {
         for (Counsellor counsellor : counsellors) {
 
             // Lọc ra các slot của riêng counsellor này từ list tổng
-            List<CounsellorSlot> counsellorSlots = allCurrentSlots.stream()
-                    .filter(s -> s.getCounsellor().getId().equals(counsellor.getId()))
-                    .toList();
+            List<CounsellorSlot> counsellorSlots = allCurrentSlots.stream().filter(s -> s.getCounsellor().getId().equals(counsellor.getId())).toList();
 
             if ("ASSIGN".equals(actionInput)) {
                 handleAssignAction(counsellor, template, request, counsellorSlots);
@@ -746,37 +725,27 @@ public class CampusServiceImpl implements CampusService {
 
     private void handleAssignAction(Counsellor counsellor, CampusScheduleTemplate template, AssignCounsellorIntoSlotsRequest request, List<CounsellorSlot> existingSlots) {
         for (CounsellorSlot slot : existingSlots) {
-            boolean isDateOverlap = request.getStartDate().isBefore(slot.getEndDate().plusDays(1))
-                    && request.getEndDate().isAfter(slot.getStartDate().minusDays(1));
+            boolean isDateOverlap = request.getStartDate().isBefore(slot.getEndDate().plusDays(1)) && request.getEndDate().isAfter(slot.getStartDate().minusDays(1));
 
             boolean isDayOfWeekSame = slot.getCampusScheduleTemplate().getDayOfWeek().equalsIgnoreCase(template.getDayOfWeek());
 
-            boolean isTimeOverlap = template.getStartTime().isBefore(slot.getCampusScheduleTemplate().getEndTime())
-                    && template.getEndTime().isAfter(slot.getCampusScheduleTemplate().getStartTime());
+            boolean isTimeOverlap = template.getStartTime().isBefore(slot.getCampusScheduleTemplate().getEndTime()) && template.getEndTime().isAfter(slot.getCampusScheduleTemplate().getStartTime());
 
             if (isDateOverlap && isDayOfWeekSame && isTimeOverlap) {
                 // Nếu trùng chính xác tuyệt đối (trùng cả template id, start/end date) thì bỏ qua (Idempotent)
-                if (slot.getCampusScheduleTemplate().getId().equals(template.getId())
-                        && slot.getStartDate().equals(request.getStartDate())) return;
+                if (slot.getCampusScheduleTemplate().getId().equals(template.getId()) && slot.getStartDate().equals(request.getStartDate()))
+                    return;
 
                 throw new IllegalArgumentException("Counsellor " + counsellor.getName() + " is busy during this period.");
             }
         }
 
-        counsellorSlotRepo.save(CounsellorSlot.builder()
-                .campusScheduleTemplate(template)
-                .counsellor(counsellor)
-                .startDate(request.getStartDate())
-                .endDate(request.getEndDate()).build());
+        counsellorSlotRepo.save(CounsellorSlot.builder().campusScheduleTemplate(template).counsellor(counsellor).startDate(request.getStartDate()).endDate(request.getEndDate()).build());
     }
 
     private void handleUnassignAction(CampusScheduleTemplate template, AssignCounsellorIntoSlotsRequest request, List<CounsellorSlot> existingSlots) {
 
-        CounsellorSlot targetSlot = existingSlots.stream()
-                .filter(s -> s.getCampusScheduleTemplate().getId().equals(template.getId())
-                        && s.getStartDate().equals(request.getStartDate())
-                        && s.getEndDate().equals(request.getEndDate()))
-                .findFirst().orElse(null);
+        CounsellorSlot targetSlot = existingSlots.stream().filter(s -> s.getCampusScheduleTemplate().getId().equals(template.getId()) && s.getStartDate().equals(request.getStartDate()) && s.getEndDate().equals(request.getEndDate())).findFirst().orElse(null);
 
         if (targetSlot != null) {
             // Logic kiểm tra Consultation (giữ nguyên của bạn)
@@ -786,30 +755,27 @@ public class CampusServiceImpl implements CampusService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> getAvailableSlots(LocalDate targetDate, Integer campusId) {
+    public ResponseEntity<ResponseObject> getAvailableSlots(LocalDate targetDate) {
+
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
 
         String dayOfWeek = targetDate.getDayOfWeek().name();
 
-        List<CounsellorSlot> assignedSlots = counsellorSlotRepo
-                .findByStartDateLessThanEqualAndEndDateGreaterThanEqualAndCampusScheduleTemplate_DayOfWeekAndCampusScheduleTemplate_Campus_IdAndCampusScheduleTemplate_ActiveTrue(
-                        targetDate, // khớp với StartDateLessThanEqual
-                        targetDate, // khớp với EndDateGreaterThanEqual
-                        dayOfWeek,
-                        campusId
-                );
+        List<CounsellorSlot> assignedSlots = counsellorSlotRepo.findByStartDateLessThanEqualAndEndDateGreaterThanEqualAndCampusScheduleTemplate_DayOfWeekAndCampusScheduleTemplate_Campus_IdAndCampusScheduleTemplate_ActiveTrue(targetDate, // khớp với StartDateLessThanEqual
+                targetDate, dayOfWeek, actorCampus.getId());
 
         Map<String, List<Map<String, Object>>> groupedByTime = new LinkedHashMap<>();
 
         for (CounsellorSlot slot : assignedSlots) {
-            // Kiểm tra xem slot này vào ngày targetDate đã bị ai đặt chưa
             if (isSlotAvailable(slot, targetDate)) {
 
                 String startTimeKey = slot.getCampusScheduleTemplate().getStartTime().toString();
 
-                // Nếu khung giờ này chưa có trong Map, tạo mới một List
                 groupedByTime.putIfAbsent(startTimeKey, new ArrayList<>());
 
-                // Build data cho slot này và add vào list của khung giờ đó
                 Map<String, Object> slotData = buildCounsellorSlotData(slot);
                 groupedByTime.get(startTimeKey).add(slotData);
             }
@@ -838,28 +804,23 @@ public class CampusServiceImpl implements CampusService {
     }
 
     private boolean isSlotAvailable(CounsellorSlot slot, LocalDate targetDate) {
-        List<Status> activeStatuses = List.of(
-                Status.CONSULTATION_PENDING,
-                Status.CONSULTATION_CONFIRMED,
-                Status.CONSULTATION_IN_PROGRESS
-        );
+        List<Status> activeStatuses = List.of(Status.CONSULTATION_PENDING, Status.CONSULTATION_CONFIRMED, Status.CONSULTATION_IN_PROGRESS);
 
         // Nếu KHÔNG có request nào trùng ngày targetDate và có status "đang bận" -> Trả về true (Available)
-        return slot.getConsultationOfflineRequests().stream()
-                .noneMatch(req -> req.getAppointmentDate().equals(targetDate)
-                        && activeStatuses.contains(req.getStatus()));
+        return slot.getConsultationOfflineRequests().stream().noneMatch(req -> req.getAppointmentDate().equals(targetDate) && activeStatuses.contains(req.getStatus()));
     }
 
     @Override
-    public ResponseEntity<ResponseObject> getAssignedSlots(Integer campusId, Integer counsellorId) {
+    public ResponseEntity<ResponseObject> getAssignedSlots(Integer counsellorId) {
 
-        List<CounsellorSlot> slots = (counsellorId != null)
-                ? counsellorSlotRepo.findByCampusScheduleTemplate_Campus_IdAndCounsellor_Id(campusId, counsellorId)
-                : counsellorSlotRepo.findByCampusScheduleTemplate_Campus_Id(campusId);
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
 
-        List<Map<String, Object>> responseList = slots.stream()
-                .map(this::buildManagementSlotData)
-                .toList();
+        List<CounsellorSlot> slots = (counsellorId != null) ? counsellorSlotRepo.findByCampusScheduleTemplate_Campus_IdAndCounsellor_Id(actorCampus.getId(), counsellorId) : counsellorSlotRepo.findByCampusScheduleTemplate_Campus_Id(actorCampus.getId());
+
+        List<Map<String, Object>> responseList = slots.stream().map(this::buildManagementSlotData).toList();
 
         return ResponseBuilder.build(HttpStatus.OK, "Get assigned slots successful", responseList);
     }
@@ -889,13 +850,16 @@ public class CampusServiceImpl implements CampusService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> getCounsellorAvailableList(Integer campusId) {
+    public ResponseEntity<ResponseObject> getCounsellorAvailableList() {
 
-        List<Counsellor> counsellorList = counsellorRepo.findByCampus_IdAndAccount_Status(campusId, Status.ACCOUNT_ACTIVE);
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
 
-        List<Map<String, Object>> responseList = counsellorList.stream()
-                .map(this::buildCounsellor)
-                .toList();
+        List<Counsellor> counsellorList = counsellorRepo.findByCampus_IdAndAccount_Status(actorCampus.getId(), Status.ACCOUNT_ACTIVE);
+
+        List<Map<String, Object>> responseList = counsellorList.stream().map(this::buildCounsellor).toList();
 
         return ResponseBuilder.build(HttpStatus.OK, "Get assigned slots successful", responseList);
     }
