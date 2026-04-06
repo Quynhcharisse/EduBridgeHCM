@@ -288,5 +288,35 @@ public class SchoolConfigUtil {
 
         return null;
     }
+
+    public static Map<String, Integer> getCampusPolicy(Object policyDetail) {
+        Map<String, Integer> constraints = new HashMap<>();
+        if (!(policyDetail instanceof Map)) {
+            return constraints; // Trả về map trống nếu chưa có config
+        }
+
+        Map<String, Object> policy = (Map<String, Object>) policyDetail;
+
+        // Danh sách các key cần trích xuất
+        String[] keys = {
+                "minCounsellorPerSlot",
+                "slotDurationInMinutes",
+                "maxBookingPerSlot",
+                "allowBookingBeforeHours"
+        };
+
+        for (String key : keys) {
+            Object value = policy.get(key);
+            if (value != null) {
+                try {
+                    constraints.put(key, Integer.parseInt(String.valueOf(value)));
+                } catch (NumberFormatException e) {
+                    // Bỏ qua nếu dữ liệu lỗi format
+                }
+            }
+        }
+
+        return constraints;
+    }
 }
 

@@ -3,7 +3,20 @@ package com.sp26se041.edubridgehcm.repositories;
 import com.sp26se041.edubridgehcm.models.CounsellorSlot;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDate;
+import java.util.List;
+
 public interface CounsellorSlotRepo extends JpaRepository<CounsellorSlot, Integer> {
 
-    boolean existsByCampusScheduleTemplateId(int templateId);
+    //lấy các Slot đang hoạt động
+    List<CounsellorSlot> findByStartDateLessThanEqualAndEndDateGreaterThanEqualAndCampusScheduleTemplate_DayOfWeekAndCampusScheduleTemplate_Campus_IdAndCampusScheduleTemplate_ActiveTrue(
+            LocalDate dateForStart,
+            LocalDate dateForEnd,
+            String dayOfWeek,
+            Integer campusId
+    );
+
+    List<CounsellorSlot> findByCampusScheduleTemplate_Campus_IdAndCounsellor_Id(Integer campusId, Integer counsellorId);
+
+    List<CounsellorSlot> findByCampusScheduleTemplate_Campus_Id(Integer campusId);
 }
