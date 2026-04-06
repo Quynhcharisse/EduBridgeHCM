@@ -16,11 +16,11 @@ public interface CampusService {
 
     ResponseEntity<ResponseObject> createCampusProgramOffering(CreateCampusProgramOfferingRequest request);
 
-    ResponseEntity<ResponseObject> viewCampusProgramOfferingList(int campusId, int page, int pageSize);
+    ResponseEntity<ResponseObject> viewCampusProgramOfferingList(Integer campusId, int page, int pageSize);
 
     ResponseEntity<ResponseObject> updateCampusProgramOffering(UpdateCampusProgramOfferingRequest request);
 
-    ResponseEntity<ResponseObject> closeCampusProgramOffering(int offeringId);
+    ResponseEntity<ResponseObject> closeCampusProgramOffering(Integer offeringId);
 
     ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(int offeringId, Status targetStatus);
 
@@ -28,19 +28,19 @@ public interface CampusService {
 
     ResponseEntity<ResponseObject> viewAccountCounsellorList(int page, int size);
 
-    ResponseEntity<ResponseObject> updateCampusConfig(int campusId, UpdateCampusConfigRequest request);
+    ResponseEntity<ResponseObject> updateCampusConfig(UpdateCampusConfigRequest request);
 
-    ResponseEntity<ResponseObject> getCampusConfig(int campusId);
+    ResponseEntity<ResponseObject> getCampusConfig();
 
     ResponseEntity<ResponseObject> upsertCampusScheduleTemplate(CampusScheduleTemplateRequest request);
 
-    ResponseEntity<ResponseObject> viewCampusScheduleTemplateByEachCampus(Integer campusId);
+    ResponseEntity<ResponseObject> viewCampusScheduleTemplateByEachCampus();
 
     ResponseEntity<ResponseObject> syncCounsellorIntoSlots(AssignCounsellorIntoSlotsRequest request);
 
-    ResponseEntity<ResponseObject> getAvailableSlots(LocalDate targetDate, Integer campusId);
+    ResponseEntity<ResponseObject> getAvailableSlots(LocalDate targetDate);
 
-    ResponseEntity<ResponseObject> getAssignedSlots(Integer campusId, Integer counsellorId);
+    ResponseEntity<ResponseObject> getAssignedSlots(Integer counsellorId);
 
-    ResponseEntity<ResponseObject> getCounsellorAvailableList(Integer campusId);
+    ResponseEntity<ResponseObject> getCounsellorAvailableList();
 }

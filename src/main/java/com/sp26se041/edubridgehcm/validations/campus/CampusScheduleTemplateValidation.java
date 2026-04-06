@@ -1,9 +1,13 @@
 package com.sp26se041.edubridgehcm.validations.campus;
 
+import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.SessionType;
+import com.sp26se041.edubridgehcm.models.Account;
+import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
 import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
+import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.SchoolConfigUtil;
 
 import java.time.Duration;
@@ -16,7 +20,7 @@ public class CampusScheduleTemplateValidation {
     // regex to validate HH:mm format (00:00 to 23:59)
     private static final String TIME_REGEX = "^([01]?[0-9]|2[0-3]):[0-5][0-9]$";
 
-    public static String validateCampusScheduleTemplate(Integer templateId, CampusScheduleTemplateRequest request, String currentDay, Map<String, Object> workingConfig, CampusScheduleTemplateRepo campusScheduleTemplateRepo) {
+    public static String validateCampusScheduleTemplate(Integer templateId, CampusScheduleTemplateRequest request, String currentDay, Map<String, Object> workingConfig, CampusScheduleTemplateRepo campusScheduleTemplateRepo, Campus campus) {
 
         if (request.getStartTime() == null || !request.getStartTime().matches(TIME_REGEX) ||
                 request.getEndTime() == null || !request.getEndTime().matches(TIME_REGEX)) {
@@ -44,7 +48,7 @@ public class CampusScheduleTemplateValidation {
             return configError;
         }
 
-        List<CampusScheduleTemplate> existingTemplates = campusScheduleTemplateRepo.findByCampusIdAndDayOfWeekAndActiveTrue(request.getCampusId(), currentDay.toUpperCase());
+        List<CampusScheduleTemplate> existingTemplates = campusScheduleTemplateRepo.findByCampusIdAndDayOfWeekAndActiveTrue(campus.getId(), currentDay.toUpperCase());
 
         boolean isOverLap = existingTemplates.stream()
                 .filter(t -> !t.getId().equals(templateId))

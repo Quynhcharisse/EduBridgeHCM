@@ -13,8 +13,6 @@ public interface CampusProgramOfferingRepo extends JpaRepository<CampusProgramOf
 
     Page<CampusProgramOffering> findByCampusIdOrderByIdDesc(Integer campusId, Pageable pageable);
 
-    Page<CampusProgramOffering> findByAdmissionCampaignSchoolIdOrderByIdDesc(Integer schoolId, Pageable pageable);
-
     boolean existsByAdmissionCampaignIdAndCampusIdAndProgramIdAndLearningMode(Integer admissionCampaignId, Integer campusId, Integer programId, LearningMode learningMode);
 
     boolean existsByAdmissionCampaignIdAndCampusIdAndProgramIdAndLearningModeAndIdNot(Integer admissionCampaignId, Integer campusId, Integer programId, LearningMode learningMode, Integer id);
@@ -22,5 +20,7 @@ public interface CampusProgramOfferingRepo extends JpaRepository<CampusProgramOf
     List<CampusProgramOffering> findByAdmissionCampaignId(Integer id);
 
     List<CampusProgramOffering> findByProgramIdAndStatus(int id, Status status);
+
+    Page<CampusProgramOffering> findByAdmissionCampaign_School_IdOrderByIdDesc(Integer id, Pageable pageable);
 }
 
