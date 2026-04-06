@@ -218,11 +218,11 @@ public class AdminServiceImpl implements AdminService {
 
         String error = validateCreatePersonalityType(request);
 
-        if(!error.isEmpty()){
+        if (!error.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
-        if(personalityTypeRepo.existsByCode(request.getCode())){
+        if (personalityTypeRepo.existsByCode(request.getCode())) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Personality type code already exists in the system", null);
         }
 
@@ -273,7 +273,7 @@ public class AdminServiceImpl implements AdminService {
 
         String error = validateAddSubjectInfo(request);
 
-        if(!error.isEmpty()){
+        if (!error.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
@@ -281,7 +281,7 @@ public class AdminServiceImpl implements AdminService {
 
         try {
             subjectType = parseSubjectType(request.getSubjectType());
-        }catch (IllegalArgumentException e){
+        } catch (IllegalArgumentException e) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
         }
         Subject subject = Subject.builder()
@@ -340,10 +340,10 @@ public class AdminServiceImpl implements AdminService {
 
     private String validateAddSubjectInfo(AddSubjectRequest request) {
 
-        if(isBlank(request.getName())){
+        if (isBlank(request.getName())) {
             return "Subject name must not be blank";
         }
-        if(request.getSubjectType() == null || request.getSubjectType().isBlank() ) {
+        if (request.getSubjectType() == null || request.getSubjectType().isBlank()) {
             return "Subject type must not be blank";
         }
         return "";
@@ -385,31 +385,31 @@ public class AdminServiceImpl implements AdminService {
 
     private String validateCreatePersonalityType(CreatePersonalityTypeRequest request) {
 
-        if(request == null) {
+        if (request == null) {
             return "Request must not be null";
         }
 
-        if(isBlank(request.getCode())){
+        if (isBlank(request.getCode())) {
             return "Code must not be blank";
         }
 
-        if(isBlank(request.getName())) {
+        if (isBlank(request.getName())) {
             return "Name must not be blank";
         }
 
-        if(isBlank(request.getDescription())) {
+        if (isBlank(request.getDescription())) {
             return "Description must not be blank";
         }
 
-        if(request.getQuoteInfo() == null) {
+        if (request.getQuoteInfo() == null) {
             return "QuoteInfo must not be null";
         }
 
-        if(isBlank(request.getQuoteInfo().getAuthor())){
+        if (isBlank(request.getQuoteInfo().getAuthor())) {
             return "Author must not be blank";
         }
 
-        if(isBlank(request.getQuoteInfo().getContent())){
+        if (isBlank(request.getQuoteInfo().getContent())) {
             return "Content must not be blank";
         }
 
@@ -418,50 +418,50 @@ public class AdminServiceImpl implements AdminService {
                     "Traits must contain exactly 4 items";
         }
 
-        for (int i = 0; i < request.getTraits().size(); i++ ) {
-            if(isBlank(request.getTraits().get(i).getName())) {
-                return "Trait name at index ["+ i + "] must not be blank";
+        for (int i = 0; i < request.getTraits().size(); i++) {
+            if (isBlank(request.getTraits().get(i).getName())) {
+                return "Trait name at index [" + i + "] must not be blank";
             }
-            if(isBlank(request.getTraits().get(i).getDescription())) {
-                return "Trait description at index ["+ i + "] must not be blank";
+            if (isBlank(request.getTraits().get(i).getDescription())) {
+                return "Trait description at index [" + i + "] must not be blank";
             }
         }
 
         if (request.getStrengths().isEmpty()) {
-           return "Strengths must not be empty";
+            return "Strengths must not be empty";
         }
 
-        for (int j = 0; j < request.getStrengths().size(); j++ ) {
-            if (isBlank(request.getStrengths().get(j))){
-                return "Strength at index ["+ j + "] must not be blank";
+        for (int j = 0; j < request.getStrengths().size(); j++) {
+            if (isBlank(request.getStrengths().get(j))) {
+                return "Strength at index [" + j + "] must not be blank";
             }
         }
 
-        for (int i = 0; i < request.getWeaknesses().size(); i++ ) {
-            if (isBlank(request.getWeaknesses().get(i))){
-                return "Weakness at index ["+ i + "] must not be blank";
+        for (int i = 0; i < request.getWeaknesses().size(); i++) {
+            if (isBlank(request.getWeaknesses().get(i))) {
+                return "Weakness at index [" + i + "] must not be blank";
             }
         }
 
-        for (int i = 0; i < request.getSources().size(); i++ ) {
-            if(isBlank(request.getSources().get(i).getTitle())){
-                return "Display name source at index ["+ i + "] must not be blank";
+        for (int i = 0; i < request.getSources().size(); i++) {
+            if (isBlank(request.getSources().get(i).getTitle())) {
+                return "Display name source at index [" + i + "] must not be blank";
             }
-            if(isBlank(request.getSources().get(i).getUrl())){
-                return "Url source at index ["+ i + "] must not be blank";
+            if (isBlank(request.getSources().get(i).getUrl())) {
+                return "Url source at index [" + i + "] must not be blank";
             }
         }
 
-        if(request.getRecommendedCareers().isEmpty()) {
+        if (request.getRecommendedCareers().isEmpty()) {
             return "Recommended careers must not be empty";
         }
 
-        for (int j = 0; j < request.getRecommendedCareers().size(); j++ ) {
-            if (isBlank(request.getRecommendedCareers().get(j).getName())){
-               return "Recommended career name at index ["+ j + "] must not be blank";
+        for (int j = 0; j < request.getRecommendedCareers().size(); j++) {
+            if (isBlank(request.getRecommendedCareers().get(j).getName())) {
+                return "Recommended career name at index [" + j + "] must not be blank";
             }
-            if(isBlank(request.getRecommendedCareers().get(j).getExplainText())){
-                return "Explain text for recommended career at index ["+ j + "] must not be blank";
+            if (isBlank(request.getRecommendedCareers().get(j).getExplainText())) {
+                return "Explain text for recommended career at index [" + j + "] must not be blank";
             }
         }
 

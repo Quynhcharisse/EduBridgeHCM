@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,6 +19,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.io.IOException;
 
 @RestController
 @RequestMapping("/api/v1/account")
@@ -69,6 +72,24 @@ public class AccountController {
                                                                    @RequestParam(defaultValue = "0") int page,
                                                                    @RequestParam(defaultValue = "10") int pageSize) {
         return accountService.viewCampusCounsellorList(campusId, page, pageSize);
+    }
+
+    @GetMapping("/user/list/export")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Resource> exportUserList(@RequestParam String role) throws IOException {
+        return accountService.exportUserList(role);
+    }
+
+    @GetMapping("/school/list/export")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Resource> exportSchoolList() throws IOException {
+        return accountService.exportSchoolList();
+    }
+
+    @GetMapping("/counsellor/list/")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Resource> exportCounsellorListOfCampus() throws IOException {
+        return accountService.exportCounsellorListOfCampus();
     }
 
     @GetMapping("/profile")

@@ -5,9 +5,13 @@ import com.sp26se041.edubridgehcm.requests.UpdateProfileRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 
+import java.io.IOException;
+
 public interface AccountService {
+
     ResponseEntity<ResponseObject> logout(HttpServletRequest request, HttpServletResponse response);
 
     ResponseEntity<ResponseObject> getAccessToken(HttpServletRequest request);
@@ -23,4 +27,10 @@ public interface AccountService {
     ResponseEntity<ResponseObject> updateProfile(UpdateProfileRequest request, HttpServletRequest httpRequest);
 
     ResponseEntity<ResponseObject> viewProfile(HttpServletRequest request);
+
+    ResponseEntity<Resource> exportUserList(String role) throws IOException;
+
+    ResponseEntity<Resource> exportSchoolList() throws IOException;
+
+    ResponseEntity<Resource> exportCounsellorListOfCampus() throws IOException;
 }

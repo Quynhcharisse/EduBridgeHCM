@@ -27,5 +27,6 @@ public interface AdminService {
     ResponseEntity<ResponseObject> getPersonalityTypeList();
 
     ResponseEntity<ResponseObject> createSubject(AddSubjectRequest request);
+
     ResponseEntity<ResponseObject> getAllSubjects();
 }

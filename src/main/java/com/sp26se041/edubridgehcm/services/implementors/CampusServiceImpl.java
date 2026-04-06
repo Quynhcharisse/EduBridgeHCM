@@ -50,8 +50,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -59,6 +61,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -167,6 +170,7 @@ public class CampusServiceImpl implements CampusService {
             } else {
                 // Xem của một Campus cụ thể, nhưng phải thuộc cùng School
                 Optional<Campus> targetCampus = campusRepo.findByIdAndSchoolId(campusId, actorCampus.getSchool().getId());
+
                 if (targetCampus.isEmpty()) {
                     return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Target campus is out of your school scope", null);
                 }
@@ -436,12 +440,35 @@ public class CampusServiceImpl implements CampusService {
         return ResponseBuilder.build(HttpStatus.OK, "View counsellor list successfully", pageResponse);
     }
 
+    public String generateProfessionalEmployeeCode(Campus campus, UUID uuid) {
+        if (campus == null || uuid == null) return "GLOBAL_CS_UNKNOWN";
+
+        // 1. Chuẩn hóa tên Campus (Bỏ dấu, bỏ khoảng trắng, viết hoa)
+        String rawName = campus.getName();
+        String nfdNormalizedString = Normalizer.normalize(rawName, Normalizer.Form.NFD);
+        Pattern pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
+        String campusPart = pattern.matcher(nfdNormalizedString).replaceAll("")
+                .replace("đ", "d").replace("Đ", "D")
+                .replaceAll("\\s+", "")
+                .toUpperCase();
+
+        // 2. Lấy NămTháng hiện tại (VD: 2604)
+        String yearMonth = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMM"));
+
+        // 3. Lấy 4 ký tự đầu của UUID
+        String uuidStr = uuid.toString();
+        String uuidPart = uuidStr.substring(0, 4).toUpperCase();
+
+        // 4. Ghép lại: QUAN1_CS2604_550E
+        return campusPart + "_CS" + yearMonth + "_" + uuidPart;
+    }
+
     private Map<String, Object> buildCounsellorData(Counsellor counsellor) {
         Map<String, Object> data = new HashMap<>();
         data.put("id", counsellor.getId());
         data.put("name", counsellor.getName());
         data.put("avatar", counsellor.getAvatar());
-        data.put("employeeCode", counsellor.getEmployeeCode());
+        data.put("employeeCode", generateProfessionalEmployeeCode(counsellor.getCampus(), counsellor.getEmployeeCode()));
         data.put("campusId", counsellor.getCampus().getId());
         data.put("campusName", counsellor.getCampus().getName());
         data.put("account", buildAccountData(counsellor.getAccount()));
