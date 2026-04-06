@@ -11,6 +11,7 @@ import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
 import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.CounsellorSlot;
 import com.sp26se041.edubridgehcm.models.Program;
+import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
@@ -33,6 +34,7 @@ import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.CampusService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
+import com.sp26se041.edubridgehcm.utils.ExcelUtil;
 import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.utils.SchoolConfigUtil;
@@ -41,15 +43,22 @@ import com.sp26se041.edubridgehcm.validations.campus.CampusScheduleTemplateValid
 import com.sp26se041.edubridgehcm.validations.campus.CounsellorSlotValidation;
 import com.sp26se041.edubridgehcm.validations.campus.CounsellorValidation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -443,7 +452,6 @@ public class CampusServiceImpl implements CampusService {
     public String generateProfessionalEmployeeCode(Campus campus, UUID uuid) {
         if (campus == null || uuid == null) return "GLOBAL_CS_UNKNOWN";
 
-        // 1. Chuẩn hóa tên Campus (Bỏ dấu, bỏ khoảng trắng, viết hoa)
         String rawName = campus.getName();
         String nfdNormalizedString = Normalizer.normalize(rawName, Normalizer.Form.NFD);
         Pattern pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
@@ -452,14 +460,11 @@ public class CampusServiceImpl implements CampusService {
                 .replaceAll("\\s+", "")
                 .toUpperCase();
 
-        // 2. Lấy NămTháng hiện tại (VD: 2604)
         String yearMonth = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMM"));
 
-        // 3. Lấy 4 ký tự đầu của UUID
         String uuidStr = uuid.toString();
         String uuidPart = uuidStr.substring(0, 4).toUpperCase();
 
-        // 4. Ghép lại: QUAN1_CS2604_550E
         return campusPart + "_CS" + yearMonth + "_" + uuidPart;
     }
 
@@ -897,5 +902,113 @@ public class CampusServiceImpl implements CampusService {
         data.put("name", counsellor.getName());
         data.put("email", (counsellor.getAccount() != null) ? counsellor.getAccount().getEmail() : "No Account");
         return data;
+    }
+
+    @Override
+    public ResponseEntity<Resource> exportCounsellorList() throws IOException {
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        List<Counsellor> counsellors = counsellorRepo.findAll();
+
+        Path path = Files.createTempFile("export_counsellors_", ".xlsx");
+
+        String[] headers = {
+                "ID",
+                "Mã Nhân Viên",
+                "Họ Tên",
+                "Email",
+                "Trạng Thái",
+                "Tên Trường",
+                "Cơ Sở (Campus)"
+        };
+
+        ExcelUtil.exportToExcel(path, "Counsellors", headers, counsellors, (counsellor, row) -> {
+            Account acc = counsellor.getAccount();
+            Campus campus = counsellor.getCampus();
+            School school = (campus != null) ? campus.getSchool() : null;
+
+            row.createCell(0).setCellValue(counsellor.getId());
+            row.createCell(1).setCellValue(String.valueOf(counsellor.getEmployeeCode()));
+            row.createCell(2).setCellValue(counsellor.getName());
+            row.createCell(3).setCellValue(acc != null ? acc.getEmail() : "N/A");
+            row.createCell(4).setCellValue(acc != null ? acc.getStatus().toString() : "N/A");
+
+            row.createCell(5).setCellValue(school != null ? school.getName() : "Không xác định");
+            row.createCell(6).setCellValue(campus != null ? campus.getName() : "Không xác định");
+        });
+
+        return buildFileResponse(path, "Danh_Sach_Tu_Van_Vien.xlsx");
+    }
+
+    @Override
+    public ResponseEntity<Resource> exportCampusScheduleMatrix() throws IOException {
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        List<CampusScheduleTemplate> templates = campusScheduleTemplateRepo
+                .findByCampusIdAndActiveTrueOrderByStartTimeAsc(actorCampus.getId());
+
+        List<String> daysOfWeek = List.of("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN");
+
+        Map<String, Map<String, String>> matrix = new LinkedHashMap<>();
+
+        for (CampusScheduleTemplate t : templates) {
+            String timeSlot = t.getStartTime().toString() + " - " + t.getEndTime().toString();
+            String day = t.getDayOfWeek().toUpperCase();
+
+            matrix.putIfAbsent(timeSlot, new HashMap<>());
+
+            matrix.get(timeSlot).put(day, t.getSessionType().toString());
+        }
+
+
+        Path path = Files.createTempFile("schedule_matrix_", ".xlsx");
+
+        String[] headers = new String[8];
+        headers[0] = "Khung giờ";
+        for (int i = 0; i < daysOfWeek.size(); i++) {
+            headers[i + 1] = translateDayOfWeek(daysOfWeek.get(i));
+        }
+
+        List<Map.Entry<String, Map<String, String>>> rowData = new ArrayList<>(matrix.entrySet());
+
+        ExcelUtil.exportToExcel(path, "Thoi_Khoa_Bieu", headers, rowData, (entry, row) -> {
+            String timeSlot = entry.getKey();
+            Map<String, String> dayValues = entry.getValue();
+
+            row.createCell(0).setCellValue(timeSlot);
+
+            for (int i = 0; i < daysOfWeek.size(); i++) {
+                String day = daysOfWeek.get(i);
+                String sessionValue = dayValues.getOrDefault(day, "-"); // "-" nếu trống
+                row.createCell(i + 1).setCellValue(sessionValue);
+            }
+        });
+
+        return buildFileResponse(path, "Thoi_Khoa_Bieu_" + actorCampus.getName() + ".xlsx");
+    }
+
+    private String translateDayOfWeek(String day) {
+        if (day == null) return "";
+        return switch (day.toUpperCase()) {
+            case "MON" -> "Thứ Hai";
+            case "TUE" -> "Thứ Ba";
+            case "WED" -> "Thứ Tư";
+            case "THU" -> "Thứ Năm";
+            case "FRI" -> "Thứ Sáu";
+            case "SAT" -> "Thứ Bảy";
+            case "SUN" -> "Chủ Nhật";
+            default -> day;
+        };
+    }
+
+    private ResponseEntity<Resource> buildFileResponse(Path path, String fileName) throws IOException {
+        Resource resource = new UrlResource(path.toUri());
+        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"").contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")).body(resource);
     }
 }
