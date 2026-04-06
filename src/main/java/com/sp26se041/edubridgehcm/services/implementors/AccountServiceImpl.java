@@ -22,6 +22,7 @@ import com.sp26se041.edubridgehcm.services.AccountService;
 import com.sp26se041.edubridgehcm.services.JWTService;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.CookieUtil;
+import com.sp26se041.edubridgehcm.utils.ExcelUtil;
 import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.utils.SchoolUtil;
@@ -29,17 +30,29 @@ import com.sp26se041.edubridgehcm.validations.account.AccountValidation;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.text.Normalizer;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -240,24 +253,6 @@ public class AccountServiceImpl implements AccountService {
         return data;
     }
 
-    private Role parseSupportedUserListRole(String value) {
-        String normalizedValue = normalize(value);
-
-        if (normalizedValue == null) {
-            return null;
-        }
-
-        if (Role.PARENT.name().equalsIgnoreCase(normalizedValue)) {
-            return Role.PARENT;
-        }
-
-        if (Role.SCHOOL.name().equalsIgnoreCase(normalizedValue)) {
-            return Role.SCHOOL;
-        }
-
-        return null;
-    }
-
     private Map<String, Object> mapParentSummary(Account acc) {
         Map<String, Object> data = mapGeneralInfoUser(acc);
 
@@ -351,7 +346,7 @@ public class AccountServiceImpl implements AccountService {
         item.put("counsellorId", counsellor.getId());
         item.put("name", counsellor.getName());
         item.put("avatar", counsellor.getAvatar());
-        item.put("employeeCode", counsellor.getEmployeeCode());
+        item.put("employeeCode", generateProfessionalEmployeeCode(counsellor.getCampus(), counsellor.getEmployeeCode()));
         item.put("campusId", counsellor.getCampus() != null ? counsellor.getCampus().getId() : null);
         item.put("campusName", counsellor.getCampus() != null ? counsellor.getCampus().getName() : null);
 
@@ -532,5 +527,172 @@ public class AccountServiceImpl implements AccountService {
         }
 
         return campusData;
+    }
+
+    @Override
+    public ResponseEntity<Resource> exportUserList(String role) throws IOException {
+
+        Role targetRole = parseSupportedUserListRole(role);
+
+        if (targetRole == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+
+        Path path = Files.createTempFile("export_" + targetRole.name().toLowerCase() + "_", ".xlsx");
+
+        if (targetRole == Role.PARENT) {
+            List<Account> parents = accountRepo.findByRole(Role.PARENT);
+            String[] headers = {
+                    "ID",
+                    "Email",
+                    "Giới tính",
+                    "Tên Phụ Huynh",
+                    "Số Điện Thoại",
+                    "Mối Quan Hệ",
+                    "CCCD",
+                    "Nơi Làm Việc",
+                    "Nghề Nghiệp",
+                    "Địa Chỉ Hiện Tại"
+            };
+
+            ExcelUtil.exportToExcel(path, "Parents", headers, parents, (acc, row) -> {
+                Parent p = acc.getParent();
+                row.createCell(0).setCellValue(acc.getId());
+                row.createCell(1).setCellValue(acc.getEmail());
+                row.createCell(2).setCellValue(p != null ? p.getGender().getValue() : "");
+                row.createCell(3).setCellValue(p != null ? p.getName() : "");
+                row.createCell(4).setCellValue(p != null ? p.getPhone() : "");
+                row.createCell(5).setCellValue(p != null ? p.getRelationship().getValue() : "");
+                row.createCell(6).setCellValue(p != null ? p.getIdCardNumber() : "");
+                row.createCell(7).setCellValue(p != null ? p.getWorkplace() : "");
+                row.createCell(8).setCellValue(p != null ? p.getOccupation() : "");
+                row.createCell(9).setCellValue(p != null ? p.getCurrentAddress() : "");
+            });
+        }
+
+        return buildFileResponse(path, "Danh_sach_" + targetRole.name() + ".xlsx");
+    }
+
+    @Override
+    public ResponseEntity<Resource> exportSchoolList() throws IOException {
+        List<School> schools = schoolRepo.findAll();
+
+        // 2. Tạo đường dẫn file tạm bằng NIO.2
+        Path path = Files.createTempFile("export_", ".xlsx");
+
+        // 3. Định nghĩa Header
+        String[] headers = {
+                "ID",
+                "Tên Trường",
+                "Miêu tả",
+                "Mã Số Thuế",
+                "Logo",
+                "Website",
+                "Đại Diện",
+                "Hotline",
+                "Giấy phép kinh doanh",
+                "Ngày thành lập",
+                "Trạng Thái"
+        };
+
+        // 4. Sử dụng ExcelUtil để đổ dữ liệu
+        ExcelUtil.exportToExcel(path, "Schools", headers, schools, (school, row) -> {
+            row.createCell(0).setCellValue(school.getId());
+            row.createCell(1).setCellValue(school.getName());
+            row.createCell(2).setCellValue(school.getDescription());
+            row.createCell(3).setCellValue(school.getTaxCode());
+            row.createCell(4).setCellValue(school.getLogoUrl());
+            row.createCell(5).setCellValue(school.getWebsiteUrl());
+            row.createCell(6).setCellValue(school.getRepresentativeName());
+            row.createCell(7).setCellValue(school.getHotline());
+            row.createCell(8).setCellValue(school.getBusinessLicenseUrl());
+            row.createCell(9).setCellValue(school.getFoundingDate() != null ? school.getFoundingDate().toString() : "");
+            row.createCell(10).setCellValue(SchoolUtil.checkSchoolStatus(school));
+        });
+
+        return buildFileResponse(path, "Danh_Sach_Truong_Hoc.xlsx");
+    }
+
+    @Override
+    public ResponseEntity<Resource> exportCounsellorListOfCampus() throws IOException {
+
+        List<Counsellor> counsellors = counsellorRepo.findAll();
+
+        Path path = Files.createTempFile("export_counsellors_", ".xlsx");
+
+        String[] headers = {
+                "ID",
+                "Mã Nhân Viên",
+                "Họ Tên",
+                "Email",
+                "Trạng Thái",
+                "Tên Trường",
+                "Cơ Sở (Campus)"
+        };
+
+        ExcelUtil.exportToExcel(path, "Counsellors", headers, counsellors, (counsellor, row) -> {
+            Account acc = counsellor.getAccount();
+            Campus campus = counsellor.getCampus();
+            School school = (campus != null) ? campus.getSchool() : null;
+
+            // Đổ dữ liệu vào từng Cell
+            row.createCell(0).setCellValue(counsellor.getId());
+            row.createCell(1).setCellValue(String.valueOf(counsellor.getEmployeeCode()));
+            row.createCell(2).setCellValue(counsellor.getName());
+            row.createCell(3).setCellValue(acc != null ? acc.getEmail() : "N/A");
+            row.createCell(4).setCellValue(acc != null ? acc.getStatus().toString() : "N/A");
+
+            // Thông tin phân cấp: Trường -> Campus
+            row.createCell(5).setCellValue(school != null ? school.getName() : "Không xác định");
+            row.createCell(6).setCellValue(campus != null ? campus.getName() : "Không xác định");
+        });
+
+        return buildFileResponse(path, "Danh_Sach_Tu_Van_Vien_Theo_Co_So.xlsx");
+    }
+
+    private ResponseEntity<Resource> buildFileResponse(Path path, String fileName) throws IOException {
+        Resource resource = new UrlResource(path.toUri());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(resource);
+    }
+
+    private Role parseSupportedUserListRole(String role) {
+        if (role == null || role.isBlank()) {
+            return null;
+        }
+        try {
+            Role targetRole = Role.valueOf(role.trim().toUpperCase());
+
+            if (targetRole == Role.PARENT || targetRole == Role.SCHOOL) {
+                return targetRole;
+            }
+            return null;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    public String generateProfessionalEmployeeCode(Campus campus, UUID uuid) {
+        if (campus == null || uuid == null) return "GLOBAL_CS_UNKNOWN";
+
+        String rawName = campus.getName();
+        String nfdNormalizedString = Normalizer.normalize(rawName, Normalizer.Form.NFD);
+        Pattern pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
+        String campusPart = pattern.matcher(nfdNormalizedString).replaceAll("")
+                .replace("đ", "d").replace("Đ", "D")
+                .replaceAll("\\s+", "")
+                .toUpperCase();
+
+        // 2. Lấy NămTháng hiện tại (VD: 2604)
+        String yearMonth = LocalDate.now().format(DateTimeFormatter.ofPattern("yyMM"));
+
+        // 3. Lấy 4 ký tự đầu của UUID
+        String uuidStr = uuid.toString();
+        String uuidPart = uuidStr.substring(0, 4).toUpperCase();
+
+        // 4. Ghép lại: QUAN1_CS2604_550E
+        return campusPart + "_CS" + yearMonth + "_" + uuidPart;
     }
 }
