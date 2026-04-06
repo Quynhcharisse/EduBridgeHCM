@@ -18,8 +18,6 @@ public class CampusScheduleTemplateRequest {
 
     Integer templateId;
 
-    Integer campusId;
-
     List<String> dayOfWeek;
 
     String startTime;

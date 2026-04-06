@@ -19,8 +19,6 @@ public class AssignCounsellorIntoSlotsRequest {
 
     Integer templateId;
 
-    Integer campusId;
-
     List<Integer> counsellorIds; // Danh sách ID các counsellor muốn có trong slot này
 
     LocalDate startDate;
