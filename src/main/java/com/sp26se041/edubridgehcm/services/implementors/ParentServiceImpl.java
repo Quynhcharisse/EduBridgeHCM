@@ -86,7 +86,6 @@ public class ParentServiceImpl implements ParentService {
 
     private final CampusRepo campusRepo;
 
-    private final GoogleDriveService googleDriveService;
 
 
     @Override
@@ -584,6 +583,8 @@ public class ParentServiceImpl implements ParentService {
         studentProfile.get().setFavouriteJob(normalize(request.getFavouriteJob()));
         studentProfile.get().setPersonalityTypeName(normalize(request.getPersonalityTypeCode()));
         studentProfile.get().setAcademicProfileMetadata(academicProfileMetaData);
+
+        studentInfoRepo.save(studentProfile.get());
 
         return ResponseBuilder.build(HttpStatus.OK, "Update student info successfully", null);
     }

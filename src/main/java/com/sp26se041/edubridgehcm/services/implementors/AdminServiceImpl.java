@@ -23,6 +23,7 @@ import com.sp26se041.edubridgehcm.requests.UpdateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AdminService;
+import com.sp26se041.edubridgehcm.utils.GoogleAuthUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -104,6 +105,31 @@ public class AdminServiceImpl implements AdminService {
                 .firstLogin(true)
                 .build());
 
+        // Tao folder tren gg drive
+
+        String accessToken;
+
+        try {
+
+            accessToken = GoogleAuthUtil.getAccessToken();
+
+        } catch (Exception ex) {
+
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to connect to Google Drive service", null);
+
+        }
+
+
+        String folderId;
+
+        GoogleDriveService ggDriveService = new GoogleDriveService(accessToken);
+
+        try {
+            folderId = ggDriveService.createFolder(request.getSchoolName().trim(), "1ZoWMhYQ9htHin861QK7jp1LJTRyY3XpR");
+        } catch (Exception ex) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create folder", null);
+        }
+
         // tạo school (lấy thẳng từ bảng tạm)
         School school = schoolRepo.save(School.builder()
                 .name(request.getSchoolName().trim())
@@ -114,6 +140,7 @@ public class AdminServiceImpl implements AdminService {
                 .representativeName(request.getRepresentativeName())
                 .hotline(request.getHotline())
                 .foundingDate(request.getFoundingDate())
+                .folderId(folderId)
                 .businessLicenseUrl(request.getBusinessLicenseUrl())
                 .build());
 

@@ -39,5 +39,27 @@ public class GoogleDriveService {
         return folder.getId();
     }
 
-    
+    public File getFileSpecific(String parentFolderId, String fileName) throws IOException {
+
+        String query = String.format(
+                "'%s' in parents and name='%s' and trashed=false",
+                parentFolderId,
+                fileName
+        );
+
+        Drive.Files.List request = drive.files()
+                .list()
+                .setQ(query)
+                .setFields("files(id,name,mimeType,webViewLink)")
+                .setPageSize(1); // chỉ lấy 1 file
+
+        com.google.api.services.drive.model.FileList result = request.execute();
+
+        if (result.getFiles() == null || result.getFiles().isEmpty()) {
+            return null;
+        }
+
+        return result.getFiles().get(0);
+    }
+
 }
