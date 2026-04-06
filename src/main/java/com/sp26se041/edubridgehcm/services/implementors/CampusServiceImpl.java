@@ -9,6 +9,7 @@ import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
 import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
 import com.sp26se041.edubridgehcm.models.Counsellor;
+import com.sp26se041.edubridgehcm.models.CounsellorSlot;
 import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
@@ -37,6 +38,7 @@ import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.utils.SchoolConfigUtil;
 import com.sp26se041.edubridgehcm.validations.campus.CampusProgramOfferingValidation;
 import com.sp26se041.edubridgehcm.validations.campus.CampusScheduleTemplateValidation;
+import com.sp26se041.edubridgehcm.validations.campus.CounsellorSlotValidation;
 import com.sp26se041.edubridgehcm.validations.campus.CounsellorValidation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -696,11 +698,213 @@ public class CampusServiceImpl implements CampusService {
     @Override
     @Transactional
     public ResponseEntity<ResponseObject> syncCounsellorIntoSlots(AssignCounsellorIntoSlotsRequest request) {
-        return null;
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+        }
+
+        Campus campus = campusRepo.findById(request.getCampusId()).orElse(null);
+        if (campus == null) return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Target campus not found", null);
+
+        CampusScheduleTemplate template = campusScheduleTemplateRepo.findById(request.getTemplateId()).orElse(null);
+        if (template == null) return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Template not found", null);
+
+        List<CounsellorSlot> allCurrentSlots = counsellorSlotRepo.findByCampusScheduleTemplate_Campus_Id(request.getCampusId());
+
+        List<Counsellor> counsellors = counsellorRepo.findAllById(request.getCounsellorIds());
+
+        String error = CounsellorSlotValidation.validateAssignRequest(request, campus, template, counsellors, allCurrentSlots);
+
+        if (error != null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+        }
+
+        // 4. Xác định Action
+        String actionInput = (request.getAction() != null) ? request.getAction().toUpperCase() : "ASSIGN";
+
+        for (Counsellor counsellor : counsellors) {
+
+            // Lọc ra các slot của riêng counsellor này từ list tổng
+            List<CounsellorSlot> counsellorSlots = allCurrentSlots.stream()
+                    .filter(s -> s.getCounsellor().getId().equals(counsellor.getId()))
+                    .toList();
+
+            if ("ASSIGN".equals(actionInput)) {
+                handleAssignAction(counsellor, template, request, counsellorSlots);
+            } else {
+                handleUnassignAction(template, request, counsellorSlots);
+            }
+        }
+
+        return ResponseBuilder.build(HttpStatus.OK, actionInput + " counsellors successful", null);
+    }
+
+    private void handleAssignAction(Counsellor counsellor, CampusScheduleTemplate template, AssignCounsellorIntoSlotsRequest request, List<CounsellorSlot> existingSlots) {
+        for (CounsellorSlot slot : existingSlots) {
+            boolean isDateOverlap = request.getStartDate().isBefore(slot.getEndDate().plusDays(1))
+                    && request.getEndDate().isAfter(slot.getStartDate().minusDays(1));
+
+            boolean isDayOfWeekSame = slot.getCampusScheduleTemplate().getDayOfWeek().equalsIgnoreCase(template.getDayOfWeek());
+
+            boolean isTimeOverlap = template.getStartTime().isBefore(slot.getCampusScheduleTemplate().getEndTime())
+                    && template.getEndTime().isAfter(slot.getCampusScheduleTemplate().getStartTime());
+
+            if (isDateOverlap && isDayOfWeekSame && isTimeOverlap) {
+                // Nếu trùng chính xác tuyệt đối (trùng cả template id, start/end date) thì bỏ qua (Idempotent)
+                if (slot.getCampusScheduleTemplate().getId().equals(template.getId())
+                        && slot.getStartDate().equals(request.getStartDate())) return;
+
+                throw new IllegalArgumentException("Counsellor " + counsellor.getName() + " is busy during this period.");
+            }
+        }
+
+        counsellorSlotRepo.save(CounsellorSlot.builder()
+                .campusScheduleTemplate(template)
+                .counsellor(counsellor)
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate()).build());
+    }
+
+    private void handleUnassignAction(CampusScheduleTemplate template, AssignCounsellorIntoSlotsRequest request, List<CounsellorSlot> existingSlots) {
+
+        CounsellorSlot targetSlot = existingSlots.stream()
+                .filter(s -> s.getCampusScheduleTemplate().getId().equals(template.getId())
+                        && s.getStartDate().equals(request.getStartDate())
+                        && s.getEndDate().equals(request.getEndDate()))
+                .findFirst().orElse(null);
+
+        if (targetSlot != null) {
+            // Logic kiểm tra Consultation (giữ nguyên của bạn)
+            CounsellorSlotValidation.validateNoActiveConsultation(targetSlot);
+            counsellorSlotRepo.delete(targetSlot);
+        }
     }
 
     @Override
-    public ResponseEntity<ResponseObject> viewAssignCounsellorIntoSlotList() {
-        return null;
+    public ResponseEntity<ResponseObject> getAvailableSlots(LocalDate targetDate, Integer campusId) {
+
+        String dayOfWeek = targetDate.getDayOfWeek().name();
+
+        List<CounsellorSlot> assignedSlots = counsellorSlotRepo
+                .findByStartDateLessThanEqualAndEndDateGreaterThanEqualAndCampusScheduleTemplate_DayOfWeekAndCampusScheduleTemplate_Campus_IdAndCampusScheduleTemplate_ActiveTrue(
+                        targetDate, // khớp với StartDateLessThanEqual
+                        targetDate, // khớp với EndDateGreaterThanEqual
+                        dayOfWeek,
+                        campusId
+                );
+
+        Map<String, List<Map<String, Object>>> groupedByTime = new LinkedHashMap<>();
+
+        for (CounsellorSlot slot : assignedSlots) {
+            // Kiểm tra xem slot này vào ngày targetDate đã bị ai đặt chưa
+            if (isSlotAvailable(slot, targetDate)) {
+
+                String startTimeKey = slot.getCampusScheduleTemplate().getStartTime().toString();
+
+                // Nếu khung giờ này chưa có trong Map, tạo mới một List
+                groupedByTime.putIfAbsent(startTimeKey, new ArrayList<>());
+
+                // Build data cho slot này và add vào list của khung giờ đó
+                Map<String, Object> slotData = buildCounsellorSlotData(slot);
+                groupedByTime.get(startTimeKey).add(slotData);
+            }
+        }
+
+        return ResponseBuilder.build(HttpStatus.OK, "Get slots grouped by time", groupedByTime);
+    }
+
+    private Map<String, Object> buildCounsellorSlotData(CounsellorSlot slot) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("slotId", slot.getId());
+
+        CampusScheduleTemplate template = slot.getCampusScheduleTemplate();
+        data.put("startTime", template.getStartTime().toString());
+        data.put("endTime", template.getEndTime().toString());
+        data.put("dayOfWeek", template.getDayOfWeek());
+
+        Map<String, Object> counsellorData = new LinkedHashMap<>();
+        counsellorData.put("id", slot.getCounsellor().getId());
+        counsellorData.put("name", slot.getCounsellor().getName());
+        counsellorData.put("avatar", slot.getCounsellor().getAvatar());
+
+        data.put("counsellor", counsellorData);
+
+        return data;
+    }
+
+    private boolean isSlotAvailable(CounsellorSlot slot, LocalDate targetDate) {
+        List<Status> activeStatuses = List.of(
+                Status.CONSULTATION_PENDING,
+                Status.CONSULTATION_CONFIRMED,
+                Status.CONSULTATION_IN_PROGRESS
+        );
+
+        // Nếu KHÔNG có request nào trùng ngày targetDate và có status "đang bận" -> Trả về true (Available)
+        return slot.getConsultationOfflineRequests().stream()
+                .noneMatch(req -> req.getAppointmentDate().equals(targetDate)
+                        && activeStatuses.contains(req.getStatus()));
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getAssignedSlots(Integer campusId, Integer counsellorId) {
+
+        List<CounsellorSlot> slots = (counsellorId != null)
+                ? counsellorSlotRepo.findByCampusScheduleTemplate_Campus_IdAndCounsellor_Id(campusId, counsellorId)
+                : counsellorSlotRepo.findByCampusScheduleTemplate_Campus_Id(campusId);
+
+        List<Map<String, Object>> responseList = slots.stream()
+                .map(this::buildManagementSlotData)
+                .toList();
+
+        return ResponseBuilder.build(HttpStatus.OK, "Get assigned slots successful", responseList);
+    }
+
+    private Map<String, Object> buildManagementSlotData(CounsellorSlot slot) {
+        Map<String, Object> data = new LinkedHashMap<>();
+
+        data.put("slotId", slot.getId());
+
+        data.put("startDate", slot.getStartDate().toString());
+        data.put("endDate", slot.getEndDate().toString());
+
+        CampusScheduleTemplate template = slot.getCampusScheduleTemplate();
+        Map<String, Object> templateData = new LinkedHashMap<>();
+        templateData.put("templateId", template.getId());
+        templateData.put("dayOfWeek", template.getDayOfWeek());
+        templateData.put("time", template.getStartTime() + " - " + template.getEndTime());
+        data.put("schedule", templateData);
+
+        Map<String, Object> counsellorData = new LinkedHashMap<>();
+        counsellorData.put("id", slot.getCounsellor().getId());
+        counsellorData.put("name", slot.getCounsellor().getName());
+        counsellorData.put("email", slot.getCounsellor().getAccount().getEmail());
+        data.put("counsellor", counsellorData);
+
+        return data;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getCounsellorAvailableList(Integer campusId) {
+
+        List<Counsellor> counsellorList = counsellorRepo.findByCampus_IdAndAccount_Status(campusId, Status.ACCOUNT_ACTIVE);
+
+        List<Map<String, Object>> responseList = counsellorList.stream()
+                .map(this::buildCounsellor)
+                .toList();
+
+        return ResponseBuilder.build(HttpStatus.OK, "Get assigned slots successful", responseList);
+    }
+
+    private Map<String, Object> buildCounsellor(Counsellor counsellor) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", counsellor.getId());
+        data.put("name", counsellor.getName());
+        data.put("email", (counsellor.getAccount() != null) ? counsellor.getAccount().getEmail() : "No Account");
+        return data;
     }
 }

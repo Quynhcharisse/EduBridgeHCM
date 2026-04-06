@@ -5,7 +5,6 @@ import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.UnAssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -22,6 +21,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/v1/campus")
@@ -106,9 +107,23 @@ public class CampusController {
         return campusService.syncCounsellorIntoSlots(request);
     }
 
-    @GetMapping("/counsellor/assign/list")
+    @GetMapping("/counsellor/slot/available")
+    @PreAuthorize("hasAnyRole('SCHOOL', 'PARENT', 'COUNSELLOR')")
+    public ResponseEntity<ResponseObject> getAvailableSlots(LocalDate targetDate, Integer campusId) {
+        return campusService.getAvailableSlots(targetDate, campusId);
+    }
+
+    @GetMapping("/counsellor/slots/assigned")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewAssignCounsellorIntoSlotList() {
-        return campusService.viewAssignCounsellorIntoSlotList();
+    public ResponseEntity<ResponseObject> getAssignedSlots(
+            @RequestParam Integer campusId,
+            @RequestParam(required = false) Integer counsellorId) {
+        return campusService.getAssignedSlots(campusId, counsellorId);
+    }
+
+    @GetMapping("/counsellor/available/list")
+    @PreAuthorize("hasAnyRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> getCounsellorAvailableList(Integer campusId) {
+        return campusService.getCounsellorAvailableList(campusId);
     }
 }

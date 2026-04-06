@@ -5,11 +5,12 @@ import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.UnAssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import org.springframework.http.ResponseEntity;
+
+import java.time.LocalDate;
 
 public interface CampusService {
 
@@ -37,5 +38,9 @@ public interface CampusService {
 
     ResponseEntity<ResponseObject> syncCounsellorIntoSlots(AssignCounsellorIntoSlotsRequest request);
 
-    ResponseEntity<ResponseObject> viewAssignCounsellorIntoSlotList();
+    ResponseEntity<ResponseObject> getAvailableSlots(LocalDate targetDate, Integer campusId);
+
+    ResponseEntity<ResponseObject> getAssignedSlots(Integer campusId, Integer counsellorId);
+
+    ResponseEntity<ResponseObject> getCounsellorAvailableList(Integer campusId);
 }
