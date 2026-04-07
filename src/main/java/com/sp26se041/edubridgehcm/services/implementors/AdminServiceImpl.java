@@ -23,6 +23,7 @@ import com.sp26se041.edubridgehcm.requests.UpdateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AdminService;
+import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -30,11 +31,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Normalizer;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -53,6 +57,8 @@ public class AdminServiceImpl implements AdminService {
     private final PersonalityTypeRepo personalityTypeRepo;
 
     private final SubjectRepo subjectRepo;
+
+    private final SupabaseStorageService supabaseStorageService;
 
     @Override
     @Transactional
@@ -90,6 +96,11 @@ public class AdminServiceImpl implements AdminService {
         if (schoolRepo.existsByTaxCode(request.getTaxCode().trim())) {
             return "This tax identification number already exists.";
         }
+
+        if (schoolRepo.existsByName((request.getSchoolName()))) {
+            return "School name already exists in system.";
+        }
+
         return "";
     }
 
@@ -103,6 +114,8 @@ public class AdminServiceImpl implements AdminService {
                 .status(Status.ACCOUNT_ACTIVE)
                 .firstLogin(true)
                 .build());
+
+
 
         // tạo school (lấy thẳng từ bảng tạm)
         School school = schoolRepo.save(School.builder()
@@ -133,10 +146,61 @@ public class AdminServiceImpl implements AdminService {
         request.setStatus(Status.VERIFIED);
         schoolRegistrationRequestRepo.save(request);
 
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("name", request.getSchoolName().trim());
+        fields.put("description", request.getDescription().trim());
+        fields.put("taxCode", request.getTaxCode().trim());
+        fields.put("websiteUrl", request.getWebsiteUrl());
+        fields.put("representativeName", request.getRepresentativeName());
+        fields.put("hotline", request.getHotline());
+        fields.put("foundingDate", request.getFoundingDate()
+                        .format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        fields.put("logoUrl", request.getLogoUrl());
+        fields.put("businessLicenseUrl", request.getBusinessLicenseUrl());
+
+        String schoolName = toSafeObjectKey(request.getSchoolName());
+
+        String fileName = schoolName + "_info.pdf";
+
+        try {
+            supabaseStorageService.generatePdfFileFromTemplateDocx(fields, "TEMPLATE/school_info_template.docx", schoolName, fileName);
+            String objectPath = supabaseStorageService.extractObjectPath(request.getBusinessLicenseUrl());
+            supabaseStorageService.moveFile(objectPath, schoolName + "/business_license_"+schoolName+".pdf");
+        } catch (Exception e) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage(), null);
+        }
+
         return ResponseBuilder.build(HttpStatus.OK, "Verified successfully", null);
     }
 
+    private String toSafeObjectKey(String input) {
+        if (input == null || input.trim().isEmpty()) {
+            return "";
+        }
 
+        // 1. normalize Unicode (tách dấu ra)
+        String normalized = Normalizer.normalize(input.trim(), Normalizer.Form.NFD);
+
+        // 2. remove dấu (accent)
+        String noAccent = normalized.replaceAll("\\p{M}", "");
+
+        // 3. xử lý riêng đ/Đ
+        noAccent = noAccent.replace("đ", "d").replace("Đ", "d");
+
+        // 4. lowercase
+        String lower = noAccent.toLowerCase(Locale.ROOT);
+
+        // 5. replace ký tự không hợp lệ -> _
+        String safe = lower.replaceAll("[^a-z0-9]+", "_");
+
+        // 6. cleanup: nhiều _ -> 1
+        safe = safe.replaceAll("_+", "_");
+
+        // 7. remove _ đầu/cuối
+        safe = safe.replaceAll("^_+|_+$", "");
+
+        return safe;
+    }
 
     @Override
     public ResponseEntity<ResponseObject> viewSchoolRegistrationList() {
