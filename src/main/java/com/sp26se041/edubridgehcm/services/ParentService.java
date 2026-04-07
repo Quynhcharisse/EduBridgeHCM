@@ -28,6 +28,5 @@ public interface ParentService {
     ResponseEntity<ResponseObject> getFavouriteSchools(int page, int size);
     ResponseEntity<ResponseObject> removeFavouriteSchool(long favouriteSchoolId);
 
-    //Create Folder
-    ResponseEntity<ResponseObject> createFolder();
+//    ResponseEntity<ResponseObject> createFolder();
 }

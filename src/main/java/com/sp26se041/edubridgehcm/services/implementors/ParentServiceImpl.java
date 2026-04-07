@@ -33,7 +33,6 @@ import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.ParentService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
-import com.sp26se041.edubridgehcm.utils.GoogleAuthUtil;
 import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
@@ -392,35 +391,35 @@ public class ParentServiceImpl implements ParentService {
         return ResponseBuilder.build(HttpStatus.OK, "Remove favourite school successfully", null);
     }
 
-    @Override
-    public ResponseEntity<ResponseObject> createFolder() {
-
-        String accessToken;
-
-        try {
-
-            accessToken = GoogleAuthUtil.getAccessToken();
-
-        } catch (Exception ex) {
-
-            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to connect to Google Drive service", null);
-
-        }
-        
-
-        String folderId;
-
-        GoogleDriveService ggDriveService = new GoogleDriveService(accessToken);
-
-        try {
-            folderId = ggDriveService.createFolder("Test Folder", "1ZoWMhYQ9htHin861QK7jp1LJTRyY3XpR");
-        } catch (Exception ex) {
-            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create folder", null);
-        }
-
-        return ResponseBuilder.build(HttpStatus.OK, "Folder created successfully", folderId);
-
-    }
+//    @Override
+//    public ResponseEntity<ResponseObject> createFolder() {
+//
+//        String accessToken;
+//
+//        try {
+//
+//            accessToken = GoogleAuthUtil.getAccessToken();
+//
+//        } catch (Exception ex) {
+//
+//            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to connect to Google Drive service", null);
+//
+//        }
+//
+//
+//        String folderId;
+//
+//        GoogleDriveService ggDriveService = new GoogleDriveService(accessToken);
+//
+//        try {
+//            folderId = ggDriveService.createFolder("Test Folder", "1ZoWMhYQ9htHin861QK7jp1LJTRyY3XpR");
+//        } catch (Exception ex) {
+//            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create folder", null);
+//        }
+//
+//        return ResponseBuilder.build(HttpStatus.OK, "Folder created successfully", folderId);
+//
+//    }
 
     private Map<String, Object> buildFavouriteSchool(FavouriteSchool favouriteSchool) {
 
@@ -850,7 +849,7 @@ public class ParentServiceImpl implements ParentService {
     @Override
     public ResponseEntity<ResponseObject> getAllSubjects() {
 
-        List<Subject> subjects = subjectRepo.findByStatus(Status.SUBJECT_ACTIVE);
+        List<Subject> subjects = subjectRepo.findAll();
 
         List<Map<String, Object>> result = subjects.stream()
                 .collect(Collectors.groupingBy(Subject::getType))

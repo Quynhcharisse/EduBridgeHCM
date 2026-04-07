@@ -23,7 +23,6 @@ import com.sp26se041.edubridgehcm.requests.UpdateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AdminService;
-import com.sp26se041.edubridgehcm.utils.GoogleAuthUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -52,6 +51,7 @@ public class AdminServiceImpl implements AdminService {
     private final CampusRepo campusRepo;
 
     private final PersonalityTypeRepo personalityTypeRepo;
+
     private final SubjectRepo subjectRepo;
 
     @Override
@@ -105,31 +105,6 @@ public class AdminServiceImpl implements AdminService {
                 .firstLogin(true)
                 .build());
 
-        // Tao folder tren gg drive
-
-        String accessToken;
-
-        try {
-
-            accessToken = GoogleAuthUtil.getAccessToken();
-
-        } catch (Exception ex) {
-
-            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to connect to Google Drive service", null);
-
-        }
-
-
-        String folderId;
-
-        GoogleDriveService ggDriveService = new GoogleDriveService(accessToken);
-
-        try {
-            folderId = ggDriveService.createFolder(request.getSchoolName().trim(), "1ZoWMhYQ9htHin861QK7jp1LJTRyY3XpR");
-        } catch (Exception ex) {
-            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create folder", null);
-        }
-
         // tạo school (lấy thẳng từ bảng tạm)
         School school = schoolRepo.save(School.builder()
                 .name(request.getSchoolName().trim())
@@ -140,9 +115,9 @@ public class AdminServiceImpl implements AdminService {
                 .representativeName(request.getRepresentativeName())
                 .hotline(request.getHotline())
                 .foundingDate(request.getFoundingDate())
-                .folderId(folderId)
                 .businessLicenseUrl(request.getBusinessLicenseUrl())
                 .build());
+
 
         // tạo campus đầu tiên (primary branch)
         campusRepo.save(Campus.builder()
@@ -161,6 +136,8 @@ public class AdminServiceImpl implements AdminService {
 
         return ResponseBuilder.build(HttpStatus.OK, "Verified successfully", null);
     }
+
+
 
     @Override
     public ResponseEntity<ResponseObject> viewSchoolRegistrationList() {
@@ -227,6 +204,7 @@ public class AdminServiceImpl implements AdminService {
         }
 
         PersonalityTypeGroup group;
+
         try {
             group = parsePersonalityTypeGroup(request.getPersonalityTypeGroup());
         } catch (IllegalArgumentException e) {
@@ -284,6 +262,11 @@ public class AdminServiceImpl implements AdminService {
         } catch (IllegalArgumentException e) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
         }
+
+        if (subjectRepo.existsByName((normalize(request.getName())))) {
+           return  ResponseBuilder.build(HttpStatus.CONFLICT, "Subject already exists in the system", null);
+        }
+
         Subject subject = Subject.builder()
                 .type(subjectType)
                 .name(normalize(request.getName()))
