@@ -98,45 +98,8 @@ public class AdminServiceImpl implements AdminService {
     }
 
 
-    private String validationVerifyRegistration(int requestId, SchoolRegistrationRequest request) {
-
-        if (request == null) {
-            return "No registration request with ID found: " + requestId;
-        }
-
-        if (request.getStatus() != Status.ACCOUNT_PENDING_VERIFY) {
-            return "This request has been processed previously.";
-        }
-
-        if (schoolRepo.existsByTaxCode(request.getTaxCode().trim())) {
-            return "This tax identification number already exists.";
-        }
-
-        if (schoolRepo.existsByName((request.getSchoolName()))) {
-            return "School name already exists in system.";
-        }
-
-        return "";
-    }
-
 
     private ResponseEntity<ResponseObject> handleVerify(SchoolRegistrationRequest request) {
-
-        // tạo account
-        Account account = accountRepo.save(Account.builder().role(Role.SCHOOL).email(request.getEmail().trim()).registerDate(LocalDate.now()).status(Status.ACCOUNT_ACTIVE).firstLogin(true).build());
-
-
-
-        // tạo school (lấy thẳng từ bảng tạm)
-        School school = schoolRepo.save(School.builder().name(request.getSchoolName().trim()).description(request.getDescription().trim()).taxCode(request.getTaxCode().trim()).websiteUrl(request.getWebsiteUrl()).logoUrl(request.getLogoUrl()).representativeName(request.getRepresentativeName()).hotline(request.getHotline()).foundingDate(request.getFoundingDate()).businessLicenseUrl(request.getBusinessLicenseUrl()).build());
-
-
-        // tạo campus đầu tiên (primary branch)
-        campusRepo.save(Campus.builder().account(account).name(request.getCampusName().trim()).phoneNumber(request.getCampusPhone()).address(request.getCampusAddress().trim()).status(Status.ACCOUNT_ACTIVE).isPrimaryBranch(true).school(school).build());
-
-        // đánh dấu bảng tạm đã duyệt
-        request.setStatus(Status.VERIFIED);
-        schoolRegistrationRequestRepo.save(request);
 
         Map<String, Object> fields = new LinkedHashMap<>();
         fields.put("name", request.getSchoolName().trim());
@@ -146,7 +109,7 @@ public class AdminServiceImpl implements AdminService {
         fields.put("representativeName", request.getRepresentativeName());
         fields.put("hotline", request.getHotline());
         fields.put("foundingDate", request.getFoundingDate()
-                        .format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+                .format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
         fields.put("logoUrl", request.getLogoUrl());
         fields.put("businessLicenseUrl", request.getBusinessLicenseUrl());
 
@@ -161,6 +124,20 @@ public class AdminServiceImpl implements AdminService {
         } catch (Exception e) {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage(), null);
         }
+
+        // tạo account
+        Account account = accountRepo.save(Account.builder().role(Role.SCHOOL).email(request.getEmail().trim()).registerDate(LocalDate.now()).status(Status.ACCOUNT_ACTIVE).firstLogin(true).build());
+
+        // tạo school (lấy thẳng từ bảng tạm)
+        School school = schoolRepo.save(School.builder().name(request.getSchoolName().trim()).description(request.getDescription().trim()).taxCode(request.getTaxCode().trim()).websiteUrl(request.getWebsiteUrl()).logoUrl(request.getLogoUrl()).representativeName(request.getRepresentativeName()).hotline(request.getHotline()).foundingDate(request.getFoundingDate()).businessLicenseUrl(request.getBusinessLicenseUrl()).build());
+
+
+        // tạo campus đầu tiên (primary branch)
+        campusRepo.save(Campus.builder().account(account).name(request.getCampusName().trim()).phoneNumber(request.getCampusPhone()).address(request.getCampusAddress().trim()).status(Status.ACCOUNT_ACTIVE).isPrimaryBranch(true).school(school).build());
+
+        // đánh dấu bảng tạm đã duyệt
+        request.setStatus(Status.VERIFIED);
+        schoolRegistrationRequestRepo.save(request);
 
         return ResponseBuilder.build(HttpStatus.OK, "Verified successfully", null);
     }
