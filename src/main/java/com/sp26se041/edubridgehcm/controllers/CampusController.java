@@ -11,6 +11,7 @@ import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.CampusService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
 import java.time.LocalDate;
 
 @RestController
@@ -125,5 +127,17 @@ public class CampusController {
     @PreAuthorize("hasAnyRole('SCHOOL')")
     public ResponseEntity<ResponseObject> getCounsellorAvailableList() {
         return campusService.getCounsellorAvailableList();
+    }
+
+    @GetMapping("/counsellor/list/export")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<Resource> exportCounsellorList() throws IOException {
+        return campusService.exportCounsellorList();
+    }
+
+    @GetMapping("/schedule/template/list/export")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<Resource> exportCampusScheduleMatrix() throws IOException {
+        return campusService.exportCampusScheduleMatrix();
     }
 }

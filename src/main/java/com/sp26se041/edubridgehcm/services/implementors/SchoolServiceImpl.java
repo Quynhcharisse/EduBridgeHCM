@@ -43,23 +43,32 @@ import com.sp26se041.edubridgehcm.services.SchoolService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.CurriculumNamingUtil;
+import com.sp26se041.edubridgehcm.utils.ExcelUtil;
 import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
+import com.sp26se041.edubridgehcm.utils.SchoolUtil;
 import com.sp26se041.edubridgehcm.validations.school.AdmissionCampaignValidation;
 import com.sp26se041.edubridgehcm.validations.school.CampusValidation;
 import com.sp26se041.edubridgehcm.validations.school.CurriculumValidation;
 import com.sp26se041.edubridgehcm.validations.school.ProgramValidation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -596,17 +605,7 @@ public class SchoolServiceImpl implements SchoolService {
 
     private Curriculum buildNewCurriculum(CurriculumRequest request, School school) {
         // tạo mới thì draft
-        return Curriculum.builder()
-                .name(CurriculumNamingUtil.generateName(request))
-                .groupCode(CurriculumNamingUtil.generateGroupCode(request))
-                .curriculumType(CurriculumType.valueOf(request.getCurriculumType()))
-                .methodLearning(LearningMethod.valueOf(request.getMethodLearning()))
-                .enrollmentYear(request.getEnrollmentYear())
-                .description(request.getDescription())
-                .subjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()))
-                .school(school)
-                .curriculumStatus(Status.CUR_DRAFT)
-                .build();
+        return Curriculum.builder().name(CurriculumNamingUtil.generateName(request)).groupCode(CurriculumNamingUtil.generateGroupCode(request)).curriculumType(CurriculumType.valueOf(request.getCurriculumType())).methodLearning(LearningMethod.valueOf(request.getMethodLearning())).enrollmentYear(request.getEnrollmentYear()).description(request.getDescription()).subjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions())).school(school).curriculumStatus(Status.CUR_DRAFT).build();
     }
 
     // bảng update đối vs draft
@@ -763,8 +762,7 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         if (curriculum.getCurriculumStatus() == Status.CUR_ARCHIVED) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Cannot use an archived curriculum. Please use the latest active version.", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot use an archived curriculum. Please use the latest active version.", null);
         }
 
         // Đồng bộ dữ liệu (Gom chung cho cả Create/Update để tránh lặp code)
@@ -953,9 +951,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("curriculum", curriculumData);
 
         // --- Thông tin Thống kê & Logic (Helper cho FE) ---
-        int offeringCount = (program.getCampusProgramOfferingList() != null)
-                ? program.getCampusProgramOfferingList().size()
-                : 0;
+        int offeringCount = (program.getCampusProgramOfferingList() != null) ? program.getCampusProgramOfferingList().size() : 0;
         data.put("offeringCount", offeringCount);
 
         boolean isActive = Status.PRO_ACTIVE.equals(program.getStatus());
@@ -1295,5 +1291,106 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("active", scheduleTemplate.isActive());
 
         return data;
+    }
+
+    @Override
+    public ResponseEntity<Resource> exportCampusList() throws IOException {
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null || actorCampus.getSchool() == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        List<Campus> campusList = campusRepo.findAll();
+
+        Path path = Files.createTempFile("export_", ".xlsx");
+
+        String[] headers = {
+                "ID",
+                "Tên Cơ Sở",
+                "Liên Hệ (SĐT)",
+                "Địa chỉ",
+                "Thành phố",
+                "Quận",
+                "Loại Trú (Boarding)",
+                "Loại Nhánh Chính",
+                "Trạng Thái Campus",
+                "Trạng Thái Trường"
+        };
+
+        ExcelUtil.exportToExcel(path, "Campuses", headers, campusList, (campus, row) -> {
+            row.createCell(0).setCellValue(campus.getId());
+            row.createCell(1).setCellValue(campus.getName());
+            row.createCell(2).setCellValue(campus.getPhoneNumber());
+            row.createCell(3).setCellValue(campus.getAddress());
+            row.createCell(4).setCellValue(campus.getCity());
+            row.createCell(5).setCellValue(campus.getDistrict());
+            row.createCell(6).setCellValue(campus.getBoardingType() != null ? campus.getBoardingType().name() : "");
+            row.createCell(7).setCellValue(Boolean.TRUE.equals(campus.getIsPrimaryBranch()) ? "Chính" : "Phụ");
+            row.createCell(8).setCellValue(campus.getStatus() != null ? campus.getStatus().name() : "");
+            if (campus.getSchool() != null) {
+                row.createCell(11).setCellValue(SchoolUtil.checkSchoolStatus(campus.getSchool()));
+            } else {
+                row.createCell(11).setCellValue("N/A");
+            }
+        });
+
+        return buildFileResponse(path, "Danh_Sach_Co_So.xlsx");
+    }
+
+    @Override
+    public ResponseEntity<Resource> exportAdmissionCampaign(int year) throws IOException {
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null || actorCampus.getSchool() == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        List<AdmissionCampaign> campaigns;
+        if (year > 0) {
+            campaigns = admissionCampaignRepo.findBySchoolIdAndYear(actorCampus.getSchool().getId(), year);
+        } else {
+            campaigns = admissionCampaignRepo.findBySchoolIdOrderByYearDesc(actorCampus.getSchool().getId());
+        }
+
+        Path path = Files.createTempFile("export_campaigns_", ".xlsx");
+
+        String[] headers = {
+                "ID",
+                "Tên Chiến Dịch",
+                "Năm Học",
+                "Miêu tả",
+                "Ngày Bắt Đầu",
+                "Ngày Kết Thúc",
+                "Trạng Thái"
+        };
+
+        ExcelUtil.exportToExcel(path, "AdmissionCampaigns", headers, campaigns, (campaign, row) -> {
+            row.createCell(0).setCellValue(campaign.getId());
+            row.createCell(1).setCellValue(campaign.getName());
+            row.createCell(2).setCellValue(campaign.getYear());
+            row.createCell(3).setCellValue(campaign.getDescription());
+            row.createCell(4).setCellValue(campaign.getStartDate() != null ? campaign.getStartDate().toString() : "");
+            row.createCell(5).setCellValue(campaign.getEndDate() != null ? campaign.getEndDate().toString() : "");
+            row.createCell(6).setCellValue(autoCheckAndExpireStatus(campaign).name());
+        });
+
+        String fileName = year > 0 ? "Chien_Dich_Tuyen_Sinh_" + year + ".xlsx" : "Danh_Sach_Chien_Dich_Tuyen_Sinh.xlsx";
+        return buildFileResponse(path, fileName);
+    }
+
+    private ResponseEntity<Resource> buildFileResponse(Path path, String fileName) throws IOException {
+        Resource resource = new UrlResource(path.toUri());
+        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"").contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")).body(resource);
     }
 }
