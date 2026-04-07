@@ -1,0 +1,60 @@
+package com.sp26se041.edubridgehcm.validations.admin;
+
+import com.sp26se041.edubridgehcm.enums.ParentPostPermission;
+import com.sp26se041.edubridgehcm.enums.SupportLevel;
+import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
+import org.springframework.util.StringUtils;
+
+import java.util.Arrays;
+
+public class SubscriptionValidation {
+
+    public static String upsertSubscriptionValidation(UpsertServicePackageFeeRequest request) {
+
+        if (!StringUtils.hasText(request.getName())) {
+            return "Package name is required";
+        }
+
+        if (request.getName().length() > 100) {
+            return "Package name is too long (max 100 characters).";
+        }
+
+        // 2. Validate Features (Cực kỳ quan trọng vì đây là cục JSON)
+        if (request.getFeatureData() == null) {
+            return "Feature data is required.";
+        }
+
+        UpsertServicePackageFeeRequest.FeatureData features = request.getFeatureData();
+
+        if (features.getMaxCounsellors() != null && features.getMaxCounsellors() < -1) {
+            return "Max counsellors cannot be less than -1.";
+        }
+
+        if (features.getMaxAdmissions() != null && features.getMaxAdmissions() < -1) {
+            return "Max admissions cannot be less than -1.";
+        }
+
+        if (features.getAllowChat() == null) return "Allow chat setting is required.";
+
+        if (features.getIsFeatured() == null) return "Is featured setting is required.";
+
+        if (features.getParentPostPermission() == null) {
+            return "Parent post permission is required. Must be one of: " + Arrays.toString(ParentPostPermission.values());
+        }
+
+        if (features.getTopRanking() == null || features.getTopRanking() < 0) {
+            return "Top ranking is required and must be a non-negative integer.";
+        }
+
+        // 2. Validate supportLevel (Ví dụ: "24/7", "Email only", "Priority Support")
+        if (!StringUtils.hasText(features.getSupportLevel())) {
+            return "Support level description is required.. Must be one of: " + Arrays.toString(SupportLevel.values());
+        }
+
+        if (features.getSupportLevel().length() > 50) {
+            return "Support level description is too long (max 50 characters).";
+        }
+
+        return null;
+    }
+}
