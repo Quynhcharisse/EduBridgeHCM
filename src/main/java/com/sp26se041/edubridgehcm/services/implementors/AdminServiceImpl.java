@@ -90,7 +90,6 @@ public class AdminServiceImpl implements AdminService {
         if (schoolRepo.existsByTaxCode(request.getTaxCode().trim())) {
             return "This tax identification number already exists.";
         }
-
         return "";
     }
 

@@ -7,5 +7,5 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 
 public interface SupabaseStorageService {
-    String uploadPdfFile(MultipartFile file, String bucket, String objectPath) throws IOException;
+    String uploadPdfFile(MultipartFile file, String folderName,String objectPath) throws IOException;
 }
