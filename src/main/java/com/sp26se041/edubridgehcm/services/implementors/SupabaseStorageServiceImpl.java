@@ -137,15 +137,36 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
 
         HttpEntity<String> entity = new HttpEntity<>(body, headers);
 
-        ResponseEntity<String> response = restTemplate.exchange(
-                url,
-                HttpMethod.POST,
-                entity,
-                String.class
-        );
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    entity,
+                    String.class
+            );
 
-        if (!response.getStatusCode().is2xxSuccessful()) {
-            throw new RuntimeException("Move file failed: " + response.getBody());
+            System.out.println("Move success: " + fromPath + " -> " + toPath);
+
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+
+            String bodyResp = e.getResponseBodyAsString();
+
+            // 🔥 Case 1: source không còn (đã move rồi)
+            if (bodyResp != null &&
+                    (bodyResp.contains("not found") || bodyResp.contains("Object not found"))) {
+
+                System.out.println("Source already moved: " + fromPath);
+                return;
+            }
+
+            // 🔥 Case 2: destination đã tồn tại
+            if (bodyResp != null && bodyResp.contains("already exists")) {
+
+                System.out.println("Destination already exists: " + toPath);
+                return;
+            }
+
+            throw new RuntimeException("Move file failed: " + bodyResp, e);
         }
     }
 

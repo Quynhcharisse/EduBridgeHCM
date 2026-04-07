@@ -119,11 +119,14 @@ public class AdminServiceImpl implements AdminService {
 
         try {
             supabaseStorageService.generatePdfFileFromTemplateDocx(fields, "TEMPLATE/school_info_template.docx", schoolName, fileName);
+
             String objectPath = supabaseStorageService.extractObjectPath(request.getBusinessLicenseUrl());
             supabaseStorageService.moveFile(objectPath, schoolName + "/business_license_"+schoolName+".pdf");
+
         } catch (Exception e) {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage(), null);
         }
+
 
         // tạo account
         Account account = accountRepo.save(Account.builder().role(Role.SCHOOL).email(request.getEmail().trim()).registerDate(LocalDate.now()).status(Status.ACCOUNT_ACTIVE).firstLogin(true).build());
