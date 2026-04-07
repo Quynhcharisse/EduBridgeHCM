@@ -35,7 +35,5 @@ public class Subject {
     @Enumerated(EnumType.STRING)
     private SubjectType type;
 
-    @Enumerated(EnumType.STRING)
-    private Status status;
 
 }

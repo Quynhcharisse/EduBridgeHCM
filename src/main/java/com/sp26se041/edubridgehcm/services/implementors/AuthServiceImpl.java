@@ -14,6 +14,7 @@ import com.sp26se041.edubridgehcm.requests.RegisterRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AuthService;
 import com.sp26se041.edubridgehcm.services.JWTService;
+import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.CookieUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
@@ -25,11 +26,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -46,10 +49,30 @@ public class AuthServiceImpl implements AuthService {
 
     private final AccountRepo accountRepo;
 
+    private final SupabaseStorageService supabaseStorageService;
 
     private final ParentRepo parentRepo;
 
     private final SchoolRegistrationRequestRepo schoolRegistrationRequestRepo;
+
+    @Override
+    public ResponseEntity<ResponseObject> uploadBusinessLicensePdf(MultipartFile file) {
+
+        String objectPath = "business_license_" + UUID.randomUUID().toString() + ".pdf";
+
+        String fileUrl;
+
+        try {
+            fileUrl =  supabaseStorageService.uploadPdfFile(file, "BUISENESS_LINCENSE", objectPath);
+        } catch (IllegalArgumentException ex){
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
+        } catch (Exception ex) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
+        }
+
+        return ResponseBuilder.build(HttpStatus.OK, "Upload successful", fileUrl);
+
+    }
 
     @Override
     public ResponseEntity<ResponseObject> login(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse response) {

@@ -5,15 +5,21 @@ import com.sp26se041.edubridgehcm.requests.RefreshTokenRequest;
 import com.sp26se041.edubridgehcm.requests.RegisterRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AuthService;
+import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequiredArgsConstructor
@@ -44,4 +50,10 @@ public class AuthController {
     ) {
         return authService.refresh(request, httpRequest, response);
     }
+
+    @PostMapping(value = "/business/license/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadFile(@RequestParam("file") MultipartFile file) {
+        return authService.uploadBusinessLicensePdf(file);
+    }
+
 }

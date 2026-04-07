@@ -493,20 +493,20 @@ public class EduBridgeHcmApplication {
             return;
         }
 
-        subjectRepo.save(Subject.builder().name("Ngữ Văn").type(SubjectType.REGULAR_SUBJECT).status(Status.SUBJECT_ACTIVE).build());
-        subjectRepo.save(Subject.builder().name("Toán").type(SubjectType.REGULAR_SUBJECT).status(Status.SUBJECT_ACTIVE).build());
-        subjectRepo.save(Subject.builder().name("Anh Văn").type(SubjectType.FOREIGN_LANGUAGE_SUBJECT).status(Status.SUBJECT_ACTIVE).build());
-        subjectRepo.save(Subject.builder().name("Tiếng Pháp").type(SubjectType.FOREIGN_LANGUAGE_SUBJECT).status(Status.SUBJECT_ACTIVE).build());
-        subjectRepo.save(Subject.builder().name("Tiếng Trung Quốc").type(SubjectType.FOREIGN_LANGUAGE_SUBJECT).status(Status.SUBJECT_ACTIVE).build());
-        subjectRepo.save(Subject.builder().name("Tiếng Nga").type(SubjectType.FOREIGN_LANGUAGE_SUBJECT).status(Status.SUBJECT_ACTIVE).build());
-        subjectRepo.save(Subject.builder().name("Tiếng Hàn").type(SubjectType.FOREIGN_LANGUAGE_SUBJECT).status(Status.SUBJECT_ACTIVE).build());
-        subjectRepo.save(Subject.builder().name("Tiếng Nhật").type(SubjectType.FOREIGN_LANGUAGE_SUBJECT).status(Status.SUBJECT_ACTIVE).build());
-        subjectRepo.save(Subject.builder().name("Tiếng Đức").type(SubjectType.FOREIGN_LANGUAGE_SUBJECT).status(Status.SUBJECT_ACTIVE).build());
-        subjectRepo.save(Subject.builder().name("Giáo dục công dân").type(SubjectType.REGULAR_SUBJECT).status(Status.SUBJECT_ACTIVE).build());
-        subjectRepo.save(Subject.builder().name("Lịch sử và Địa lý").type(SubjectType.REGULAR_SUBJECT).status(Status.SUBJECT_ACTIVE).build());
-        subjectRepo.save(Subject.builder().name("Khoa học tự nhiên").type(SubjectType.REGULAR_SUBJECT).status(Status.SUBJECT_ACTIVE).build());
-        subjectRepo.save(Subject.builder().name("Công nghệ").type(SubjectType.REGULAR_SUBJECT).status(Status.SUBJECT_ACTIVE).build());
-        subjectRepo.save(Subject.builder().name("Tin học").type(SubjectType.REGULAR_SUBJECT).status(Status.SUBJECT_ACTIVE).build());
+        subjectRepo.save(Subject.builder().name("Ngữ Văn").type(SubjectType.REGULAR_SUBJECT).build());
+        subjectRepo.save(Subject.builder().name("Toán").type(SubjectType.REGULAR_SUBJECT).build());
+        subjectRepo.save(Subject.builder().name("Anh Văn").type(SubjectType.FOREIGN_LANGUAGE_SUBJECT).build());
+        subjectRepo.save(Subject.builder().name("Tiếng Pháp").type(SubjectType.FOREIGN_LANGUAGE_SUBJECT).build());
+        subjectRepo.save(Subject.builder().name("Tiếng Trung Quốc").type(SubjectType.FOREIGN_LANGUAGE_SUBJECT).build());
+        subjectRepo.save(Subject.builder().name("Tiếng Nga").type(SubjectType.FOREIGN_LANGUAGE_SUBJECT).build());
+        subjectRepo.save(Subject.builder().name("Tiếng Hàn").type(SubjectType.FOREIGN_LANGUAGE_SUBJECT).build());
+        subjectRepo.save(Subject.builder().name("Tiếng Nhật").type(SubjectType.FOREIGN_LANGUAGE_SUBJECT).build());
+        subjectRepo.save(Subject.builder().name("Tiếng Đức").type(SubjectType.FOREIGN_LANGUAGE_SUBJECT).build());
+        subjectRepo.save(Subject.builder().name("Giáo dục công dân").type(SubjectType.REGULAR_SUBJECT).build());
+        subjectRepo.save(Subject.builder().name("Lịch sử và Địa lý").type(SubjectType.REGULAR_SUBJECT).build());
+        subjectRepo.save(Subject.builder().name("Khoa học tự nhiên").type(SubjectType.REGULAR_SUBJECT).build());
+        subjectRepo.save(Subject.builder().name("Công nghệ").type(SubjectType.REGULAR_SUBJECT).build());
+        subjectRepo.save(Subject.builder().name("Tin học").type(SubjectType.REGULAR_SUBJECT).build());
     }
 
     // Init Personality type
