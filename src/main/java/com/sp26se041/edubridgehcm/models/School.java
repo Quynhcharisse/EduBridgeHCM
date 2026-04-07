@@ -67,9 +67,6 @@ public class School {
     @Column(name = "founding_date")
     LocalDate foundingDate;
 
-    @Column(name = "folder_id")
-    String folderId;
-
     @OneToMany(mappedBy = "school")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude

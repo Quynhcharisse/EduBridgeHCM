@@ -20,6 +20,10 @@ public class VerifyRegistrationValidation {
             return "This tax identification number already exists.";
         }
 
+        if(schoolRepo.existsByName(request.getSchoolName().trim())) {
+            return "School name already exists.";
+        }
+
         return "";
     }
 }

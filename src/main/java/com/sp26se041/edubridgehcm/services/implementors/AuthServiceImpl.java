@@ -58,12 +58,12 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public ResponseEntity<ResponseObject> uploadBusinessLicensePdf(MultipartFile file) {
 
-        String objectPath = "business_license_" + UUID.randomUUID().toString() + ".pdf";
+        String fileName = "business_license_" + UUID.randomUUID().toString() + ".pdf";
 
         String fileUrl;
 
         try {
-            fileUrl =  supabaseStorageService.uploadPdfFile(file,"BUSINESS_LICENSE", objectPath);
+            fileUrl =  supabaseStorageService.uploadPdfFile(file,"BUSINESS_LICENSE", fileName);
         } catch (IllegalArgumentException ex){
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
         } catch (Exception ex) {
@@ -71,7 +71,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         Map<String, Object> response = new HashMap<>();
-        response.put("objectPath", objectPath);
+        response.put("fileName", fileName);
         response.put("fileUrl", fileUrl);
 
         return ResponseBuilder.build(HttpStatus.OK, "Upload successful", response);

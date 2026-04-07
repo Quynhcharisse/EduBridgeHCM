@@ -14,4 +14,6 @@ public interface SchoolRepo extends JpaRepository<School, Integer> {
     Page<School> findAllByOrderByIdDesc(Pageable pageable);
 
     List<School> findAllByOrderByIsFeaturedDescAverageRatingDesc();
+
+    boolean existsByName(String name);
 }
