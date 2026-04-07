@@ -1,9 +1,12 @@
 package com.sp26se041.edubridgehcm.models;
 
+import com.sp26se041.edubridgehcm.enums.Status;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -46,8 +49,9 @@ public class Subscription {
     @Column(columnDefinition = "jsonb", name = "features")
     Object features;
 
-    @Column(name = "is_active")
-    Boolean isActive;
+    @Column(name = "package_status")
+    @Enumerated(EnumType.STRING)
+    Status packageStatus;
 
     @OneToMany(mappedBy = "subscription", cascade = CascadeType.ALL)
     @ToString.Exclude

@@ -2,9 +2,8 @@ package com.sp26se041.edubridgehcm.controllers;
 
 import com.sp26se041.edubridgehcm.requests.AddSubjectRequest;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
-import com.sp26se041.edubridgehcm.requests.CreateServicePackageFeeRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
+import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AdminService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,14 +40,8 @@ public class AdminController {
 
     @PostMapping("/service/package/fee")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> createServicePackageFee(@RequestBody CreateServicePackageFeeRequest request) {
-        return adminService.createServicePackageFee(request);
-    }
-
-    @PutMapping("/service/package/fee")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> updateServicePackageFee(@RequestBody UpdateServicePackageFeeRequest request) {
-        return adminService.updateServicePackageFee(request);
+    public ResponseEntity<ResponseObject> upsertServicePackageFee(@RequestBody UpsertServicePackageFeeRequest request) {
+        return adminService.upsertServicePackageFee(request);
     }
 
     @PutMapping("status/service/package/fee")
@@ -66,7 +59,7 @@ public class AdminController {
     @PostMapping("/personality/type")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ResponseObject> createPersonalityType(@RequestBody CreatePersonalityTypeRequest request) {
-     return adminService.createPersonalityType(request);
+        return adminService.createPersonalityType(request);
     }
 
     @GetMapping("/personality/type")
@@ -77,13 +70,13 @@ public class AdminController {
 
     @PostMapping("/subject")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> createSubject(AddSubjectRequest request){
+    public ResponseEntity<ResponseObject> createSubject(AddSubjectRequest request) {
         return adminService.createSubject(request);
     }
 
     @GetMapping("/subject")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> getAllSubjects(){
+    public ResponseEntity<ResponseObject> getAllSubjects() {
         return adminService.getAllSubjects();
     }
 

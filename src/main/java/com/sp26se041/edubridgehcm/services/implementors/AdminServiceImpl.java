@@ -1,29 +1,36 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.sp26se041.edubridgehcm.enums.ParentPostPermission;
 import com.sp26se041.edubridgehcm.enums.PersonalityTypeGroup;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.enums.SubjectType;
+import com.sp26se041.edubridgehcm.enums.SupportLevel;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.PersonalityType;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolRegistrationRequest;
 import com.sp26se041.edubridgehcm.models.Subject;
+import com.sp26se041.edubridgehcm.models.Subscription;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRegistrationRequestRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
+import com.sp26se041.edubridgehcm.repositories.SubscriptionRepo;
 import com.sp26se041.edubridgehcm.requests.AddSubjectRequest;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
-import com.sp26se041.edubridgehcm.requests.CreateServicePackageFeeRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
+import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AdminService;
+import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
+import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
+import com.sp26se041.edubridgehcm.validations.admin.SubscriptionValidation;
+import com.sp26se041.edubridgehcm.validations.admin.VerifyRegistrationValidation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -54,6 +62,8 @@ public class AdminServiceImpl implements AdminService {
 
     private final SubjectRepo subjectRepo;
 
+    private final SubscriptionRepo subscriptionRepo;
+
     @Override
     @Transactional
     public ResponseEntity<ResponseObject> verifyRegistration(int requestId) {
@@ -69,7 +79,7 @@ public class AdminServiceImpl implements AdminService {
 
         }
 
-        String error = validationVerifyRegistration(requestId, request);
+        String error = VerifyRegistrationValidation.validationVerifyRegistration(requestId, request, schoolRepo);
         if (!error.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
@@ -77,57 +87,17 @@ public class AdminServiceImpl implements AdminService {
         return handleVerify(request);
     }
 
-    private String validationVerifyRegistration(int requestId, SchoolRegistrationRequest request) {
-
-        if (request == null) {
-            return "No registration request with ID found: " + requestId;
-        }
-
-        if (request.getStatus() != Status.ACCOUNT_PENDING_VERIFY) {
-            return "This request has been processed previously.";
-        }
-
-        if (schoolRepo.existsByTaxCode(request.getTaxCode().trim())) {
-            return "This tax identification number already exists.";
-        }
-        return "";
-    }
-
     private ResponseEntity<ResponseObject> handleVerify(SchoolRegistrationRequest request) {
 
         // tạo account
-        Account account = accountRepo.save(Account.builder()
-                .role(Role.SCHOOL)
-                .email(request.getEmail().trim())
-                .registerDate(LocalDate.now())
-                .status(Status.ACCOUNT_ACTIVE)
-                .firstLogin(true)
-                .build());
+        Account account = accountRepo.save(Account.builder().role(Role.SCHOOL).email(request.getEmail().trim()).registerDate(LocalDate.now()).status(Status.ACCOUNT_ACTIVE).firstLogin(true).build());
 
         // tạo school (lấy thẳng từ bảng tạm)
-        School school = schoolRepo.save(School.builder()
-                .name(request.getSchoolName().trim())
-                .description(request.getDescription().trim())
-                .taxCode(request.getTaxCode().trim())
-                .websiteUrl(request.getWebsiteUrl())
-                .logoUrl(request.getLogoUrl())
-                .representativeName(request.getRepresentativeName())
-                .hotline(request.getHotline())
-                .foundingDate(request.getFoundingDate())
-                .businessLicenseUrl(request.getBusinessLicenseUrl())
-                .build());
+        School school = schoolRepo.save(School.builder().name(request.getSchoolName().trim()).description(request.getDescription().trim()).taxCode(request.getTaxCode().trim()).websiteUrl(request.getWebsiteUrl()).logoUrl(request.getLogoUrl()).representativeName(request.getRepresentativeName()).hotline(request.getHotline()).foundingDate(request.getFoundingDate()).businessLicenseUrl(request.getBusinessLicenseUrl()).build());
 
 
         // tạo campus đầu tiên (primary branch)
-        campusRepo.save(Campus.builder()
-                .account(account)
-                .name(request.getCampusName().trim())
-                .phoneNumber(request.getCampusPhone())
-                .address(request.getCampusAddress().trim())
-                .status(Status.ACCOUNT_ACTIVE)
-                .isPrimaryBranch(true)
-                .school(school)
-                .build());
+        campusRepo.save(Campus.builder().account(account).name(request.getCampusName().trim()).phoneNumber(request.getCampusPhone()).address(request.getCampusAddress().trim()).status(Status.ACCOUNT_ACTIVE).isPrimaryBranch(true).school(school).build());
 
         // đánh dấu bảng tạm đã duyệt
         request.setStatus(Status.VERIFIED);
@@ -137,15 +107,12 @@ public class AdminServiceImpl implements AdminService {
     }
 
 
-
     @Override
     public ResponseEntity<ResponseObject> viewSchoolRegistrationList() {
 
         List<SchoolRegistrationRequest> schoolRegistrationRequestList = schoolRegistrationRequestRepo.findAllByOrderByCreatedAtDesc();
 
-        List<Map<String, Object>> data = schoolRegistrationRequestList.stream()
-                .map(this::buildRegistrationData)
-                .toList();
+        List<Map<String, Object>> data = schoolRegistrationRequestList.stream().map(this::buildRegistrationData).toList();
 
         return ResponseBuilder.build(HttpStatus.OK, "View school registration list successfully", data);
     }
@@ -170,22 +137,96 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> createServicePackageFee(CreateServicePackageFeeRequest request) {
-        return null;
+    @Transactional
+    public ResponseEntity<ResponseObject> upsertServicePackageFee(UpsertServicePackageFeeRequest request) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Subscription subscription;
+
+        String error = SubscriptionValidation.upsertSubscriptionValidation(request);
+
+        if (error != null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, error, null);
+        }
+
+        boolean isCreate = (request.getPackageId() == null);
+
+        if (!isCreate) {
+            subscription = subscriptionRepo.findById(request.getPackageId()).orElse(null);
+
+            if (subscription == null) {
+                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Package not found", null);
+            }
+
+            if (subscription.getPackageStatus() != Status.PACKAGE_DRAFT) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot edit. Only DRAFT packages can be modified.", null);
+            }
+        } else {
+            subscription = new Subscription();
+            subscription.setPackageStatus(Status.PACKAGE_DRAFT);
+        }
+
+        subscription.setName(request.getName());
+        subscription.setDescription(request.getDescription());
+
+        if (request.getFeatureData() != null) {
+            subscription.setFeatures(buildFeatureJson(request.getFeatureData()));
+        }
+
+        subscriptionRepo.save(subscription);
+
+        return ResponseBuilder.build(isCreate ? HttpStatus.CREATED : HttpStatus.OK, isCreate ? "Create draft package successfully" : "Update draft package successfully", null);
     }
 
-    @Override
-    public ResponseEntity<ResponseObject> updateServicePackageFee(UpdateServicePackageFeeRequest request) {
-        return null;
+    private Map<String, Object> buildFeatureJson(UpsertServicePackageFeeRequest.FeatureData request) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("maxCounsellors", request.getMaxCounsellors());
+        data.put("maxAdmissions", request.getMaxAdmissions());
+        data.put("allowChat", request.getAllowChat());
+        data.put("parentPostPermission", ParentPostPermission.valueOf(request.getParentPostPermission()));
+        data.put("isFeatured", request.getIsFeatured());
+        data.put("topRanking", request.getTopRanking());
+        data.put("supportLevel", SupportLevel.valueOf(request.getSupportLevel()));
+        return data;
     }
 
     @Override
     public ResponseEntity<ResponseObject> viewServicePackageFeeList() {
-        return null;
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        List<Subscription> subscriptions = subscriptionRepo.findAll();
+
+        if (subscriptions.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.OK, "No service packages found", Collections.emptyList());
+        }
+
+        List<Map<String, Object>> data = subscriptions.stream()
+                .map(this::buildSubscriptionData)
+                .collect(Collectors.toList());
+
+        return ResponseBuilder.build(HttpStatus.OK, "Get package fee list successfully", data);
+    }
+
+    private Map<String, Object> buildSubscriptionData(Subscription subscription) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", subscription.getId());
+        data.put("name", subscription.getName());
+        data.put("description", subscription.getDescription());
+        data.put("status", subscription.getPackageStatus());
+        data.put("features", subscription.getFeatures());
+        return data;
     }
 
     @Override
     public ResponseEntity<ResponseObject> updateStatusServicePackageFee(UpdateStatusServicePackageFeeRequest request) {
+
+
         return null;
     }
 
@@ -453,4 +494,13 @@ public class AdminServiceImpl implements AdminService {
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
     }
+
+    private Campus extractActorCampus() {
+        Account account = AuthRequestUtil.extractAuthenticatedAccount();
+        if (account == null || account.getRole() != Role.SCHOOL) {
+            return null;
+        }
+        return account.getCampus();
+    }
+
 }

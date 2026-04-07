@@ -38,6 +38,13 @@ public enum Status {
     PRO_DRAFT("draft"),
     PRO_INACTIVE("inactive"), // Không còn áp dụng cho khóa học nhưng vẫn giữ lại để tham chiếu lịch sử
 
+    // status for package service fee
+    PACKAGE_ACTIVE("active"),
+    PACKAGE_DRAFT("draft"),
+    PACKAGE_PENDING_DEACTIVE("pending deactive"),
+    PACKAGE_DEACTIVE("deactive"),
+    PACKAGE_EXPIRED("expired"),
+
     //With status consultation appointment
     CONSULTATION_PENDING("pending"),
     CONSULTATION_CONFIRMED("confirmed"),
