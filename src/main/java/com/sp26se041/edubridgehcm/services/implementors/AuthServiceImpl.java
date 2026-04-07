@@ -63,14 +63,18 @@ public class AuthServiceImpl implements AuthService {
         String fileUrl;
 
         try {
-            fileUrl =  supabaseStorageService.uploadPdfFile(file, "BUISENESS_LINCENSE", objectPath);
+            fileUrl =  supabaseStorageService.uploadPdfFile(file,"BUSINESS_LICENSE", objectPath);
         } catch (IllegalArgumentException ex){
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
         } catch (Exception ex) {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
         }
 
-        return ResponseBuilder.build(HttpStatus.OK, "Upload successful", fileUrl);
+        Map<String, Object> response = new HashMap<>();
+        response.put("objectPath", objectPath);
+        response.put("fileUrl", fileUrl);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Upload successful", response);
 
     }
 

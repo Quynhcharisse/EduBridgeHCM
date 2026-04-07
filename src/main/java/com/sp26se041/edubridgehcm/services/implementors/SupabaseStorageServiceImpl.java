@@ -26,8 +26,11 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
     @Value("${supabase.service-role-key}")
     private String serviceRoleKey;
 
+    @Value("${SUPABASE_BUCKET_NAME}")
+    private String bucketName;
+
     @Override
-    public String uploadPdfFile(MultipartFile file, String bucket, String objectPath) throws IOException {
+    public String uploadPdfFile(MultipartFile file, String folderName,String objectPath) throws IOException {
 
         if (file.isEmpty()) {
             throw new IllegalArgumentException("File is empty");
@@ -43,7 +46,7 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
             throw new IllegalArgumentException("Only PDF files are allowed");
         }
 
-        String url = supabaseUrl + "/storage/v1/object/" + bucket + "/" + objectPath;
+        String url = supabaseUrl + "/storage/v1/object/" + bucketName + "/" + folderName + "/" + objectPath;
 
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(serviceRoleKey);
@@ -65,7 +68,7 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
             throw new RuntimeException("Upload failed: " + response.getBody());
         }
 
-        return supabaseUrl + "/storage/v1/object/public/" + bucket + "/" + objectPath;
+        return supabaseUrl + "/storage/v1/object/public/" + bucketName + "/" + objectPath;
 
     }
 }
