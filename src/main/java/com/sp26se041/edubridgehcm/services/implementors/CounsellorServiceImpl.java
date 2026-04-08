@@ -40,8 +40,12 @@ public class CounsellorServiceImpl implements CounsellorService {
     private final ChatMessageRepo chatMessageRepo;
 
     private final AccountRepo accountRepo;
+
     private final StudentInfoRepo studentInfoRepo;
+
     private final PersonalityTypeRepo personalityTypeRepo;
+
+    private final CounsellorRepo counsellorRepo;
 
     @Override
     public ResponseEntity<ResponseObject> getConversations(String status, Long cursorId) {
@@ -82,12 +86,16 @@ public class CounsellorServiceImpl implements CounsellorService {
                         result
                 );
             } else if (status.equalsIgnoreCase("pending")) {
+
+                Counsellor counsellor = counsellorRepo.findByAccountId(counsellorAcc.get().getId());
+
                 if (cursorId == null) {
                     conversations = conversationRepo
-                            .findTop20ByCampusIdAndStatusAndStudentProfileIsNotNullOrderByIdDesc(counsellorAcc.get().getCampus().getId(), Status.CONVERSATION_PENDING);
+                            .findTop20ByCampusIdAndStatusAndStudentProfileIsNotNullOrderByIdDesc(counsellor.getCampus().getId(), Status.CONVERSATION_PENDING);
                 } else {
                     conversations = conversationRepo
-                            .findTop20ByCampusIdAndStatusAndIdLessThanAndStudentProfileIsNotNullOrderByIdDesc(counsellorAcc.get().getCampus().getId(), Status.CONVERSATION_PENDING, cursorId);
+                            .findTop20ByCampusIdAndStatusAndIdLessThanAndStudentProfileIsNotNullOrderByIdDesc(counsellor
+                                    .getCampus().getId(), Status.CONVERSATION_PENDING, cursorId);
                 }
                 List<Map<String, Object>> items = buildConversationList(conversations, email);
 
@@ -193,8 +201,10 @@ public class CounsellorServiceImpl implements CounsellorService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Student profile not found or be deleted", null);
         }
 
+        Counsellor counsellor = counsellorRepo.findByAccountId(accCounsellor.get().getId());
+
         Optional<Conversation> existingConversation =
-                conversationRepo.findByParentEmailAndCampusIdAndStudentProfile(parentEmail, accCounsellor.get().getCampus().getId(), studentProfile.get());
+                conversationRepo.findByParentEmailAndCampusIdAndStudentProfile(parentEmail, counsellor.getCampus().getId(), studentProfile.get());
 
         Conversation conversation;
         List<ChatMessage> messages;

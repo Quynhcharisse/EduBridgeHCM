@@ -20,4 +20,6 @@ public interface CounsellorRepo extends JpaRepository<Counsellor, Integer> {
     long countByCampusSchoolId(Integer schoolId);
 
     List<Counsellor> findByCampus_IdAndAccount_Status(Integer campusId, Status status);
+
+    Counsellor findByAccountId(Integer accountId);
 }
