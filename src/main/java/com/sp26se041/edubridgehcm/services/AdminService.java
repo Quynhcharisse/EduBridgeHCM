@@ -3,7 +3,6 @@ package com.sp26se041.edubridgehcm.services;
 import com.sp26se041.edubridgehcm.requests.AddSubjectRequest;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
 import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import org.springframework.http.ResponseEntity;
 
@@ -15,11 +14,11 @@ public interface AdminService {
 
     ResponseEntity<ResponseObject> upsertServicePackageFee(UpsertServicePackageFeeRequest request);
 
-//    ResponseEntity<ResponseObject> updateServicePackageFee(UpdateServicePackageFeeRequest request);
+    ResponseEntity<ResponseObject> publishServicePackageFee(Integer packageId);
 
     ResponseEntity<ResponseObject> viewServicePackageFeeList();
 
-    ResponseEntity<ResponseObject> updateStatusServicePackageFee(UpdateStatusServicePackageFeeRequest request);
+    ResponseEntity<ResponseObject> deActiveServicePackageFee(Integer packageId);
 
     ResponseEntity<ResponseObject> createPersonalityType(CreatePersonalityTypeRequest request);
 

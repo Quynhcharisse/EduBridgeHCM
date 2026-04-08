@@ -53,6 +53,12 @@ public class Subscription {
     @Enumerated(EnumType.STRING)
     Status packageStatus;
 
+    @Column(name = "price")
+    Double price;
+
+    @Column(name = "duration_days")
+    Integer durationDays;
+
     @OneToMany(mappedBy = "subscription", cascade = CascadeType.ALL)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude

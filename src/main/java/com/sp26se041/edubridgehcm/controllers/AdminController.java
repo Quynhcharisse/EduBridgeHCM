@@ -2,7 +2,6 @@ package com.sp26se041.edubridgehcm.controllers;
 
 import com.sp26se041.edubridgehcm.requests.AddSubjectRequest;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AdminService;
@@ -11,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -44,14 +44,20 @@ public class AdminController {
         return adminService.upsertServicePackageFee(request);
     }
 
-    @PutMapping("status/service/package/fee")
+    @PutMapping("/{packageId}/service/package/fee/publish")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> updateStatusServicePackageFee(@RequestBody UpdateStatusServicePackageFeeRequest request) {
-        return adminService.updateStatusServicePackageFee(request);
+    public ResponseEntity<ResponseObject> publishServicePackageFee(@PathVariable Integer packageId) {
+        return adminService.publishServicePackageFee(packageId);
+    }
+
+    @PutMapping("/{packageId}/service/package/fee/deactive")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ResponseObject> deActiveServicePackageFee(@PathVariable Integer packageId) {
+        return adminService.deActiveServicePackageFee(packageId);
     }
 
     @GetMapping("/service/package/fee/list")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL')")
     public ResponseEntity<ResponseObject> viewServicePackageFeeList() {
         return adminService.viewServicePackageFeeList();
     }

@@ -41,8 +41,8 @@ public enum Status {
     // status for package service fee
     PACKAGE_ACTIVE("active"),
     PACKAGE_DRAFT("draft"),
-    PACKAGE_PENDING_DEACTIVE("pending deactive"),
-    PACKAGE_DEACTIVE("deactive"),
+    PACKAGE_INACTIVE_PENDING("pending deactive"),
+    PACKAGE_DEACTIVATED("deactive"),
     PACKAGE_EXPIRED("expired"),
 
     //With status consultation appointment

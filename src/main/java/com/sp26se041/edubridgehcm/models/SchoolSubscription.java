@@ -48,7 +48,7 @@ public class SchoolSubscription {
     LocalDate startDate;
 
     @Column(name = "end_date")
-    LocalDate endDate;
+    LocalDate endDate;   // = startDate + Subscription.durationDays
 
     @Column(name = "is_selected")
     Boolean isSelected;

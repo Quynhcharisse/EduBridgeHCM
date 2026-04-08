@@ -18,19 +18,17 @@ import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRegistrationRequestRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolSubscriptionRepo;
 import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
 import com.sp26se041.edubridgehcm.repositories.SubscriptionRepo;
 import com.sp26se041.edubridgehcm.requests.AddSubjectRequest;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AdminService;
-
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
-
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.validations.admin.SubscriptionValidation;
 import com.sp26se041.edubridgehcm.validations.admin.VerifyRegistrationValidation;
@@ -68,10 +66,11 @@ public class AdminServiceImpl implements AdminService {
 
     private final SubjectRepo subjectRepo;
 
-
     private final SupabaseStorageService supabaseStorageService;
 
     private final SubscriptionRepo subscriptionRepo;
+
+    private final SchoolSubscriptionRepo schoolSubscriptionRepo;
 
 
     @Override
@@ -96,7 +95,6 @@ public class AdminServiceImpl implements AdminService {
 
         return handleVerify(request);
     }
-
 
 
     private ResponseEntity<ResponseObject> handleVerify(SchoolRegistrationRequest request) {
@@ -124,8 +122,8 @@ public class AdminServiceImpl implements AdminService {
             supabaseStorageService.generatePdfFileFromTemplateDocx(fields, "TEMPLATE/school_info_template.docx", folderName, fileName);
 
             String objectPath = supabaseStorageService.extractObjectPath(request.getBusinessLicenseUrl());
-            supabaseStorageService.moveFile(objectPath, folderName + "/business_license_"+schoolName+".pdf");
 
+            supabaseStorageService.moveFile(objectPath, folderName + "/business_license_"+schoolName+".pdf");
 
 
         } catch (Exception e) {
@@ -245,6 +243,8 @@ public class AdminServiceImpl implements AdminService {
 
         subscription.setName(request.getName());
         subscription.setDescription(request.getDescription());
+        subscription.setPrice(request.getPrice());
+        subscription.setDurationDays(request.getDurationDays());
 
         if (request.getFeatureData() != null) {
             subscription.setFeatures(buildFeatureJson(request.getFeatureData()));
@@ -270,11 +270,15 @@ public class AdminServiceImpl implements AdminService {
     @Override
     public ResponseEntity<ResponseObject> viewServicePackageFeeList() {
 
-        if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
-        }
+        Account currentAccount = AuthRequestUtil.extractAuthenticatedAccount();
 
-        List<Subscription> subscriptions = subscriptionRepo.findAll();
+        List<Subscription> subscriptions;
+
+        if (currentAccount != null && Role.ADMIN == currentAccount.getRole()) {
+            subscriptions = subscriptionRepo.findAll();
+        } else {
+            subscriptions = subscriptionRepo.findAllByPackageStatus(Status.PACKAGE_ACTIVE);
+        }
 
         if (subscriptions.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.OK, "No service packages found", Collections.emptyList());
@@ -298,10 +302,70 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> updateStatusServicePackageFee(UpdateStatusServicePackageFeeRequest request) {
+    public ResponseEntity<ResponseObject> publishServicePackageFee(Integer packageId) {
 
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
 
-        return null;
+        Subscription subscription = subscriptionRepo.findById(packageId).orElse(null);
+
+        if (subscription == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Subscription is not found", null);
+        }
+
+        if (!subscription.getPackageStatus().equals(Status.PACKAGE_DRAFT)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Only DRAFT packages can be published. Current status: " + subscription.getPackageStatus(), null);
+        }
+
+        if (subscription.getPrice() <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot be published: The price must be greater than 0", null);
+        }
+
+        if (subscription.getDurationDays() <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot publish: Package duration must be greater than 0 days.", null);
+        }
+
+        if (subscription.getFeatures() == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Unable to publish: The plan must have a list of features", null);
+        }
+
+        subscription.setPackageStatus(Status.PACKAGE_ACTIVE);
+        subscriptionRepo.save(subscription);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Subscription published successfully", null);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> deActiveServicePackageFee(Integer packageId) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Subscription subscription = subscriptionRepo.findById(packageId).orElse(null);
+        if (subscription == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Package not found", null);
+        }
+
+        if (subscription.getPackageStatus() == Status.PACKAGE_DEACTIVATED) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Package is already deactivated", null);
+        }
+
+        boolean hasActiveSchools = schoolSubscriptionRepo.existsBySubscriptionAndEndDateAfter(
+                subscription,
+                LocalDate.now()
+        );
+
+        if (hasActiveSchools) {
+            subscription.setPackageStatus(Status.PACKAGE_INACTIVE_PENDING);
+        } else {
+            subscription.setPackageStatus(Status.PACKAGE_DEACTIVATED);
+        }
+
+        subscriptionRepo.save(subscription);
+
+        return ResponseBuilder.build(HttpStatus.OK, hasActiveSchools ? "Package is in use. It has been set to PENDING DEACTIVE and hidden from new subscribers." : "Package deactivated successfully.", null);
     }
 
     @Override
@@ -378,7 +442,7 @@ public class AdminServiceImpl implements AdminService {
         }
 
         if (subjectRepo.existsByName((normalize(request.getName())))) {
-           return  ResponseBuilder.build(HttpStatus.CONFLICT, "Subject already exists in the system", null);
+            return ResponseBuilder.build(HttpStatus.CONFLICT, "Subject already exists in the system", null);
         }
 
         Subject subject = Subject.builder()
