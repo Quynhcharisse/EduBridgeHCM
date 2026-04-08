@@ -53,12 +53,12 @@ public class AdminController {
 
     @PutMapping("/status/service/package/fee")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> updateStatusServicePackageFee(@RequestBody UpdateStatusServicePackageFeeRequest request) {
-        return adminService.updateStatusServicePackageFee(request);
+    public ResponseEntity<ResponseObject> deActiveServicePackageFee(@RequestBody UpdateStatusServicePackageFeeRequest request) {
+        return adminService.deActiveServicePackageFee(request);
     }
 
     @GetMapping("/service/package/fee/list")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL')")
     public ResponseEntity<ResponseObject> viewServicePackageFeeList() {
         return adminService.viewServicePackageFeeList();
     }
