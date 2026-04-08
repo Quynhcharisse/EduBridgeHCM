@@ -19,6 +19,15 @@ public class SubscriptionValidation {
             return "Package name is too long (max 100 characters).";
         }
 
+        if (request.getPrice() == null || request.getPrice() < 0) {
+            return "Price is required and cannot be negative.";
+        }
+
+        // Validate Duration
+        if (request.getDurationDays() == null || request.getDurationDays() <= 0) {
+            return "Duration days is required and must be greater than 0.";
+        }
+
         // 2. Validate Features (Cực kỳ quan trọng vì đây là cục JSON)
         if (request.getFeatureData() == null) {
             return "Feature data is required.";

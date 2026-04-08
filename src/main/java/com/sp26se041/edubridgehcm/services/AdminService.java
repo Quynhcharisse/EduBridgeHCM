@@ -15,7 +15,7 @@ public interface AdminService {
 
     ResponseEntity<ResponseObject> upsertServicePackageFee(UpsertServicePackageFeeRequest request);
 
-//    ResponseEntity<ResponseObject> updateServicePackageFee(UpdateServicePackageFeeRequest request);
+    ResponseEntity<ResponseObject> publishServicePackageFee(Integer packageId);
 
     ResponseEntity<ResponseObject> viewServicePackageFeeList();
 
