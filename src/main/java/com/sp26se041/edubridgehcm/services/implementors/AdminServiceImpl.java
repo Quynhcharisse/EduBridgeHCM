@@ -23,7 +23,6 @@ import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
 import com.sp26se041.edubridgehcm.repositories.SubscriptionRepo;
 import com.sp26se041.edubridgehcm.requests.AddSubjectRequest;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AdminService;
@@ -329,17 +328,17 @@ public class AdminServiceImpl implements AdminService {
         subscription.setPackageStatus(Status.PACKAGE_ACTIVE);
         subscriptionRepo.save(subscription);
 
-        return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Subscription published successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Subscription published successfully", null);
     }
 
     @Override
-    public ResponseEntity<ResponseObject> deActiveServicePackageFee(UpdateStatusServicePackageFeeRequest request) {
+    public ResponseEntity<ResponseObject> deActiveServicePackageFee(Integer packageId) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
         }
 
-        Subscription subscription = subscriptionRepo.findById(request.getPackageId()).orElse(null);
+        Subscription subscription = subscriptionRepo.findById(packageId).orElse(null);
         if (subscription == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Package not found", null);
         }

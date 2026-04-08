@@ -2,7 +2,6 @@ package com.sp26se041.edubridgehcm.controllers;
 
 import com.sp26se041.edubridgehcm.requests.AddSubjectRequest;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AdminService;
@@ -51,10 +50,10 @@ public class AdminController {
         return adminService.publishServicePackageFee(packageId);
     }
 
-    @PutMapping("/service/package/fee/deactive")
+    @PutMapping("/{packageId}/service/package/fee/deactive")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> deActiveServicePackageFee(@RequestBody UpdateStatusServicePackageFeeRequest request) {
-        return adminService.deActiveServicePackageFee(request);
+    public ResponseEntity<ResponseObject> deActiveServicePackageFee(@PathVariable Integer packageId) {
+        return adminService.deActiveServicePackageFee(packageId);
     }
 
     @GetMapping("/service/package/fee/list")
