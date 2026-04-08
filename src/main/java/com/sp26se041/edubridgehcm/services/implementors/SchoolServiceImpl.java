@@ -34,6 +34,7 @@ import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
 import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
+import com.sp26se041.edubridgehcm.requests.CreateSubscriptionRequest;
 import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
 import com.sp26se041.edubridgehcm.requests.ProgramRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
@@ -1387,6 +1388,16 @@ public class SchoolServiceImpl implements SchoolService {
 
         String fileName = year > 0 ? "Chien_Dich_Tuyen_Sinh_" + year + ".xlsx" : "Danh_Sach_Chien_Dich_Tuyen_Sinh.xlsx";
         return buildFileResponse(path, fileName);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewSubscriptionList() {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> createSubscription(CreateSubscriptionRequest request) {
+        return null;
     }
 
     private ResponseEntity<Resource> buildFileResponse(Path path, String fileName) throws IOException {
