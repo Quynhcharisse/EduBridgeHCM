@@ -20,6 +20,10 @@ public class UpsertServicePackageFeeRequest {
 
     String description;
 
+    Double price;
+
+    Integer durationDays;
+
     FeatureData featureData;
 
     @Data

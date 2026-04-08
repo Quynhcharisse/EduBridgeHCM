@@ -26,11 +26,9 @@ import com.sp26se041.edubridgehcm.requests.UpdateStatusServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AdminService;
-
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
-
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.validations.admin.SubscriptionValidation;
 import com.sp26se041.edubridgehcm.validations.admin.VerifyRegistrationValidation;
@@ -98,7 +96,6 @@ public class AdminServiceImpl implements AdminService {
     }
 
 
-
     private ResponseEntity<ResponseObject> handleVerify(SchoolRegistrationRequest request) {
 
         Map<String, Object> fields = new LinkedHashMap<>();
@@ -121,7 +118,7 @@ public class AdminServiceImpl implements AdminService {
             supabaseStorageService.generatePdfFileFromTemplateDocx(fields, "TEMPLATE/school_info_template.docx", schoolName, fileName);
 
             String objectPath = supabaseStorageService.extractObjectPath(request.getBusinessLicenseUrl());
-            supabaseStorageService.moveFile(objectPath, schoolName + "/business_license_"+schoolName+".pdf");
+            supabaseStorageService.moveFile(objectPath, schoolName + "/business_license_" + schoolName + ".pdf");
 
         } catch (Exception e) {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage(), null);
@@ -240,6 +237,8 @@ public class AdminServiceImpl implements AdminService {
 
         subscription.setName(request.getName());
         subscription.setDescription(request.getDescription());
+        subscription.setPrice(request.getPrice());
+        subscription.setDurationDays(request.getDurationDays());
 
         if (request.getFeatureData() != null) {
             subscription.setFeatures(buildFeatureJson(request.getFeatureData()));
@@ -290,6 +289,29 @@ public class AdminServiceImpl implements AdminService {
         data.put("status", subscription.getPackageStatus());
         data.put("features", subscription.getFeatures());
         return data;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> publishServicePackageFee(Integer packageId) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Subscription subscription = subscriptionRepo.findById(packageId).orElse(null);
+
+        if (subscription == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Subscription is not found", null);
+        }
+
+        if (!subscription.getPackageStatus().equals(Status.PACKAGE_DRAFT)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Only DRAFT packages can be published. Current status: " + subscription.getPackageStatus(), null);
+        }
+
+        subscription.setPackageStatus(Status.PACKAGE_ACTIVE);
+        subscriptionRepo.save(subscription);
+
+        return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Subscription published successfully", null);
     }
 
     @Override
@@ -373,7 +395,7 @@ public class AdminServiceImpl implements AdminService {
         }
 
         if (subjectRepo.existsByName((normalize(request.getName())))) {
-           return  ResponseBuilder.build(HttpStatus.CONFLICT, "Subject already exists in the system", null);
+            return ResponseBuilder.build(HttpStatus.CONFLICT, "Subject already exists in the system", null);
         }
 
         Subject subject = Subject.builder()
