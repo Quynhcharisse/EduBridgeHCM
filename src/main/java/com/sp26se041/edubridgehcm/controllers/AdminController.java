@@ -45,13 +45,13 @@ public class AdminController {
         return adminService.upsertServicePackageFee(request);
     }
 
-    @PutMapping("/{packageId}/service/package/fee")
+    @PutMapping("/{packageId}/service/package/fee/publish")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ResponseObject> publishServicePackageFee(@PathVariable Integer packageId) {
         return adminService.publishServicePackageFee(packageId);
     }
 
-    @PutMapping("/status/service/package/fee")
+    @PutMapping("/service/package/fee/deactive")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ResponseObject> deActiveServicePackageFee(@RequestBody UpdateStatusServicePackageFeeRequest request) {
         return adminService.deActiveServicePackageFee(request);
