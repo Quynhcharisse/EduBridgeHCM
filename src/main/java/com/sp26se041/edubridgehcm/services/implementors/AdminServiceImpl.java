@@ -113,13 +113,18 @@ public class AdminServiceImpl implements AdminService {
 
         String schoolName = toSafeObjectKey(request.getSchoolName());
 
+        String folderName = "SCHOOL_INFO/" + schoolName;
+
         String fileName = schoolName + "_info.pdf";
 
         try {
-            supabaseStorageService.generatePdfFileFromTemplateDocx(fields, "TEMPLATE/school_info_template.docx", schoolName, fileName);
+
+            supabaseStorageService.generatePdfFileFromTemplateDocx(fields, "TEMPLATE/school_info_template.docx", folderName, fileName);
 
             String objectPath = supabaseStorageService.extractObjectPath(request.getBusinessLicenseUrl());
-            supabaseStorageService.moveFile(objectPath, schoolName + "/business_license_" + schoolName + ".pdf");
+
+            supabaseStorageService.moveFile(objectPath, folderName + "/business_license_"+schoolName+".pdf");
+
 
         } catch (Exception e) {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage(), null);

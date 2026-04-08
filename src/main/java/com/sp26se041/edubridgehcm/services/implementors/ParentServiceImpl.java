@@ -194,6 +194,7 @@ public class ParentServiceImpl implements ParentService {
         Map<String, Object> response = new HashMap<>();
 
         response.put("conversationId", conversation.getId());
+        response.put("campusId", conversation.getCampusId());
 
         response.put("childName", childProfile.getStudentName());
         response.put("gender", childProfile.getGender());
@@ -270,6 +271,7 @@ public class ParentServiceImpl implements ParentService {
                     }
 
                     map.put("conversationId", conversation.getId());
+                    map.put("campusId", campus.get().getId());
 
                     map.put("lastMessage", lastMessage != null ? lastMessage.getMessage() : null);
                     map.put("updatedAt", conversation.getUpdatedDate());
