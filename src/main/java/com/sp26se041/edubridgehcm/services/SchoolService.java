@@ -8,6 +8,7 @@ import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
 import com.sp26se041.edubridgehcm.requests.ProgramRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 
@@ -61,7 +62,9 @@ public interface SchoolService {
 
     ResponseEntity<ResponseObject> viewSubscriptionList();
 
-    ResponseEntity<ResponseObject> createSubscription(CreateSubscriptionRequest request);
+    ResponseEntity<ResponseObject> createSubscription(CreateSubscriptionRequest request, HttpServletRequest httpRequest);
+
+    ResponseEntity<ResponseObject> handleVNPayCallback(HttpServletRequest httpRequest);
 
     ResponseEntity<ResponseObject> searchNearby(Double lat, Double lng, Double radius);
 }

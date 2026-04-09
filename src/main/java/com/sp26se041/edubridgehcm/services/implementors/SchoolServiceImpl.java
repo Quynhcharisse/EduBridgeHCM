@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.sp26se041.edubridgehcm.configurations.VNPayConfig;
 import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.CurriculumType;
 import com.sp26se041.edubridgehcm.enums.FeeUnit;
@@ -17,8 +18,11 @@ import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Curriculum;
 import com.sp26se041.edubridgehcm.models.OpenDayEvent;
 import com.sp26se041.edubridgehcm.models.Parent;
+import com.sp26se041.edubridgehcm.models.PaymentTransaction;
 import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.models.School;
+import com.sp26se041.edubridgehcm.models.SchoolSubscription;
+import com.sp26se041.edubridgehcm.models.Subscription;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionReservationFormRepo;
@@ -29,8 +33,11 @@ import com.sp26se041.edubridgehcm.repositories.CurriculumRepo;
 import com.sp26se041.edubridgehcm.repositories.FavouriteSchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.OpenDayEventRepo;
 import com.sp26se041.edubridgehcm.repositories.ParentRepo;
+import com.sp26se041.edubridgehcm.repositories.PaymentTransactionRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolSubscriptionRepo;
+import com.sp26se041.edubridgehcm.repositories.SubscriptionRepo;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
 import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
@@ -52,6 +59,7 @@ import com.sp26se041.edubridgehcm.validations.school.AdmissionCampaignValidation
 import com.sp26se041.edubridgehcm.validations.school.CampusValidation;
 import com.sp26se041.edubridgehcm.validations.school.CurriculumValidation;
 import com.sp26se041.edubridgehcm.validations.school.ProgramValidation;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -68,13 +76,19 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -82,6 +96,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.stream.Collectors;
 
 @Service
@@ -111,6 +126,9 @@ public class SchoolServiceImpl implements SchoolService {
     private final ParentRepo parentRepo;
 
     private final CampusScheduleTemplateRepo campusScheduleTemplateRepo;
+    private final SubscriptionRepo subscriptionRepo;
+    private final SchoolSubscriptionRepo schoolSubscriptionRepo;
+    private final PaymentTransactionRepo paymentTransactionRepo;
 
     @Override
     @Transactional
@@ -1422,8 +1440,192 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> createSubscription(CreateSubscriptionRequest request) {
-        return null;
+    public ResponseEntity<ResponseObject> createSubscription(CreateSubscriptionRequest request, HttpServletRequest httpRequest) {
+
+        // step 1 : xác thực school - campus chính
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "School account not found", null);
+
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can add new campus", null);
+        }
+
+        School school = actorCampus.getSchool();
+
+        // step 2: lấy thông tin của gói cước
+        Subscription subscription = subscriptionRepo.findById(request.getPackageId())
+                .orElseThrow(() -> new RuntimeException("Service package not found"));
+
+        // step 3 : tạo SchoolSubscription (trạng thái chờ - isSelected = false)
+        // giúp định danh loại chuỗi này là License ==> đóng vai trò là Số báo danh cho gói đăng kí đó
+
+        String licenseKey = "LIC-" + VNPayConfig.getRandomNumber(8).toUpperCase();
+        SchoolSubscription schoolSubscription = SchoolSubscription.builder()
+                .school(school)
+                .startDate(LocalDate.now())
+                .endDate(LocalDate.now().plusDays(subscription.getDurationDays()))
+                .isSelected(false) // chưa kích hoạt cho đến khi thanh toán xong
+                .licenseKey(licenseKey)
+                .build();
+
+        schoolSubscription = schoolSubscriptionRepo.save(schoolSubscription);
+
+        // step 4 : cấu hinh vnpay
+        String vnp_TxnRef = VNPayConfig.getRandomNumber(8); // mã đơn hàng
+        long amount = (long) (subscription.getPrice() * 100); // VNPay yêu cầu số tiền
+
+        Map<String, String> vnp_Params = new HashMap<>();
+        vnp_Params.put("vnp_Version", "2.1.0");
+        vnp_Params.put("vnp_Command", "pay");
+        vnp_Params.put("vnp_TmnCode", VNPayConfig.vnp_TmnCode);
+        vnp_Params.put("vnp_Amount", String.valueOf(amount));
+        vnp_Params.put("vnp_CurrCode", "VND");
+        vnp_Params.put("vnp_TxnRef", vnp_TxnRef);
+        vnp_Params.put("vnp_OrderInfo", "Thanh toán gói cước: " + subscription.getName());
+        vnp_Params.put("vnp_OrderType", "other");
+        vnp_Params.put("vnp_Locale", "vn");
+        vnp_Params.put("vnp_ReturnUrl", VNPayConfig.vnp_ReturnUrl); // URL FE / BE nhận kết quả
+        vnp_Params.put("vnp_IpAddr", VNPayConfig.getIpAddress(httpRequest));
+
+        Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
+
+        vnp_Params.put("vnp_CreateDate", formatter.format(calendar.getTime()));
+        calendar.add(Calendar.MINUTE, 15); // Hết hạn thanh toán sau 15p
+        vnp_Params.put("vnp_ExpireDate", formatter.format(calendar.getTime()));
+
+        List<String> fieldNames = new ArrayList<>(vnp_Params.keySet());
+        Collections.sort(fieldNames);
+        StringBuilder hashData = new StringBuilder();
+
+        StringBuilder query = new StringBuilder();
+        for (String fieldName : fieldNames) {
+            String fieldValue = vnp_Params.get(fieldName);
+            if ((fieldValue != null) && (fieldValue.length() > 0)) {
+                hashData.append(fieldName).append('=').append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII));
+                query.append(URLEncoder.encode(fieldName, StandardCharsets.US_ASCII)).append('=').append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII));
+                if (!fieldName.equals(fieldNames.get(fieldNames.size() - 1))) {
+                    query.append('&');
+                    hashData.append('&');
+                }
+            }
+        }
+
+        String queryUrl = query.toString();
+        String vnp_SecureHash = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, hashData.toString());
+        String paymentUrl = VNPayConfig.vnp_PayUrl + "?" + queryUrl + "&vnp_SecureHash=" + vnp_SecureHash;
+
+        paymentTransactionRepo.save(
+                PaymentTransaction.builder()
+                        .school(school)
+                        .schoolSubscription(schoolSubscription)
+                        .vnpTxnRef(vnp_TxnRef)
+                        .vnpAmount(amount)
+                        .status(Status.PAYMENT_PENDING)
+                        .createdAt(LocalDateTime.now())
+                        .ipAddress(VNPayConfig.getIpAddress(httpRequest))
+                        .build()
+        );
+
+        return ResponseBuilder.build(HttpStatus.OK, "Payment URL generated", paymentUrl);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> handleVNPayCallback(HttpServletRequest httpRequest) {
+
+        Map<String, String> vnp_Params = new HashMap<>();
+
+        Enumeration<String> parameterNames = httpRequest.getParameterNames();
+
+        while (parameterNames.hasMoreElements()) {
+            String paramName = parameterNames.nextElement();
+            String paramValue = httpRequest.getParameter(paramName);
+            if (paramValue != null && !paramValue.isEmpty()) {
+                vnp_Params.put(paramName, paramValue);
+            }
+        }
+
+        // 2. Chuyển cho hàm xử lý logic nội bộ
+        return processPaymentCallback(vnp_Params);
+    }
+
+    private ResponseEntity<ResponseObject> processPaymentCallback(Map<String, String> vnp_Params) {
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "School account not found", null);
+
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can add new campus", null);
+        }
+
+        School school = actorCampus.getSchool();
+
+        // 1. Lấy và dọn dẹp chữ ký từ VNPay gửi về
+        String vnp_SecureHash = vnp_Params.get("vnp_SecureHash");
+        vnp_Params.remove("vnp_SecureHashType");
+        vnp_Params.remove("vnp_SecureHash");
+
+        // 2. Tái tạo lại chữ ký từ dữ liệu nhận được để kiểm tra tính toàn vẹn
+        List<String> fieldNames = new ArrayList<>(vnp_Params.keySet());
+        Collections.sort(fieldNames);
+        StringBuilder hashData = new StringBuilder();
+        for (String fieldName : fieldNames) {
+            String fieldValue = vnp_Params.get(fieldName);
+            if (fieldValue != null && fieldValue.length() > 0) {
+                hashData.append(fieldName).append('=').append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII));
+                if (!fieldName.equals(fieldNames.get(fieldNames.size() - 1))) {
+                    hashData.append('&');
+                }
+            }
+        }
+
+        // 3. Kiểm tra Checksum (Chống giả mạo)
+        String checkSum = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, hashData.toString());
+        if (!checkSum.equalsIgnoreCase(vnp_SecureHash)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid Signature", null);
+        }
+
+        // 4. Tìm giao dịch trong Database
+        String txnRef = vnp_Params.get("vnp_TxnRef");
+        PaymentTransaction transaction = paymentTransactionRepo.findByVnpTxnRef(txnRef)
+                .orElseThrow(() -> new RuntimeException("Transaction not found"));
+
+        // 5. Kiểm tra nếu giao dịch đã được xử lý trước đó (Idempotency)
+        if (transaction.getStatus() != Status.PAYMENT_PENDING) {
+            return ResponseBuilder.build(HttpStatus.OK, "Transaction already processed", transaction.getStatus());
+        }
+
+        // 6. Kiểm tra kết quả thanh toán từ mã vnp_ResponseCode
+        if ("00".equals(vnp_Params.get("vnp_ResponseCode"))) {
+            transaction.setStatus(Status.PAYMENT_SUCCESS);
+
+            // Kích hoạt gói cước
+            SchoolSubscription sub = transaction.getSchoolSubscription();
+
+            // Tắt tất cả các gói hiện tại của School này
+            // "Tại một thời điểm, một trường học chỉ được phép sử dụng duy nhất một gói cước hoạt động"
+            List<SchoolSubscription> activeSubs = schoolSubscriptionRepo.findBySchoolIdAndIsSelected(school.getId(), true);
+            activeSubs.forEach(s -> s.setIsSelected(false));
+            schoolSubscriptionRepo.saveAll(activeSubs);
+
+            // Bật gói mới vừa mua
+            sub.setIsSelected(true);
+            schoolSubscriptionRepo.save(sub);
+        } else {
+            transaction.setStatus(Status.PAYMENT_FAILED);
+        }
+
+        // 7. Lưu chi tiết thông tin từ VNPay để đối soát
+        transaction.setVnpTransactionNo(vnp_Params.get("vnp_TransactionNo"));
+        transaction.setVnpResponseCode(vnp_Params.get("vnp_ResponseCode"));
+        transaction.setVnpPayDate(vnp_Params.get("vnp_PayDate"));
+        transaction.setVnpBankCode(vnp_Params.get("vnp_BankCode"));
+        transaction.setVnpCardType(vnp_Params.get("vnp_CardType"));
+        paymentTransactionRepo.save(transaction);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Payment processed successfully", transaction.getStatus());
     }
 
     private ResponseEntity<Resource> buildFileResponse(Path path, String fileName) throws IOException {
