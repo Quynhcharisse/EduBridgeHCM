@@ -60,7 +60,7 @@ public interface SchoolService {
 
     ResponseEntity<Resource> exportAdmissionCampaign(int year) throws IOException;
 
-    ResponseEntity<ResponseObject> viewSubscriptionList();
+    ResponseEntity<ResponseObject> viewCurrentSubscription();
 
     ResponseEntity<ResponseObject> createSubscription(CreateSubscriptionRequest request, HttpServletRequest httpRequest);
 

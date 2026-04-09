@@ -57,6 +57,10 @@ public class CampusValidation {
             return "District is required";
         }
 
+        if (normalize(request.getWard()) == null) {
+            return "Ward is required";
+        }
+
         if (parseBoardingType(request.getBoardingType()) == null) {
             return "Boarding type is invalid. Accepted values: NONE, FULL_BOARDING, SEMI_BOARDING, BOTH";
         }
