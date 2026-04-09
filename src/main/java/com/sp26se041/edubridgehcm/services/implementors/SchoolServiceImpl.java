@@ -161,7 +161,7 @@ public class SchoolServiceImpl implements SchoolService {
                 .boardingType(boardingType)
                 .latitude(request.getLatitude())
                 .longitude(request.getLongitude())
-                .status(Status.VERIFIED)
+                .status(Status.ACTIVE)
                 .isPrimaryBranch(false)
                 .build());
 
