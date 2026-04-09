@@ -12,9 +12,9 @@ public enum Status {
     ACCOUNT_RESTRICTED("restricted"),
     ACCOUNT_INACTIVE("inactive"),
 
-    //With status school & campus
+    //With status campus
     VERIFIED("verified"),
-    REJECTED("rejected"),
+    PUBLISH("publish"),
 
     //With status for admissions
     OPEN_ADMISSION_CAMPAIGN("open"),

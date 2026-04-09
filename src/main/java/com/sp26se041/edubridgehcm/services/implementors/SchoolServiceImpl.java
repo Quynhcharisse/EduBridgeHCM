@@ -141,9 +141,29 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Boarding type is invalid. Accepted values: NONE, FULL_BOARDING, SEMI_BOARDING, BOTH", null);
         }
 
-        Account acc = accountRepo.save(Account.builder().email(normalize(request.getEmail())).role(Role.SCHOOL).status(Status.ACCOUNT_ACTIVE).registerDate(LocalDate.now()).firstLogin(false).isRestricted(false).build());
+        Account acc = accountRepo.save(Account.builder()
+                .email(normalize(request.getEmail()))
+                .role(Role.SCHOOL)
+                .status(Status.ACCOUNT_ACTIVE)
+                .registerDate(LocalDate.now())
+                .firstLogin(false)
+                .isRestricted(false)
+                .build());
 
-        Campus campus = campusRepo.save(Campus.builder().school(actorCampus.getSchool()).account(acc).name(normalize(request.getName())).address(normalize(request.getAddress())).phoneNumber(normalize(request.getPhone())).city(normalize(request.getCity())).district(normalize(request.getDistrict())).latitude(request.getLatitude()).longitude(request.getLongitude()).boardingType(boardingType).status(Status.VERIFIED).isPrimaryBranch(false).build());
+        Campus campus = campusRepo.save(Campus.builder()
+                .school(actorCampus.getSchool())
+                .account(acc)
+                .name(normalize(request.getName()))
+                .address(normalize(request.getAddress()))
+                .phoneNumber(normalize(request.getPhone()))
+                .city(normalize(request.getCity()))
+                .district(normalize(request.getDistrict()))
+                .latitude(request.getLatitude())
+                .longitude(request.getLongitude())
+                .boardingType(boardingType)
+                .status(Status.VERIFIED)
+                .isPrimaryBranch(false)
+                .build());
 
         Map<String, Object> data = new HashMap<>();
         data.put("campus", buildCampusData(campus));
@@ -447,13 +467,17 @@ public class SchoolServiceImpl implements SchoolService {
         int schoolId = actorCampus.getSchool().getId();
 
         if (year > 0) {
-            AdmissionCampaign campaign = admissionCampaignRepo.findFirstBySchoolIdAndYearOrderByIdDesc(schoolId, year).orElse(null);
+            List<AdmissionCampaign> campaigns = admissionCampaignRepo.findBySchoolIdAndYearOrderByStatusAsc(schoolId, year);
 
-            if (campaign == null) {
+            if (campaigns == null) {
                 return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campaign template not found", null);
             }
 
-            return ResponseBuilder.build(HttpStatus.OK, "View campaign template successfully", buildCampaignData(campaign));
+            List<Map<String, Object>> data = campaigns.stream()
+                    .map(this::buildCampaignData)
+                    .toList();
+
+            return ResponseBuilder.build(HttpStatus.OK, "View campaigns for year " + year + " successfully", data);
         }
 
         List<AdmissionCampaign> campaignList = admissionCampaignRepo.findBySchoolIdOrderByYearDesc(schoolId);
@@ -1041,7 +1065,7 @@ public class SchoolServiceImpl implements SchoolService {
         Map<String, Object> data = new HashMap<>();
         data.put("id", school.getId());
         data.put("name", school.getName());
-        data.put("isFavourite", favouriteSchoolIds.contains(school.getId())); // Trí thêm
+        data.put("isFavourite", favouriteSchoolIds.contains(school.getId()));
         data.put("description", school.getDescription());
         data.put("totalCampus", school.getCampusList() != null ? school.getCampusList().size() : 0);
         data.put("logoUrl", school.getLogoUrl());

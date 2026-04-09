@@ -72,7 +72,6 @@ public class AdminServiceImpl implements AdminService {
 
     private final SchoolSubscriptionRepo schoolSubscriptionRepo;
 
-
     @Override
     @Transactional
     public ResponseEntity<ResponseObject> verifyRegistration(int requestId) {
@@ -123,23 +122,43 @@ public class AdminServiceImpl implements AdminService {
 
             String objectPath = supabaseStorageService.extractObjectPath(request.getBusinessLicenseUrl());
 
-            supabaseStorageService.moveFile(objectPath, folderName + "/business_license_"+schoolName+".pdf");
+            supabaseStorageService.moveFile(objectPath, folderName + "/business_license_" + schoolName + ".pdf");
 
 
         } catch (Exception e) {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage(), null);
         }
 
-
         // tạo account
-        Account account = accountRepo.save(Account.builder().role(Role.SCHOOL).email(request.getEmail().trim()).registerDate(LocalDate.now()).status(Status.ACCOUNT_ACTIVE).firstLogin(true).build());
+        Account account = accountRepo.save(Account.builder().role(Role.SCHOOL)
+                .email(request.getEmail().trim())
+                .registerDate(LocalDate.now())
+                .status(Status.ACCOUNT_ACTIVE)
+                .firstLogin(true)
+                .build());
 
         // tạo school (lấy thẳng từ bảng tạm)
-        School school = schoolRepo.save(School.builder().name(request.getSchoolName().trim()).description(request.getDescription().trim()).taxCode(request.getTaxCode().trim()).websiteUrl(request.getWebsiteUrl()).logoUrl(request.getLogoUrl()).representativeName(request.getRepresentativeName()).hotline(request.getHotline()).foundingDate(request.getFoundingDate()).businessLicenseUrl(request.getBusinessLicenseUrl()).build());
+        School school = schoolRepo.save(School.builder()
+                .name(request.getSchoolName().trim())
+                .description(request.getDescription().trim())
+                .taxCode(request.getTaxCode().trim())
+                .websiteUrl(request.getWebsiteUrl())
+                .logoUrl(request.getLogoUrl()).representativeName(request.getRepresentativeName())
+                .hotline(request.getHotline()).foundingDate(request.getFoundingDate())
+                .businessLicenseUrl(request.getBusinessLicenseUrl())
+                .build());
 
 
         // tạo campus đầu tiên (primary branch)
-        campusRepo.save(Campus.builder().account(account).name(request.getCampusName().trim()).phoneNumber(request.getCampusPhone()).address(request.getCampusAddress().trim()).status(Status.ACCOUNT_ACTIVE).isPrimaryBranch(true).school(school).build());
+        campusRepo.save(
+                Campus.builder()
+                        .account(account)
+                        .name(request.getCampusName().trim())
+                        .phoneNumber(request.getCampusPhone())
+                        .address(request.getCampusAddress().trim())
+                        .status(Status.ACCOUNT_ACTIVE)
+                        .isPrimaryBranch(true)
+                        .school(school).build());
 
         // đánh dấu bảng tạm đã duyệt
         request.setStatus(Status.VERIFIED);
