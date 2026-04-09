@@ -172,7 +172,6 @@ public class AdminServiceImpl implements AdminService {
             return "";
         }
 
-
         // 1. normalize Unicode (tách dấu ra)
         String normalized = Normalizer.normalize(input.trim(), Normalizer.Form.NFD);
 

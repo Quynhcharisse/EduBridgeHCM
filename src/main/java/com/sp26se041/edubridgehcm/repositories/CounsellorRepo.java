@@ -22,4 +22,6 @@ public interface CounsellorRepo extends JpaRepository<Counsellor, Integer> {
     long countByCampusId(Integer campusId); // đếm số lượng tư vấn viên của riêng 1 chi nhánh
 
     long countByCampusSchoolId(Integer schoolId);//đếm tổng của cả hệ thống trường (School)
+
+    Counsellor findByAccountId(Integer id);
 }
