@@ -6,11 +6,10 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum BoardingType {
-    // dịch vụ lưu trú của campus (không có, bán trú, nội trú, cả hai)
-    NONE("none"),
-    FULL_BOARDING("full boarding"),
-    SEMI_BOARDING("semi boarding"),
-    BOTH("both");
+    NONE("Không có"),
+    FULL_BOARDING("Nội trú"),
+    SEMI_BOARDING("Bán trú"),
+    BOTH("Cả hai (Nội trú & Bán trú)");
 
     private final String value;
 }
