@@ -158,8 +158,6 @@ public class SchoolServiceImpl implements SchoolService {
                 .phoneNumber(normalize(request.getPhone()))
                 .city(normalize(request.getCity()))
                 .district(normalize(request.getDistrict()))
-                .latitude(request.getLatitude())
-                .longitude(request.getLongitude())
                 .boardingType(boardingType)
                 .status(Status.VERIFIED)
                 .isPrimaryBranch(false)

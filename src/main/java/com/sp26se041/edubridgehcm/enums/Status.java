@@ -13,6 +13,7 @@ public enum Status {
     ACCOUNT_INACTIVE("inactive"),
 
     //With status campus
+    ACTIVE("active"),
     VERIFIED("verified"),
     PUBLISH("publish"),
 

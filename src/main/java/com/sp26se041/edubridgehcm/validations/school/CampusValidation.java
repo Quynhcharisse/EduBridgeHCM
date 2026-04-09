@@ -57,18 +57,6 @@ public class CampusValidation {
             return "District is required";
         }
 
-        if (request.getLatitude() == null || request.getLongitude() == null) {
-            return "Latitude and longitude are required";
-        }
-
-        if (request.getLatitude() < -90 || request.getLatitude() > 90) {
-            return "Latitude must be in range [-90, 90]";
-        }
-
-        if (request.getLongitude() < -180 || request.getLongitude() > 180) {
-            return "Longitude must be in range [-180, 180]";
-        }
-
         if (parseBoardingType(request.getBoardingType()) == null) {
             return "Boarding type is invalid. Accepted values: NONE, FULL_BOARDING, SEMI_BOARDING, BOTH";
         }

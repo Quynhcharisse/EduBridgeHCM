@@ -69,7 +69,11 @@ public class UpdateProfileRequest {
 
         String phoneNumber;
 
-        String policyDetail;
+        String city;
+
+        String district;
+
+        String boardingType;
 
         String address;
     }

@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.validations.account;
 
+import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.Gender;
 import com.sp26se041.edubridgehcm.enums.Relationship;
 import com.sp26se041.edubridgehcm.enums.Role;
@@ -9,6 +10,7 @@ import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 
 import java.time.LocalDate;
 import java.util.Arrays;
+import java.util.stream.Collectors;
 
 public class AccountValidation {
 
@@ -145,6 +147,26 @@ public class AccountValidation {
                 return "Campus phone number must contain exactly 10 digits and start with 03, 07, 08, or 09";
             }
 
+            if (normalize(request.getCampusData().getCity()) == null) {
+                return "Require campus address";
+            }
+
+            if (normalize(request.getCampusData().getDistrict()) == null) {
+                return "Require campus address";
+            }
+
+
+            if (normalize(request.getCampusData().getBoardingType()) == null) {
+                return "Require campus address";
+            }
+
+            if (!isValidValue(request.getCampusData().getBoardingType())) {
+
+                return "Invalid boarding type. Accepted values: [" + Arrays.stream(BoardingType.values())
+                        .map(BoardingType::getValue)
+                        .collect(Collectors.joining(", ")) + "]";
+            }
+
             if (normalize(request.getCampusData().getAddress()) == null) {
                 return "Require campus address";
             }
@@ -257,4 +279,14 @@ public class AccountValidation {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
+    // Hàm check xem một chuỗi String có khớp với bất kỳ "value" nào không
+    public static boolean isValidValue(String input) {
+        if (input == null) return false;
+        for (BoardingType type : BoardingType.values()) {
+            if (type.getValue().equalsIgnoreCase(input.trim())) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
