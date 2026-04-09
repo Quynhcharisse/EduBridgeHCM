@@ -56,4 +56,5 @@ public class AuthController {
         return authService.uploadBusinessLicensePdf(file);
     }
 
+
 }

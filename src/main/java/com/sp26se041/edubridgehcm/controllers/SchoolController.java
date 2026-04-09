@@ -137,6 +137,11 @@ public class SchoolController {
         return schoolService.viewSchoolDetail(schoolId);
     }
 
+    @GetMapping("/campus/search/nearby")
+    public ResponseEntity<ResponseObject> searchNearby(@RequestParam Double lat, @RequestParam Double lng, @RequestParam(defaultValue = "10") Double radius) {
+        return schoolService.searchNearby(lat, lng, radius);
+    }
+
     // Open day event
     @PostMapping("/event")
     @PreAuthorize("hasRole('SCHOOL')")
