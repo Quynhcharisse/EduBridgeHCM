@@ -188,9 +188,9 @@ public class SchoolController {
         return schoolService.handleVNPayCallback(httpRequest);
     }
 
-    @GetMapping("/subscription/list")
+    @GetMapping("/current/subscription/")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewSubscriptionList() {
-        return schoolService.viewSubscriptionList();
+    public ResponseEntity<ResponseObject> viewCurrentSubscription() {
+        return schoolService.viewCurrentSubscription();
     }
 }

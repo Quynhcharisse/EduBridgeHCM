@@ -64,6 +64,9 @@ public class Campus {
     @Column(name = "district")
     String district;
 
+    @Column(name = "ward")
+    String ward;
+
     @Column(name = "latitude")
     Double latitude;
 

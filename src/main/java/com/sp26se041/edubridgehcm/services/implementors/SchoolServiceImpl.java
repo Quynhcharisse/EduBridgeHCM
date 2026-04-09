@@ -176,6 +176,7 @@ public class SchoolServiceImpl implements SchoolService {
                 .phoneNumber(normalize(request.getPhone()))
                 .city(normalize(request.getCity()))
                 .district(normalize(request.getDistrict()))
+                .ward(normalize(request.getWard()))
                 .boardingType(boardingType)
                 .latitude(request.getLatitude())
                 .longitude(request.getLongitude())
@@ -224,6 +225,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("address", campus.getAddress());
         data.put("city", campus.getCity());
         data.put("district", campus.getDistrict());
+        data.put("ward", campus.getWard());
         data.put("latitude", campus.getLatitude());
         data.put("longitude", campus.getLongitude());
         data.put("boardingType", campus.getBoardingType() != null ? campus.getBoardingType().name() : null);
@@ -1103,6 +1105,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("address", campus.getAddress());
         data.put("city", campus.getCity());
         data.put("district", campus.getDistrict());
+        data.put("ward", campus.getWard());
         data.put("latitude", campus.getLatitude());
         data.put("longitude", campus.getLongitude());
         data.put("boardingType", campus.getBoardingType());
@@ -1435,7 +1438,7 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> viewSubscriptionList() {
+    public ResponseEntity<ResponseObject> viewCurrentSubscription() {
         return null;
     }
 

@@ -519,6 +519,7 @@ public class AccountServiceImpl implements AccountService {
         campusData.put("address", campus.getAddress());
         campusData.put("city", campus.getCity());
         campusData.put("district", campus.getDistrict());
+        campusData.put("ward", campus.getWard());
         campusData.put("latitude", campus.getLatitude());
         campusData.put("longitude", campus.getLongitude());
         campusData.put("boardingType", campus.getBoardingType());
