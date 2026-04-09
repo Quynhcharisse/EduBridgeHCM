@@ -25,4 +25,8 @@ public class CreateCampusRequest {
     String district;
 
     String boardingType;
+
+    Double latitude;
+
+    Double longitude;
 }
