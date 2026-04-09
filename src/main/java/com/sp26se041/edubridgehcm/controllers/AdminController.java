@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -89,7 +90,18 @@ public class AdminController {
     }
 
     @PostMapping(value = "/{categoryTemplate}/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> uploadFile(@PathVariable String categoryTemplate, @RequestParam("file") MultipartFile file) {
+    public ResponseEntity<ResponseObject> uploadFile(@PathVariable String categoryTemplate, @RequestParam("file") MultipartFile file) {
         return adminService.uploadTemplateDocxTemplate(file, categoryTemplate);
     }
+
+    @GetMapping("/{categoryTemplate}")
+    public ResponseEntity<ResponseObject> getFiles(@PathVariable String categoryTemplate) {
+        return adminService.getTemplateDocs(categoryTemplate);
+    }
+
+    @DeleteMapping("/{templateId}")
+    public ResponseEntity<ResponseObject> deleteTemplate(@PathVariable long templateId) {
+        return adminService.removeTemplateDocx(templateId);
+    }
+
 }

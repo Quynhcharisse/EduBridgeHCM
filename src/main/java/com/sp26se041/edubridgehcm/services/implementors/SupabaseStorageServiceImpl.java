@@ -19,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -41,7 +42,7 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
 
 
     @Override
-    public String uploadDocument(MultipartFile file, String folderName, String fileName,
+    public Map<String, String> uploadDocument(MultipartFile file, String folderName, String fileName,
                                  List<String> allowedExt) throws Exception {
 
         if (file.isEmpty()) {
@@ -96,7 +97,10 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
             throw new RuntimeException("Upload failed: " + response.getBody());
         }
 
-        return supabaseUrl + "/storage/v1/object/public/" + bucketName + "/" + folderName + "/" + fileName;
+        Map<String, String> data = new HashMap<>();
+        data.put("fileName" ,fileName);
+        data.put("fileUrl", supabaseUrl + "/storage/v1/object/public/" + bucketName + "/" + folderName + "/" + fileName);
+        return data;
     }
 
     @Override
@@ -177,6 +181,28 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
     public String extractObjectPath(String fileUrl) {
         String prefix = "/storage/v1/object/public/" + bucketName + "/";
         return fileUrl.substring(fileUrl.indexOf(prefix) + prefix.length());
+    }
+
+    @Override
+    public void removeFile(String folderName, String fileName) {
+        String url = supabaseUrl + "/storage/v1/object/" + bucketName + "/" + folderName + "/" + fileName;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(serviceRoleKey);
+        headers.set("apikey", serviceRoleKey);
+
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<String> response = restTemplate.exchange(
+                url,
+                HttpMethod.DELETE,
+                entity,
+                String.class
+        );
+
+        if (!response.getStatusCode().is2xxSuccessful()) {
+            throw new RuntimeException("Delete file failed");
+        }
     }
 
     public byte[] downloadTemplate(String objectPath) {

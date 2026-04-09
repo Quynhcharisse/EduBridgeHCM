@@ -565,8 +565,9 @@ public class AdminServiceImpl implements AdminService {
 
         try {
 
-            String fileUrl = supabaseStorageService.uploadDocument(file, docx.getFolderName(), docx.getFileName(), List.of("doc", "docx"));
-            docx.setFileUrl(fileUrl);
+            Map<String, String> result = supabaseStorageService.uploadDocument(file, docx.getFolderName(), docx.getFileName(), List.of("doc", "docx"));
+            docx.setFileUrl(result.get("fileUrl"));
+            docx.setFileName(result.get("fileName"));
             templateDocxRepo.save(docx);
 
         } catch (IllegalArgumentException ex) {
@@ -594,6 +595,12 @@ public class AdminServiceImpl implements AdminService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Template docx not found", null);
         }
 
+        try {
+            supabaseStorageService.removeFile(templateDocx.get().getFolderName(), templateDocx.get().getFileName());
+        } catch (Exception ex) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
+        }
+
         templateDocxRepo.deleteAllByIdInBatch(List.of(templateDocxId));
         templateDocxRepo.flush();
 
@@ -601,6 +608,33 @@ public class AdminServiceImpl implements AdminService {
 
     }
 
+    @Override
+    public ResponseEntity<ResponseObject> getTemplateDocs(String categoryTemplate) {
+
+        CategoryTemplate categoryTempl;
+
+        try {
+            categoryTempl = parseCategoryTemplate(categoryTemplate);
+        }catch (Exception ex){
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
+        }
+
+        List<TemplateDocx> templateDocs = templateDocxRepo.findByTypeOrderByVersionDesc(categoryTempl);
+
+        List<Map<String, Object>> result = templateDocs.stream()
+                .map(this::buildTemplateDocx)
+                .toList();
+
+        return ResponseBuilder.build(HttpStatus.OK, "Get all template docs", result);
+    }
+
+    private Map<String, Object> buildTemplateDocx(TemplateDocx templateDocx) {
+        Map<String, Object> result = new HashMap<>();
+        result.put("id", templateDocx.getId());
+        result.put("fileName", templateDocx.getFileName());
+        result.put("fileUrl", templateDocx.getFileUrl());
+        return result;
+    }
 
     private String validateAddSubjectInfo(AddSubjectRequest request) {
 

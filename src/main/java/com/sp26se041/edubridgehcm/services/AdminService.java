@@ -32,4 +32,6 @@ public interface AdminService {
     ResponseEntity<ResponseObject> uploadTemplateDocxTemplate(MultipartFile file, String categoryTemplate);
 
     ResponseEntity<ResponseObject> removeTemplateDocx(long templateDocxId);
+
+    ResponseEntity<ResponseObject> getTemplateDocs(String categoryTemplate);
 }
