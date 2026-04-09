@@ -31,6 +31,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -58,21 +59,19 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public ResponseEntity<ResponseObject> uploadBusinessLicensePdf(MultipartFile file) {
 
-        String fileName = "business_license_" + UUID.randomUUID().toString() + ".pdf";
+        String fileName = "business_license_" + UUID.randomUUID();
 
-        String fileUrl;
+        Map<String, String> response;
 
         try {
-            fileUrl =  supabaseStorageService.uploadPdfFile(file,"BUSINESS_LICENSE", fileName);
+            response  =  supabaseStorageService.uploadDocument(file,"BUSINESS_LICENSE", fileName, List.of("pdf", "doc", "docx"));
         } catch (IllegalArgumentException ex){
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
         } catch (Exception ex) {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
         }
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("fileName", fileName);
-        response.put("fileUrl", fileUrl);
+
 
         return ResponseBuilder.build(HttpStatus.OK, "Upload successful", response);
 
@@ -115,6 +114,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public ResponseEntity<ResponseObject> register(RegisterRequest request, HttpServletResponse response) {
+
         if (accountRepo.findByEmail(request.getEmail()).isPresent()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Email already exists", null);
         }

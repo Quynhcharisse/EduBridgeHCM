@@ -19,6 +19,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -40,28 +42,47 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
 
 
     @Override
-    public String uploadPdfFile(MultipartFile file, String folderName, String fileName) throws IOException {
+    public Map<String, String> uploadDocument(MultipartFile file, String folderName, String fileName,
+                                 List<String> allowedExt) throws Exception {
 
         if (file.isEmpty()) {
             throw new IllegalArgumentException("File is empty");
         }
 
         String originalFilename = file.getOriginalFilename();
-        String contentType = file.getContentType();
 
-        boolean isPdfContentType = "application/pdf".equalsIgnoreCase(contentType);
-        boolean isPdfExtension = originalFilename != null && originalFilename.toLowerCase().endsWith(".pdf");
-
-        if (!isPdfContentType || !isPdfExtension) {
-            throw new IllegalArgumentException("Only PDF files are allowed");
+        if (originalFilename == null || !originalFilename.contains(".")) {
+            throw new IllegalArgumentException("Invalid file name");
         }
+
+        // ✅ lấy extension
+        String ext = originalFilename.substring(originalFilename.lastIndexOf(".") + 1).toLowerCase();
+
+
+        if (!allowedExt.contains(ext)) {
+            throw new IllegalArgumentException(
+                    "Only allowed file types: " + String.join(", ", allowedExt)
+            );
+        }
+
+        fileName = fileName.replaceAll("\\s+", "_");
+
+        fileName = fileName + "." + ext;
 
         String url = supabaseUrl + "/storage/v1/object/" + bucketName + "/" + folderName + "/" + fileName;
 
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(serviceRoleKey);
         headers.set("apikey", serviceRoleKey);
-        headers.setContentType(MediaType.APPLICATION_PDF);
+
+        MediaType mediaType = switch (ext) {
+            case "pdf" -> MediaType.APPLICATION_PDF;
+            case "doc" -> MediaType.parseMediaType("application/msword");
+            case "docx" -> MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+            default -> MediaType.APPLICATION_OCTET_STREAM;
+        };
+
+        headers.setContentType(mediaType);
 
         HttpEntity<byte[]> entity = new HttpEntity<>(file.getBytes(), headers);
 
@@ -76,8 +97,10 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
             throw new RuntimeException("Upload failed: " + response.getBody());
         }
 
-        return supabaseUrl + "/storage/v1/object/public/" + bucketName + "/" + folderName + "/" + fileName;
-
+        Map<String, String> data = new HashMap<>();
+        data.put("fileName" ,fileName);
+        data.put("fileUrl", supabaseUrl + "/storage/v1/object/public/" + bucketName + "/" + folderName + "/" + fileName);
+        return data;
     }
 
     @Override
@@ -100,7 +123,6 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(serviceRoleKey);
         headers.set("apikey", serviceRoleKey);
-        headers.set("x-upsert", "true");
         headers.setContentType(MediaType.APPLICATION_PDF);
 
         HttpEntity<byte[]> entity = new HttpEntity<>(generatedPdf, headers);
@@ -119,7 +141,8 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
     }
 
     @Override
-    public void moveFile(String fromPath, String toPath) throws RuntimeException {
+    public String moveFile(String fromPath, String toPath) throws RuntimeException {
+
         String url = supabaseUrl + "/storage/v1/object/move";
 
         HttpHeaders headers = new HttpHeaders();
@@ -147,33 +170,39 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
 
             System.out.println("Move success: " + fromPath + " -> " + toPath);
 
-        } catch (org.springframework.web.client.HttpClientErrorException e) {
+        } catch (Exception e) {
+            throw new RuntimeException("Move file failed", e);
 
-            String bodyResp = e.getResponseBodyAsString();
-
-            // 🔥 Case 1: source không còn (đã move rồi)
-            if (bodyResp != null &&
-                    (bodyResp.contains("not found") || bodyResp.contains("Object not found"))) {
-
-                System.out.println("Source already moved: " + fromPath);
-                return;
-            }
-
-            // 🔥 Case 2: destination đã tồn tại
-            if (bodyResp != null && bodyResp.contains("already exists")) {
-
-                System.out.println("Destination already exists: " + toPath);
-                return;
-            }
-
-            throw new RuntimeException("Move file failed: " + bodyResp, e);
         }
+        return supabaseUrl + "/storage/v1/object/public/" + bucketName + "/" + toPath;
     }
 
     @Override
     public String extractObjectPath(String fileUrl) {
         String prefix = "/storage/v1/object/public/" + bucketName + "/";
         return fileUrl.substring(fileUrl.indexOf(prefix) + prefix.length());
+    }
+
+    @Override
+    public void removeFile(String folderName, String fileName) {
+        String url = supabaseUrl + "/storage/v1/object/" + bucketName + "/" + folderName + "/" + fileName;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(serviceRoleKey);
+        headers.set("apikey", serviceRoleKey);
+
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<String> response = restTemplate.exchange(
+                url,
+                HttpMethod.DELETE,
+                entity,
+                String.class
+        );
+
+        if (!response.getStatusCode().is2xxSuccessful()) {
+            throw new RuntimeException("Delete file failed");
+        }
     }
 
     public byte[] downloadTemplate(String objectPath) {
