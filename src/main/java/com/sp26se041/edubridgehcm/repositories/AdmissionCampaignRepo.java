@@ -5,13 +5,13 @@ import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface AdmissionCampaignRepo extends JpaRepository<AdmissionCampaign, Integer> {
 
     boolean existsByYearAndSchoolIdAndStatusIn(int year, int schoolId, List<Status> statuses);
 
-    Optional<AdmissionCampaign> findFirstBySchoolIdAndYearOrderByIdDesc(int schoolId, int year);
+    // Trong AdmissionCampaignRepo.java
+    List<AdmissionCampaign> findBySchoolIdAndYearOrderByStatusAsc(int schoolId, int year);
 
     List<AdmissionCampaign> findBySchoolIdOrderByYearDesc(int schoolId);
 

@@ -3,6 +3,7 @@ package com.sp26se041.edubridgehcm.services;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
 import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
+import com.sp26se041.edubridgehcm.requests.CreateSubscriptionRequest;
 import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
 import com.sp26se041.edubridgehcm.requests.ProgramRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
@@ -57,4 +58,8 @@ public interface SchoolService {
     ResponseEntity<Resource> exportCampusList() throws IOException;
 
     ResponseEntity<Resource> exportAdmissionCampaign(int year) throws IOException;
+
+    ResponseEntity<ResponseObject> viewSubscriptionList();
+
+    ResponseEntity<ResponseObject> createSubscription(CreateSubscriptionRequest request);
 }
