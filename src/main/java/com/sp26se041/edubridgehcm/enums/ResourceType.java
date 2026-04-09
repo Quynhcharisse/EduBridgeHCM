@@ -6,7 +6,6 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum ResourceType {
-    // dịch vụ lưu trú của campus (không có, bán trú, nội trú, cả hai)
     COUNSELLOR("counsellor"),
     ADMISSION("admission");
 

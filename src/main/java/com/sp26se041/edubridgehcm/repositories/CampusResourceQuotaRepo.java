@@ -8,8 +8,5 @@ import java.util.Optional;
 
 public interface CampusResourceQuotaRepo extends JpaRepository<CampusResourceQuota, Integer> {
 
-    // Tìm cấu hình quota theo campus và loại tài nguyên
-    Optional<CampusResourceQuota> findByCampus_IdAndResourceType(Integer campusId, ResourceType resourceType);
-
     Optional<CampusResourceQuota> findByCampusIdAndResourceType(int campusId, ResourceType resourceType);
 }
