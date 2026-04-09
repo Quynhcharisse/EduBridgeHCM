@@ -263,8 +263,6 @@ public class AccountValidation {
 
     public static boolean isValidHotline(String value) {
         String normalizedValue = normalize(value);
-        // Cho phép bắt đầu bằng 02 (số bàn), 03, 07, 08, 09 hoặc 1800, 1900
-        // Độ dài từ 8 đến 11 số tùy loại hình
         return normalizedValue != null && normalizedValue.matches("^(02|03|07|08|09|18|19)\\d{6,9}$");
     }
 

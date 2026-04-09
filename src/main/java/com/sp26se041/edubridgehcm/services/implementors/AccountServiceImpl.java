@@ -1,6 +1,5 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
-import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.Gender;
 import com.sp26se041.edubridgehcm.enums.Relationship;
 import com.sp26se041.edubridgehcm.enums.Role;
@@ -430,6 +429,8 @@ public class AccountServiceImpl implements AccountService {
         campus.setAddress(normalize(campusData.getAddress()));
         campus.setCity(normalize(campusData.getCity()));
         campus.setDistrict(normalize(campusData.getDistrict()));
+        campus.setLatitude(campusData.getLatitude());
+        campus.setLongitude(campusData.getLongitude());
         campus.setBoardingType(Objects.requireNonNull(AccountValidation.parseBoardingType(campusData.getBoardingType())));
 
         campusRepo.save(campus);
@@ -516,6 +517,11 @@ public class AccountServiceImpl implements AccountService {
         campusData.put("name", campus.getName());
         campusData.put("phoneNumber", campus.getPhoneNumber());
         campusData.put("address", campus.getAddress());
+        campusData.put("city", campus.getCity());
+        campusData.put("district", campus.getDistrict());
+        campusData.put("latitude", campus.getLatitude());
+        campusData.put("longitude", campus.getLongitude());
+        campusData.put("boardingType", campus.getBoardingType());
         campusData.put("status", campus.getStatus());
         campusData.put("isPrimaryBranch", campus.getIsPrimaryBranch());
 

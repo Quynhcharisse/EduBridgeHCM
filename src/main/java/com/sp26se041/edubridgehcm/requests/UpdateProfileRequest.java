@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.requests;
 
+import jakarta.persistence.Column;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -76,6 +77,10 @@ public class UpdateProfileRequest {
         String boardingType;
 
         String address;
+
+        Double latitude;
+
+        Double longitude;
     }
 
     @Data
