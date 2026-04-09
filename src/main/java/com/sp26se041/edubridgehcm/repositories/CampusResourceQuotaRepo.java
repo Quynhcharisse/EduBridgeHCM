@@ -10,4 +10,6 @@ public interface CampusResourceQuotaRepo extends JpaRepository<CampusResourceQuo
 
     // Tìm cấu hình quota theo campus và loại tài nguyên
     Optional<CampusResourceQuota> findByCampus_IdAndResourceType(Integer campusId, ResourceType resourceType);
+
+    Optional<CampusResourceQuota> findByCampusIdAndResourceType(int campusId, ResourceType resourceType);
 }

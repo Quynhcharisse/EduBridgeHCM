@@ -146,7 +146,7 @@ public class SchoolServiceImpl implements SchoolService {
                 .role(Role.SCHOOL)
                 .status(Status.ACCOUNT_ACTIVE)
                 .registerDate(LocalDate.now())
-                .firstLogin(false)
+                .firstLogin(true)
                 .isRestricted(false)
                 .build());
 
@@ -1433,8 +1433,8 @@ public class SchoolServiceImpl implements SchoolService {
 
     @Override
     public ResponseEntity<ResponseObject> searchNearby(Double lat, Double lng, Double radius) {
-    //Hàm này giúp phụ huynh "lọc" ngay lập tức những trường ở quá xa (ngoài bán kính 5-10km).
-    // Nó chuyển từ việc hiển thị tất cả sang hiển thị những gì thuộc về bạn.
+        //Hàm này giúp phụ huynh "lọc" ngay lập tức những trường ở quá xa (ngoài bán kính 5-10km).
+        // Nó chuyển từ việc hiển thị tất cả sang hiển thị những gì thuộc về bạn.
         List<Campus> campuses = campusRepo.findNearbyCampuses(lat, lng, radius);
 
         List<Map<String, Object>> data = campuses.stream().map(campus -> {
