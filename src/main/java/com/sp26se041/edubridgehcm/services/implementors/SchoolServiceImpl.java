@@ -159,6 +159,8 @@ public class SchoolServiceImpl implements SchoolService {
                 .city(normalize(request.getCity()))
                 .district(normalize(request.getDistrict()))
                 .boardingType(boardingType)
+                .latitude(request.getLatitude())
+                .longitude(request.getLongitude())
                 .status(Status.VERIFIED)
                 .isPrimaryBranch(false)
                 .build());

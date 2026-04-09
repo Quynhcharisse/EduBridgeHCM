@@ -10,7 +10,6 @@ import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 
 import java.time.LocalDate;
 import java.util.Arrays;
-import java.util.stream.Collectors;
 
 public class AccountValidation {
 
@@ -148,23 +147,16 @@ public class AccountValidation {
             }
 
             if (normalize(request.getCampusData().getCity()) == null) {
-                return "Require campus address";
+                return "Require campus city";
             }
 
             if (normalize(request.getCampusData().getDistrict()) == null) {
-                return "Require campus address";
+                return "Require campus district";
             }
 
 
-            if (normalize(request.getCampusData().getBoardingType()) == null) {
-                return "Require campus address";
-            }
-
-            if (!isValidValue(request.getCampusData().getBoardingType())) {
-
-                return "Invalid boarding type. Accepted values: [" + Arrays.stream(BoardingType.values())
-                        .map(BoardingType::getValue)
-                        .collect(Collectors.joining(", ")) + "]";
+            if (parseBoardingType(normalize(request.getCampusData().getBoardingType())) == null) {
+                return "Require campus boarding type";
             }
 
             if (normalize(request.getCampusData().getAddress()) == null) {
@@ -188,8 +180,9 @@ public class AccountValidation {
                     return "School description must not exceed 500 characters";
                 }
 
-                if (normalize(request.getCampusData().getSchoolData().getHotline()) != null && !isValidPhoneNumber(normalize(request.getCampusData().getSchoolData().getHotline()))) {
-                    return "School hotline must contain exactly 10 digits and start with 03, 07, 08, or 09";
+                if (normalize(request.getCampusData().getSchoolData().getHotline()) != null
+                        && !isValidHotline(normalize(request.getCampusData().getSchoolData().getHotline()))) { // Dùng isValidHotline
+                    return "School hotline is invalid (should start with 02, 03, 07, 08, 09, 1800, or 1900)";
                 }
 
                 if (normalize(request.getCampusData().getSchoolData().getLogoUrl()) == null) {
@@ -251,9 +244,28 @@ public class AccountValidation {
                 .orElse(null);
     }
 
+    public static BoardingType parseBoardingType(String value) {
+        String normalizedValue = normalize(value);
+        if (normalizedValue == null) {
+            return null;
+        }
+
+        return Arrays.stream(BoardingType.values())
+                .filter(r -> r.getValue().equalsIgnoreCase(normalizedValue) || r.name().equalsIgnoreCase(normalizedValue))
+                .findFirst()
+                .orElse(null);
+    }
+
     public static boolean isValidPhoneNumber(String value) {
         String normalizedValue = normalize(value);
         return normalizedValue != null && normalizedValue.matches("^(03|07|08|09)\\d{8}$");
+    }
+
+    public static boolean isValidHotline(String value) {
+        String normalizedValue = normalize(value);
+        // Cho phép bắt đầu bằng 02 (số bàn), 03, 07, 08, 09 hoặc 1800, 1900
+        // Độ dài từ 8 đến 11 số tùy loại hình
+        return normalizedValue != null && normalizedValue.matches("^(02|03|07|08|09|18|19)\\d{6,9}$");
     }
 
     public static boolean isExactDigits(String value) {

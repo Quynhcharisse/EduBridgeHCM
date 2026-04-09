@@ -52,6 +52,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -429,7 +430,7 @@ public class AccountServiceImpl implements AccountService {
         campus.setAddress(normalize(campusData.getAddress()));
         campus.setCity(normalize(campusData.getCity()));
         campus.setDistrict(normalize(campusData.getDistrict()));
-        campus.setBoardingType(BoardingType.valueOf(campusData.getBoardingType()));
+        campus.setBoardingType(Objects.requireNonNull(AccountValidation.parseBoardingType(campusData.getBoardingType())));
 
         campusRepo.save(campus);
     }
