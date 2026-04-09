@@ -1,5 +1,7 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.sp26se041.edubridgehcm.enums.BoardingType;
+import com.sp26se041.edubridgehcm.enums.CategoryTemplate;
 import com.sp26se041.edubridgehcm.enums.ParentPostPermission;
 import com.sp26se041.edubridgehcm.enums.PersonalityTypeGroup;
 import com.sp26se041.edubridgehcm.enums.Role;
@@ -13,6 +15,7 @@ import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolRegistrationRequest;
 import com.sp26se041.edubridgehcm.models.Subject;
 import com.sp26se041.edubridgehcm.models.Subscription;
+import com.sp26se041.edubridgehcm.models.TemplateDocx;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
@@ -21,6 +24,7 @@ import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolSubscriptionRepo;
 import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
 import com.sp26se041.edubridgehcm.repositories.SubscriptionRepo;
+import com.sp26se041.edubridgehcm.repositories.TemplateDocxRepo;
 import com.sp26se041.edubridgehcm.requests.AddSubjectRequest;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
 import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
@@ -37,9 +41,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.text.Normalizer;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -48,6 +54,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -71,6 +79,8 @@ public class AdminServiceImpl implements AdminService {
     private final SubscriptionRepo subscriptionRepo;
 
     private final SchoolSubscriptionRepo schoolSubscriptionRepo;
+    private final TemplateDocxRepo templateDocxRepo;
+
 
     @Override
     @Transactional
@@ -112,22 +122,6 @@ public class AdminServiceImpl implements AdminService {
 
         String schoolName = toSafeObjectKey(request.getSchoolName());
 
-        String folderName = "SCHOOL_INFO/" + schoolName;
-
-        String fileName = schoolName + "_info.pdf";
-
-        try {
-
-            supabaseStorageService.generatePdfFileFromTemplateDocx(fields, "TEMPLATE/school_info_template.docx", folderName, fileName);
-
-            String objectPath = supabaseStorageService.extractObjectPath(request.getBusinessLicenseUrl());
-
-            supabaseStorageService.moveFile(objectPath, folderName + "/business_license_" + schoolName + ".pdf");
-
-
-        } catch (Exception e) {
-            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage(), null);
-        }
 
         // tạo account
         Account account = accountRepo.save(Account.builder().role(Role.SCHOOL)
@@ -167,10 +161,30 @@ public class AdminServiceImpl implements AdminService {
         return ResponseBuilder.build(HttpStatus.OK, "Verified successfully", null);
     }
 
+
+    private String mapBoardingDescription(BoardingType type) {
+
+        return switch (type) {
+            case NONE ->
+                    "This campus does not offer boarding services. Students attend classes during the day and return home after school hours.";
+
+            case FULL_BOARDING ->
+                    "The campus offers full boarding facilities, where students reside on campus with accommodation, meals, and comprehensive daily care.";
+
+            case SEMI_BOARDING ->
+                    "The campus offers semi-boarding services, allowing students to stay during the day for meals, academic support, and extracurricular activities without overnight accommodation.";
+
+            case BOTH ->
+                    "The campus offers both full boarding and semi-boarding options, providing flexible accommodation and day-care services to meet different student needs.";
+        };
+
+    }
+
     private String toSafeObjectKey(String input) {
         if (input == null || input.trim().isEmpty()) {
             return "";
         }
+
 
         // 1. normalize Unicode (tách dấu ra)
         String normalized = Normalizer.normalize(input.trim(), Normalizer.Form.NFD);
@@ -517,6 +531,77 @@ public class AdminServiceImpl implements AdminService {
         );
     }
 
+    @Override
+    public ResponseEntity<ResponseObject> uploadTemplateDocxTemplate(MultipartFile file, String categoryTemplate) {
+
+        CategoryTemplate categoryTempl;
+
+        try {
+               categoryTempl = parseCategoryTemplate(categoryTemplate);
+        }catch (Exception ex){
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
+        }
+
+        TemplateDocx docx = TemplateDocx.builder()
+                .type(categoryTempl)
+                .createdDate(LocalDateTime.now())
+                .updatedDate(LocalDateTime.now())
+                .build();
+
+        Optional<TemplateDocx> templateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(categoryTempl);
+
+        if (templateDocx.isEmpty()) {
+           docx.setFolderName("TEMPLATE/" + categoryTempl.name() + "_" + UUID.randomUUID());
+           docx.setFileName(categoryTempl.getValue() + "_v0");
+           docx.setVersion(0);
+        } else {
+            TemplateDocx latestTemplate = templateDocx.get();
+            int newVersion = latestTemplate.getVersion() + 1;
+
+            docx.setFileName(categoryTempl.getValue() + "_v" + newVersion);
+            docx.setVersion(newVersion);
+            docx.setFolderName(latestTemplate.getFolderName());
+        }
+
+        try {
+
+            String fileUrl = supabaseStorageService.uploadDocument(file, docx.getFolderName(), docx.getFileName(), List.of("doc", "docx"));
+            docx.setFileUrl(fileUrl);
+            templateDocxRepo.save(docx);
+
+        } catch (IllegalArgumentException ex) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
+        } catch (Exception ex) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("fileUrl", docx.getFileUrl());
+        result.put("fileName", docx.getFileName());
+
+
+        return ResponseBuilder.build(HttpStatus.OK, "Upload successfully", result);
+
+    }
+
+    @Transactional
+    @Override
+    public ResponseEntity<ResponseObject> removeTemplateDocx(long templateDocxId) {
+
+        Optional<TemplateDocx> templateDocx = templateDocxRepo.findById(templateDocxId);
+
+        if(templateDocx.isEmpty()){
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Template docx not found", null);
+        }
+
+        templateDocxRepo.deleteAllByIdInBatch(List.of(templateDocxId));
+        templateDocxRepo.flush();
+
+        return ResponseBuilder.build(HttpStatus.OK, "Delete template docx successfully", null);
+
+    }
+
+
     private String validateAddSubjectInfo(AddSubjectRequest request) {
 
         if (isBlank(request.getName())) {
@@ -534,6 +619,21 @@ public class AdminServiceImpl implements AdminService {
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(
                     "Invalid subject type. Allowed values: REGULAR_SUBJECT, FOREIGN_LANGUAGE_SUBJECT"
+            );
+        }
+    }
+
+    private CategoryTemplate parseCategoryTemplate(String categoryTemplate){
+
+        if (categoryTemplate == null || categoryTemplate.isEmpty()){
+            throw new IllegalArgumentException("Category template must not be empty");
+        }
+
+        try {
+            return CategoryTemplate.valueOf(categoryTemplate.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "Invalid category template. Allowed values: CAMPUS_INF0_TEMPLATE, SCHOOL_INFO_TEMPLATE"
             );
         }
     }
