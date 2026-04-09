@@ -1040,7 +1040,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         Map<String, Object> data = buildPublicSchoolData(school, favouriteSchoolIds);
 
-        data.put("campustList", school.getCampusList().stream().filter(campus -> Status.VERIFIED.equals(campus.getStatus())).map(this::buildPublicCampusData).toList());
+        data.put("campusList", school.getCampusList().stream().filter(campus -> Status.ACTIVE.equals(campus.getStatus())).map(this::buildPublicCampusData).toList());
 
         data.put("curriculumList", school.getCurriculumList().stream().filter(curriculum -> Status.CUR_ACTIVE.equals(curriculum.getCurriculumStatus())).map(this::buildPublicCurriculumData).toList());
 
