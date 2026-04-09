@@ -210,7 +210,6 @@ public class AdminServiceImpl implements AdminService {
         return safe;
     }
 
-
     @Override
     public ResponseEntity<ResponseObject> viewSchoolRegistrationList() {
 

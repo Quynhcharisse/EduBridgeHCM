@@ -18,6 +18,7 @@ import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionReservationFormRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusResourceQuotaRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorSlotRepo;
@@ -95,6 +96,7 @@ public class CampusServiceImpl implements CampusService {
     private final CampusScheduleTemplateRepo campusScheduleTemplateRepo;
 
     private final CounsellorSlotRepo counsellorSlotRepo;
+    private final CampusResourceQuotaRepo campusResourceQuotaRepo;
 
     @Override
     @Transactional
@@ -413,7 +415,7 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
-        String validationError = CounsellorValidation.validateCreateCounsellor(request, accountRepo);
+        String validationError = CounsellorValidation.validateCreateCounsellor(request, accountRepo, campusResourceQuotaRepo, counsellorRepo, actorCampus.getId());
 
         if (validationError != null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, validationError, null);
