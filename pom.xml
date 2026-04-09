@@ -31,29 +31,29 @@
     </properties>
     <dependencies>
 
-            <dependency>
-                <groupId>com.deepoove</groupId>
-                <artifactId>poi-tl</artifactId>
-                <version>1.12.2</version>
-            </dependency>
+        <dependency>
+            <groupId>com.deepoove</groupId>
+            <artifactId>poi-tl</artifactId>
+            <version>1.12.2</version>
+        </dependency>
 
-            <dependency>
-                <groupId>org.docx4j</groupId>
-                <artifactId>docx4j-core</artifactId>
-                <version>11.4.11</version>
-            </dependency>
+        <dependency>
+            <groupId>org.docx4j</groupId>
+            <artifactId>docx4j-core</artifactId>
+            <version>11.4.11</version>
+        </dependency>
 
-            <dependency>
-                <groupId>org.docx4j</groupId>
-                <artifactId>docx4j-export-fo</artifactId>
-                <version>11.4.11</version>
-            </dependency>
+        <dependency>
+            <groupId>org.docx4j</groupId>
+            <artifactId>docx4j-export-fo</artifactId>
+            <version>11.4.11</version>
+        </dependency>
 
-            <dependency>
-                <groupId>org.docx4j</groupId>
-                <artifactId>docx4j-JAXB-ReferenceImpl</artifactId>
-                <version>11.4.11</version>
-            </dependency>
+        <dependency>
+            <groupId>org.docx4j</groupId>
+            <artifactId>docx4j-JAXB-ReferenceImpl</artifactId>
+            <version>11.4.11</version>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -161,6 +161,11 @@
             <groupId>org.apache.poi</groupId>
             <artifactId>poi-ooxml</artifactId>
             <version>5.2.3</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
     </dependencies>
 

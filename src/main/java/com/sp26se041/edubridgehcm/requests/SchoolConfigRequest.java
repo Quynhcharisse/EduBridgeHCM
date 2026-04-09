@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.requests;
 
+import com.sp26se041.edubridgehcm.enums.ResourceType;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -28,6 +29,9 @@ public class SchoolConfigRequest {
     FacilityData facilityData;
 
     QuotaConfigData quotaConfigData;
+
+    // 2. PHÂN BỔ TÀI NGUYÊN GÓI CƯỚC (Chia nhỏ gói cước đã mua cho các Campus)
+    ResourceDistributionData resourceDistributionData;
 
     @Data
     @NoArgsConstructor
@@ -233,5 +237,18 @@ public class SchoolConfigRequest {
             String campusName;
             int allocatedQuota; // Số lượng HQ giao cho Campus này
         }
+    }
+
+    @Data
+    public static class ResourceDistributionData {
+        // Phân bổ các giới hạn từ gói cước (Counsellor, User, v.v.)
+        List<ResourceAllocation> allocations;
+    }
+
+    @Data
+    public static class ResourceAllocation {
+        ResourceType resourceType; // COUNSELLOR, ADMISSION_SLOT...
+        int campusId;
+        int allocatedAmount;
     }
 }

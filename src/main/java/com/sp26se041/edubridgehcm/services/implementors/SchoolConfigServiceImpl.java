@@ -1,12 +1,19 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sp26se041.edubridgehcm.enums.ResourceType;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
+import com.sp26se041.edubridgehcm.models.CampusResourceQuota;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
+import com.sp26se041.edubridgehcm.models.SchoolSubscription;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusResourceQuotaRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolSubscriptionRepo;
 import com.sp26se041.edubridgehcm.requests.SchoolConfigRequest;
+import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolConfigService;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
@@ -17,6 +24,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -28,7 +36,14 @@ import java.util.stream.Collectors;
 public class SchoolConfigServiceImpl implements SchoolConfigService {
 
     private final SchoolConfigRepo schoolConfigRepo;
+
     private final CampusRepo campusRepo;
+
+    private final SchoolSubscriptionRepo schoolSubscriptionRepo;
+
+    private final ObjectMapper objectMapper;
+
+    private final CampusResourceQuotaRepo campusResourceQuotaRepo;
 
     @Override
     @Transactional
@@ -55,7 +70,9 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                 request.getFinancePolicyData() == null &&
                 request.getOperationSettingsData() == null &&
                 request.getFacilityData() == null &&
-                request.getQuotaConfigData() == null) {
+                request.getQuotaConfigData() == null &&
+                request.getResourceDistributionData() == null
+        ) {
 
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "The updated data must not be left blank.", null);
         }
@@ -72,6 +89,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         if (request.getOperationSettingsData() != null) updateOperationSettings(schoolId, request);
         if (request.getFacilityData() != null) updateFacility(schoolId, request);
         if (request.getQuotaConfigData() != null) updateQuotaConfig(schoolId, request);
+        if (request.getResourceDistributionData() != null) updateDistributeSchoolResourcesConfig(schoolId, request);
     }
 
     @Transactional
@@ -327,6 +345,93 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         config.setValue(quotaJson);
         config.setUpdatedAt(LocalDateTime.now());
         schoolConfigRepo.save(config);
+    }
+
+    @Transactional
+    public void updateDistributeSchoolResourcesConfig(int schoolId, SchoolConfigRequest request) {
+
+        SchoolConfigRequest.ResourceDistributionData resourceDistributionData = request.getResourceDistributionData();
+
+        if (resourceDistributionData == null || resourceDistributionData.getAllocations() == null) return;
+
+        SchoolSubscription activeSub = schoolSubscriptionRepo
+                .findBySchoolIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndIsSelectedTrue(
+                        schoolId, LocalDate.now(), LocalDate.now())
+                .orElseThrow(() -> new RuntimeException("The school has not registered a package or the package has expired"));
+
+        UpsertServicePackageFeeRequest.FeatureData systemFeatures = objectMapper.convertValue(
+                activeSub.getSubscription().getFeatures(),
+                UpsertServicePackageFeeRequest.FeatureData.class
+        );
+
+        //Nhóm các yêu cầu phân bổ theo ResourceType để kiểm tra tổng
+        Map<ResourceType, List<SchoolConfigRequest.ResourceAllocation>> groupedAllocations = resourceDistributionData.getAllocations().stream()
+                .collect(Collectors.groupingBy(SchoolConfigRequest.ResourceAllocation::getResourceType));
+
+        //Duyệt qua từng loại tài nguyên để validate và lưu
+        groupedAllocations.forEach((type, allocations) -> {
+
+            // Tính tổng định phân bổ cho loại này
+            int totalAllocated = allocations.stream()
+                    .mapToInt(SchoolConfigRequest.ResourceAllocation::getAllocatedAmount)
+                    .sum();
+
+            // Lấy giới hạn tối đa mà gói cước cho phép
+            int systemLimit = getSystemLimitByType(systemFeatures, type);
+
+            if (totalAllocated > systemLimit) {
+                throw new RuntimeException("Total allocated for " + type + " (" + totalAllocated +
+                        ") exceeds system limit (" + systemLimit + ")");
+            }
+
+            //Thực hiện kiểm tra tổng và lưu (giống logic chúng ta đã bàn)
+            for (var alloc : allocations) {
+                CampusResourceQuota quota = campusResourceQuotaRepo.findByCampusIdAndResourceType(alloc.getCampusId(), alloc.getResourceType())
+                        .orElse(new CampusResourceQuota());
+
+                quota.setCampus(campusRepo.getReferenceById(alloc.getCampusId()));
+                quota.setResourceType(type);
+                quota.setMaxQuota(alloc.getAllocatedAmount());
+                campusResourceQuotaRepo.save(quota);
+            }
+        });
+        saveDistributionToConfig(schoolId, resourceDistributionData);
+    }
+
+    // hỗ trợ vào việc lưu vào bảng school config
+    private void saveDistributionToConfig(int schoolId, SchoolConfigRequest.ResourceDistributionData data) {
+        List<Map<String, Object>> allocationsJson = data.getAllocations().stream()
+                .map(alloc -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("resourceType", alloc.getResourceType().name());
+                    map.put("campusId", alloc.getCampusId());
+                    map.put("allocatedAmount", alloc.getAllocatedAmount());
+                    return map;
+                })
+                .collect(Collectors.toList());
+
+        Map<String, Object> finalJson = new HashMap<>();
+        finalJson.put("allocations", allocationsJson);
+
+        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "resourceDistributionData")
+                .orElse(SchoolConfig.builder()
+                        .schoolId(schoolId)
+                        .key("resourceDistributionData")
+                        .build());
+
+        config.setValue(finalJson);
+        config.setUpdatedAt(LocalDateTime.now());
+        schoolConfigRepo.save(config);
+    }
+
+    // Hàm hỗ trợ lấy giới hạn từ FeatureData dựa trên ResourceType
+    private int getSystemLimitByType(UpsertServicePackageFeeRequest.FeatureData features, ResourceType type) {
+        return switch (type) {
+            case COUNSELLOR -> features.getMaxCounsellors();
+
+            case ADMISSION -> features.getMaxAdmissions();
+            default -> 0;
+        };
     }
 
     @Override
