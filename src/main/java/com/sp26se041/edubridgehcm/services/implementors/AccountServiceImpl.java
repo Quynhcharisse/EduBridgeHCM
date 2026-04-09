@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.Gender;
 import com.sp26se041.edubridgehcm.enums.Relationship;
 import com.sp26se041.edubridgehcm.enums.Role;
@@ -426,6 +427,9 @@ public class AccountServiceImpl implements AccountService {
         campus.setName(normalize(campusData.getName()));
         campus.setPhoneNumber(normalize(campusData.getPhoneNumber()));
         campus.setAddress(normalize(campusData.getAddress()));
+        campus.setCity(normalize(campusData.getCity()));
+        campus.setDistrict(normalize(campusData.getDistrict()));
+        campus.setBoardingType(BoardingType.valueOf(campusData.getBoardingType()));
 
         campusRepo.save(campus);
     }

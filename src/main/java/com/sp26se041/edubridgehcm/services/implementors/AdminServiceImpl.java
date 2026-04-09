@@ -156,7 +156,7 @@ public class AdminServiceImpl implements AdminService {
                         .name(request.getCampusName().trim())
                         .phoneNumber(request.getCampusPhone())
                         .address(request.getCampusAddress().trim())
-                        .status(Status.ACCOUNT_ACTIVE)
+                        .status(Status.ACTIVE)
                         .isPrimaryBranch(true)
                         .school(school).build());
 
