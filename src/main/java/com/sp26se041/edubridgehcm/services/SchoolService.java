@@ -62,4 +62,6 @@ public interface SchoolService {
     ResponseEntity<ResponseObject> viewSubscriptionList();
 
     ResponseEntity<ResponseObject> createSubscription(CreateSubscriptionRequest request);
+
+    ResponseEntity<ResponseObject> searchNearby(Double lat, Double lng, Double radius);
 }

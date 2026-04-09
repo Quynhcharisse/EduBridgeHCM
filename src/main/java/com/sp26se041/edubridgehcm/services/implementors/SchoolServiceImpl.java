@@ -1085,6 +1085,8 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("address", campus.getAddress());
         data.put("city", campus.getCity());
         data.put("district", campus.getDistrict());
+        data.put("latitude", campus.getLatitude());
+        data.put("longitude", campus.getLongitude());
         data.put("boardingType", campus.getBoardingType());
         data.put("status", campus.getStatus());
         data.put("policyDetail", campus.getPolicyDetail());
@@ -1428,4 +1430,35 @@ public class SchoolServiceImpl implements SchoolService {
         Resource resource = new UrlResource(path.toUri());
         return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"").contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")).body(resource);
     }
+
+    @Override
+    public ResponseEntity<ResponseObject> searchNearby(Double lat, Double lng, Double radius) {
+    //Hàm này giúp phụ huynh "lọc" ngay lập tức những trường ở quá xa (ngoài bán kính 5-10km).
+    // Nó chuyển từ việc hiển thị tất cả sang hiển thị những gì thuộc về bạn.
+        List<Campus> campuses = campusRepo.findNearbyCampuses(lat, lng, radius);
+
+        List<Map<String, Object>> data = campuses.stream().map(campus -> {
+            Map<String, Object> map = buildPublicCampusData(campus);
+
+            double dist = calculateDistance(lat, lng, campus.getLatitude(), campus.getLongitude());
+            map.put("distance", Math.round(dist * 100.0) / 100.0);
+
+            return map;
+        }).toList();
+
+        return ResponseBuilder.build(HttpStatus.OK, "Search successfully", data);
+    }
+
+    private double calculateDistance(double lat1, double lng1, double lat2, double lng2) {
+        //Công thức Haversine
+        if (lat1 == 0 || lng1 == 0 || lat2 == 0 || lng2 == 0) return 0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLng = Math.toRadians(lng2 - lng1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return 6371 * c;
+    }
+
 }
