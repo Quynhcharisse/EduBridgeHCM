@@ -159,7 +159,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can add new campus", null);
         }
 
-        String error = CampusValidation.validateCreateCampus(request, accountRepo);
+        String error = CampusValidation.validateCreateCampus(request, accountRepo, campusRepo, actorCampus.getSchool().getId());
         if (error != null && !error.isBlank()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }

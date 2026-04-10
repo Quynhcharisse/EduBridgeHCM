@@ -7,56 +7,61 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 public class SchoolConfigUtil {
-    public static List<Map<String, Object>> mergeFacilityItems(List<Map<String, Object>> templateItems, List<UpdateCampusConfigRequest.FacilityItemRequest> requestItems) {
-        if (templateItems == null) templateItems = new ArrayList<>();
-        if (requestItems == null) return templateItems;
+    public static List<Map<String, Object>> mergeFacilityItems(
+            List<Map<String, Object>> templateItems,
+            List<Map<String, Object>> currentCampusItems,
+            List<UpdateCampusConfigRequest.FacilityItemRequest> requestItems
+    ) {
 
-        // 1. Chuyển request thành Map để tìm kiếm nhanh theo facilityCode
-        Map<String, UpdateCampusConfigRequest.FacilityItemRequest> requestMap = requestItems.stream().collect(Collectors.toMap(item -> item.getFacilityCode(), item -> item, (a, b) -> a));
+        Map<String, Map<String, Object>> finalResultMap = new LinkedHashMap<>();
 
-        // 2. DUYỆT MẪU CỦA HQ: Cập nhật giá trị cho các mục đã có trong mẫu
-        List<Map<String, Object>> mergedList = templateItems.stream().map(templateItem -> {
-            String code = (String) templateItem.get("facilityCode");
-            Map<String, Object> newItem = new HashMap<>(templateItem); // Clone mẫu
-
-            if (requestMap.containsKey(code)) {
-                UpdateCampusConfigRequest.FacilityItemRequest req = requestMap.get(code);
-                newItem.put("value", req.getValue());
-                newItem.put("unit", req.getUnit());
-                newItem.put("isUsage", true);
+        // s1 : đổ dữ liệu làm khung
+        if (templateItems != null) {
+            for (Map<String, Object> item : templateItems) {
+                Map<String, Object> newItem = new HashMap<>(item);
                 newItem.put("isCustom", false);
-            } else {
-                newItem.put("isUsage", false);
-                newItem.put("value", 0);
-                newItem.put("isCustom", false);
+                newItem.put("isUsage", false); // mặc đich chưa dùng ==> nếu campus phụ chưa điền
+                finalResultMap.put((String) item.get("facilityCode"), newItem);
             }
-            return newItem;
-        }).collect(Collectors.toList());
+        }
 
-        // 3. XỬ LÝ THÊM MỚI: Tìm những item trong Request mà HQ KHÔNG CÓ
-        Set<String> templateCodes = templateItems.stream().map(t -> (String) t.get("facilityCode")).collect(Collectors.toSet());
+        // s2: bỏ data facility Campus hiện tại đang có vào
+        // ==> để giữ lại đồ Custom đã thêm lần trước
+        if (currentCampusItems != null) {
+            for (Map<String, Object> item : currentCampusItems) {
+                finalResultMap.put((String) item.get("facilityCode"), new HashMap<>(item));
+            }
+        }
 
-        List<Map<String, Object>> customItems = requestItems.stream().filter(req -> !templateCodes.contains(req.getFacilityCode())) // Lọc ra đồ mới
-                .map(req -> {
-                    Map<String, Object> customItem = new HashMap<>();
-                    customItem.put("facilityCode", req.getFacilityCode());
-                    customItem.put("name", req.getName());
-                    customItem.put("value", req.getValue());
-                    customItem.put("unit", req.getUnit());
-                    customItem.put("category", req.getCategory());
-                    customItem.put("isUsage", true);
-                    customItem.put("isCustom", true); // Đánh dấu đây là hàng tự thêm
-                    return customItem;
-                }).collect(Collectors.toList());
+        // s3: đè dữ liệu mới từ Request lên ==> thêm mới
+        if (requestItems != null) {
+            for (UpdateCampusConfigRequest.FacilityItemRequest req : requestItems) {
+                String code = req.getFacilityCode();
+                Map<String, Object> itemData = finalResultMap.getOrDefault(code, new HashMap<>());
 
-        mergedList.addAll(customItems);
-        return mergedList;
+                itemData.put("facilityCode", code);
+                itemData.put("name", req.getName());
+                itemData.put("value", req.getValue());
+                itemData.put("unit", req.getUnit());
+                itemData.put("category", req.getCategory());
+                itemData.put("isUsage", req.getValue() > 0);
+
+                // Nếu code này không có trong HQ, thì đích thị là đồ Custom
+                boolean isHqCode = templateItems != null && templateItems.stream().anyMatch(h -> h.get("facilityCode").equals(code));
+                itemData.put("isCustom", !isHqCode);
+
+                finalResultMap.put(code, itemData);
+            }
+        }
+
+        return new ArrayList<>(finalResultMap.values());
     }
 
     public static Map<String, Object> mergeOperationConfig(Map<String, Object> hqData, UpdateCampusConfigRequest request) {

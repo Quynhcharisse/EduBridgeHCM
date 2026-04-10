@@ -20,6 +20,7 @@ public interface CampusRepo extends JpaRepository<Campus, Integer> {
 
     Optional<Campus> findByIdAndSchoolId(Integer id, Integer schoolId);
 
+    boolean existsBySchoolIdAndNameEqualsIgnoreCase(Integer schoolId, String campusName);
 
     //Vì đang lưu latitude và longitude kiểu Double,
     // nên sử dụng Native Query.
