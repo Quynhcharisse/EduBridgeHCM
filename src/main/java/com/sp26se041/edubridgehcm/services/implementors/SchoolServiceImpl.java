@@ -1636,7 +1636,7 @@ public class SchoolServiceImpl implements SchoolService {
         transaction.setVnpCardType(vnp_Params.get("vnp_CardType"));
         paymentTransactionRepo.save(transaction);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Payment processed successfully", transaction.getStatus());
+        return ResponseBuilder.build(HttpStatus.OK, "Payment processed successfully", transaction);
     }
 
     private String sanitizeOrderInfo(String rawOrderInfo) {

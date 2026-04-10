@@ -64,6 +64,6 @@ public class Post {
 
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb", name = "image_json")
-    String imageJson;
+    Object imageJson;
 }
 
