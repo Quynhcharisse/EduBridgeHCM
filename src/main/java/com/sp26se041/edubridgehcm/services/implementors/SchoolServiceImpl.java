@@ -76,7 +76,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -1434,11 +1433,11 @@ public class SchoolServiceImpl implements SchoolService {
                 // Nếu GIA HẠN (Renew) - Cùng loại gói
                 if (current.getEndDate().isAfter(LocalDate.now())) {
                     calculatedStartDate = current.getEndDate().plusDays(1);
-                    orderNote = "Gia hạn gói " + subscription.getName() + " (Nối tiếp từ " + calculatedStartDate + ")";
+                    orderNote = "Renew package " + subscription.getName() + " (from date " + calculatedStartDate + ")";
                 }
             } else {
                 // Nếu NÂNG CẤP (Upgrade) - Khác loại gói
-                orderNote = "Nâng cấp lên gói " + subscription.getName();
+                orderNote = "Upgrade package " + subscription.getName();
             }
         }
 
@@ -1549,11 +1548,12 @@ public class SchoolServiceImpl implements SchoolService {
         List<String> fieldNames = new ArrayList<>(vnp_Params.keySet());
         Collections.sort(fieldNames);
         StringBuilder hashData = new StringBuilder();
-        for (String fieldName : fieldNames) {
+        for (int i = 0; i < fieldNames.size(); i++) {
+            String fieldName = fieldNames.get(i);
             String fieldValue = vnp_Params.get(fieldName);
-            if (fieldValue != null && fieldValue.length() > 0) {
-                hashData.append(fieldName).append('=').append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII));
-                if (!fieldName.equals(fieldNames.get(fieldNames.size() - 1))) {
+            if (fieldValue != null && !fieldValue.isEmpty()) {
+                hashData.append(fieldName).append('=').append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8));
+                if (i < fieldNames.size() - 1) {
                     hashData.append('&');
                 }
             }
@@ -1561,7 +1561,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         // 3. Kiểm tra Checksum (Chống giả mạo)
         String checkSum = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, hashData.toString());
-        if (!checkSum.equalsIgnoreCase(vnp_SecureHash)) {
+        if (!checkSum.equalsIgnoreCase(vnp_SecureHash))     {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid Signature", null);
         }
 
