@@ -34,7 +34,7 @@ public class CounsellorSlotValidation {
 
         if ("ASSIGN".equalsIgnoreCase(request.getAction())) {
 
-            // Check Thời lượng ca (Duration)
+            //check Thời lượng ca (Duration)
             Integer requiredDuration = policy.get("slotDurationInMinutes");
             if (requiredDuration != null) {
                 long actualDuration = java.time.Duration.between(template.getStartTime(), template.getEndTime()).toMinutes();
