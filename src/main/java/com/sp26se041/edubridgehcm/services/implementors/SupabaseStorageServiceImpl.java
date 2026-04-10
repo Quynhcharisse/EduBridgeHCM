@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -18,11 +17,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -77,7 +75,6 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
 
         MediaType mediaType = switch (ext) {
             case "pdf" -> MediaType.APPLICATION_PDF;
-            case "doc" -> MediaType.parseMediaType("application/msword");
             case "docx" -> MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
             default -> MediaType.APPLICATION_OCTET_STREAM;
         };
@@ -104,15 +101,14 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
     }
 
     @Override
-    public void generatePdfFileFromTemplateDocx(Map<String, Object> data, String templatePath, String folderName, String fileName) throws Exception {
+    public void generateDocFileFromTemplate(Map<String, Object> data, String templatePath, String folderName, String fileName) throws Exception {
 
         byte[] templateBytes = downloadTemplate(templatePath);
 
-        byte[] generatedPdf;
+        byte[] generatedDocx;
 
         try {
-            byte[] generatedDocx = replaceDocx(templateBytes, data);
-            generatedPdf = convertToPdf(generatedDocx);
+           generatedDocx = replaceDocx(templateBytes, data);
         } catch (Exception e)   {
             throw new Exception("Failed to generate PDF document from template", e);
         }
@@ -123,9 +119,10 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(serviceRoleKey);
         headers.set("apikey", serviceRoleKey);
-        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.set("x-upsert", "true");
+        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
 
-        HttpEntity<byte[]> entity = new HttpEntity<>(generatedPdf, headers);
+        HttpEntity<byte[]> entity = new HttpEntity<>(generatedDocx, headers);
 
         ResponseEntity<String> response = restTemplate.exchange(
                 url,
@@ -160,21 +157,21 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
 
         HttpEntity<String> entity = new HttpEntity<>(body, headers);
 
-        try {
-            ResponseEntity<String> response = restTemplate.exchange(
+        ResponseEntity<String> response = restTemplate.exchange(
                     url,
                     HttpMethod.POST,
                     entity,
                     String.class
             );
 
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new RuntimeException("Move file failed");
+            }
+
             System.out.println("Move success: " + fromPath + " -> " + toPath);
 
-        } catch (Exception e) {
-            throw new RuntimeException("Move file failed", e);
+            return supabaseUrl + "/storage/v1/object/public/" + bucketName + "/" + toPath;
 
-        }
-        return supabaseUrl + "/storage/v1/object/public/" + bucketName + "/" + toPath;
     }
 
     @Override
@@ -240,17 +237,6 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
         }
     }
 
-    private byte[] convertToPdf(byte[] docxBytes) throws Exception {
-        try (
-                ByteArrayInputStream in = new ByteArrayInputStream(docxBytes);
-                ByteArrayOutputStream out = new ByteArrayOutputStream()
-        ) {
-            WordprocessingMLPackage wordMLPackage = WordprocessingMLPackage.load(in);
-            Docx4J.toPDF(wordMLPackage, out);
-            return out.toByteArray();
-        }
-    }
-
     public String uploadPdfBytes(byte[] pdfBytes, String bucket, String objectPath) {
         String url = supabaseUrl + "/storage/v1/object/" + bucket + "/" + objectPath;
 
@@ -273,5 +259,9 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
         }
         return supabaseUrl + "/storage/v1/object/public/" + bucket + "/" + objectPath;
     }
+
+
+
+
 
 }
