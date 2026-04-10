@@ -14,8 +14,8 @@ public class VNPayConfig {
     //1.Hard-coded configuration values (configuration constants)
     public static String vnp_PayUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
     public static String vnp_ReturnUrl;
-    public static String vnp_TmnCode = "2AWK2CW3";
-    public static String vnp_HashSecret = "BMY1Z1KV9PZCFGENB4DSD3DMGWDO1SS6";
+    public static String vnp_TmnCode = "ZDT0KK8Q";
+    public static String vnp_HashSecret = "6TF13LASJNVN0WMKJ3UN74525UOUYP5D";
     public static String vnp_apiUrl = "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
 
     @Value("${server.type}")
