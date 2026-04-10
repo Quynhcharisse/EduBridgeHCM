@@ -108,20 +108,81 @@ public class AdminServiceImpl implements AdminService {
 
     private ResponseEntity<ResponseObject> handleVerify(SchoolRegistrationRequest request) {
 
-        Map<String, Object> fields = new LinkedHashMap<>();
-        fields.put("name", request.getSchoolName().trim());
-        fields.put("description", request.getDescription().trim());
-        fields.put("taxCode", request.getTaxCode().trim());
-        fields.put("websiteUrl", request.getWebsiteUrl());
-        fields.put("representativeName", request.getRepresentativeName());
-        fields.put("hotline", request.getHotline());
-        fields.put("foundingDate", request.getFoundingDate()
-                .format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
-        fields.put("logoUrl", request.getLogoUrl());
-        fields.put("businessLicenseUrl", request.getBusinessLicenseUrl());
+        Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
 
-        String schoolName = toSafeObjectKey(request.getSchoolName());
+        if(campusTemplateDocx.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campus document template is not available. Verification cannot be completed.", null);
+        }
 
+        Optional<TemplateDocx> schoolTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.SCHOOL_INFO_TEMPLATE);
+
+        if (schoolTemplateDocx.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "School info document template is not available. Verification cannot be completed.", null);
+        }
+
+        String uuid = UUID.randomUUID().toString();
+
+        try {
+
+            Map<String, Object> fields = new LinkedHashMap<>();
+            fields.put("name", request.getCampusName().trim());
+            fields.put("phoneNumber", request.getCampusPhone().trim());
+            fields.put("address", request.getCampusAddress().trim());
+            fields.put("boardingType", "UPDATING");
+            fields.put("boardingDescription", "UPDATING");
+
+            String schoolName = toSafeObjectKey(request.getSchoolName());
+            String campusName = toSafeObjectKey(request.getCampusName());
+            String templatePath = campusTemplateDocx.get().getFolderName() + "/" + campusTemplateDocx.get().getFileName();
+            String folderName = schoolName + "_" + uuid +"/" + campusName +"_(primary_campus)";
+            String fileName = "campus_info.docx";
+
+            supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
+
+        } catch (Exception ex) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
+        }
+
+        String newBusinessLicenseUrl;
+
+        try {
+
+            String schoolName = toSafeObjectKey(request.getSchoolName());
+            String oldPath = supabaseStorageService.extractObjectPath(request.getBusinessLicenseUrl());
+            String extension = oldPath.substring(oldPath.lastIndexOf('.') + 1);
+            String newPath = schoolName + "_" + uuid + "/" + schoolName + "_business_license" + "." + extension;
+
+            newBusinessLicenseUrl = supabaseStorageService.moveFile(oldPath, newPath);
+
+        } catch (Exception ex) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
+        }
+
+        try {
+
+            Map<String, Object> fields = new LinkedHashMap<>();
+            fields.put("name", request.getSchoolName().trim());
+            fields.put("description", request.getDescription().trim());
+            fields.put("taxCode", request.getTaxCode().trim());
+            fields.put("websiteUrl", request.getWebsiteUrl());
+            fields.put("representativeName", request.getRepresentativeName());
+            fields.put("hotline", request.getHotline());
+            fields.put("foundingDate", request.getFoundingDate()
+                    .format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+            fields.put("logoUrl", request.getLogoUrl());
+            fields.put("businessLicenseUrl", newBusinessLicenseUrl);
+
+            String schoolName = toSafeObjectKey(request.getSchoolName());
+            String folderName = schoolName + "_" + uuid;
+            String fileName = "school_info.docx";
+
+            String templatePath = schoolTemplateDocx.get().getFolderName() + "/" + schoolTemplateDocx.get().getFileName();
+
+            supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
+
+        } catch (Exception ex) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
+        }
 
         // tạo account
         Account account = accountRepo.save(Account.builder().role(Role.SCHOOL)
@@ -159,6 +220,7 @@ public class AdminServiceImpl implements AdminService {
         schoolRegistrationRequestRepo.save(request);
 
         return ResponseBuilder.build(HttpStatus.OK, "Verified successfully", null);
+
     }
 
 
@@ -166,18 +228,17 @@ public class AdminServiceImpl implements AdminService {
 
         return switch (type) {
             case NONE ->
-                    "This campus does not offer boarding services. Students attend classes during the day and return home after school hours.";
+                    "Cơ sở này không cung cấp dịch vụ nội trú. Học sinh tham gia học tập vào ban ngày và trở về nhà sau giờ học.";
 
             case FULL_BOARDING ->
-                    "The campus offers full boarding facilities, where students reside on campus with accommodation, meals, and comprehensive daily care.";
+                    "Cơ sở này cung cấp dịch vụ nội trú toàn phần, nơi học sinh sinh hoạt tại trường với chỗ ở, bữa ăn và sự chăm sóc toàn diện hằng ngày.";
 
             case SEMI_BOARDING ->
-                    "The campus offers semi-boarding services, allowing students to stay during the day for meals, academic support, and extracurricular activities without overnight accommodation.";
+                    "Cơ sở này cung cấp dịch vụ bán trú, cho phép học sinh ở lại trường vào ban ngày để dùng bữa, được hỗ trợ học tập và tham gia các hoạt động ngoại khóa mà không lưu trú qua đêm.";
 
             case BOTH ->
-                    "The campus offers both full boarding and semi-boarding options, providing flexible accommodation and day-care services to meet different student needs.";
+                    "Cơ sở này cung cấp cả dịch vụ nội trú toàn phần và bán trú, mang đến lựa chọn linh hoạt về lưu trú và chăm sóc ban ngày để đáp ứng nhu cầu đa dạng của học sinh.";
         };
-
     }
 
     private String toSafeObjectKey(String input) {
@@ -564,7 +625,7 @@ public class AdminServiceImpl implements AdminService {
 
         try {
 
-            Map<String, String> result = supabaseStorageService.uploadDocument(file, docx.getFolderName(), docx.getFileName(), List.of("doc", "docx"));
+            Map<String, String> result = supabaseStorageService.uploadDocument(file, docx.getFolderName(), docx.getFileName(), List.of("docx"));
             docx.setFileUrl(result.get("fileUrl"));
             docx.setFileName(result.get("fileName"));
             templateDocxRepo.save(docx);
@@ -587,6 +648,16 @@ public class AdminServiceImpl implements AdminService {
     @Transactional
     @Override
     public ResponseEntity<ResponseObject> removeTemplateDocx(long templateDocxId) {
+
+        long totalTemplates = templateDocxRepo.count();
+
+        if (totalTemplates == 1) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Cannot delete the last template docx in the system",
+                    null
+            );
+        }
 
         Optional<TemplateDocx> templateDocx = templateDocxRepo.findById(templateDocxId);
 
