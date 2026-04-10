@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.sp26se041.edubridgehcm.configurations.VNPayConfig;
 import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.CurriculumType;
 import com.sp26se041.edubridgehcm.enums.FeeUnit;
@@ -17,8 +18,11 @@ import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Curriculum;
 import com.sp26se041.edubridgehcm.models.OpenDayEvent;
 import com.sp26se041.edubridgehcm.models.Parent;
+import com.sp26se041.edubridgehcm.models.PaymentTransaction;
 import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.models.School;
+import com.sp26se041.edubridgehcm.models.SchoolSubscription;
+import com.sp26se041.edubridgehcm.models.Subscription;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionReservationFormRepo;
@@ -29,8 +33,12 @@ import com.sp26se041.edubridgehcm.repositories.CurriculumRepo;
 import com.sp26se041.edubridgehcm.repositories.FavouriteSchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.OpenDayEventRepo;
 import com.sp26se041.edubridgehcm.repositories.ParentRepo;
+import com.sp26se041.edubridgehcm.repositories.PaymentTransactionRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolSubscriptionRepo;
+import com.sp26se041.edubridgehcm.repositories.SubscriptionRepo;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
 import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
@@ -52,7 +60,9 @@ import com.sp26se041.edubridgehcm.validations.school.AdmissionCampaignValidation
 import com.sp26se041.edubridgehcm.validations.school.CampusValidation;
 import com.sp26se041.edubridgehcm.validations.school.CurriculumValidation;
 import com.sp26se041.edubridgehcm.validations.school.ProgramValidation;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -68,24 +78,36 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SchoolServiceImpl implements SchoolService {
 
     private final CampusRepo campusRepo;
@@ -112,6 +134,13 @@ public class SchoolServiceImpl implements SchoolService {
 
     private final CampusScheduleTemplateRepo campusScheduleTemplateRepo;
 
+    private final SubscriptionRepo subscriptionRepo;
+
+    private final SchoolSubscriptionRepo schoolSubscriptionRepo;
+
+    private final PaymentTransactionRepo paymentTransactionRepo;
+    private final SchoolConfigRepo schoolConfigRepo;
+
     @Override
     @Transactional
     public ResponseEntity<ResponseObject> createCampus(CreateCampusRequest request) {
@@ -130,7 +159,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can add new campus", null);
         }
 
-        String error = CampusValidation.validateCreateCampus(request, accountRepo);
+        String error = CampusValidation.validateCreateCampus(request, accountRepo, campusRepo, actorCampus.getSchool().getId());
         if (error != null && !error.isBlank()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
@@ -141,29 +170,9 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Boarding type is invalid. Accepted values: NONE, FULL_BOARDING, SEMI_BOARDING, BOTH", null);
         }
 
-        Account acc = accountRepo.save(Account.builder()
-                .email(normalize(request.getEmail()))
-                .role(Role.SCHOOL)
-                .status(Status.ACCOUNT_ACTIVE)
-                .registerDate(LocalDate.now())
-                .firstLogin(true)
-                .isRestricted(false)
-                .build());
+        Account acc = accountRepo.save(Account.builder().email(normalize(request.getEmail())).role(Role.SCHOOL).status(Status.ACCOUNT_ACTIVE).registerDate(LocalDate.now()).firstLogin(true).isRestricted(false).build());
 
-        Campus campus = campusRepo.save(Campus.builder()
-                .school(actorCampus.getSchool())
-                .account(acc)
-                .name(normalize(request.getName()))
-                .address(normalize(request.getAddress()))
-                .phoneNumber(normalize(request.getPhone()))
-                .city(normalize(request.getCity()))
-                .district(normalize(request.getDistrict()))
-                .boardingType(boardingType)
-                .latitude(request.getLatitude())
-                .longitude(request.getLongitude())
-                .status(Status.ACTIVE)
-                .isPrimaryBranch(false)
-                .build());
+        Campus campus = campusRepo.save(Campus.builder().school(actorCampus.getSchool()).account(acc).name(normalize(request.getName())).address(normalize(request.getAddress())).phoneNumber(normalize(request.getPhone())).city(normalize(request.getCity())).district(normalize(request.getDistrict())).ward(normalize(request.getWard())).boardingType(boardingType).latitude(request.getLatitude()).longitude(request.getLongitude()).status(Status.ACTIVE).isPrimaryBranch(false).build());
 
         Map<String, Object> data = new HashMap<>();
         data.put("campus", buildCampusData(campus));
@@ -206,6 +215,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("address", campus.getAddress());
         data.put("city", campus.getCity());
         data.put("district", campus.getDistrict());
+        data.put("ward", campus.getWard());
         data.put("latitude", campus.getLatitude());
         data.put("longitude", campus.getLongitude());
         data.put("boardingType", campus.getBoardingType() != null ? campus.getBoardingType().name() : null);
@@ -473,9 +483,7 @@ public class SchoolServiceImpl implements SchoolService {
                 return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campaign template not found", null);
             }
 
-            List<Map<String, Object>> data = campaigns.stream()
-                    .map(this::buildCampaignData)
-                    .toList();
+            List<Map<String, Object>> data = campaigns.stream().map(this::buildCampaignData).toList();
 
             return ResponseBuilder.build(HttpStatus.OK, "View campaigns for year " + year + " successfully", data);
         }
@@ -1022,7 +1030,10 @@ public class SchoolServiceImpl implements SchoolService {
         //Trí sửa
         Set<Integer> favouriteSchoolIds = getFavouriteSchoolIds();
 
-        List<Map<String, Object>> schoolList = schools.stream().map(school -> buildPublicSchoolData(school, favouriteSchoolIds)).toList();
+        List<Map<String, Object>> schoolList = schools.stream().map(school -> {
+            Map<String, Object> operationConfig = getOperationConfig(school.getId());
+            return buildPublicSchoolData(school, favouriteSchoolIds, operationConfig);
+        }).toList();
 
         return ResponseBuilder.build(HttpStatus.OK, "View school list successfully", schoolList);
     }
@@ -1038,7 +1049,9 @@ public class SchoolServiceImpl implements SchoolService {
 
         Set<Integer> favouriteSchoolIds = getFavouriteSchoolIds();
 
-        Map<String, Object> data = buildPublicSchoolData(school, favouriteSchoolIds);
+        Map<String, Object> operationConfig = getOperationConfig(schoolId);
+
+        Map<String, Object> data = buildPublicSchoolData(school, favouriteSchoolIds, operationConfig);
 
         data.put("campusList", school.getCampusList().stream().filter(campus -> Status.ACTIVE.equals(campus.getStatus())).map(this::buildPublicCampusData).toList());
 
@@ -1060,7 +1073,7 @@ public class SchoolServiceImpl implements SchoolService {
         return favouriteSchoolRepo.findByParentId(parent.getId()).stream().map(f -> f.getSchool().getId()).collect(Collectors.toSet());
     }
 
-    Map<String, Object> buildPublicSchoolData(School school, Set<Integer> favouriteSchoolIds) {
+    Map<String, Object> buildPublicSchoolData(School school, Set<Integer> favouriteSchoolIds, Map<String, Object> operationConfig) {
 
         Map<String, Object> data = new HashMap<>();
         data.put("id", school.getId());
@@ -1072,9 +1085,21 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("websiteUrl", school.getWebsiteUrl());
         data.put("representativeName", school.getRepresentativeName());
         data.put("hotline", school.getHotline());
+
+        String configHotline = (String) operationConfig.get("hotline");
+        String configEmail = (String) operationConfig.get("emailSupport");
+
+        data.put("hotline", configHotline);
+        data.put("emailSupport", configEmail);
         data.put("averageRating", school.getAverageRating());
         data.put("foundingDate", school.getFoundingDate());
         return data;
+    }
+
+    private Map<String, Object> getOperationConfig(int schoolId) {
+        return schoolConfigRepo.findBySchoolIdAndKey(schoolId, "operationSettingsData")
+                .map(config -> (Map<String, Object>) config.getValue())
+                .orElse(new HashMap<>());
     }
 
     Map<String, Object> buildPublicCampusData(Campus campus) {
@@ -1085,6 +1110,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("address", campus.getAddress());
         data.put("city", campus.getCity());
         data.put("district", campus.getDistrict());
+        data.put("ward", campus.getWard());
         data.put("latitude", campus.getLatitude());
         data.put("longitude", campus.getLongitude());
         data.put("boardingType", campus.getBoardingType());
@@ -1337,18 +1363,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         Path path = Files.createTempFile("export_", ".xlsx");
 
-        String[] headers = {
-                "ID",
-                "Tên Cơ Sở",
-                "Liên Hệ (SĐT)",
-                "Địa chỉ",
-                "Thành phố",
-                "Quận",
-                "Loại Trú (Boarding)",
-                "Loại Nhánh Chính",
-                "Trạng Thái Campus",
-                "Trạng Thái Trường"
-        };
+        String[] headers = {"ID", "Tên Cơ Sở", "Liên Hệ (SĐT)", "Địa chỉ", "Thành phố", "Quận", "Loại Trú (Boarding)", "Loại Nhánh Chính", "Trạng Thái Campus", "Trạng Thái Trường"};
 
         ExcelUtil.exportToExcel(path, "Campuses", headers, campusList, (campus, row) -> {
             row.createCell(0).setCellValue(campus.getId());
@@ -1392,15 +1407,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         Path path = Files.createTempFile("export_campaigns_", ".xlsx");
 
-        String[] headers = {
-                "ID",
-                "Tên Chiến Dịch",
-                "Năm Học",
-                "Miêu tả",
-                "Ngày Bắt Đầu",
-                "Ngày Kết Thúc",
-                "Trạng Thái"
-        };
+        String[] headers = {"ID", "Tên Chiến Dịch", "Năm Học", "Miêu tả", "Ngày Bắt Đầu", "Ngày Kết Thúc", "Trạng Thái"};
 
         ExcelUtil.exportToExcel(path, "AdmissionCampaigns", headers, campaigns, (campaign, row) -> {
             row.createCell(0).setCellValue(campaign.getId());
@@ -1417,13 +1424,285 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> viewSubscriptionList() {
-        return null;
+    public ResponseEntity<ResponseObject> createSubscription(CreateSubscriptionRequest request, HttpServletRequest httpRequest) {
+
+        // step 1 : xác thực school - campus chính
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "School account not found", null);
+
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can add new campus", null);
+        }
+
+        School school = actorCampus.getSchool();
+
+        if (request == null || request.getPackageId() <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Package id is required", null);
+        }
+
+        // step 2: lấy thông tin của gói cước
+        Subscription subscription = subscriptionRepo.findById(request.getPackageId()).orElseThrow(() -> new RuntimeException("Service package not found"));
+
+        if (subscription.getPrice() == null || subscription.getPrice() <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Package price must be greater than 0", null);
+        }
+
+        //ktra upgrade vs renew
+        List<SchoolSubscription> currentActiveSub = schoolSubscriptionRepo.findBySchoolIdAndIsSelected(school.getId(), true);
+
+        LocalDate calculatedStartDate = LocalDate.now();
+        String orderNote = "Payment package " + normalize(subscription.getName());
+
+        if (!currentActiveSub.isEmpty()) {
+            // Lấy gói có ngày kết thúc xa nhất trong đám đang active để tính nối đuôi
+            SchoolSubscription current = currentActiveSub.stream().max(Comparator.comparing(SchoolSubscription::getEndDate)).get();
+
+            if (current.getSubscription().getId().equals(request.getPackageId())) {
+                // Nếu GIA HẠN (Renew) - Cùng loại gói
+                if (current.getEndDate().isAfter(LocalDate.now())) {
+                    calculatedStartDate = current.getEndDate().plusDays(1);
+                    orderNote = "Renew package " + normalize(subscription.getName()) + " from " + calculatedStartDate;
+                }
+            } else {
+                // Nếu NÂNG CẤP (Upgrade) - Khác loại gói
+                orderNote = "Upgrade package " + normalize(subscription.getName());
+            }
+        }
+
+        orderNote = sanitizeOrderInfo(orderNote);
+
+        // step 3 : tạo SchoolSubscription (trạng thái chờ - isSelected = false)
+        // giúp định danh loại chuỗi này là License ==> đóng vai trò là Số báo danh cho gói đăng kí đó
+        String licenseKey = "LIC-" + VNPayConfig.getRandomNumber(8).toUpperCase();
+        SchoolSubscription schoolSubscription = SchoolSubscription.builder()
+                .school(school)
+                .subscription(subscription)
+                .startDate(calculatedStartDate)
+                .endDate(calculatedStartDate.plusDays(subscription.getDurationDays()))
+                .isSelected(false) // chưa kích hoạt cho đến khi thanh toán xong
+                .licenseKey(licenseKey)
+                .build();
+
+        schoolSubscription = schoolSubscriptionRepo.save(schoolSubscription);
+
+        // step 4 : cấu hinh vnpay
+        String vnp_TxnRef = VNPayConfig.getRandomNumber(8); // mã đơn hàng
+        long amount = BigDecimal.valueOf(subscription.getPrice()).multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.HALF_UP).longValue();
+        if (amount <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid payment amount", null);
+        }
+
+        Map<String, String> vnp_Params = new TreeMap<>();
+        vnp_Params.put("vnp_Version", "2.1.1");
+        vnp_Params.put("vnp_Command", "pay");
+        vnp_Params.put("vnp_TmnCode", VNPayConfig.vnp_TmnCode);
+        vnp_Params.put("vnp_Amount", String.valueOf(amount));
+        vnp_Params.put("vnp_CurrCode", "VND");
+        vnp_Params.put("vnp_TxnRef", vnp_TxnRef);
+        vnp_Params.put("vnp_OrderInfo", orderNote);
+        vnp_Params.put("vnp_OrderType", "other");
+        vnp_Params.put("vnp_Locale", "vn");
+        vnp_Params.put("vnp_ReturnUrl", VNPayConfig.vnp_ReturnUrl); // URL FE / BE nhận kết quả
+        vnp_Params.put("vnp_IpAddr", VNPayConfig.getIpAddress(httpRequest));
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+        LocalDateTime createDate = LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+        LocalDateTime expireDate = createDate.plusMinutes(15);
+        vnp_Params.put("vnp_CreateDate", formatter.format(createDate));
+        vnp_Params.put("vnp_ExpireDate", formatter.format(expireDate));
+
+        String queryUrl = buildVnpQueryString(vnp_Params);
+        String hashData = buildVnpHashData(vnp_Params);
+        String vnp_SecureHash = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, hashData);
+        String paymentUrl = VNPayConfig.vnp_PayUrl + "?" + queryUrl + "&vnp_SecureHash=" + vnp_SecureHash;
+
+        log.info("VNPay request prepared: tmnCode={}, returnUrl={}, txnRef={}, amount={}, version={}",
+                VNPayConfig.vnp_TmnCode, VNPayConfig.vnp_ReturnUrl, vnp_TxnRef, amount, vnp_Params.get("vnp_Version"));
+        log.debug("VNPay hashData={}", hashData);
+        log.debug("VNPay secureHash={}", vnp_SecureHash);
+
+        paymentTransactionRepo.save(PaymentTransaction.builder().school(school).schoolSubscription(schoolSubscription).vnpTxnRef(vnp_TxnRef).vnpAmount(amount).vnpOrderInfo(orderNote).status(Status.PAYMENT_PENDING).createdAt(LocalDateTime.now()).ipAddress(VNPayConfig.getIpAddress(httpRequest)).build());
+
+        return ResponseBuilder.build(HttpStatus.OK, "Payment URL generated", paymentUrl);
     }
 
     @Override
-    public ResponseEntity<ResponseObject> createSubscription(CreateSubscriptionRequest request) {
-        return null;
+    public ResponseEntity<ResponseObject> handleVNPayCallback(HttpServletRequest httpRequest) {
+
+        Map<String, String> vnp_Params = new HashMap<>();
+
+        Enumeration<String> parameterNames = httpRequest.getParameterNames();
+
+        while (parameterNames.hasMoreElements()) {
+            String paramName = parameterNames.nextElement();
+            String paramValue = httpRequest.getParameter(paramName);
+            if (paramName != null && paramName.startsWith("vnp_") && paramValue != null && !paramValue.isEmpty()) {
+                vnp_Params.put(paramName, paramValue);
+            }
+        }
+
+        // 2. Chuyển cho hàm xử lý logic nội bộ
+        return processPaymentCallback(vnp_Params);
+    }
+
+    private ResponseEntity<ResponseObject> processPaymentCallback(Map<String, String> vnp_Params) {
+
+        // 1. Lấy và dọn dẹp chữ ký từ VNPay gửi về
+        String vnp_SecureHash = vnp_Params.get("vnp_SecureHash");
+        if (vnp_SecureHash == null || vnp_SecureHash.isBlank()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Missing SecureHash", null);
+        }
+
+        vnp_Params.remove("vnp_SecureHashType");
+        vnp_Params.remove("vnp_SecureHash");
+
+        // 2. Tái tạo lại chữ ký từ dữ liệu nhận được để kiểm tra tính toàn vẹn
+        Map<String, String> signFields = new TreeMap<>();
+        for (Map.Entry<String, String> entry : vnp_Params.entrySet()) {
+            String key = entry.getKey();
+            String value = entry.getValue();
+            if (key != null && key.startsWith("vnp_") && value != null && !value.isBlank()) {
+                signFields.put(key, value);
+            }
+        }
+
+        // 3. Kiểm tra Checksum (Chống giả mạo)
+        String callbackHashData = buildVnpHashData(signFields);
+        String checkSum = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, callbackHashData);
+        log.debug("VNPay callback hashData={}", callbackHashData);
+        log.debug("VNPay callback secureHash={}, localCheckSum={}", vnp_SecureHash, checkSum);
+        if (!checkSum.equalsIgnoreCase(vnp_SecureHash)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid Signature", null);
+        }
+
+        // 4. Tìm giao dịch trong Database
+        String txnRef = vnp_Params.get("vnp_TxnRef");
+        PaymentTransaction transaction = paymentTransactionRepo.findByVnpTxnRef(txnRef).orElseThrow(() -> new RuntimeException("Transaction not found"));
+
+        School school = transaction.getSchool();
+        // 5. Kiểm tra nếu giao dịch đã được xử lý trước đó (Idempotency)
+        if (transaction.getStatus() != Status.PAYMENT_PENDING) {
+            return ResponseBuilder.build(HttpStatus.OK, "Transaction already processed", transaction.getStatus());
+        }
+
+        // 6. Kiểm tra kết quả thanh toán từ mã vnp_ResponseCode
+        if ("00".equals(vnp_Params.get("vnp_ResponseCode"))) {
+            transaction.setStatus(Status.PAYMENT_SUCCESS);
+
+            // Lấy thông tin SchoolSubscription mới (đang ở trạng thái chờ)
+            SchoolSubscription newSchoolSubscription = transaction.getSchoolSubscription();
+            School currentSchool = transaction.getSchool();
+
+            // xử lý phần nâng cấp :
+            List<SchoolSubscription> activeSubs = schoolSubscriptionRepo.findBySchoolIdAndIsSelected(currentSchool.getId(), true);
+
+            // Tính toán lại ngày (check)
+            // Tìm gói có ngày kết thúc xa nhất trong lịch sử (ngoại trừ chính nó)
+            Optional<SchoolSubscription> latestSubOpt = schoolSubscriptionRepo
+                    .findTopBySchoolIdAndIdNotOrderByEndDateDesc(currentSchool.getId(), newSchoolSubscription.getId());
+
+            if (latestSubOpt.isPresent()) {
+                SchoolSubscription latestSub = latestSubOpt.get();
+
+                // GIA HẠN (Cùng loại gói) và gói đó vẫn còn hạn hoặc vừa mới hết hạn
+                if (latestSub.getSubscription().getId().equals(newSchoolSubscription.getSubscription().getId())
+                        && !latestSub.getEndDate().isBefore(LocalDate.now())) {
+                    newSchoolSubscription.setStartDate(latestSub.getEndDate().plusDays(1));
+                    newSchoolSubscription.setEndDate(newSchoolSubscription.getStartDate().plusDays(newSchoolSubscription.getSubscription().getDurationDays()));
+                } else {
+                    // NÂNG CẤP OR GÓI CŨ ĐÃ HẾT HẠN QUÁ LÂU : DÙNG TỪ HÔM NAY
+                    newSchoolSubscription.setStartDate(LocalDate.now());
+                    newSchoolSubscription.setEndDate(LocalDate.now().plusDays(newSchoolSubscription.getSubscription().getDurationDays()));
+                }
+            }
+
+
+            // THỰC THI ==> Tắt tất cả các gói hiện tại của School này
+            activeSubs.forEach(s -> s.setIsSelected(false));
+            schoolSubscriptionRepo.saveAll(activeSubs);
+
+            // Bật gói mới vừa mua
+            newSchoolSubscription.setIsSelected(true);
+            schoolSubscriptionRepo.save(newSchoolSubscription);
+        } else {
+            transaction.setStatus(Status.PAYMENT_FAILED);
+        }
+        // 7. Lưu chi tiết thông tin từ VNPay để đối soát
+        transaction.setVnpTransactionNo(vnp_Params.get("vnp_TransactionNo"));
+        transaction.setVnpResponseCode(vnp_Params.get("vnp_ResponseCode"));
+        transaction.setVnpPayDate(vnp_Params.get("vnp_PayDate"));
+        transaction.setVnpBankCode(vnp_Params.get("vnp_BankCode"));
+        transaction.setVnpCardType(vnp_Params.get("vnp_CardType"));
+        paymentTransactionRepo.save(transaction);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Payment processed successfully", transaction.getStatus());
+    }
+
+    private String sanitizeOrderInfo(String rawOrderInfo) {
+        if (rawOrderInfo == null || rawOrderInfo.isBlank()) {
+            return "Payment package";
+        }
+
+        String normalizedText = rawOrderInfo.trim().replaceAll("\\s+", " ");
+        // VNPay accepts text order info; keep a conservative safe character set.
+        normalizedText = normalizedText.replaceAll("[^a-zA-Z0-9 _.,:-]", "");
+        if (normalizedText.length() > 255) {
+            normalizedText = normalizedText.substring(0, 255);
+        }
+        return normalizedText;
+    }
+
+    private String buildVnpQueryString(Map<String, String> params) {
+        StringBuilder query = new StringBuilder();
+        boolean first = true;
+
+        for (Map.Entry<String, String> entry : params.entrySet()) {
+            String fieldName = entry.getKey();
+            String fieldValue = entry.getValue();
+
+            if (fieldValue == null || fieldValue.isBlank()) {
+                continue;
+            }
+
+            if (!first) {
+                query.append('&');
+            }
+
+            query.append(urlEncode(fieldName));
+            query.append('=');
+            query.append(urlEncode(fieldValue));
+            first = false;
+        }
+
+        return query.toString();
+    }
+
+    private String buildVnpHashData(Map<String, String> params) {
+        StringBuilder hashData = new StringBuilder();
+        boolean first = true;
+
+        for (Map.Entry<String, String> entry : params.entrySet()) {
+            String fieldName = entry.getKey();
+            String fieldValue = entry.getValue();
+
+            if (fieldValue == null || fieldValue.isBlank()) {
+                continue;
+            }
+
+            if (!first) {
+                hashData.append('&');
+            }
+
+            hashData.append(fieldName).append('=').append(urlEncode(fieldValue));
+            first = false;
+        }
+
+        return hashData.toString();
+    }
+
+    private String urlEncode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.US_ASCII);
     }
 
     private ResponseEntity<Resource> buildFileResponse(Path path, String fileName) throws IOException {
@@ -1454,11 +1733,56 @@ public class SchoolServiceImpl implements SchoolService {
         if (lat1 == 0 || lng1 == 0 || lat2 == 0 || lng2 == 0) return 0;
         double dLat = Math.toRadians(lat2 - lat1);
         double dLng = Math.toRadians(lng2 - lng1);
-        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
-                        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return 6371 * c;
     }
 
+    @Override
+    public ResponseEntity<ResponseObject> viewCurrentSubscription() {
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "School account not found", null);
+        }
+
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can add new campus", null);
+        }
+
+        School school = actorCampus.getSchool();
+
+        Optional<SchoolSubscription> activeSubOpt = schoolSubscriptionRepo
+                .findBySchoolIdAndIsSelected(school.getId(), true)
+                .stream()
+                .findFirst(); // tại 1 thời điểm chỉ có 1 gói đc active
+
+        if (activeSubOpt.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.OK, "No active subscription found", null);
+        }
+
+        Map<String, Object> data = buildCurrentSubscription(activeSubOpt.get());
+
+        return ResponseBuilder.build(HttpStatus.OK, "Fetched current subscription status", data);
+    }
+
+    private Map<String, Object> buildCurrentSubscription(SchoolSubscription schoolSub) {
+        // tính số ngày còn lại
+        long daysRemaining = ChronoUnit.DAYS.between(LocalDate.now(), schoolSub.getEndDate());
+        boolean isExpired = LocalDate.now().isAfter(schoolSub.getEndDate());
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("packageName", schoolSub.getSubscription().getName());
+        data.put("licenseKey", schoolSub.getLicenseKey());
+        data.put("startDate", schoolSub.getStartDate());
+        data.put("endDate", schoolSub.getEndDate());
+        data.put("dasRemaining", Math.max(0, daysRemaining));
+        data.put("isExpired", isExpired);
+        data.put("statusMessage", isExpired ? "Expired" : "Active (Remaining " + daysRemaining + " days)");
+        data.put("suggestion", isExpired
+                ? "Your package has expired. Please purchase new package to continue the service."
+                : "If you purchase the same package '" + schoolSub.getSubscription().getName() + "', time will be accumulated continuously from day to day" + schoolSub.getEndDate() + ".");
+        return data;
+    }
 }

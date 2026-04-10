@@ -96,6 +96,7 @@ public class CampusServiceImpl implements CampusService {
     private final CampusScheduleTemplateRepo campusScheduleTemplateRepo;
 
     private final CounsellorSlotRepo counsellorSlotRepo;
+
     private final CampusResourceQuotaRepo campusResourceQuotaRepo;
 
     @Override
@@ -524,6 +525,17 @@ public class CampusServiceImpl implements CampusService {
         }
 
         // campus xử lý facility
+        // lấy facility của chính cơ sở đang thao tác
+        Map<String, Object> currentCampusFacility = (Map<String, Object>) actorCampus.getFacility();
+
+        List<Map<String, Object>> currentItems = new ArrayList<>();
+
+        if (currentCampusFacility != null && currentCampusFacility.get("itemList") != null) {
+            currentItems = (List<Map<String, Object>>) currentCampusFacility.get("itemList");
+        }
+
+        // lấy facility từ primary chính đã config cơ sở vật chất chung cho các campus
+        // ==> để biết bên primary campus có thêm / bớt CSVC nào ko?
         SchoolConfig facilityData = schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), "facilityData").orElse(null);
 
         List<Map<String, Object>> itemList = new ArrayList<>();
@@ -533,11 +545,16 @@ public class CampusServiceImpl implements CampusService {
             itemList = (List<Map<String, Object>>) val.get("itemList");
         }
 
-        List<Map<String, Object>> mergedFacilityItems = SchoolConfigUtil.mergeFacilityItems(itemList, request.getItemList());
+        // thống nhất dữ liệu lại : facility campus chính, facility hiện có của chính cơ sở đó + request gửi lên để sửa
+        List<Map<String, Object>> mergedFinalFacilityItems = SchoolConfigUtil.mergeFacilityItems(
+                itemList,
+                currentItems,
+                request.getItemList()
+        );
 
         Map<String, Object> facilityJson = new HashMap<>();
         facilityJson.put("overview", request.getOverview());
-        facilityJson.put("itemList", mergedFacilityItems);
+        facilityJson.put("itemList", mergedFinalFacilityItems);
         facilityJson.put("imageData", request.getImageJsonData());
         actorCampus.setFacility(facilityJson);
 

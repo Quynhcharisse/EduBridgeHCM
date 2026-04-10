@@ -24,6 +24,8 @@ public class CreateCampusRequest {
 
     String district;
 
+    String ward;
+
     String boardingType;
 
     Double latitude;

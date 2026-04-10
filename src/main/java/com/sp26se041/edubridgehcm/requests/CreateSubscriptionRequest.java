@@ -13,5 +13,8 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CreateSubscriptionRequest {
-    int id;
+
+    int packageId;
+
+    String description;
 }

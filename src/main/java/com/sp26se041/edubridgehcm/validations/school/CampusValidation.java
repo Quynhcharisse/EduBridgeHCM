@@ -2,13 +2,14 @@ package com.sp26se041.edubridgehcm.validations.school;
 
 import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
 
 import java.util.Locale;
 
 public class CampusValidation {
 
-    public static String validateCreateCampus(CreateCampusRequest request, AccountRepo accountRepo) {
+    public static String validateCreateCampus(CreateCampusRequest request, AccountRepo accountRepo, CampusRepo campusRepo, int schoolId) {
         if (request == null) {
             return "Request is required";
         }
@@ -27,6 +28,10 @@ public class CampusValidation {
 
         if (normalize(request.getName()) == null) {
             return "Name is required";
+        }
+
+        if (campusRepo.existsBySchoolIdAndNameEqualsIgnoreCase(schoolId, request.getName())) {
+            return "Campus name '" + request.getName() + "' already exists in your school";
         }
 
         if (normalize(request.getName()).length() > 50) {
@@ -55,6 +60,10 @@ public class CampusValidation {
 
         if (normalize(request.getDistrict()) == null) {
             return "District is required";
+        }
+
+        if (normalize(request.getWard()) == null) {
+            return "Ward is required";
         }
 
         if (parseBoardingType(request.getBoardingType()) == null) {

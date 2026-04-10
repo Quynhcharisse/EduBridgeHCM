@@ -39,6 +39,10 @@ public enum Status {
     PRO_DRAFT("draft"),
     PRO_INACTIVE("inactive"), // Không còn áp dụng cho khóa học nhưng vẫn giữ lại để tham chiếu lịch sử
 
+    PAYMENT_PENDING("pending payment"),
+    PAYMENT_SUCCESS("success payment"),
+    PAYMENT_FAILED("failed payment"),
+
     // status for package service fee
     PACKAGE_ACTIVE("active"),
     PACKAGE_DRAFT("draft"),

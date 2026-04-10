@@ -388,6 +388,8 @@ public class AdminServiceImpl implements AdminService {
         data.put("id", subscription.getId());
         data.put("name", subscription.getName());
         data.put("description", subscription.getDescription());
+        data.put("price", subscription.getPrice());
+        data.put("durationDays", subscription.getDurationDays());
         data.put("status", subscription.getPackageStatus());
         data.put("features", subscription.getFeatures());
         return data;
@@ -597,8 +599,8 @@ public class AdminServiceImpl implements AdminService {
         CategoryTemplate categoryTempl;
 
         try {
-               categoryTempl = parseCategoryTemplate(categoryTemplate);
-        }catch (Exception ex){
+            categoryTempl = parseCategoryTemplate(categoryTemplate);
+        } catch (Exception ex) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
         }
 
@@ -611,9 +613,9 @@ public class AdminServiceImpl implements AdminService {
         Optional<TemplateDocx> templateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(categoryTempl);
 
         if (templateDocx.isEmpty()) {
-           docx.setFolderName("TEMPLATE/" + categoryTempl.name() + "_" + UUID.randomUUID());
-           docx.setFileName(categoryTempl.getValue() + "_v0");
-           docx.setVersion(0);
+            docx.setFolderName("TEMPLATE/" + categoryTempl.name() + "_" + UUID.randomUUID());
+            docx.setFileName(categoryTempl.getValue() + "_v0");
+            docx.setVersion(0);
         } else {
             TemplateDocx latestTemplate = templateDocx.get();
             int newVersion = latestTemplate.getVersion() + 1;
@@ -661,7 +663,7 @@ public class AdminServiceImpl implements AdminService {
 
         Optional<TemplateDocx> templateDocx = templateDocxRepo.findById(templateDocxId);
 
-        if(templateDocx.isEmpty()){
+        if (templateDocx.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Template docx not found", null);
         }
 
@@ -685,7 +687,7 @@ public class AdminServiceImpl implements AdminService {
 
         try {
             categoryTempl = parseCategoryTemplate(categoryTemplate);
-        }catch (Exception ex){
+        } catch (Exception ex) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
         }
 
@@ -727,9 +729,9 @@ public class AdminServiceImpl implements AdminService {
         }
     }
 
-    private CategoryTemplate parseCategoryTemplate(String categoryTemplate){
+    private CategoryTemplate parseCategoryTemplate(String categoryTemplate) {
 
-        if (categoryTemplate == null || categoryTemplate.isEmpty()){
+        if (categoryTemplate == null || categoryTemplate.isEmpty()) {
             throw new IllegalArgumentException("Category template must not be empty");
         }
 

@@ -1,6 +1,5 @@
 package com.sp26se041.edubridgehcm.requests;
 
-import jakarta.persistence.Column;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -74,6 +73,8 @@ public class UpdateProfileRequest {
 
         String district;
 
+        String ward;
+
         String boardingType;
 
         String address;
@@ -99,8 +100,6 @@ public class UpdateProfileRequest {
         String representativeName;
 
         String hotline;
-
-        String businessLicenseUrl;
 
         LocalDate foundingDate;
     }

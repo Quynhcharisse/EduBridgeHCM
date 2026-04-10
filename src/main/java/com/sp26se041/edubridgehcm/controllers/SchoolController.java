@@ -10,6 +10,7 @@ import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateReques
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
@@ -177,13 +178,18 @@ public class SchoolController {
 
     @PostMapping("/subscription")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> createSubscription(@RequestBody CreateSubscriptionRequest request) {
-        return schoolService.createSubscription(request);
+    public ResponseEntity<ResponseObject> createSubscription(@RequestBody CreateSubscriptionRequest request, HttpServletRequest httpRequest) {
+        return schoolService.createSubscription(request, httpRequest);
     }
 
-    @GetMapping("/subscription/list")
+    @GetMapping("/vnpay/callback/url")
+    public ResponseEntity<ResponseObject> handleVNPayCallback(HttpServletRequest httpRequest) {
+        return schoolService.handleVNPayCallback(httpRequest);
+    }
+
+    @GetMapping("/current/subscription/")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewSubscriptionList() {
-        return schoolService.viewSubscriptionList();
+    public ResponseEntity<ResponseObject> viewCurrentSubscription() {
+        return schoolService.viewCurrentSubscription();
     }
 }
