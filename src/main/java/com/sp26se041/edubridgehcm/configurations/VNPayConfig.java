@@ -8,14 +8,21 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.util.Random;
+import java.util.regex.Pattern;
 
 @Component
 public class VNPayConfig {
-    //1.Hard-coded configuration values (configuration constants)
+
+    private static final Pattern IPV4_PATTERN = Pattern.compile("^((25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.){3}(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)$");
+
     public static String vnp_PayUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
+
     public static String vnp_ReturnUrl;
+
     public static String vnp_TmnCode = "ZDT0KK8Q";
-    public static String vnp_HashSecret = "6TF13LASJNVN0WMKJ3UN74525UOUYP5D";
+
+    public static String vnp_HashSecret = "0ANJ6LZDK4J3HX20MU176DGK5J19D5WV";
+
     public static String vnp_apiUrl = "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
 
     @Value("${server.type}")
@@ -23,30 +30,24 @@ public class VNPayConfig {
         vnp_ReturnUrl = serverType;
     }
 
-    //2. Create security signature to prevent counterfeiting (chống giả mạo)
     public static String hmacSHA512(final String key, final String data) {
         try {
 
-            if (key == null || data == null) { // check null
+            if (key == null || data == null) {
                 throw new NullPointerException();
             }
-
-            final Mac hmac512 = Mac.getInstance("HmacSHA512");   // create HmacSHA512 object
-            byte[] hmacKeyBytes = key.getBytes();//key convert to byte
-
-            //define the key used for the HmacSHA512 algorithm
+            final Mac hmac512 = Mac.getInstance("HmacSHA512");
+            byte[] hmacKeyBytes = key.getBytes();
             final SecretKeySpec secretKey = new SecretKeySpec(hmacKeyBytes, "HmacSHA512");
-            hmac512.init(secretKey); //load secret key into the algorithm
-
-            byte[] dataBytes = data.getBytes(StandardCharsets.UTF_8); //convert data to byte
-            byte[] result = hmac512.doFinal(dataBytes); //create hash
-
-            // convert byte to hex string, (hash is byte) ==> String hex is easy to pass API
+            hmac512.init(secretKey);
+            byte[] dataBytes = data.getBytes(StandardCharsets.UTF_8);
+            byte[] result = hmac512.doFinal(dataBytes);
             StringBuilder sb = new StringBuilder(2 * result.length);
             for (byte b : result) {
                 sb.append(String.format("%02x", b & 0xff));
             }
-            return sb.toString(); // this is final signature sent to VNPAY
+            return sb.toString();
+
         } catch (Exception ex) {
             return "";
         }
@@ -56,16 +57,40 @@ public class VNPayConfig {
     // getLocalAddr() = IP server
     // getRemoteAddr() = IP local
     public static String getIpAddress(HttpServletRequest request) {
-        String ipAdress;
+        String ipAddress;
         try {
-            ipAdress = request.getHeader("X-FORWARDED-FOR"); // get header proxy
-            if (ipAdress == null) { // if not have --> get IP local
-                ipAdress = request.getRemoteAddr(); //catch error
+            ipAddress = request.getHeader("X-FORWARDED-FOR");
+            if (ipAddress != null && ipAddress.contains(",")) {
+                ipAddress = ipAddress.split(",")[0].trim();
             }
+
+            if (ipAddress == null || ipAddress.isBlank()) {
+                ipAddress = request.getHeader("X-REAL-IP");
+            }
+
+            if (ipAddress == null || ipAddress.isBlank()) {
+                ipAddress = request.getRemoteAddr();
+            }
+
+            if (ipAddress == null || ipAddress.isBlank()) {
+                return "127.0.0.1";
+            }
+
+            ipAddress = ipAddress.trim();
+
+            // VNPay expects a valid IPv4 format; normalize local IPv6 loopback.
+            if ("0:0:0:0:0:0:0:1".equals(ipAddress) || "::1".equals(ipAddress)) {
+                return "127.0.0.1";
+            }
+
+            if (!IPV4_PATTERN.matcher(ipAddress).matches()) {
+                return "127.0.0.1";
+            }
+
+            return ipAddress;
         } catch (Exception e) {
-            ipAdress = "Invalid IP" + e.getMessage();
+            return "127.0.0.1";
         }
-        return ipAdress;
     }
 
     // create a string of random numbers
