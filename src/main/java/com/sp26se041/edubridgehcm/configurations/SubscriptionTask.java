@@ -23,7 +23,6 @@ public class SubscriptionTask {
 
     private final SchoolSubscriptionRepo schoolSubscriptionRepo;
 
-
     // Chạy vào lúc 00:00 mỗi ngày để quét các gói PENDING_DEACTIVE
     // Cron expression: "0 0 0 * * *" (Giây - Phút - Giờ - Ngày - Tháng - Thứ)
     @Scheduled(cron = "0 0 0 * * *")

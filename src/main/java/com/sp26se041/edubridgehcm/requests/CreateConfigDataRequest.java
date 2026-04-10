@@ -7,8 +7,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -21,8 +19,6 @@ public class CreateConfigDataRequest {
     BusinessData businessData;
 
     MediaData mediaData;
-
-    ReportData reportData;
 
     SubscriptionData subscriptionData;
 
@@ -98,29 +94,5 @@ public class CreateConfigDataRequest {
         String year;
         String sourceUrl;
         Map<Integer, Integer> quotas;
-    }
-
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
-    @Builder
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class ReportData {
-        int maxResolutionDay;
-        LocalDateTime responseDeadline;
-        LocalDateTime activationDeadline;
-        int bonusDays; //số ngày
-        String bonusCondition;
-        String description;
-        List<resolutionLevels> levels;
-    }
-
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
-    @Builder
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class resolutionLevels {
-        String name;
     }
 }
