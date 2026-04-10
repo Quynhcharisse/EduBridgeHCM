@@ -8,7 +8,6 @@ import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.requests.UpdateProfileRequest;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 
-import java.time.LocalDate;
 import java.util.Arrays;
 
 public class AccountValidation {
@@ -197,20 +196,6 @@ public class AccountValidation {
                 }
                 if (!normalize(request.getCampusData().getSchoolData().getWebsiteUrl()).startsWith("http")) {
                     return "School websiteUrl must be a valid URL";
-                }
-
-                if (normalize(request.getCampusData().getSchoolData().getRepresentativeName()) == null) {
-                    return "Require school representative name";
-                }
-                if (normalize(request.getCampusData().getSchoolData().getRepresentativeName()).length() > 100) {
-                    return "School representative name must not exceed 100 characters";
-                }
-
-                if (request.getCampusData().getSchoolData().getFoundingDate() == null) {
-                    return "Require school founding date";
-                }
-                if (request.getCampusData().getSchoolData().getFoundingDate().isAfter(LocalDate.now())) {
-                    return "School founding date cannot be in the future";
                 }
             }
 
