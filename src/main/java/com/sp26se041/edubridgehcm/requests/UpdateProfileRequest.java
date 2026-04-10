@@ -101,8 +101,6 @@ public class UpdateProfileRequest {
 
         String hotline;
 
-        String businessLicenseUrl;
-
         LocalDate foundingDate;
     }
 }

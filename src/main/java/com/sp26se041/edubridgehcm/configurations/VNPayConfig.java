@@ -19,11 +19,21 @@ public class VNPayConfig {
 
     public static String vnp_ReturnUrl;
 
-    public static String vnp_TmnCode = "ZDT0KK8Q";
+    public static String vnp_TmnCode;
 
-    public static String vnp_HashSecret = "0ANJ6LZDK4J3HX20MU176DGK5J19D5WV";
+    public static String vnp_HashSecret;
 
     public static String vnp_apiUrl = "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
+
+    @Value("${vnp.tmn-code:ZDT0KK8Q}")
+    public void setVnpTmnCode(String tmnCode) {
+        vnp_TmnCode = tmnCode;
+    }
+
+    @Value("${vnp.hash-secret:0ANJ6LZDK4J3HX20MU176DGK5J19D5WV}")
+    public void setVnpHashSecret(String hashSecret) {
+        vnp_HashSecret = hashSecret;
+    }
 
     @Value("${server.type}")
     public void setVnpReturnUrl(String serverType) {

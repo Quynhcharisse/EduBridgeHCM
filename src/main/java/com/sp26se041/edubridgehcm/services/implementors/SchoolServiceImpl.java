@@ -61,6 +61,7 @@ import com.sp26se041.edubridgehcm.validations.school.CurriculumValidation;
 import com.sp26se041.edubridgehcm.validations.school.ProgramValidation;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -106,6 +107,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SchoolServiceImpl implements SchoolService {
 
     private final CampusRepo campusRepo;
@@ -1474,7 +1476,7 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         Map<String, String> vnp_Params = new TreeMap<>();
-        vnp_Params.put("vnp_Version", "2.1.0");
+        vnp_Params.put("vnp_Version", "2.1.1");
         vnp_Params.put("vnp_Command", "pay");
         vnp_Params.put("vnp_TmnCode", VNPayConfig.vnp_TmnCode);
         vnp_Params.put("vnp_Amount", String.valueOf(amount));
@@ -1492,32 +1494,15 @@ public class SchoolServiceImpl implements SchoolService {
         vnp_Params.put("vnp_CreateDate", formatter.format(createDate));
         vnp_Params.put("vnp_ExpireDate", formatter.format(expireDate));
 
-        StringBuilder hashData = new StringBuilder();
-        StringBuilder query = new StringBuilder();
-        boolean first = true;
-        for (Map.Entry<String, String> entry : vnp_Params.entrySet()) {
-            String fieldName = entry.getKey();
-            String fieldValue = entry.getValue();
-            if (fieldValue != null && !fieldValue.isBlank()) {
-                if (!first) {
-                    query.append('&');
-                    hashData.append('&');
-                }
+        String queryUrl = buildVnpQueryString(vnp_Params);
+        String hashData = buildVnpHashData(vnp_Params);
+        String vnp_SecureHash = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, hashData);
+        String paymentUrl = VNPayConfig.vnp_PayUrl + "?" + queryUrl + "&vnp_SecureHash=" + vnp_SecureHash;
 
-                query.append(URLEncoder.encode(fieldName, StandardCharsets.US_ASCII));
-                query.append('=');
-                query.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII));
-
-                hashData.append(fieldName);
-                hashData.append('=');
-                hashData.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII));
-                first = false;
-            }
-        }
-
-        String queryUrl = query.toString();
-        String vnp_SecureHash = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, hashData.toString());
-        String paymentUrl = VNPayConfig.vnp_PayUrl + "?" + queryUrl + "&vnp_SecureHashType=SHA512&vnp_SecureHash=" + vnp_SecureHash;
+        log.info("VNPay request prepared: tmnCode={}, returnUrl={}, txnRef={}, amount={}, version={}",
+            VNPayConfig.vnp_TmnCode, VNPayConfig.vnp_ReturnUrl, vnp_TxnRef, amount, vnp_Params.get("vnp_Version"));
+        log.debug("VNPay hashData={}", hashData);
+        log.debug("VNPay secureHash={}", vnp_SecureHash);
 
         paymentTransactionRepo.save(PaymentTransaction.builder().school(school).schoolSubscription(schoolSubscription).vnpTxnRef(vnp_TxnRef).vnpAmount(amount).vnpOrderInfo(orderNote).status(Status.PAYMENT_PENDING).createdAt(LocalDateTime.now()).ipAddress(VNPayConfig.getIpAddress(httpRequest)).build());
 
@@ -1564,23 +1549,11 @@ public class SchoolServiceImpl implements SchoolService {
             }
         }
 
-        List<String> fieldNames = new ArrayList<>(signFields.keySet());
-        Collections.sort(fieldNames);
-        StringBuilder hashData = new StringBuilder();
-        boolean first = true;
-        for (String fieldName : fieldNames) {
-            String fieldValue = signFields.get(fieldName);
-            if (fieldValue != null && !fieldValue.isEmpty()) {
-                if (!first) {
-                    hashData.append('&');
-                }
-                hashData.append(fieldName).append('=').append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8));
-                first = false;
-            }
-        }
-
         // 3. Kiểm tra Checksum (Chống giả mạo)
-        String checkSum = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, hashData.toString());
+        String callbackHashData = buildVnpHashData(signFields);
+        String checkSum = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, callbackHashData);
+        log.debug("VNPay callback hashData={}", callbackHashData);
+        log.debug("VNPay callback secureHash={}, localCheckSum={}", vnp_SecureHash, checkSum);
         if (!checkSum.equalsIgnoreCase(vnp_SecureHash)) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid Signature", null);
         }
@@ -1660,6 +1633,58 @@ public class SchoolServiceImpl implements SchoolService {
             normalizedText = normalizedText.substring(0, 255);
         }
         return normalizedText;
+    }
+
+    private String buildVnpQueryString(Map<String, String> params) {
+        StringBuilder query = new StringBuilder();
+        boolean first = true;
+
+        for (Map.Entry<String, String> entry : params.entrySet()) {
+            String fieldName = entry.getKey();
+            String fieldValue = entry.getValue();
+
+            if (fieldValue == null || fieldValue.isBlank()) {
+                continue;
+            }
+
+            if (!first) {
+                query.append('&');
+            }
+
+            query.append(urlEncode(fieldName));
+            query.append('=');
+            query.append(urlEncode(fieldValue));
+            first = false;
+        }
+
+        return query.toString();
+    }
+
+    private String buildVnpHashData(Map<String, String> params) {
+        StringBuilder hashData = new StringBuilder();
+        boolean first = true;
+
+        for (Map.Entry<String, String> entry : params.entrySet()) {
+            String fieldName = entry.getKey();
+            String fieldValue = entry.getValue();
+
+            if (fieldValue == null || fieldValue.isBlank()) {
+                continue;
+            }
+
+            if (!first) {
+                hashData.append('&');
+            }
+
+            hashData.append(fieldName).append('=').append(urlEncode(fieldValue));
+            first = false;
+        }
+
+        return hashData.toString();
+    }
+
+    private String urlEncode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.US_ASCII);
     }
 
     private ResponseEntity<Resource> buildFileResponse(Path path, String fileName) throws IOException {
