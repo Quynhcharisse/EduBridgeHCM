@@ -419,9 +419,6 @@ public class AccountServiceImpl implements AccountService {
             campus.getSchool().setDescription(normalize(campusData.getSchoolData().getDescription()));
             campus.getSchool().setLogoUrl(normalize(campusData.getSchoolData().getLogoUrl()));
             campus.getSchool().setWebsiteUrl(normalize(campusData.getSchoolData().getWebsiteUrl()));
-            campus.getSchool().setRepresentativeName(normalize(campusData.getSchoolData().getRepresentativeName()));
-            campus.getSchool().setHotline(normalize(campusData.getSchoolData().getHotline()));
-            campus.getSchool().setFoundingDate(campusData.getSchoolData().getFoundingDate());
             campus.setAddress(normalize(campusData.getAddress()));
             campus.setCity(normalize(campusData.getCity()));
             campus.setDistrict(normalize(campusData.getDistrict()));
@@ -433,7 +430,6 @@ public class AccountServiceImpl implements AccountService {
         campus.setName(normalize(campusData.getName()));
         campus.setPhoneNumber(normalize(campusData.getPhoneNumber()));
         campus.setBoardingType(Objects.requireNonNull(AccountValidation.parseBoardingType(campusData.getBoardingType())));
-
         campusRepo.save(campus);
     }
 
