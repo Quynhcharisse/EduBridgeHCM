@@ -85,9 +85,11 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -95,6 +97,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
@@ -126,8 +129,11 @@ public class SchoolServiceImpl implements SchoolService {
     private final ParentRepo parentRepo;
 
     private final CampusScheduleTemplateRepo campusScheduleTemplateRepo;
+
     private final SubscriptionRepo subscriptionRepo;
+
     private final SchoolSubscriptionRepo schoolSubscriptionRepo;
+
     private final PaymentTransactionRepo paymentTransactionRepo;
 
     @Override
@@ -159,30 +165,9 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Boarding type is invalid. Accepted values: NONE, FULL_BOARDING, SEMI_BOARDING, BOTH", null);
         }
 
-        Account acc = accountRepo.save(Account.builder()
-                .email(normalize(request.getEmail()))
-                .role(Role.SCHOOL)
-                .status(Status.ACCOUNT_ACTIVE)
-                .registerDate(LocalDate.now())
-                .firstLogin(true)
-                .isRestricted(false)
-                .build());
+        Account acc = accountRepo.save(Account.builder().email(normalize(request.getEmail())).role(Role.SCHOOL).status(Status.ACCOUNT_ACTIVE).registerDate(LocalDate.now()).firstLogin(true).isRestricted(false).build());
 
-        Campus campus = campusRepo.save(Campus.builder()
-                .school(actorCampus.getSchool())
-                .account(acc)
-                .name(normalize(request.getName()))
-                .address(normalize(request.getAddress()))
-                .phoneNumber(normalize(request.getPhone()))
-                .city(normalize(request.getCity()))
-                .district(normalize(request.getDistrict()))
-                .ward(normalize(request.getWard()))
-                .boardingType(boardingType)
-                .latitude(request.getLatitude())
-                .longitude(request.getLongitude())
-                .status(Status.ACTIVE)
-                .isPrimaryBranch(false)
-                .build());
+        Campus campus = campusRepo.save(Campus.builder().school(actorCampus.getSchool()).account(acc).name(normalize(request.getName())).address(normalize(request.getAddress())).phoneNumber(normalize(request.getPhone())).city(normalize(request.getCity())).district(normalize(request.getDistrict())).ward(normalize(request.getWard())).boardingType(boardingType).latitude(request.getLatitude()).longitude(request.getLongitude()).status(Status.ACTIVE).isPrimaryBranch(false).build());
 
         Map<String, Object> data = new HashMap<>();
         data.put("campus", buildCampusData(campus));
@@ -493,9 +478,7 @@ public class SchoolServiceImpl implements SchoolService {
                 return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campaign template not found", null);
             }
 
-            List<Map<String, Object>> data = campaigns.stream()
-                    .map(this::buildCampaignData)
-                    .toList();
+            List<Map<String, Object>> data = campaigns.stream().map(this::buildCampaignData).toList();
 
             return ResponseBuilder.build(HttpStatus.OK, "View campaigns for year " + year + " successfully", data);
         }
@@ -1358,18 +1341,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         Path path = Files.createTempFile("export_", ".xlsx");
 
-        String[] headers = {
-                "ID",
-                "Tên Cơ Sở",
-                "Liên Hệ (SĐT)",
-                "Địa chỉ",
-                "Thành phố",
-                "Quận",
-                "Loại Trú (Boarding)",
-                "Loại Nhánh Chính",
-                "Trạng Thái Campus",
-                "Trạng Thái Trường"
-        };
+        String[] headers = {"ID", "Tên Cơ Sở", "Liên Hệ (SĐT)", "Địa chỉ", "Thành phố", "Quận", "Loại Trú (Boarding)", "Loại Nhánh Chính", "Trạng Thái Campus", "Trạng Thái Trường"};
 
         ExcelUtil.exportToExcel(path, "Campuses", headers, campusList, (campus, row) -> {
             row.createCell(0).setCellValue(campus.getId());
@@ -1413,15 +1385,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         Path path = Files.createTempFile("export_campaigns_", ".xlsx");
 
-        String[] headers = {
-                "ID",
-                "Tên Chiến Dịch",
-                "Năm Học",
-                "Miêu tả",
-                "Ngày Bắt Đầu",
-                "Ngày Kết Thúc",
-                "Trạng Thái"
-        };
+        String[] headers = {"ID", "Tên Chiến Dịch", "Năm Học", "Miêu tả", "Ngày Bắt Đầu", "Ngày Kết Thúc", "Trạng Thái"};
 
         ExcelUtil.exportToExcel(path, "AdmissionCampaigns", headers, campaigns, (campaign, row) -> {
             row.createCell(0).setCellValue(campaign.getId());
@@ -1435,11 +1399,6 @@ public class SchoolServiceImpl implements SchoolService {
 
         String fileName = year > 0 ? "Chien_Dich_Tuyen_Sinh_" + year + ".xlsx" : "Danh_Sach_Chien_Dich_Tuyen_Sinh.xlsx";
         return buildFileResponse(path, fileName);
-    }
-
-    @Override
-    public ResponseEntity<ResponseObject> viewCurrentSubscription() {
-        return null;
     }
 
     @Override
@@ -1457,17 +1416,38 @@ public class SchoolServiceImpl implements SchoolService {
         School school = actorCampus.getSchool();
 
         // step 2: lấy thông tin của gói cước
-        Subscription subscription = subscriptionRepo.findById(request.getPackageId())
-                .orElseThrow(() -> new RuntimeException("Service package not found"));
+        Subscription subscription = subscriptionRepo.findById(request.getPackageId()).orElseThrow(() -> new RuntimeException("Service package not found"));
+
+        //ktra upgrade vs renew
+        List<SchoolSubscription> currentActiveSub = schoolSubscriptionRepo.findBySchoolIdAndIsSelected(school.getId(), true);
+
+        LocalDate calculatedStartDate = LocalDate.now();
+        String orderNote = "Payment the package: " + subscription.getName();
+
+        if (!currentActiveSub.isEmpty()) {
+            // Lấy gói có ngày kết thúc xa nhất trong đám đang active để tính nối đuôi
+            SchoolSubscription current = currentActiveSub.stream().max(Comparator.comparing(SchoolSubscription::getEndDate)).get();
+
+            if (current.getSubscription().getId().equals(request.getPackageId())) {
+                // Nếu GIA HẠN (Renew) - Cùng loại gói
+                if (current.getEndDate().isAfter(LocalDate.now())) {
+                    calculatedStartDate = current.getEndDate().plusDays(1);
+                    orderNote = "Gia hạn gói " + subscription.getName() + " (Nối tiếp từ " + calculatedStartDate + ")";
+                }
+            } else {
+                // Nếu NÂNG CẤP (Upgrade) - Khác loại gói
+                orderNote = "Nâng cấp lên gói " + subscription.getName();
+            }
+        }
 
         // step 3 : tạo SchoolSubscription (trạng thái chờ - isSelected = false)
         // giúp định danh loại chuỗi này là License ==> đóng vai trò là Số báo danh cho gói đăng kí đó
-
         String licenseKey = "LIC-" + VNPayConfig.getRandomNumber(8).toUpperCase();
         SchoolSubscription schoolSubscription = SchoolSubscription.builder()
                 .school(school)
-                .startDate(LocalDate.now())
-                .endDate(LocalDate.now().plusDays(subscription.getDurationDays()))
+                .subscription(subscription)
+                .startDate(calculatedStartDate)
+                .endDate(calculatedStartDate.plusDays(subscription.getDurationDays()))
                 .isSelected(false) // chưa kích hoạt cho đến khi thanh toán xong
                 .licenseKey(licenseKey)
                 .build();
@@ -1485,7 +1465,7 @@ public class SchoolServiceImpl implements SchoolService {
         vnp_Params.put("vnp_Amount", String.valueOf(amount));
         vnp_Params.put("vnp_CurrCode", "VND");
         vnp_Params.put("vnp_TxnRef", vnp_TxnRef);
-        vnp_Params.put("vnp_OrderInfo", "Thanh toán gói cước: " + subscription.getName());
+        vnp_Params.put("vnp_OrderInfo", orderNote);
         vnp_Params.put("vnp_OrderType", "other");
         vnp_Params.put("vnp_Locale", "vn");
         vnp_Params.put("vnp_ReturnUrl", VNPayConfig.vnp_ReturnUrl); // URL FE / BE nhận kết quả
@@ -1519,17 +1499,7 @@ public class SchoolServiceImpl implements SchoolService {
         String vnp_SecureHash = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, hashData.toString());
         String paymentUrl = VNPayConfig.vnp_PayUrl + "?" + queryUrl + "&vnp_SecureHash=" + vnp_SecureHash;
 
-        paymentTransactionRepo.save(
-                PaymentTransaction.builder()
-                        .school(school)
-                        .schoolSubscription(schoolSubscription)
-                        .vnpTxnRef(vnp_TxnRef)
-                        .vnpAmount(amount)
-                        .status(Status.PAYMENT_PENDING)
-                        .createdAt(LocalDateTime.now())
-                        .ipAddress(VNPayConfig.getIpAddress(httpRequest))
-                        .build()
-        );
+        paymentTransactionRepo.save(PaymentTransaction.builder().school(school).schoolSubscription(schoolSubscription).vnpTxnRef(vnp_TxnRef).vnpAmount(amount).status(Status.PAYMENT_PENDING).createdAt(LocalDateTime.now()).ipAddress(VNPayConfig.getIpAddress(httpRequest)).build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Payment URL generated", paymentUrl);
     }
@@ -1554,16 +1524,6 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     private ResponseEntity<ResponseObject> processPaymentCallback(Map<String, String> vnp_Params) {
-
-        Campus actorCampus = extractActorCampus();
-
-        if (actorCampus == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "School account not found", null);
-
-        if (!actorCampus.getIsPrimaryBranch()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can add new campus", null);
-        }
-
-        School school = actorCampus.getSchool();
 
         // 1. Lấy và dọn dẹp chữ ký từ VNPay gửi về
         String vnp_SecureHash = vnp_Params.get("vnp_SecureHash");
@@ -1592,9 +1552,9 @@ public class SchoolServiceImpl implements SchoolService {
 
         // 4. Tìm giao dịch trong Database
         String txnRef = vnp_Params.get("vnp_TxnRef");
-        PaymentTransaction transaction = paymentTransactionRepo.findByVnpTxnRef(txnRef)
-                .orElseThrow(() -> new RuntimeException("Transaction not found"));
+        PaymentTransaction transaction = paymentTransactionRepo.findByVnpTxnRef(txnRef).orElseThrow(() -> new RuntimeException("Transaction not found"));
 
+        School school = transaction.getSchool();
         // 5. Kiểm tra nếu giao dịch đã được xử lý trước đó (Idempotency)
         if (transaction.getStatus() != Status.PAYMENT_PENDING) {
             return ResponseBuilder.build(HttpStatus.OK, "Transaction already processed", transaction.getStatus());
@@ -1604,22 +1564,44 @@ public class SchoolServiceImpl implements SchoolService {
         if ("00".equals(vnp_Params.get("vnp_ResponseCode"))) {
             transaction.setStatus(Status.PAYMENT_SUCCESS);
 
-            // Kích hoạt gói cước
-            SchoolSubscription sub = transaction.getSchoolSubscription();
+            // Lấy thông tin SchoolSubscription mới (đang ở trạng thái chờ)
+            SchoolSubscription newSchoolSubscription = transaction.getSchoolSubscription();
+            School currentSchool = transaction.getSchool();
 
-            // Tắt tất cả các gói hiện tại của School này
-            // "Tại một thời điểm, một trường học chỉ được phép sử dụng duy nhất một gói cước hoạt động"
-            List<SchoolSubscription> activeSubs = schoolSubscriptionRepo.findBySchoolIdAndIsSelected(school.getId(), true);
+            // xử lý phần nâng cấp :
+            List<SchoolSubscription> activeSubs = schoolSubscriptionRepo.findBySchoolIdAndIsSelected(currentSchool.getId(), true);
+
+            // Tính toán lại ngày (check)
+            // Tìm gói có ngày kết thúc xa nhất trong lịch sử (ngoại trừ chính nó)
+            Optional<SchoolSubscription> latestSubOpt = schoolSubscriptionRepo
+                    .findTopBySchoolIdAndIdNotOrderByEndDateDesc(currentSchool.getId(), newSchoolSubscription.getId());
+
+            if (latestSubOpt.isPresent()) {
+                SchoolSubscription latestSub = latestSubOpt.get();
+
+                // GIA HẠN (Cùng loại gói) và gói đó vẫn còn hạn hoặc vừa mới hết hạn
+                if (latestSub.getSubscription().getId().equals(newSchoolSubscription.getSubscription().getId())
+                        && !latestSub.getEndDate().isBefore(LocalDate.now())) {
+                    newSchoolSubscription.setStartDate(latestSub.getEndDate().plusDays(1));
+                    newSchoolSubscription.setEndDate(newSchoolSubscription.getStartDate().plusDays(newSchoolSubscription.getSubscription().getDurationDays()));
+                } else {
+                    // NÂNG CẤP OR GÓI CŨ ĐÃ HẾT HẠN QUÁ LÂU : DÙNG TỪ HÔM NAY
+                    newSchoolSubscription.setStartDate(LocalDate.now());
+                    newSchoolSubscription.setEndDate(LocalDate.now().plusDays(newSchoolSubscription.getSubscription().getDurationDays()));
+                }
+            }
+
+
+            // THỰC THI ==> Tắt tất cả các gói hiện tại của School này
             activeSubs.forEach(s -> s.setIsSelected(false));
             schoolSubscriptionRepo.saveAll(activeSubs);
 
             // Bật gói mới vừa mua
-            sub.setIsSelected(true);
-            schoolSubscriptionRepo.save(sub);
+            newSchoolSubscription.setIsSelected(true);
+            schoolSubscriptionRepo.save(newSchoolSubscription);
         } else {
             transaction.setStatus(Status.PAYMENT_FAILED);
         }
-
         // 7. Lưu chi tiết thông tin từ VNPay để đối soát
         transaction.setVnpTransactionNo(vnp_Params.get("vnp_TransactionNo"));
         transaction.setVnpResponseCode(vnp_Params.get("vnp_ResponseCode"));
@@ -1659,11 +1641,56 @@ public class SchoolServiceImpl implements SchoolService {
         if (lat1 == 0 || lng1 == 0 || lat2 == 0 || lng2 == 0) return 0;
         double dLat = Math.toRadians(lat2 - lat1);
         double dLng = Math.toRadians(lng2 - lng1);
-        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
-                        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return 6371 * c;
     }
 
+    @Override
+    public ResponseEntity<ResponseObject> viewCurrentSubscription() {
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "School account not found", null);
+        }
+
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can add new campus", null);
+        }
+
+        School school = actorCampus.getSchool();
+
+        Optional<SchoolSubscription> activeSubOpt = schoolSubscriptionRepo
+                .findBySchoolIdAndIsSelected(school.getId(), true)
+                .stream()
+                .findFirst(); // tại 1 thời điểm chỉ có 1 gói đc active
+
+        if (activeSubOpt.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.OK, "No active subscription found", null);
+        }
+
+        Map<String, Object> data = buildCurrentSubscription(activeSubOpt.get());
+
+        return ResponseBuilder.build(HttpStatus.OK, "Fetched current subscription status", data);
+    }
+
+    private Map<String, Object> buildCurrentSubscription(SchoolSubscription schoolSub) {
+        // tính số ngày còn lại
+        long daysRemaining = ChronoUnit.DAYS.between(LocalDate.now(), schoolSub.getEndDate());
+        boolean isExpired = LocalDate.now().isAfter(schoolSub.getEndDate());
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("packageName", schoolSub.getSubscription().getName());
+        data.put("licenseKey", schoolSub.getLicenseKey());
+        data.put("startDate", schoolSub.getStartDate());
+        data.put("endDate", schoolSub.getEndDate());
+        data.put("dasRemaining", Math.max(0, daysRemaining));
+        data.put("isExpired", isExpired);
+        data.put("statusMessage", isExpired ? "Expired" : "Active (Remaining " + daysRemaining + " days)");
+        data.put("suggestion", isExpired
+                ? "Your package has expired. Please purchase new package to continue the service."
+                : "If you purchase the same package '" + schoolSub.getSubscription().getName() + "', time will be accumulated continuously from day to day" + schoolSub.getEndDate() + ".");
+        return data;
+    }
 }
