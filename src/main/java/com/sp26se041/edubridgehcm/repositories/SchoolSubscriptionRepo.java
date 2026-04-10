@@ -12,13 +12,12 @@ public interface SchoolSubscriptionRepo extends JpaRepository<SchoolSubscription
 
     boolean existsBySubscriptionAndEndDateAfter(Subscription subscription, LocalDate now);
 
-    Optional<SchoolSubscription> findBySchoolIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndIsSelectedTrue(
+    Optional<SchoolSubscription> findBySchoolIdAndEndDateGreaterThanEqualAndIsSelectedTrue(
             Integer schoolId,
-            LocalDate today1,
-            LocalDate today2
+            LocalDate endDate
     );
 
     List<SchoolSubscription> findBySchoolIdAndIsSelected(Integer schoolId, boolean selected);
 
-    Optional<SchoolSubscription> findTopBySchoolIdAndIdNotOrderByEndDateDesc(Integer schoolId,  Integer schoolSubscriptionId);
+    Optional<SchoolSubscription> findTopBySchoolIdAndIdNotOrderByEndDateDesc(Integer schoolId, Integer schoolSubscriptionId);
 }

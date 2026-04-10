@@ -210,7 +210,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         if (operationSettingsData.getWorkingConfig() != null) {
             workingConfigMap.put("regularDays", operationSettingsData.getWorkingConfig().getRegularDays());
             workingConfigMap.put("weekendDays", operationSettingsData.getWorkingConfig().getWeekendDays());
-            workingConfigMap.put("isOpenSunday", operationSettingsData.getWorkingConfig().isOpenSunday());
+            workingConfigMap.put("isOpenSunday", Boolean.TRUE.equals(operationSettingsData.getWorkingConfig().getOpenSunday()));
             workingConfigMap.put("note", operationSettingsData.getWorkingConfig().getNote());
 
             // Map danh sách ca làm việc (Shifts)
@@ -355,8 +355,8 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         if (resourceDistributionData == null || resourceDistributionData.getAllocations() == null) return;
 
         SchoolSubscription activeSub = schoolSubscriptionRepo
-                .findBySchoolIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndIsSelectedTrue(
-                        schoolId, LocalDate.now(), LocalDate.now())
+                .findBySchoolIdAndEndDateGreaterThanEqualAndIsSelectedTrue(
+                        schoolId, LocalDate.now())
                 .orElseThrow(() -> new RuntimeException("The school has not registered a package or the package has expired"));
 
         UpsertServicePackageFeeRequest.FeatureData systemFeatures = objectMapper.convertValue(
