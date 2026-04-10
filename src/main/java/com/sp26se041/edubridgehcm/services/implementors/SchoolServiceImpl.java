@@ -76,6 +76,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -92,6 +93,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -1479,16 +1481,29 @@ public class SchoolServiceImpl implements SchoolService {
         vnp_Params.put("vnp_ExpireDate", formatter.format(calendar.getTime()));
 
         List<String> fieldNames = new ArrayList<>(vnp_Params.keySet());
+
         Collections.sort(fieldNames);
+
         StringBuilder hashData = new StringBuilder();
 
         StringBuilder query = new StringBuilder();
-        for (String fieldName : fieldNames) {
+
+        Iterator<String> itr = fieldNames.iterator();
+        while (itr.hasNext()) {
+            String fieldName = itr.next();
             String fieldValue = vnp_Params.get(fieldName);
-            if ((fieldValue != null) && (fieldValue.length() > 0)) {
-                hashData.append(fieldName).append('=').append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII));
-                query.append(URLEncoder.encode(fieldName, StandardCharsets.US_ASCII)).append('=').append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII));
-                if (!fieldName.equals(fieldNames.get(fieldNames.size() - 1))) {
+
+            if ((fieldValue != null) && (!fieldValue.isEmpty())) {
+
+                query.append(URLEncoder.encode(fieldName, StandardCharsets.UTF_8));
+                query.append('=');
+                query.append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8));
+
+                hashData.append(fieldName);
+                hashData.append('=');
+                hashData.append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8));
+
+                if (itr.hasNext()) {
                     query.append('&');
                     hashData.append('&');
                 }
