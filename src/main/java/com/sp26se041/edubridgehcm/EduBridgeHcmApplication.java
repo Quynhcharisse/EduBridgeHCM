@@ -213,18 +213,6 @@ public class EduBridgeHcmApplication {
         subscriptionData.put("gracePeriod", 7);
         subscriptionData.put("minSubscriptionMonth", 3);
 
-        Map<String, Object> reportData = new HashMap<>();
-        reportData.put("maxResolutionDay", 7);
-        reportData.put("responseDeadline", LocalDateTime.now().plusHours(4));
-        reportData.put("activationDeadline", LocalDateTime.now().plusDays(1));
-        reportData.put("bonusDays", 2);
-        reportData.put("bonusCondition", "Nếu xử lý quá 24 giờ hoặc lỗi do hệ thống");
-        reportData.put("description", "Sau khi báo cáo được xác minh, hệ thống sẽ kích hoạt lại dịch vụ. Nếu xử lý chậm trễ, khách hàng được tặng thêm ngày sử dụng.");
-        reportData.put("resolutionLevels", List.of(
-                Map.of("name", "High"),
-                Map.of("name", "Medium"),
-                Map.of("name", "Low")));
-
         LocalDateTime today = LocalDateTime.now();
 
         platformConfigRepo.saveAll(List.of(
@@ -249,13 +237,7 @@ public class EduBridgeHcmApplication {
                         .key("subscriptionPolicy")
                         .value(subscriptionData)
                         .creationDate(today)
-                        .modifiedDate(today).build(),
-                PlatformConfig.builder()
-                        .key("report")
-                        .value(reportData)
-                        .creationDate(today)
-                        .modifiedDate(today)
-                        .build()));
+                        .modifiedDate(today).build()));
     }
 
     private void initSchoolConfig() {

@@ -75,7 +75,6 @@ public class SystemServiceImpl implements SystemService {
                 && request.getMediaData() == null
                 && request.getSubscriptionData() == null
                 && request.getAdmissionQuotaData() == null
-                && request.getReportData() == null
         ) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Data missing", null);
         }
@@ -126,7 +125,6 @@ public class SystemServiceImpl implements SystemService {
         if (request.getMediaData() != null) updateMedia(request);
         if (request.getAdmissionQuotaData() != null) updateAdmissionQuota(request);
         if (request.getSubscriptionData() != null) updateSubscriptionPolicy(request);
-        if (request.getReportData() != null) updateReport(request);
     }
 
     @Transactional
@@ -240,38 +238,6 @@ public class SystemServiceImpl implements SystemService {
 
         assert config != null;
         config.setValue(allYearsData);
-        config.setModifiedDate(LocalDateTime.now());
-        platformConfigRepo.save(config);
-    }
-
-    @Transactional
-    public void updateReport(CreateConfigDataRequest request) {
-        CreateConfigDataRequest.ReportData reportData = request.getReportData();
-        Map<String, Object> reportJson = new HashMap<>();
-
-        reportJson.put("maxResolutionDay", reportData.getMaxResolutionDay());
-        reportJson.put("responseDeadline", reportData.getResponseDeadline());
-        reportJson.put("activationDeadline", reportData.getActivationDeadline());
-        reportJson.put("bonusDays", reportData.getBonusDays());
-        reportJson.put("bonusCondition", reportData.getBonusCondition());
-        reportJson.put("description", reportData.getDescription());
-        List<Map<String, String>> resolutionLevels = reportData.getLevels().stream()
-                .map(level -> {
-                    Map<String, String> l = new HashMap<>();
-                    l.put("name", level.getName());
-                    return l;
-                })
-                .toList();
-        reportJson.put("resolutionLevels", resolutionLevels);
-
-        PlatformConfig config = platformConfigRepo.findByKey("report").orElse(
-                PlatformConfig.builder()
-                        .key("report")
-                        .creationDate(LocalDateTime.now())
-                        .build()
-        );
-
-        config.setValue(reportJson);
         config.setModifiedDate(LocalDateTime.now());
         platformConfigRepo.save(config);
     }
