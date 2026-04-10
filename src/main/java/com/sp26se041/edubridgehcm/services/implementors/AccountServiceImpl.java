@@ -425,6 +425,7 @@ public class AccountServiceImpl implements AccountService {
             campus.setAddress(normalize(campusData.getAddress()));
             campus.setCity(normalize(campusData.getCity()));
             campus.setDistrict(normalize(campusData.getDistrict()));
+            campus.setWard(normalize(campusData.getWard()));
             campus.setLatitude(campusData.getLatitude());
             campus.setLongitude(campusData.getLongitude());
         }
