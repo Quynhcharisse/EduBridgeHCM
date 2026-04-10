@@ -19,4 +19,6 @@ public interface SchoolSubscriptionRepo extends JpaRepository<SchoolSubscription
     );
 
     List<SchoolSubscription> findBySchoolIdAndIsSelected(Integer schoolId, boolean selected);
+
+    Optional<SchoolSubscription> findTopBySchoolIdAndIdNotOrderByEndDateDesc(Integer schoolId,  Integer schoolSubscriptionId);
 }
