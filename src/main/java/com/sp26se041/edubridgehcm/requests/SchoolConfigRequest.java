@@ -155,7 +155,7 @@ public class SchoolConfigRequest {
         List<String> regularDays;     // ["MON", "TUE", ...]
         List<String> weekendDays;     // ["SAT"]
         List<WorkShift> workShifts; // {"morning": "07:30 - 11:30", ...}
-        boolean isOpenSunday;
+        Boolean openSunday;
         String note;
     }
 
