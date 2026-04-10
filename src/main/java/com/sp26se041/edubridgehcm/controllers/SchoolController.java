@@ -183,7 +183,6 @@ public class SchoolController {
     }
 
     @GetMapping("/vnpay/callback/url")
-    @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> handleVNPayCallback(HttpServletRequest httpRequest) {
         return schoolService.handleVNPayCallback(httpRequest);
     }

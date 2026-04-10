@@ -61,6 +61,7 @@ import com.sp26se041.edubridgehcm.validations.school.CurriculumValidation;
 import com.sp26se041.edubridgehcm.validations.school.ProgramValidation;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -76,23 +77,24 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -100,11 +102,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TimeZone;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SchoolServiceImpl implements SchoolService {
 
     private final CampusRepo campusRepo;
@@ -1416,14 +1419,22 @@ public class SchoolServiceImpl implements SchoolService {
 
         School school = actorCampus.getSchool();
 
+        if (request == null || request.getPackageId() <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Package id is required", null);
+        }
+
         // step 2: lấy thông tin của gói cước
         Subscription subscription = subscriptionRepo.findById(request.getPackageId()).orElseThrow(() -> new RuntimeException("Service package not found"));
+
+        if (subscription.getPrice() == null || subscription.getPrice() <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Package price must be greater than 0", null);
+        }
 
         //ktra upgrade vs renew
         List<SchoolSubscription> currentActiveSub = schoolSubscriptionRepo.findBySchoolIdAndIsSelected(school.getId(), true);
 
         LocalDate calculatedStartDate = LocalDate.now();
-        String orderNote = "Payment the package: " + subscription.getName();
+        String orderNote = "Payment package " + normalize(subscription.getName());
 
         if (!currentActiveSub.isEmpty()) {
             // Lấy gói có ngày kết thúc xa nhất trong đám đang active để tính nối đuôi
@@ -1433,13 +1444,15 @@ public class SchoolServiceImpl implements SchoolService {
                 // Nếu GIA HẠN (Renew) - Cùng loại gói
                 if (current.getEndDate().isAfter(LocalDate.now())) {
                     calculatedStartDate = current.getEndDate().plusDays(1);
-                    orderNote = "Renew package " + subscription.getName() + " (from date " + calculatedStartDate + ")";
+                    orderNote = "Renew package " + normalize(subscription.getName()) + " from " + calculatedStartDate;
                 }
             } else {
                 // Nếu NÂNG CẤP (Upgrade) - Khác loại gói
-                orderNote = "Upgrade package " + subscription.getName();
+                orderNote = "Upgrade package " + normalize(subscription.getName());
             }
         }
+
+        orderNote = sanitizeOrderInfo(orderNote);
 
         // step 3 : tạo SchoolSubscription (trạng thái chờ - isSelected = false)
         // giúp định danh loại chuỗi này là License ==> đóng vai trò là Số báo danh cho gói đăng kí đó
@@ -1457,10 +1470,13 @@ public class SchoolServiceImpl implements SchoolService {
 
         // step 4 : cấu hinh vnpay
         String vnp_TxnRef = VNPayConfig.getRandomNumber(8); // mã đơn hàng
-        long amount = (long) (subscription.getPrice() * 100); // VNPay yêu cầu số tiền
+        long amount = BigDecimal.valueOf(subscription.getPrice()).multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.HALF_UP).longValue();
+        if (amount <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid payment amount", null);
+        }
 
-        Map<String, String> vnp_Params = new HashMap<>();
-        vnp_Params.put("vnp_Version", "2.1.0");
+        Map<String, String> vnp_Params = new TreeMap<>();
+        vnp_Params.put("vnp_Version", "2.1.1");
         vnp_Params.put("vnp_Command", "pay");
         vnp_Params.put("vnp_TmnCode", VNPayConfig.vnp_TmnCode);
         vnp_Params.put("vnp_Amount", String.valueOf(amount));
@@ -1472,48 +1488,23 @@ public class SchoolServiceImpl implements SchoolService {
         vnp_Params.put("vnp_ReturnUrl", VNPayConfig.vnp_ReturnUrl); // URL FE / BE nhận kết quả
         vnp_Params.put("vnp_IpAddr", VNPayConfig.getIpAddress(httpRequest));
 
-        Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+        LocalDateTime createDate = LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+        LocalDateTime expireDate = createDate.plusMinutes(15);
+        vnp_Params.put("vnp_CreateDate", formatter.format(createDate));
+        vnp_Params.put("vnp_ExpireDate", formatter.format(expireDate));
 
-        vnp_Params.put("vnp_CreateDate", formatter.format(calendar.getTime()));
-        calendar.add(Calendar.MINUTE, 15); // Hết hạn thanh toán sau 15p
-        vnp_Params.put("vnp_ExpireDate", formatter.format(calendar.getTime()));
-
-        List<String> fieldNames = new ArrayList<>(vnp_Params.keySet());
-
-        Collections.sort(fieldNames);
-
-        StringBuilder hashData = new StringBuilder();
-
-        StringBuilder query = new StringBuilder();
-
-        Iterator<String> itr = fieldNames.iterator();
-        while (itr.hasNext()) {
-            String fieldName = itr.next();
-            String fieldValue = vnp_Params.get(fieldName);
-
-            if ((fieldValue != null) && (!fieldValue.isEmpty())) {
-
-                query.append(URLEncoder.encode(fieldName, StandardCharsets.UTF_8));
-                query.append('=');
-                query.append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8));
-
-                hashData.append(fieldName);
-                hashData.append('=');
-                hashData.append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8));
-
-                if (itr.hasNext()) {
-                    query.append('&');
-                    hashData.append('&');
-                }
-            }
-        }
-
-        String queryUrl = query.toString();
-        String vnp_SecureHash = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, hashData.toString());
+        String queryUrl = buildVnpQueryString(vnp_Params);
+        String hashData = buildVnpHashData(vnp_Params);
+        String vnp_SecureHash = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, hashData);
         String paymentUrl = VNPayConfig.vnp_PayUrl + "?" + queryUrl + "&vnp_SecureHash=" + vnp_SecureHash;
 
-        paymentTransactionRepo.save(PaymentTransaction.builder().school(school).schoolSubscription(schoolSubscription).vnpTxnRef(vnp_TxnRef).vnpAmount(amount).status(Status.PAYMENT_PENDING).createdAt(LocalDateTime.now()).ipAddress(VNPayConfig.getIpAddress(httpRequest)).build());
+        log.info("VNPay request prepared: tmnCode={}, returnUrl={}, txnRef={}, amount={}, version={}",
+            VNPayConfig.vnp_TmnCode, VNPayConfig.vnp_ReturnUrl, vnp_TxnRef, amount, vnp_Params.get("vnp_Version"));
+        log.debug("VNPay hashData={}", hashData);
+        log.debug("VNPay secureHash={}", vnp_SecureHash);
+
+        paymentTransactionRepo.save(PaymentTransaction.builder().school(school).schoolSubscription(schoolSubscription).vnpTxnRef(vnp_TxnRef).vnpAmount(amount).vnpOrderInfo(orderNote).status(Status.PAYMENT_PENDING).createdAt(LocalDateTime.now()).ipAddress(VNPayConfig.getIpAddress(httpRequest)).build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Payment URL generated", paymentUrl);
     }
@@ -1528,7 +1519,7 @@ public class SchoolServiceImpl implements SchoolService {
         while (parameterNames.hasMoreElements()) {
             String paramName = parameterNames.nextElement();
             String paramValue = httpRequest.getParameter(paramName);
-            if (paramValue != null && !paramValue.isEmpty()) {
+            if (paramName != null && paramName.startsWith("vnp_") && paramValue != null && !paramValue.isEmpty()) {
                 vnp_Params.put(paramName, paramValue);
             }
         }
@@ -1541,27 +1532,29 @@ public class SchoolServiceImpl implements SchoolService {
 
         // 1. Lấy và dọn dẹp chữ ký từ VNPay gửi về
         String vnp_SecureHash = vnp_Params.get("vnp_SecureHash");
+        if (vnp_SecureHash == null || vnp_SecureHash.isBlank()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Missing SecureHash", null);
+        }
+
         vnp_Params.remove("vnp_SecureHashType");
         vnp_Params.remove("vnp_SecureHash");
 
         // 2. Tái tạo lại chữ ký từ dữ liệu nhận được để kiểm tra tính toàn vẹn
-        List<String> fieldNames = new ArrayList<>(vnp_Params.keySet());
-        Collections.sort(fieldNames);
-        StringBuilder hashData = new StringBuilder();
-        for (int i = 0; i < fieldNames.size(); i++) {
-            String fieldName = fieldNames.get(i);
-            String fieldValue = vnp_Params.get(fieldName);
-            if (fieldValue != null && !fieldValue.isEmpty()) {
-                hashData.append(fieldName).append('=').append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8));
-                if (i < fieldNames.size() - 1) {
-                    hashData.append('&');
-                }
+        Map<String, String> signFields = new TreeMap<>();
+        for (Map.Entry<String, String> entry : vnp_Params.entrySet()) {
+            String key = entry.getKey();
+            String value = entry.getValue();
+            if (key != null && key.startsWith("vnp_") && value != null && !value.isBlank()) {
+                signFields.put(key, value);
             }
         }
 
         // 3. Kiểm tra Checksum (Chống giả mạo)
-        String checkSum = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, hashData.toString());
-        if (!checkSum.equalsIgnoreCase(vnp_SecureHash))     {
+        String callbackHashData = buildVnpHashData(signFields);
+        String checkSum = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, callbackHashData);
+        log.debug("VNPay callback hashData={}", callbackHashData);
+        log.debug("VNPay callback secureHash={}, localCheckSum={}", vnp_SecureHash, checkSum);
+        if (!checkSum.equalsIgnoreCase(vnp_SecureHash)) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid Signature", null);
         }
 
@@ -1626,6 +1619,72 @@ public class SchoolServiceImpl implements SchoolService {
         paymentTransactionRepo.save(transaction);
 
         return ResponseBuilder.build(HttpStatus.OK, "Payment processed successfully", transaction.getStatus());
+    }
+
+    private String sanitizeOrderInfo(String rawOrderInfo) {
+        if (rawOrderInfo == null || rawOrderInfo.isBlank()) {
+            return "Payment package";
+        }
+
+        String normalizedText = rawOrderInfo.trim().replaceAll("\\s+", " ");
+        // VNPay accepts text order info; keep a conservative safe character set.
+        normalizedText = normalizedText.replaceAll("[^a-zA-Z0-9 _.,:-]", "");
+        if (normalizedText.length() > 255) {
+            normalizedText = normalizedText.substring(0, 255);
+        }
+        return normalizedText;
+    }
+
+    private String buildVnpQueryString(Map<String, String> params) {
+        StringBuilder query = new StringBuilder();
+        boolean first = true;
+
+        for (Map.Entry<String, String> entry : params.entrySet()) {
+            String fieldName = entry.getKey();
+            String fieldValue = entry.getValue();
+
+            if (fieldValue == null || fieldValue.isBlank()) {
+                continue;
+            }
+
+            if (!first) {
+                query.append('&');
+            }
+
+            query.append(urlEncode(fieldName));
+            query.append('=');
+            query.append(urlEncode(fieldValue));
+            first = false;
+        }
+
+        return query.toString();
+    }
+
+    private String buildVnpHashData(Map<String, String> params) {
+        StringBuilder hashData = new StringBuilder();
+        boolean first = true;
+
+        for (Map.Entry<String, String> entry : params.entrySet()) {
+            String fieldName = entry.getKey();
+            String fieldValue = entry.getValue();
+
+            if (fieldValue == null || fieldValue.isBlank()) {
+                continue;
+            }
+
+            if (!first) {
+                hashData.append('&');
+            }
+
+            hashData.append(fieldName).append('=').append(urlEncode(fieldValue));
+            first = false;
+        }
+
+        return hashData.toString();
+    }
+
+    private String urlEncode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.US_ASCII);
     }
 
     private ResponseEntity<Resource> buildFileResponse(Path path, String fileName) throws IOException {
