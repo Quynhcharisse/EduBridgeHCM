@@ -35,6 +35,7 @@ import com.sp26se041.edubridgehcm.repositories.OpenDayEventRepo;
 import com.sp26se041.edubridgehcm.repositories.ParentRepo;
 import com.sp26se041.edubridgehcm.repositories.PaymentTransactionRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolSubscriptionRepo;
 import com.sp26se041.edubridgehcm.repositories.SubscriptionRepo;
@@ -90,7 +91,6 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Enumeration;
@@ -139,6 +139,7 @@ public class SchoolServiceImpl implements SchoolService {
     private final SchoolSubscriptionRepo schoolSubscriptionRepo;
 
     private final PaymentTransactionRepo paymentTransactionRepo;
+    private final SchoolConfigRepo schoolConfigRepo;
 
     @Override
     @Transactional
@@ -1029,7 +1030,10 @@ public class SchoolServiceImpl implements SchoolService {
         //Trí sửa
         Set<Integer> favouriteSchoolIds = getFavouriteSchoolIds();
 
-        List<Map<String, Object>> schoolList = schools.stream().map(school -> buildPublicSchoolData(school, favouriteSchoolIds)).toList();
+        List<Map<String, Object>> schoolList = schools.stream().map(school -> {
+            Map<String, Object> operationConfig = getOperationConfig(school.getId());
+            return buildPublicSchoolData(school, favouriteSchoolIds, operationConfig);
+        }).toList();
 
         return ResponseBuilder.build(HttpStatus.OK, "View school list successfully", schoolList);
     }
@@ -1045,7 +1049,9 @@ public class SchoolServiceImpl implements SchoolService {
 
         Set<Integer> favouriteSchoolIds = getFavouriteSchoolIds();
 
-        Map<String, Object> data = buildPublicSchoolData(school, favouriteSchoolIds);
+        Map<String, Object> operationConfig = getOperationConfig(schoolId);
+
+        Map<String, Object> data = buildPublicSchoolData(school, favouriteSchoolIds, operationConfig);
 
         data.put("campusList", school.getCampusList().stream().filter(campus -> Status.ACTIVE.equals(campus.getStatus())).map(this::buildPublicCampusData).toList());
 
@@ -1067,7 +1073,7 @@ public class SchoolServiceImpl implements SchoolService {
         return favouriteSchoolRepo.findByParentId(parent.getId()).stream().map(f -> f.getSchool().getId()).collect(Collectors.toSet());
     }
 
-    Map<String, Object> buildPublicSchoolData(School school, Set<Integer> favouriteSchoolIds) {
+    Map<String, Object> buildPublicSchoolData(School school, Set<Integer> favouriteSchoolIds, Map<String, Object> operationConfig) {
 
         Map<String, Object> data = new HashMap<>();
         data.put("id", school.getId());
@@ -1079,9 +1085,21 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("websiteUrl", school.getWebsiteUrl());
         data.put("representativeName", school.getRepresentativeName());
         data.put("hotline", school.getHotline());
+
+        String configHotline = (String) operationConfig.get("hotline");
+        String configEmail = (String) operationConfig.get("emailSupport");
+
+        data.put("hotline", configHotline);
+        data.put("emailSupport", configEmail);
         data.put("averageRating", school.getAverageRating());
         data.put("foundingDate", school.getFoundingDate());
         return data;
+    }
+
+    private Map<String, Object> getOperationConfig(int schoolId) {
+        return schoolConfigRepo.findBySchoolIdAndKey(schoolId, "operationSettingsData")
+                .map(config -> (Map<String, Object>) config.getValue())
+                .orElse(new HashMap<>());
     }
 
     Map<String, Object> buildPublicCampusData(Campus campus) {
@@ -1500,7 +1518,7 @@ public class SchoolServiceImpl implements SchoolService {
         String paymentUrl = VNPayConfig.vnp_PayUrl + "?" + queryUrl + "&vnp_SecureHash=" + vnp_SecureHash;
 
         log.info("VNPay request prepared: tmnCode={}, returnUrl={}, txnRef={}, amount={}, version={}",
-            VNPayConfig.vnp_TmnCode, VNPayConfig.vnp_ReturnUrl, vnp_TxnRef, amount, vnp_Params.get("vnp_Version"));
+                VNPayConfig.vnp_TmnCode, VNPayConfig.vnp_ReturnUrl, vnp_TxnRef, amount, vnp_Params.get("vnp_Version"));
         log.debug("VNPay hashData={}", hashData);
         log.debug("VNPay secureHash={}", vnp_SecureHash);
 
