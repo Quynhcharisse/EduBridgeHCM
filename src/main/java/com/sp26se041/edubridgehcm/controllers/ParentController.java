@@ -58,6 +58,7 @@ public class ParentController {
             );
             return;
         }
+
         simpMessagingTemplate.convertAndSendToUser(
                 message.getReceiverName(),
                 "/private",

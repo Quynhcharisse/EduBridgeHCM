@@ -49,4 +49,6 @@ public interface CampusService {
     ResponseEntity<Resource> exportCounsellorList() throws IOException;
 
     ResponseEntity<Resource> exportCampusScheduleMatrix() throws IOException;
+
+    ResponseEntity<ResponseObject> getDocuments();
 }

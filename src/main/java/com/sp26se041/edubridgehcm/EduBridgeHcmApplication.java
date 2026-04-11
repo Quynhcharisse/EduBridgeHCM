@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm;
 
 import com.sp26se041.edubridgehcm.enums.BoardingType;
+import com.sp26se041.edubridgehcm.enums.CategoryTemplate;
 import com.sp26se041.edubridgehcm.enums.Gender;
 import com.sp26se041.edubridgehcm.enums.PersonalityTypeGroup;
 import com.sp26se041.edubridgehcm.enums.Relationship;
@@ -17,6 +18,7 @@ import com.sp26se041.edubridgehcm.models.PlatformConfig;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.Subject;
+import com.sp26se041.edubridgehcm.models.TemplateDocx;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
@@ -27,12 +29,16 @@ import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
+import com.sp26se041.edubridgehcm.repositories.TemplateDocxRepo;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
+import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
+import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.math.BigDecimal;
@@ -69,6 +75,8 @@ public class EduBridgeHcmApplication {
     private final SubjectRepo subjectRepo;
 
     private final SchoolConfigRepo schoolConfigRepo;
+    private final TemplateDocxRepo templateDocxRepo;
+    private final SupabaseStorageService supabaseStorageService;
 
     public static void main(String[] args) {
         SpringApplication.run(EduBridgeHcmApplication.class, args);
@@ -77,14 +85,16 @@ public class EduBridgeHcmApplication {
     @Bean
     public CommandLineRunner initData() {
         return args -> {
-//            initAdmin();
-//            initParent();
-//            initPrimaryCampusAndCounsellor();
-//            initConfigSystem();
-//            initSchoolConfig();
-//            initPersonalityTypes();
-//            initMajors();
-//            initSubjects();
+
+           initTemplateDocx();
+           initAdmin();
+           initParent();
+           initPrimaryCampusAndCounsellor();
+           initConfigSystem();
+           initSchoolConfig();
+           initPersonalityTypes();
+           initMajors();
+           initSubjects();
         };
     }
 
@@ -672,6 +682,74 @@ public class EduBridgeHcmApplication {
     private void buildESFP() {
         PersonalityType personalityType = PersonalityType.builder().status(Status.PERSONALITY_TYPE_ACTIVE).code("ESFP").image("https://res.cloudinary.com/diccwgzod/image/upload/v1773899766/ESFP_amzuua.png").name("Người trình diễn").traits(List.of(CreatePersonalityTypeRequest.TraitInfo.builder().name("Extraversion").description("Ưa thích hướng ngoại, cảm giác được thúc đẩy và giàu năng lượng dành cho những người xung quanh").build(), CreatePersonalityTypeRequest.TraitInfo.builder().name("Sensing").description("Dùng cảm nhận cụ thể nhiều hơn là trực giác, vì vậy họ tập trung sự chú ý vào những chi tiết nhỏ nhặt hơn là bức tranh toàn cảnh, cũng như là những điều xảy ra ngay tại thực tại hơn là những thứ có thể đến trong tương lai").build(), CreatePersonalityTypeRequest.TraitInfo.builder().name("Feeling").description("Đưa ra quyết định dựa vào cảm nhận, trạng thái cảm xúc tình cảm, giá trị cá nhân hơn là dựa vào các yếu tố khách quan hoặc quy luật logic").build(), CreatePersonalityTypeRequest.TraitInfo.builder().name("Perception").description("Họ không vội đánh giá hay sớm ra một quyết định phán xét quan trọng nào đó, thay vào đó luôn nhìn nhận một cách linh hoạt vấn đề và có thể thay đổi tùy hoàn cảnh").build())).strengths(List.of("Tương tác xã hội tốt: ESFP thường rất thoải mái trong các tình huống xã hội và dễ dàng tạo mối quan hệ với người khác. Họ có khả năng kết nối nhanh chóng và tạo niềm vui cho nhóm xung quanh.", "Linh hoạt và sáng tạo: ESFP thường rất linh hoạt trong cách tiếp cận cuộc sống. Họ có sự đa dạng và khả năng tìm cách sáng tạo giải pháp cho các vấn đề xuất hiện trong cuộc sống hàng ngày.", "Khả năng thích nghi: Họ thích tùy chỉnh và thích nghi với môi trường và tình huống mới. Điều này giúp họ thích ứng tốt trong nhiều tình huống khác nhau.", "Quan tâm đến cảm xúc: ESFP thường có sự đồng cảm với cảm xúc của người khác. Họ thường là người lắng nghe tốt  có khả năng hiểu và chia sẻ cảm xúc.", "Hiện thực và thiết thực: Họ thường tập trung vào hiện tại, những gì thực tế. Điều này giúp họ xử lý thông tin một cách cụ thể, thường dễ dàng thấy vấn đề và tìm cách giải quyết.", "Năng lượng tích cực: ESFP thường mang đến năng lượng tích cực, sự hứng thú cho môi trường xung quanh, làm cho cuộc sống trở nên sôi động và thú vị.")).weaknesses(List.of("Khó tập trung: Do họ thích tận hưởng cuộc sống trong hiện tại và có xu hướng dễ bị xao lãng bởi các sự kiện, ESFP có thể thiếu sự tập trung vào nhiệm vụ hay công việc chi tiết.", "Thiếu kế hoạch: Họ thường ưa thích để mọi thứ diễn ra tự nhiên và không thích áp đặt kế hoạch cụ thể. Điều này có thể dẫn đến việc họ gặp khó khăn trong việc quản lý thời gian.", "Thiếu kiên nhẫn: ESFP có thể dễ dàng bị mất hứng thú nếu công việc trở nên đơn điệu hoặc không còn gì thú vị. Điều này có thể làm cho họ thiếu kiên nhẫn trong việc hoàn thành những nhiệm vụ dài hơi hoặc khó khăn.", "Quan tâm ngoại hình: Một số ESFP có thể quá quan tâm đến hình ảnh cũng như ấn tượng mà họ để lại cho người khác, dẫn đến việc họ đặt quá nhiều sự chú ý vào ngoại hình và việc làm theo những gì người khác mong đợi.", "Khó khăn trong quản lý xung đột: Do tính cách cảm xúc và thích tận hưởng, ESFP có thể gặp khó khăn trong việc giải quyết xung đột một cách hiệu quả. Họ có thể dễ cảm thấy bị tổn thương và mất lòng tin trong tình huống này.", "Thiếu kỷ luật: ESFP có thể thiếu khả năng tự kỷ luật, họ thường thích tự do hơn là tuân thủ các quy tắc và lịch trình cố định.")).sources(List.of(CreatePersonalityTypeRequest.SourceInfo.builder().title("mbti.vn").url("https://mbti.vn").build(), CreatePersonalityTypeRequest.SourceInfo.builder().title("16personalities").url("https://www.16personalities.com/vi").build())).recommendedCareers(List.of(CreatePersonalityTypeRequest.CareerInfo.builder().name("Nghệ thuật").explainText("ESFP thường có đam mê cho các hoạt động nghệ thuật như âm nhạc, diễn xuất, nhảy múa. Các ngành nghệ thuật này cho phép họ thể hiện sự sáng tạo của mình.").build(), CreatePersonalityTypeRequest.CareerInfo.builder().name("Du lịch và Dịch vụ").explainText("ESFP có thể học hỏi, tự phát triển qua việc giao tiếp với những người khác cũng như thám hiểu các địa danh và văn hóa khác nhau.").build(), CreatePersonalityTypeRequest.CareerInfo.builder().name("Giảng dạy hoặc đào tạo").explainText("Trong việc chia sẻ kiến thức với người khác, ESFP có thể tự do thể hiện ý kiến của mình và tác động lên người họ dạy.").build(), CreatePersonalityTypeRequest.CareerInfo.builder().name("Dịch vụ xã hội").explainText("ESFP thường có sự nhạy bén đối với các vấn đề xã hội và hòa nhập với các tổ chức phi chính phủ hoặc từ thiện.").build(), CreatePersonalityTypeRequest.CareerInfo.builder().name("Thượng mại và Bán hàng").explainText("Sự giao tiếp tốt của ESFP có thể giúp họ thành công trong việc bán hàng, quảng cáo và quan hệ khách hàng.").build(), CreatePersonalityTypeRequest.CareerInfo.builder().name("Quản lý sự kiện").explainText("Khả năng tổ chức và giao tiếp của ESFP có thể giúp họ thành công trong lĩnh vực tổ chức sự kiện.").build(), CreatePersonalityTypeRequest.CareerInfo.builder().name("Dịch vụ y tế").explainText("Ngành y tế yêu cầu sự quan tâm đến người khác và kỹ năng tương tác xã hội, điều đó phù hợp với tính cách ESFP.").build(), CreatePersonalityTypeRequest.CareerInfo.builder().name("Nhà hàng và Nhà phê bình ẩm thực").explainText("ESFP có thể thể hiện sự sáng tạo và đam mê trong việc thử nghiệm các món ăn mới hoặc tạo ra các trải nghiệm ẩm thực mới mẻ.").build(), CreatePersonalityTypeRequest.CareerInfo.builder().name("Phần mềm và Thiết kế trang web").explainText("Nếu có sự kết hợp giữa sự sáng tạo của ESFP và kỹ năng công nghệ, họ có thể thành công trong lĩnh vực thiết kế trang web hoặc phần mềm.").build())).description("Nếu bạn thấy ai đó bất chợt cất tiếng hát và nhảy múa, đó chính là những người mang tính cách ESFP (Người Trình Diễn). Họ dễ dàng hòa mình vào không khí sôi động của khoảnh khắc và muốn mọi người cũng cảm nhận được điều đó. Không có kiểu tính cách nào khác nhiệt tình và hào phóng về thời gian lẫn năng lượng trong việc khích lệ người khác như họ, và không ai làm điều đó với phong cách cuốn hút đến vậy.").quote(CreatePersonalityTypeRequest.QuoteInfo.builder().author("Elton John").content("Sống cho từng khoảnh khắc mà không hề do dự.").build()).personalityTypeGroup(PersonalityTypeGroup.EXPLORER).createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
         personalityTypeRepo.save(personalityType);
+    }
+
+    //Init template docx
+    private void initTemplateDocx() {
+
+        Optional<TemplateDocx> schoolTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.SCHOOL_INFO_TEMPLATE);
+
+        String uuid = UUID.randomUUID().toString();
+
+        if (schoolTemplateDocx.isEmpty()){
+
+                try {
+
+                    String templatePath = "TEMPLATE/" + CategoryTemplate.SCHOOL_INFO_TEMPLATE.name() + "/school_info_template.docx";
+                    String folderName = "TEMPLATE/" + CategoryTemplate.SCHOOL_INFO_TEMPLATE.name() + "_" + uuid;
+                    String fileName = "school_info_template_v0.docx";
+
+                    String newPath = folderName + "/" + fileName;
+
+                    String fileUrl = supabaseStorageService.copyFileFromTemplate(templatePath, newPath);
+                    
+                    TemplateDocx docx = TemplateDocx.builder()
+                            .type(CategoryTemplate.SCHOOL_INFO_TEMPLATE)
+                            .fileName(fileName)
+                            .fileUrl(fileUrl)
+                            .folderName(folderName)
+                            .createdDate(LocalDateTime.now())
+                            .updatedDate(LocalDateTime.now())
+                            .version(0)
+                            .build();
+
+                    templateDocxRepo.save(docx);
+
+                } catch (Exception ex) {
+                    System.out.println(ex.getMessage());
+                }
+        }
+
+        Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
+
+        if (campusTemplateDocx.isEmpty()){
+
+            try {
+
+                String templatePath = "TEMPLATE/" + CategoryTemplate.CAMPUS_INFO_TEMPLATE.name() + "/campus_info_template.docx";
+                String folderName = "TEMPLATE/" + CategoryTemplate.CAMPUS_INFO_TEMPLATE.name() + "_" + uuid;
+                String fileName = "campus_info_template_v0.docx";
+
+                String newPath = folderName + "/" + fileName;
+
+                String fileUrl = supabaseStorageService.copyFileFromTemplate(templatePath, newPath);
+
+                TemplateDocx docx = TemplateDocx.builder()
+                        .type(CategoryTemplate.CAMPUS_INFO_TEMPLATE)
+                        .fileName(fileName)
+                        .fileUrl(fileUrl)
+                        .folderName(folderName)
+                        .createdDate(LocalDateTime.now())
+                        .updatedDate(LocalDateTime.now())
+                        .version(0)
+                        .build();
+
+                templateDocxRepo.save(docx);
+
+            } catch (Exception ex){
+                System.out.println(ex.getMessage());
+            }
+        }
     }
 
 }

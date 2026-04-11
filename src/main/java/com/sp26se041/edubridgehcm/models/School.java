@@ -55,6 +55,8 @@ public class School {
 
     String hotline;
 
+    String folderPath;
+
     @Column(name = "average_rating")
     BigDecimal averageRating;
 
