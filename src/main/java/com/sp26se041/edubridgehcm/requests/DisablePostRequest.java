@@ -11,6 +11,6 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class DisablePostRequest {
-
-    int id;
+    Integer postId;
+    String note; // (Tùy chọn) => muốn lưu để truy vấn lịch sử
 }

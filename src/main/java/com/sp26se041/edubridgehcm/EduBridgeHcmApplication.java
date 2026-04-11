@@ -77,14 +77,14 @@ public class EduBridgeHcmApplication {
     @Bean
     public CommandLineRunner initData() {
         return args -> {
-            initAdmin();
-            initParent();
-            initPrimaryCampusAndCounsellor();
-            initConfigSystem();
-            initSchoolConfig();
-            initPersonalityTypes();
-            initMajors();
-            initSubjects();
+//            initAdmin();
+//            initParent();
+//            initPrimaryCampusAndCounsellor();
+//            initConfigSystem();
+//            initSchoolConfig();
+//            initPersonalityTypes();
+//            initMajors();
+//            initSubjects();
         };
     }
 

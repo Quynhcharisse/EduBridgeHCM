@@ -273,15 +273,4 @@ public class AccountValidation {
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
     }
-
-    // Hàm check xem một chuỗi String có khớp với bất kỳ "value" nào không
-    public static boolean isValidValue(String input) {
-        if (input == null) return false;
-        for (BoardingType type : BoardingType.values()) {
-            if (type.getValue().equalsIgnoreCase(input.trim())) {
-                return true;
-            }
-        }
-        return false;
-    }
 }
