@@ -103,11 +103,11 @@ public class AdminServiceImpl implements AdminService {
 
             List<Conversation> conversations;
 
-            if (cursorId == null) {
-                conversations = conversationRepo.findTop20ByParentEmail
-            } else {
-                conversations = conversationRepo
-            }
+//            if (cursorId == null) {
+//                conversations = conversationRepo.findTop20ByParentEmail
+//            } else {
+//                conversations = conversationRepo
+//            }
 
         } catch (Exception ex){
 

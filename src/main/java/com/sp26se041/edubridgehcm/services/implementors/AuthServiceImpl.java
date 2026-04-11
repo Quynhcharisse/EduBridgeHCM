@@ -71,8 +71,6 @@ public class AuthServiceImpl implements AuthService {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
         }
 
-
-
         return ResponseBuilder.build(HttpStatus.OK, "Upload successful", response);
 
     }
