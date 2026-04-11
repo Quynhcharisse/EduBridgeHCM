@@ -9,7 +9,6 @@ public enum CategoryPost {
 
     SYSTEM_NOTIFICATIONS("Thông báo hệ thống"),
     GENERAL_EDUCATION_NEWS("Tin tức giáo dục chung"),
-    PLATFORM_GUIDE("Hướng dẫn sử dụng"),
 
     CAMPUS_ADMISSION("Tin tuyển sinh"),
     CAMPUS_EVENTS("Sự kiện của trường"),
