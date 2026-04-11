@@ -16,9 +16,6 @@ public class StorageTreeNode {
     private String name;
     private String path;
     private String type; // folder | file
-
     private String publicUrl; // chỉ có với file
-
-    @Builder.Default
-    private List<StorageTreeNode> children = new ArrayList<>();
+    private List<StorageTreeNode> children;
 }

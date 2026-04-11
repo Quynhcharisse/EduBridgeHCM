@@ -9,6 +9,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 public interface AdminService {
 
+    ResponseEntity<ResponseObject> getConversations(Long cursorId);
+
+    ResponseEntity<ResponseObject> getChatHistoryWithAdmin(Long cursorId);
+
     ResponseEntity<ResponseObject> verifyRegistration(int requestId);
 
     ResponseEntity<ResponseObject> viewSchoolRegistrationList();

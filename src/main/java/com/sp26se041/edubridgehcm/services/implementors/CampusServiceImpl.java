@@ -32,7 +32,9 @@ import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
+import com.sp26se041.edubridgehcm.responses.StorageTreeNode;
 import com.sp26se041.edubridgehcm.services.CampusService;
+import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.ExcelUtil;
@@ -98,6 +100,7 @@ public class CampusServiceImpl implements CampusService {
     private final CounsellorSlotRepo counsellorSlotRepo;
 
     private final CampusResourceQuotaRepo campusResourceQuotaRepo;
+    private final SupabaseStorageService supabaseStorageService;
 
     @Override
     @Transactional
@@ -1010,6 +1013,19 @@ public class CampusServiceImpl implements CampusService {
         });
 
         return buildFileResponse(path, "Thoi_Khoa_Bieu_" + actorCampus.getName() + ".xlsx");
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getDocuments() {
+        Campus campus = extractActorCampus();
+        String folderPath = campus.getSchool().getFolderPath();
+
+        try {
+            StorageTreeNode result = supabaseStorageService.getStorageTree(folderPath);
+            return ResponseBuilder.build(HttpStatus.OK, "View documents successfully", result);
+        } catch (Exception ex){
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
+        }
     }
 
     private String translateDayOfWeek(String day) {

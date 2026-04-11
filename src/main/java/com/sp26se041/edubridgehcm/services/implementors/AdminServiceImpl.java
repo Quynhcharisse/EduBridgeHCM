@@ -9,6 +9,7 @@ import com.sp26se041.edubridgehcm.enums.SubjectType;
 import com.sp26se041.edubridgehcm.enums.SupportLevel;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
+import com.sp26se041.edubridgehcm.models.Conversation;
 import com.sp26se041.edubridgehcm.models.PersonalityType;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolRegistrationRequest;
@@ -17,6 +18,7 @@ import com.sp26se041.edubridgehcm.models.Subscription;
 import com.sp26se041.edubridgehcm.models.TemplateDocx;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
+import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRegistrationRequestRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
@@ -38,6 +40,7 @@ import com.sp26se041.edubridgehcm.validations.admin.VerifyRegistrationValidation
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -80,7 +83,37 @@ public class AdminServiceImpl implements AdminService {
     private final SchoolSubscriptionRepo schoolSubscriptionRepo;
 
     private final TemplateDocxRepo templateDocxRepo;
+    private final ConversationRepo conversationRepo;
 
+
+    @Override
+    public ResponseEntity<ResponseObject> getConversations(Long cursorId) {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getChatHistoryWithAdmin(Long cursorId) {
+
+        try {
+
+            String email = SecurityContextHolder
+                    .getContext()
+                    .getAuthentication()
+                    .getName();
+
+            List<Conversation> conversations;
+
+            if (cursorId == null) {
+                conversations = conversationRepo.findTop20ByParentEmail
+            } else {
+                conversations = conversationRepo
+            }
+
+        } catch (Exception ex){
+
+        }
+
+    }
 
     @Override
     @Transactional
@@ -154,6 +187,8 @@ public class AdminServiceImpl implements AdminService {
 
             newBusinessLicenseUrl = supabaseStorageService.moveFile(oldPath, newPath);
 
+            request.setBusinessLicenseUrl(newBusinessLicenseUrl);
+
         } catch (Exception ex) {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
         }
@@ -200,6 +235,7 @@ public class AdminServiceImpl implements AdminService {
                 .websiteUrl(request.getWebsiteUrl())
                 .logoUrl(request.getLogoUrl()).representativeName(request.getRepresentativeName())
                 .hotline(request.getHotline()).foundingDate(request.getFoundingDate())
+                .folderPath(toSafeObjectKey(request.getSchoolName()) + "_" + uuid + "/")
                 .businessLicenseUrl(request.getBusinessLicenseUrl())
                 .build());
 

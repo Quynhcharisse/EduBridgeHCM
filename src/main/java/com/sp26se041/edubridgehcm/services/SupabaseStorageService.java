@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.services;
 
+import com.sp26se041.edubridgehcm.responses.StorageTreeNode;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -13,4 +14,5 @@ public interface SupabaseStorageService {
     String extractObjectPath(String fileUrl);
     void removeFile(String folderName, String fileName);
     String copyFileFromTemplate(String templatePath, String newFilePath);
+    StorageTreeNode getStorageTree(String folderPath);
 }

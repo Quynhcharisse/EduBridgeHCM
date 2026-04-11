@@ -139,4 +139,10 @@ public class CampusController {
     public ResponseEntity<Resource> exportCampusScheduleMatrix() throws IOException {
         return campusService.exportCampusScheduleMatrix();
     }
+
+    @GetMapping("/document")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> getDocuments(){
+        return campusService.getDocuments();
+    }
 }
