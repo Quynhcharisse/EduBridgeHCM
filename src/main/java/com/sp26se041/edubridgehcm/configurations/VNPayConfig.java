@@ -17,7 +17,7 @@ public class VNPayConfig {
 
     public static String vnp_PayUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
 
-    public static String vnp_ReturnUrl;
+    public static String vnp_ReturnUrl = "http://localhost:5173/payment/vnpay-result";
 
     public static String vnp_TmnCode;
 
@@ -33,11 +33,6 @@ public class VNPayConfig {
     @Value("${vnp.hash-secret:0ANJ6LZDK4J3HX20MU176DGK5J19D5WV}")
     public void setVnpHashSecret(String hashSecret) {
         vnp_HashSecret = hashSecret;
-    }
-
-    @Value("${server.type}")
-    public void setVnpReturnUrl(String serverType) {
-        vnp_ReturnUrl = serverType;
     }
 
     public static String hmacSHA512(final String key, final String data) {
