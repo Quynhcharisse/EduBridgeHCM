@@ -64,7 +64,5 @@ public interface SchoolService {
 
     ResponseEntity<ResponseObject> createSubscription(CreateSubscriptionRequest request, HttpServletRequest httpRequest);
 
-    ResponseEntity<ResponseObject> handleVNPayCallback(HttpServletRequest httpRequest);
-
     ResponseEntity<ResponseObject> searchNearby(Double lat, Double lng, Double radius);
 }
