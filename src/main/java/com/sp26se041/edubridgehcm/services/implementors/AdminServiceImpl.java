@@ -137,7 +137,7 @@ public class AdminServiceImpl implements AdminService {
             String folderName = schoolName + "_" + uuid +"/" + campusName +"_(primary_campus)";
             String fileName = "campus_info.docx";
 
-            supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
+            String fileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
 
         } catch (Exception ex) {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
@@ -178,7 +178,7 @@ public class AdminServiceImpl implements AdminService {
 
             String templatePath = schoolTemplateDocx.get().getFolderName() + "/" + schoolTemplateDocx.get().getFileName();
 
-            supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
+            String fileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
 
         } catch (Exception ex) {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
@@ -221,24 +221,6 @@ public class AdminServiceImpl implements AdminService {
 
         return ResponseBuilder.build(HttpStatus.OK, "Verified successfully", null);
 
-    }
-
-
-    private String mapBoardingDescription(BoardingType type) {
-
-        return switch (type) {
-            case NONE ->
-                    "Cơ sở này không cung cấp dịch vụ nội trú. Học sinh tham gia học tập vào ban ngày và trở về nhà sau giờ học.";
-
-            case FULL_BOARDING ->
-                    "Cơ sở này cung cấp dịch vụ nội trú toàn phần, nơi học sinh sinh hoạt tại trường với chỗ ở, bữa ăn và sự chăm sóc toàn diện hằng ngày.";
-
-            case SEMI_BOARDING ->
-                    "Cơ sở này cung cấp dịch vụ bán trú, cho phép học sinh ở lại trường vào ban ngày để dùng bữa, được hỗ trợ học tập và tham gia các hoạt động ngoại khóa mà không lưu trú qua đêm.";
-
-            case BOTH ->
-                    "Cơ sở này cung cấp cả dịch vụ nội trú toàn phần và bán trú, mang đến lựa chọn linh hoạt về lưu trú và chăm sóc ban ngày để đáp ứng nhu cầu đa dạng của học sinh.";
-        };
     }
 
     private String toSafeObjectKey(String input) {
@@ -619,7 +601,6 @@ public class AdminServiceImpl implements AdminService {
         } else {
             TemplateDocx latestTemplate = templateDocx.get();
             int newVersion = latestTemplate.getVersion() + 1;
-
             docx.setFileName(categoryTempl.getValue() + "_v" + newVersion);
             docx.setVersion(newVersion);
             docx.setFolderName(latestTemplate.getFolderName());

@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.deepoove.poi.XWPFTemplate;
+import com.sp26se041.edubridgehcm.responses.StorageTreeNode;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import lombok.RequiredArgsConstructor;
 import org.docx4j.Docx4J;
@@ -21,6 +22,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -101,7 +103,37 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
     }
 
     @Override
-    public void generateDocFileFromTemplate(Map<String, Object> data, String templatePath, String folderName, String fileName) throws Exception {
+    public String copyFileFromTemplate(String templatePath, String newFilePath) {
+        byte[] fileBytes = downloadTemplate(templatePath);
+
+        String url = supabaseUrl + "/storage/v1/object/" + bucketName + "/" + newFilePath;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(serviceRoleKey);
+        headers.set("apikey", serviceRoleKey);
+        headers.set("x-upsert", "true");
+        headers.setContentType(
+                MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        );
+
+        HttpEntity<byte[]> entity = new HttpEntity<>(fileBytes, headers);
+
+        ResponseEntity<String> response = restTemplate.exchange(
+                url,
+                HttpMethod.POST,
+                entity,
+                String.class
+        );
+
+        if (!response.getStatusCode().is2xxSuccessful()) {
+            throw new RuntimeException("Copy file failed");
+        }
+
+        return supabaseUrl + "/storage/v1/object/public/" + bucketName + "/" + newFilePath;
+    }
+
+    @Override
+    public String generateDocFileFromTemplate(Map<String, Object> data, String templatePath, String folderName, String fileName) throws Exception {
 
         byte[] templateBytes = downloadTemplate(templatePath);
 
@@ -134,6 +166,8 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
         if (!response.getStatusCode().is2xxSuccessful()) {
             throw new RuntimeException("Upload failed");
         }
+
+        return supabaseUrl + "/storage/v1/object/public/" + bucketName + "/" + folderName + "/" + fileName;
 
     }
 
@@ -237,6 +271,7 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
         }
     }
 
+
     public String uploadPdfBytes(byte[] pdfBytes, String bucket, String objectPath) {
         String url = supabaseUrl + "/storage/v1/object/" + bucket + "/" + objectPath;
 
@@ -260,8 +295,63 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
         return supabaseUrl + "/storage/v1/object/public/" + bucket + "/" + objectPath;
     }
 
+//    private StorageTreeNode buildTree(String currentPath, int depth, int maxDepth) {
+//
+//        StorageTreeNode currentNode = StorageTreeNode.builder()
+//                .name(extractName(currentPath))
+//                .path(currentPath)
+//                .type("folder")
+//                .children(new ArrayList<>())
+//                .build();
+//
+//        if (depth > maxDepth) {
+//            return currentNode;
+//        }
+//
+//        List<Map<String, Object>> items = listObjects(currentPath);
+//
+//        for (Map<String, Object> item : items) {
+//
+//            String name = Objects.toString(item.get("name"), "").trim();
+//            if (name.isEmpty()) continue;
+//
+//            String childPath = buildChildPath(currentPath, name);
+//
+//            if (isFolder(item)) {
+//
+//                currentNode.getChildren().add(
+//                        buildTree(childPath, depth + 1, maxDepth)
+//                );
+//
+//            } else {
+//
+//                currentNode.getChildren().add(
+//                        StorageTreeNode.builder()
+//                                .name(name)
+//                                .path(childPath)
+//                                .type("file")
+//                                .publicUrl(buildPublicUrl(childPath)) // 🔥 thêm URL
+//                                .children(Collections.emptyList())
+//                                .build()
+//                );
+//            }
+//        }
+//
+//        // sort: folder trước file
+//        currentNode.getChildren().sort((a, b) -> {
+//            if (!a.getType().equals(b.getType())) {
+//                return a.getType().equals("folder") ? -1 : 1;
+//            }
+//            return a.getName().compareToIgnoreCase(b.getName());
+//        });
+//
+//        return currentNode;
+//    }
 
-
+    private String extractName(String path) {
+        int lastSlash = path.lastIndexOf("/");
+        return lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
+    }
 
 
 }
