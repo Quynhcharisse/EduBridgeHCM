@@ -47,7 +47,7 @@ public class SubscriptionValidation {
 
         if (features.getIsFeatured() == null) return "Is featured setting is required.";
 
-        if (features.getParentPostPermission() == null) {
+        if (parseParentPostPermission(features.getParentPostPermission()) == null) {
             return "Parent post permission is required. Must be one of: " + Arrays.toString(ParentPostPermission.values());
         }
 
@@ -56,14 +56,47 @@ public class SubscriptionValidation {
         }
 
         // 2. Validate supportLevel (Ví dụ: "24/7", "Email only", "Priority Support")
-        if (!StringUtils.hasText(features.getSupportLevel())) {
+        if (parseSupportLevel(features.getSupportLevel()) == null) {
             return "Support level description is required.. Must be one of: " + Arrays.toString(SupportLevel.values());
         }
 
-        if (features.getSupportLevel().length() > 50) {
-            return "Support level description is too long (max 50 characters).";
+        return null;
+    }
+
+
+    public static ParentPostPermission parseParentPostPermission(String value) {
+        String normalizedValue = normalize(value);
+        if (normalizedValue == null) {
+            return null;
         }
 
-        return null;
+        return Arrays.stream(ParentPostPermission.values())
+                .filter(r -> r.getValue().equalsIgnoreCase(normalizedValue) || r.name().equalsIgnoreCase(normalizedValue))
+                .findFirst()
+                .orElse(null);
+    }
+
+    public static SupportLevel parseSupportLevel(String value) {
+        String normalizedValue = normalize(value);
+        if (normalizedValue == null) {
+            return null;
+        }
+
+        return Arrays.stream(SupportLevel.values())
+                .filter(r -> r.getValue().equalsIgnoreCase(normalizedValue)
+                        || r.name().equalsIgnoreCase(normalizedValue)
+                        || r.getValue().contains(normalizedValue)
+                )
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

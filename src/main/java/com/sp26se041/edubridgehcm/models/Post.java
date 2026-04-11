@@ -38,32 +38,38 @@ public class Post {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
 
-    String title;
+    @Type(JsonBinaryType.class)
+    @Column(columnDefinition = "jsonb", name = "hash_tag_json")
+    Object hashTag;
 
-    @Column(name = "content_body")
-    String contentBody;
+    @Type(JsonBinaryType.class)
+    @Column(columnDefinition = "jsonb", name = "content_json")
+    Object content;
+
+    @Type(JsonBinaryType.class)
+    @Column(columnDefinition = "jsonb", name = "image_json")
+    Object imageJson;
+
+    String thumbnail;
+
+    int totalPosition; // vị trí của hiển thị
+    // ==> như là :FE sẽ cho người nhập post cho lựa trọn hiển thị vị trí
+
+    @Column(name = "type_file")
+    String typeFile;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "category_post")
     CategoryPost categoryPost;
 
-    int priority; //Dùng để sắp xếp độ ưu tiên hiển thị
-
-    @Column(name = "is_pinned")
-    boolean isPinned;
-
     @Enumerated(EnumType.STRING)
-    Status status; //Cho phép ẩn hiện bài viết
+    Status status;
 
     @Column(name = "published_date")
     LocalDateTime publishedDate;
 
     @ManyToOne
-    @JoinColumn(name = "account_id")
-    Account account;
-
-    @Type(JsonBinaryType.class)
-    @Column(columnDefinition = "jsonb", name = "image_json")
-    Object imageJson;
+    @JoinColumn(name = "author_id")
+    Account author;
 }
 

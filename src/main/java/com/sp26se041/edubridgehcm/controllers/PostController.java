@@ -2,10 +2,10 @@ package com.sp26se041.edubridgehcm.controllers;
 
 import com.sp26se041.edubridgehcm.requests.CreatePostRequest;
 import com.sp26se041.edubridgehcm.requests.DisablePostRequest;
-import com.sp26se041.edubridgehcm.requests.UpdatePostRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.PostService;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,25 +26,18 @@ public class PostController {
 
     @PostMapping("/")
     @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL')")
-    public ResponseEntity<ResponseObject> createPost(@RequestBody CreatePostRequest request) {
-        return postService.createPost(request);
-    }
-
-    @PutMapping("/")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL')")
-    public ResponseEntity<ResponseObject> updatePost(@RequestBody UpdatePostRequest request) {
-        return postService.updatePost(request);
+    public ResponseEntity<ResponseObject> createPost(@RequestBody CreatePostRequest request, HttpServletRequest httpRequest) {
+        return postService.createPost(request, httpRequest);
     }
 
     @PutMapping("/status/disable")
     @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL')")
-    public ResponseEntity<ResponseObject> disablePost(@RequestBody DisablePostRequest request) {
-        return postService.disablePost(request);
+    public ResponseEntity<ResponseObject> disablePost(@RequestBody DisablePostRequest request, HttpServletRequest httpRequest) {
+        return postService.disablePost(request, httpRequest);
     }
 
     @GetMapping("/list")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL')")
-    public ResponseEntity<ResponseObject> viewPostList() {
-        return postService.viewPostList();
+    public ResponseEntity<ResponseObject> viewPostList(HttpServletRequest httpRequest) {
+        return postService.viewPostList(httpRequest);
     }
 }

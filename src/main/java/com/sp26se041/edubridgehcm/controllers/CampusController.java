@@ -110,7 +110,6 @@ public class CampusController {
     }
 
     @GetMapping("/counsellor/slot/available")
-    @PreAuthorize("hasAnyRole('SCHOOL', 'PARENT', 'COUNSELLOR')")
     public ResponseEntity<ResponseObject> getAvailableSlots(LocalDate targetDate) {
         return campusService.getAvailableSlots(targetDate);
     }
