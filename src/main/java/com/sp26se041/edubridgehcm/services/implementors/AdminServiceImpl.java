@@ -2,7 +2,6 @@ package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.CategoryTemplate;
-import com.sp26se041.edubridgehcm.enums.ParentPostPermission;
 import com.sp26se041.edubridgehcm.enums.PersonalityTypeGroup;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
@@ -79,6 +78,7 @@ public class AdminServiceImpl implements AdminService {
     private final SubscriptionRepo subscriptionRepo;
 
     private final SchoolSubscriptionRepo schoolSubscriptionRepo;
+
     private final TemplateDocxRepo templateDocxRepo;
 
 
@@ -110,7 +110,7 @@ public class AdminServiceImpl implements AdminService {
 
         Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
 
-        if(campusTemplateDocx.isEmpty()) {
+        if (campusTemplateDocx.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campus document template is not available. Verification cannot be completed.", null);
         }
 
@@ -134,7 +134,7 @@ public class AdminServiceImpl implements AdminService {
             String schoolName = toSafeObjectKey(request.getSchoolName());
             String campusName = toSafeObjectKey(request.getCampusName());
             String templatePath = campusTemplateDocx.get().getFolderName() + "/" + campusTemplateDocx.get().getFileName();
-            String folderName = schoolName + "_" + uuid +"/" + campusName +"_(primary_campus)";
+            String folderName = schoolName + "_" + uuid + "/" + campusName + "_(primary_campus)";
             String fileName = "campus_info.docx";
 
             String fileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
@@ -223,11 +223,27 @@ public class AdminServiceImpl implements AdminService {
 
     }
 
+
+    private String mapBoardingDescription(BoardingType type) {
+        return switch (type) {
+            case NONE ->
+                    "Cơ sở này không cung cấp dịch vụ nội trú. Học sinh tham gia học tập vào ban ngày và trở về nhà sau giờ học.";
+
+            case FULL_BOARDING ->
+                    "Cơ sở này cung cấp dịch vụ nội trú toàn phần, nơi học sinh sinh hoạt tại trường với chỗ ở, bữa ăn và sự chăm sóc toàn diện hằng ngày.";
+
+            case SEMI_BOARDING ->
+                    "Cơ sở này cung cấp dịch vụ bán trú, cho phép học sinh ở lại trường vào ban ngày để dùng bữa, được hỗ trợ học tập và tham gia các hoạt động ngoại khóa mà không lưu trú qua đêm.";
+
+            case BOTH ->
+                    "Cơ sở này cung cấp cả dịch vụ nội trú toàn phần và bán trú, mang đến lựa chọn linh hoạt về lưu trú và chăm sóc ban ngày để đáp ứng nhu cầu đa dạng của học sinh.";
+        };
+    }
+
     private String toSafeObjectKey(String input) {
         if (input == null || input.trim().isEmpty()) {
             return "";
         }
-
 
         // 1. normalize Unicode (tách dấu ra)
         String normalized = Normalizer.normalize(input.trim(), Normalizer.Form.NFD);
@@ -334,7 +350,7 @@ public class AdminServiceImpl implements AdminService {
         data.put("maxCounsellors", request.getMaxCounsellors());
         data.put("maxAdmissions", request.getMaxAdmissions());
         data.put("allowChat", request.getAllowChat());
-        data.put("parentPostPermission", ParentPostPermission.valueOf(request.getParentPostPermission()));
+        data.put("parentPostPermission", request.getParentPostPermission());
         data.put("isFeatured", request.getIsFeatured());
         data.put("topRanking", request.getTopRanking());
         data.put("supportLevel", SupportLevel.valueOf(request.getSupportLevel()));

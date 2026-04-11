@@ -43,6 +43,9 @@ public enum Status {
     PAYMENT_SUCCESS("success payment"),
     PAYMENT_FAILED("failed payment"),
 
+    POST_ACTIVE("active"),    // Đang áp dụng cho post
+    POST_DISABLED("disabled"),
+
     // status for package service fee
     PACKAGE_ACTIVE("active"),
     PACKAGE_DRAFT("draft"),

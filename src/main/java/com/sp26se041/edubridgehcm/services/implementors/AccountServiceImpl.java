@@ -392,7 +392,6 @@ public class AccountServiceImpl implements AccountService {
     }
 
     private void updateParentProfile(Parent parent, UpdateProfileRequest.ParentData parentData, boolean isFirstLogin) {
-
         parent.setName(parentData.getName());
         parent.setGender(Gender.valueOf(parentData.getGender()));
         parent.setRelationship(Relationship.valueOf(parentData.getRelationship()));
@@ -414,7 +413,6 @@ public class AccountServiceImpl implements AccountService {
     }
 
     private void updateCampusProfile(Campus campus, UpdateProfileRequest.CampusData campusData) {
-
         if (campus.getIsPrimaryBranch()) {
             campus.getSchool().setDescription(normalize(campusData.getSchoolData().getDescription()));
             campus.getSchool().setLogoUrl(normalize(campusData.getSchoolData().getLogoUrl()));
