@@ -182,12 +182,6 @@ public class SchoolController {
         return schoolService.createSubscription(request, httpRequest);
     }
 
-    @GetMapping("/vnpay/callback/url")
-    @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> handleVNPayCallback(HttpServletRequest httpRequest) {
-        return schoolService.handleVNPayCallback(httpRequest);
-    }
-
     @GetMapping("/current/subscription/")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> viewCurrentSubscription() {

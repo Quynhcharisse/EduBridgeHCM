@@ -91,10 +91,12 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -139,6 +141,7 @@ public class SchoolServiceImpl implements SchoolService {
     private final SchoolSubscriptionRepo schoolSubscriptionRepo;
 
     private final PaymentTransactionRepo paymentTransactionRepo;
+
     private final SchoolConfigRepo schoolConfigRepo;
 
     @Override
@@ -1525,118 +1528,6 @@ public class SchoolServiceImpl implements SchoolService {
         paymentTransactionRepo.save(PaymentTransaction.builder().school(school).schoolSubscription(schoolSubscription).vnpTxnRef(vnp_TxnRef).vnpAmount(amount).vnpOrderInfo(orderNote).status(Status.PAYMENT_PENDING).createdAt(LocalDateTime.now()).ipAddress(VNPayConfig.getIpAddress(httpRequest)).build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Payment URL generated", paymentUrl);
-    }
-
-    @Override
-    public ResponseEntity<ResponseObject> handleVNPayCallback(HttpServletRequest httpRequest) {
-
-        Map<String, String> vnp_Params = new HashMap<>();
-
-        Enumeration<String> parameterNames = httpRequest.getParameterNames();
-
-        while (parameterNames.hasMoreElements()) {
-            String paramName = parameterNames.nextElement();
-            String paramValue = httpRequest.getParameter(paramName);
-            if (paramName != null && paramName.startsWith("vnp_") && paramValue != null && !paramValue.isEmpty()) {
-                vnp_Params.put(paramName, paramValue);
-            }
-        }
-
-        // 2. Chuyển cho hàm xử lý logic nội bộ
-        return processPaymentCallback(vnp_Params);
-    }
-
-    private ResponseEntity<ResponseObject> processPaymentCallback(Map<String, String> vnp_Params) {
-
-        // 1. Lấy và dọn dẹp chữ ký từ VNPay gửi về
-        String vnp_SecureHash = vnp_Params.get("vnp_SecureHash");
-        if (vnp_SecureHash == null || vnp_SecureHash.isBlank()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Missing SecureHash", null);
-        }
-
-        vnp_Params.remove("vnp_SecureHashType");
-        vnp_Params.remove("vnp_SecureHash");
-
-        // 2. Tái tạo lại chữ ký từ dữ liệu nhận được để kiểm tra tính toàn vẹn
-        Map<String, String> signFields = new TreeMap<>();
-        for (Map.Entry<String, String> entry : vnp_Params.entrySet()) {
-            String key = entry.getKey();
-            String value = entry.getValue();
-            if (key != null && key.startsWith("vnp_") && value != null && !value.isBlank()) {
-                signFields.put(key, value);
-            }
-        }
-
-        // 3. Kiểm tra Checksum (Chống giả mạo)
-        String callbackHashData = buildVnpHashData(signFields);
-        String checkSum = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, callbackHashData);
-        log.debug("VNPay callback hashData={}", callbackHashData);
-        log.debug("VNPay callback secureHash={}, localCheckSum={}", vnp_SecureHash, checkSum);
-        if (!checkSum.equalsIgnoreCase(vnp_SecureHash)) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid Signature", null);
-        }
-
-        // 4. Tìm giao dịch trong Database
-        String txnRef = vnp_Params.get("vnp_TxnRef");
-        PaymentTransaction transaction = paymentTransactionRepo.findByVnpTxnRef(txnRef).orElseThrow(() -> new RuntimeException("Transaction not found"));
-
-        School school = transaction.getSchool();
-        // 5. Kiểm tra nếu giao dịch đã được xử lý trước đó (Idempotency)
-        if (transaction.getStatus() != Status.PAYMENT_PENDING) {
-            return ResponseBuilder.build(HttpStatus.OK, "Transaction already processed", transaction.getStatus());
-        }
-
-        // 6. Kiểm tra kết quả thanh toán từ mã vnp_ResponseCode
-        if ("00".equals(vnp_Params.get("vnp_ResponseCode"))) {
-            transaction.setStatus(Status.PAYMENT_SUCCESS);
-
-            // Lấy thông tin SchoolSubscription mới (đang ở trạng thái chờ)
-            SchoolSubscription newSchoolSubscription = transaction.getSchoolSubscription();
-            School currentSchool = transaction.getSchool();
-
-            // xử lý phần nâng cấp :
-            List<SchoolSubscription> activeSubs = schoolSubscriptionRepo.findBySchoolIdAndIsSelected(currentSchool.getId(), true);
-
-            // Tính toán lại ngày (check)
-            // Tìm gói có ngày kết thúc xa nhất trong lịch sử (ngoại trừ chính nó)
-            Optional<SchoolSubscription> latestSubOpt = schoolSubscriptionRepo
-                    .findTopBySchoolIdAndIdNotOrderByEndDateDesc(currentSchool.getId(), newSchoolSubscription.getId());
-
-            if (latestSubOpt.isPresent()) {
-                SchoolSubscription latestSub = latestSubOpt.get();
-
-                // GIA HẠN (Cùng loại gói) và gói đó vẫn còn hạn hoặc vừa mới hết hạn
-                if (latestSub.getSubscription().getId().equals(newSchoolSubscription.getSubscription().getId())
-                        && !latestSub.getEndDate().isBefore(LocalDate.now())) {
-                    newSchoolSubscription.setStartDate(latestSub.getEndDate().plusDays(1));
-                    newSchoolSubscription.setEndDate(newSchoolSubscription.getStartDate().plusDays(newSchoolSubscription.getSubscription().getDurationDays()));
-                } else {
-                    // NÂNG CẤP OR GÓI CŨ ĐÃ HẾT HẠN QUÁ LÂU : DÙNG TỪ HÔM NAY
-                    newSchoolSubscription.setStartDate(LocalDate.now());
-                    newSchoolSubscription.setEndDate(LocalDate.now().plusDays(newSchoolSubscription.getSubscription().getDurationDays()));
-                }
-            }
-
-
-            // THỰC THI ==> Tắt tất cả các gói hiện tại của School này
-            activeSubs.forEach(s -> s.setIsSelected(false));
-            schoolSubscriptionRepo.saveAll(activeSubs);
-
-            // Bật gói mới vừa mua
-            newSchoolSubscription.setIsSelected(true);
-            schoolSubscriptionRepo.save(newSchoolSubscription);
-        } else {
-            transaction.setStatus(Status.PAYMENT_FAILED);
-        }
-        // 7. Lưu chi tiết thông tin từ VNPay để đối soát
-        transaction.setVnpTransactionNo(vnp_Params.get("vnp_TransactionNo"));
-        transaction.setVnpResponseCode(vnp_Params.get("vnp_ResponseCode"));
-        transaction.setVnpPayDate(vnp_Params.get("vnp_PayDate"));
-        transaction.setVnpBankCode(vnp_Params.get("vnp_BankCode"));
-        transaction.setVnpCardType(vnp_Params.get("vnp_CardType"));
-        paymentTransactionRepo.save(transaction);
-
-        return ResponseBuilder.build(HttpStatus.OK, "Payment processed successfully", transaction);
     }
 
     private String sanitizeOrderInfo(String rawOrderInfo) {
