@@ -322,7 +322,14 @@ public class PostServiceImpl implements PostService {
     @Override
     public ResponseEntity<ResponseObject> viewPostList(HttpServletRequest httpRequest) {
 
-        Account acc = CookieUtil.extractAccountFromCookie(httpRequest, jwtService, accountRepo);
+        Account acc = AuthRequestUtil.extractAuthenticatedAccount();
+        if (acc == null) {
+            acc = CookieUtil.extractAccountFromCookie(httpRequest, jwtService, accountRepo);
+        }
+
+        if (acc == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account not found", null);
+        }
 
         List<Post> postList;
 
