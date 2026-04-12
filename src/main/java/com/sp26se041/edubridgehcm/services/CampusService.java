@@ -51,4 +51,7 @@ public interface CampusService {
     ResponseEntity<Resource> exportCampusScheduleMatrix() throws IOException;
 
     ResponseEntity<ResponseObject> getDocuments();
+
+    ResponseEntity<ResponseObject> getChatHistoryWithAdmin(Long cursorId);
+
 }

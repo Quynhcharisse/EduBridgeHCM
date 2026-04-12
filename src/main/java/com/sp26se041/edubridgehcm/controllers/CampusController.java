@@ -145,4 +145,10 @@ public class CampusController {
     public ResponseEntity<ResponseObject> getDocuments(){
         return campusService.getDocuments();
     }
+
+    @GetMapping("/message/history/admin")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> getHistoryChatWithAdmin(@RequestParam(required = false) Long cursorId){
+        return campusService.getChatHistoryWithAdmin(cursorId);
+    }
 }

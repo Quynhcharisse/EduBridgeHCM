@@ -277,6 +277,7 @@ public class ParentServiceImpl implements ParentService {
                     map.put("updatedAt", conversation.getUpdatedDate());
                     map.put("unreadCount", unreadCount != null ? unreadCount : 0L);
                     map.put("otherUser", conversation.getCounsellorEmail());
+                    map.put("campusName",  campus.get().getName());
                     map.put("schoolId", campus.get().getSchool().getId());
                     map.put("schoolName", campus.get().getSchool().getName());
                     map.put("schoolLogoUrl", campus.get().getSchool().getLogoUrl());
