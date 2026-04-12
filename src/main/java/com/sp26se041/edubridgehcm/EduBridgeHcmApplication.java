@@ -32,13 +32,11 @@ import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
 import com.sp26se041.edubridgehcm.repositories.TemplateDocxRepo;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
-import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.math.BigDecimal;
@@ -86,15 +84,15 @@ public class EduBridgeHcmApplication {
     public CommandLineRunner initData() {
         return args -> {
 
-           initTemplateDocx();
-           initAdmin();
-           initParent();
-           initPrimaryCampusAndCounsellor();
-           initConfigSystem();
-           initSchoolConfig();
-           initPersonalityTypes();
-           initMajors();
-           initSubjects();
+            initTemplateDocx();
+            initAdmin();
+            initParent();
+            initPrimaryCampusAndCounsellor();
+            initConfigSystem();
+            initSchoolConfig();
+            initPersonalityTypes();
+            initMajors();
+            initSubjects();
         };
     }
 
@@ -107,7 +105,7 @@ public class EduBridgeHcmApplication {
     }
 
     private void initParent() {
-        if (accountRepo.findByEmail("quynhpvnse182895@fpt.edu.vn").isPresent()) {
+        if (accountRepo.findByEmail("parent@gmail.com").isPresent()) {
             return;
         }
 
@@ -691,38 +689,38 @@ public class EduBridgeHcmApplication {
 
         String uuid = UUID.randomUUID().toString();
 
-        if (schoolTemplateDocx.isEmpty()){
+        if (schoolTemplateDocx.isEmpty()) {
 
-                try {
+            try {
 
-                    String templatePath = "TEMPLATE/" + CategoryTemplate.SCHOOL_INFO_TEMPLATE.name() + "/school_info_template.docx";
-                    String folderName = "TEMPLATE/" + CategoryTemplate.SCHOOL_INFO_TEMPLATE.name() + "_" + uuid;
-                    String fileName = "school_info_template_v0.docx";
+                String templatePath = "TEMPLATE/" + CategoryTemplate.SCHOOL_INFO_TEMPLATE.name() + "/school_info_template.docx";
+                String folderName = "TEMPLATE/" + CategoryTemplate.SCHOOL_INFO_TEMPLATE.name() + "_" + uuid;
+                String fileName = "school_info_template_v0.docx";
 
-                    String newPath = folderName + "/" + fileName;
+                String newPath = folderName + "/" + fileName;
 
-                    String fileUrl = supabaseStorageService.copyFileFromTemplate(templatePath, newPath);
-                    
-                    TemplateDocx docx = TemplateDocx.builder()
-                            .type(CategoryTemplate.SCHOOL_INFO_TEMPLATE)
-                            .fileName(fileName)
-                            .fileUrl(fileUrl)
-                            .folderName(folderName)
-                            .createdDate(LocalDateTime.now())
-                            .updatedDate(LocalDateTime.now())
-                            .version(0)
-                            .build();
+                String fileUrl = supabaseStorageService.copyFileFromTemplate(templatePath, newPath);
 
-                    templateDocxRepo.save(docx);
+                TemplateDocx docx = TemplateDocx.builder()
+                        .type(CategoryTemplate.SCHOOL_INFO_TEMPLATE)
+                        .fileName(fileName)
+                        .fileUrl(fileUrl)
+                        .folderName(folderName)
+                        .createdDate(LocalDateTime.now())
+                        .updatedDate(LocalDateTime.now())
+                        .version(0)
+                        .build();
 
-                } catch (Exception ex) {
-                    System.out.println(ex.getMessage());
-                }
+                templateDocxRepo.save(docx);
+
+            } catch (Exception ex) {
+                System.out.println(ex.getMessage());
+            }
         }
 
         Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
 
-        if (campusTemplateDocx.isEmpty()){
+        if (campusTemplateDocx.isEmpty()) {
 
             try {
 
@@ -746,7 +744,7 @@ public class EduBridgeHcmApplication {
 
                 templateDocxRepo.save(docx);
 
-            } catch (Exception ex){
+            } catch (Exception ex) {
                 System.out.println(ex.getMessage());
             }
         }

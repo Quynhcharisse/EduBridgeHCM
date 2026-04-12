@@ -5,6 +5,7 @@ import com.sp26se041.edubridgehcm.requests.DisablePostRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface PostService {
 
@@ -13,4 +14,6 @@ public interface PostService {
     ResponseEntity<ResponseObject> viewPostList(HttpServletRequest httpRequest);
 
     ResponseEntity<ResponseObject> disablePost(DisablePostRequest request, HttpServletRequest httpRequest);
+
+    ResponseEntity<ResponseObject> uploadDocumentPost(MultipartFile file, String categoryPostTemplate, HttpServletRequest request);
 }

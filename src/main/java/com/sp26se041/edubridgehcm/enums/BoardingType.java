@@ -6,7 +6,6 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum BoardingType {
-    NONE("Không có"),
     FULL_BOARDING("Nội trú"),
     SEMI_BOARDING("Bán trú"),
     BOTH("Cả hai (Nội trú & Bán trú)");
