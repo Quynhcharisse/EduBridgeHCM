@@ -6,7 +6,6 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum ResourceType {
-    COUNSELLOR("counsellor"),
-    ADMISSION("admission");
+    COUNSELLOR("counsellor");
     private final String value;
 }

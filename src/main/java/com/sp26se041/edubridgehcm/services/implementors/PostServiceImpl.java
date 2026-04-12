@@ -322,30 +322,11 @@ public class PostServiceImpl implements PostService {
     @Override
     public ResponseEntity<ResponseObject> viewPostList(HttpServletRequest httpRequest) {
 
-        Account acc = AuthRequestUtil.extractAuthenticatedAccount();
-        if (acc == null) {
-            acc = CookieUtil.extractAccountFromCookie(httpRequest, jwtService, accountRepo);
-        }
-
-        if (acc == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account not found", null);
-        }
-
-        List<Post> postList;
-
-        if (acc == null) {
-            // guest: Chỉ xem bài viết đang Active
-            postList = postRepo.findAllByStatus(Status.POST_ACTIVE);
-        } else if (acc.getRole() == Role.ADMIN) {
-            postList = postRepo.findAll();
-        } else if (acc.getRole() == Role.SCHOOL) {
-            postList = postRepo.findAllByAuthorIdOrStatus(acc.getId(), Status.POST_ACTIVE);
-        } else {
-            // parent, counsellor
-            postList = postRepo.findAllByStatus(Status.POST_ACTIVE);
-        }
-
-        List<Map<String, Object>> data = postList.stream().map(this::buildPostData).toList();
+        List<Post> postList = postRepo.findAll();
+        List<Map<String, Object>> data = postList.stream()
+                .filter(s -> s.getStatus().equals(Status.POST_ACTIVE))
+                .map(this::buildPostData)
+                .toList();
 
         return ResponseBuilder.build(HttpStatus.OK, "Get post list successfully", data);
     }

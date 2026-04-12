@@ -443,8 +443,6 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
     private int getSystemLimitByType(UpsertServicePackageFeeRequest.FeatureData features, ResourceType type) {
         return switch (type) {
             case COUNSELLOR -> features.getMaxCounsellors();
-
-            case ADMISSION -> features.getMaxAdmissions();
             default -> 0;
         };
     }
