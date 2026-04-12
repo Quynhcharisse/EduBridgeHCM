@@ -15,6 +15,7 @@ import com.sp26se041.edubridgehcm.services.JWTService;
 import com.sp26se041.edubridgehcm.services.PostService;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
+import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.CookieUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.validations.post.PostValidation;
@@ -53,7 +54,10 @@ public class PostServiceImpl implements PostService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
         }
 
-        Account acc = CookieUtil.extractAccountFromCookie(httpRequest, jwtService, accountRepo);
+        Account acc = AuthRequestUtil.extractAuthenticatedAccount();
+        if (acc == null) {
+            acc = CookieUtil.extractAccountFromCookie(httpRequest, jwtService, accountRepo);
+        }
 
         if (acc == null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account not found", null);
@@ -61,7 +65,7 @@ public class PostServiceImpl implements PostService {
 
         CategoryPost category;
         try {
-            category = CategoryPost.valueOf(request.getCategoryPost());
+            category = CategoryPost.valueOf(request.getCategoryPost().toUpperCase());
         } catch (Exception e) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid post category", null);
         }
@@ -97,7 +101,7 @@ public class PostServiceImpl implements PostService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
-        Post post = Post.builder().hashTag(request.getHashTagList()).content(buildContentJson(request.getContent())).imageJson(buildImageJson(request.getImage())).thumbnail(request.getThumbnail()).totalPosition(request.getTotalPosition()).typeFile(request.getTypeFile()).categoryPost(CategoryPost.valueOf(request.getCategoryPost())).status(Status.POST_ACTIVE).publishedDate(LocalDateTime.now()).author(acc).build();
+        Post post = Post.builder().hashTag(request.getHashTagList()).content(buildContentJson(request.getContent())).imageJson(buildImageJson(request.getImage())).thumbnail(request.getThumbnail()).totalPosition(request.getTotalPosition()).typeFile(request.getTypeFile()).categoryPost(category).status(Status.POST_ACTIVE).publishedDate(LocalDateTime.now()).author(acc).build();
 
         postRepo.save(post);
 

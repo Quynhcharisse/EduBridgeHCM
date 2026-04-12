@@ -28,7 +28,7 @@ public class PostController {
 
     private final PostService postService;
 
-    @PostMapping("/")
+    @PostMapping({"", "/"})
     @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL')")
     public ResponseEntity<ResponseObject> createPost(@RequestBody CreatePostRequest request, HttpServletRequest httpRequest) {
         return postService.createPost(request, httpRequest);
