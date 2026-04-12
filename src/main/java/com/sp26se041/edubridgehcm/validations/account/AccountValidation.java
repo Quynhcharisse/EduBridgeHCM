@@ -133,10 +133,6 @@ public class AccountValidation {
                 return "Require campus data";
             }
 
-            if (normalize(request.getCampusData().getName()) == null) {
-                return "Require campus name";
-            }
-
             if (normalize(request.getCampusData().getPhoneNumber()) == null) {
                 return "Require campus phone number";
             }

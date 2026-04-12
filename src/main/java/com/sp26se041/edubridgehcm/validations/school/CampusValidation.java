@@ -26,18 +26,6 @@ public class CampusValidation {
             return "Email is already in use";
         }
 
-        if (normalize(request.getName()) == null) {
-            return "Name is required";
-        }
-
-        if (campusRepo.existsBySchoolIdAndNameEqualsIgnoreCase(schoolId, request.getName())) {
-            return "Campus name '" + request.getName() + "' already exists in your school";
-        }
-
-        if (normalize(request.getName()).length() > 50) {
-            return "Name exceeds 50 characters";
-        }
-
         if (normalize(request.getAddress()) == null) {
             return "Address is required";
         }

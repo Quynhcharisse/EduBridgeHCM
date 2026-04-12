@@ -14,8 +14,6 @@ public class CreateCampusRequest {
 
     String email;
 
-    String name;
-
     String address;
 
     String phone;

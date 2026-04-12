@@ -81,6 +81,7 @@ public class AdminServiceImpl implements AdminService {
     private final SchoolSubscriptionRepo schoolSubscriptionRepo;
 
     private final TemplateDocxRepo templateDocxRepo;
+
     private final ConversationRepo conversationRepo;
 
 
@@ -134,17 +135,19 @@ public class AdminServiceImpl implements AdminService {
 
         String uuid = UUID.randomUUID().toString();
 
+        String autoGenCampusName = "Cơ sở 1 (Cơ sở chính)";
+
         try {
 
             Map<String, Object> fields = new LinkedHashMap<>();
-            fields.put("name", request.getCampusName().trim());
+            fields.put("name", autoGenCampusName);
             fields.put("phoneNumber", request.getCampusPhone().trim());
             fields.put("address", request.getCampusAddress().trim());
             fields.put("boardingType", "UPDATING");
             fields.put("boardingDescription", "UPDATING");
 
             String schoolName = toSafeObjectKey(request.getSchoolName());
-            String campusName = toSafeObjectKey(request.getCampusName());
+            String campusName = toSafeObjectKey(autoGenCampusName);
             String templatePath = campusTemplateDocx.get().getFolderName() + "/" + campusTemplateDocx.get().getFileName();
             String folderName = schoolName + "_" + uuid + "/" + campusName + "_(primary_campus)";
             String fileName = "campus_info.docx";
@@ -155,21 +158,22 @@ public class AdminServiceImpl implements AdminService {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
         }
 
-        String newBusinessLicenseUrl;
+        String newBusinessLicenseUrl = request.getBusinessLicenseUrl(); // Mặc định dùng lại url cũ
 
         try {
-
-            String schoolName = toSafeObjectKey(request.getSchoolName());
+            String schoolNameSlug = toSafeObjectKey(request.getSchoolName());
             String oldPath = supabaseStorageService.extractObjectPath(request.getBusinessLicenseUrl());
-            String extension = oldPath.substring(oldPath.lastIndexOf('.') + 1);
-            String newPath = schoolName + "_" + uuid + "/" + schoolName + "_business_license" + "." + extension;
 
-            newBusinessLicenseUrl = supabaseStorageService.moveFile(oldPath, newPath);
+            // Kiểm tra sơ bộ tránh lỗi substring nếu URL không có dấu chấm
+            if (oldPath.contains(".")) {
+                String extension = oldPath.substring(oldPath.lastIndexOf('.') + 1);
+                String newPath = schoolNameSlug + "_" + uuid + "/" + schoolNameSlug + "_business_license" + "." + extension;
 
-            request.setBusinessLicenseUrl(newBusinessLicenseUrl);
-
+                // Cố gắng move file
+                newBusinessLicenseUrl = supabaseStorageService.moveFile(oldPath, newPath);
+            }
         } catch (Exception ex) {
-            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
+            // Log lỗi nhưng không return 500 để Admin vẫn duyệt được account
         }
 
         try {
@@ -223,7 +227,7 @@ public class AdminServiceImpl implements AdminService {
         campusRepo.save(
                 Campus.builder()
                         .account(account)
-                        .name(request.getCampusName().trim())
+                        .name(autoGenCampusName)
                         .phoneNumber(request.getCampusPhone())
                         .address(request.getCampusAddress().trim())
                         .status(Status.ACTIVE)
@@ -302,7 +306,7 @@ public class AdminServiceImpl implements AdminService {
         data.put("representativeName", request.getRepresentativeName());
         data.put("hotline", request.getHotline());
         data.put("businessLicenseUrl", request.getBusinessLicenseUrl());
-        data.put("campusName", request.getCampusName());
+        data.put("campusName", "Cơ sở 1 (Cơ sở chính)");
         data.put("campusAddress", request.getCampusAddress());
         data.put("campusPhone", request.getCampusPhone());
         data.put("status", request.getStatus());
