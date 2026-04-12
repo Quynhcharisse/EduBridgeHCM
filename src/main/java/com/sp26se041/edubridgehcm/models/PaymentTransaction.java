@@ -74,6 +74,9 @@ public class PaymentTransaction {
     @Column(name = "created_at")
     LocalDateTime createdAt; // thời điểm tạo giao dịch
 
+    @Column(name = "updated_at")
+    LocalDateTime updatedAt; // thời điểm tạo giao dịch
+
     @Column(name = "ip_address")
     String ipAddress; // IP của người thực hiện thanh toán
 
