@@ -8,7 +8,6 @@ import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.Post;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.PostRepo;
-import com.sp26se041.edubridgehcm.repositories.TemplateDocxRepo;
 import com.sp26se041.edubridgehcm.requests.CreatePostRequest;
 import com.sp26se041.edubridgehcm.requests.DisablePostRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -29,7 +28,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.text.Normalizer;
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -46,8 +44,6 @@ public class PostServiceImpl implements PostService {
 
     private final PostRepo postRepo;
 
-    private final TemplateDocxRepo templateDocxRepo;
-
     private final SupabaseStorageService supabaseStorageService;
 
     @Override
@@ -63,7 +59,18 @@ public class PostServiceImpl implements PostService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account not found", null);
         }
 
+        CategoryPost category;
+        try {
+            category = CategoryPost.valueOf(request.getCategoryPost());
+        } catch (Exception e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid post category", null);
+        }
+
         if (acc.getRole() == Role.ADMIN) {
+
+            if (!isAdminCategory(category)) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Admin can only post system notifications or general news", null);
+            }
 
         } else if (acc.getRole() == Role.SCHOOL) {
 
@@ -77,7 +84,7 @@ public class PostServiceImpl implements PostService {
                 return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can add new campus", null);
             }
 
-            if (!isCampusCategory(CategoryPost.valueOf(request.getCategoryPost()))) {
+            if (!isCampusCategory(category)) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Schools are only allowed to post information about admissions, events, or scholarships.", null);
             }
         } else {
@@ -248,25 +255,9 @@ public class PostServiceImpl implements PostService {
         return category == CategoryPost.CAMPUS_EVENTS || category == CategoryPost.CAMPUS_ADMISSION || category == CategoryPost.CAMPUS_SCHOLARSHIP;
     }
 
-    public static CategoryPost parseCategoryPost(String value) {
-        String normalizedValue = normalize(value);
-        if (normalizedValue == null) {
-            return null;
-        }
-
-        return Arrays.stream(CategoryPost.values())
-                .filter(r -> r.getValue().equalsIgnoreCase(normalizedValue) || r.name().equalsIgnoreCase(normalizedValue))
-                .findFirst()
-                .orElse(null);
-    }
-
-    private static String normalize(String value) {
-        if (value == null) {
-            return null;
-        }
-
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
+    private boolean isAdminCategory(CategoryPost category) {
+        return List.of(CategoryPost.SYSTEM_NOTIFICATIONS, CategoryPost.GENERAL_EDUCATION_NEWS)
+                .contains(category);
     }
 
     @Override
