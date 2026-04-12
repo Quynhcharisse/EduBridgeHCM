@@ -39,10 +39,6 @@ public class SubscriptionValidation {
             return "Max counsellors cannot be less than -1.";
         }
 
-        if (features.getMaxAdmissions() != null && features.getMaxAdmissions() < -1) {
-            return "Max admissions cannot be less than -1.";
-        }
-
         if (features.getAllowChat() == null) return "Allow chat setting is required.";
 
         if (features.getIsFeatured() == null) return "Is featured setting is required.";
