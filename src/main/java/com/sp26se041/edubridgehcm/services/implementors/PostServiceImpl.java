@@ -115,7 +115,10 @@ public class PostServiceImpl implements PostService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
         }
 
-        Account acc = CookieUtil.extractAccountFromCookie(request, jwtService, accountRepo);
+        Account acc = AuthRequestUtil.extractAuthenticatedAccount();
+        if (acc == null) {
+            acc = CookieUtil.extractAccountFromCookie(request, jwtService, accountRepo);
+        }
 
         if (acc == null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account not found", null);
@@ -270,7 +273,11 @@ public class PostServiceImpl implements PostService {
         Account acc = CookieUtil.extractAccountFromCookie(httpRequest, jwtService, accountRepo);
 
         if (acc == null) {
-            return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "Account not found", null);
+            acc = CookieUtil.extractAccountFromCookie(httpRequest, jwtService, accountRepo);
+        }
+
+        if (acc == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account not found", null);
         }
 
         if (acc.getRole() == Role.ADMIN) {
