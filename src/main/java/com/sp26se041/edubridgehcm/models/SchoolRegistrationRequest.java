@@ -40,9 +40,6 @@ public class SchoolRegistrationRequest {
     @Column(name = "school_name")
     String schoolName;
 
-    @Column(name = "campus_name")
-    String campusName;
-
     @Column(name = "campus_address")
     String campusAddress;
 

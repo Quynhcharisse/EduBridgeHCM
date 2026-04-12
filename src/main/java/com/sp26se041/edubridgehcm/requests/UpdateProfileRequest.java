@@ -63,8 +63,6 @@ public class UpdateProfileRequest {
 
         SchoolData schoolData;
 
-        String name;
-
         String phoneNumber;
 
         String city;
