@@ -414,9 +414,15 @@ public class AccountServiceImpl implements AccountService {
 
     private void updateCampusProfile(Campus campus, UpdateProfileRequest.CampusData campusData) {
         if (campus.getIsPrimaryBranch()) {
-            campus.getSchool().setDescription(normalize(campusData.getSchoolData().getDescription()));
-            campus.getSchool().setLogoUrl(normalize(campusData.getSchoolData().getLogoUrl()));
-            campus.getSchool().setWebsiteUrl(normalize(campusData.getSchoolData().getWebsiteUrl()));
+
+            School school = campus.getSchool();
+            school.setDescription(normalize(campusData.getSchoolData().getDescription()));
+            school.setLogoUrl(normalize(campusData.getSchoolData().getLogoUrl()));
+            school.setWebsiteUrl(normalize(campusData.getSchoolData().getWebsiteUrl()));
+            school.setHotline(normalize(campusData.getSchoolData().getHotline()));
+
+            schoolRepo.save(school);
+
             campus.setAddress(normalize(campusData.getAddress()));
             campus.setCity(normalize(campusData.getCity()));
             campus.setDistrict(normalize(campusData.getDistrict()));
@@ -425,7 +431,6 @@ public class AccountServiceImpl implements AccountService {
             campus.setLongitude(campusData.getLongitude());
         }
 
-        campus.setName(normalize(campusData.getName()));
         campus.setPhoneNumber(normalize(campusData.getPhoneNumber()));
         campus.setBoardingType(Objects.requireNonNull(AccountValidation.parseBoardingType(campusData.getBoardingType())));
         campusRepo.save(campus);

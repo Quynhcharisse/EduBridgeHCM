@@ -97,21 +97,51 @@ public class EduBridgeHcmApplication {
     }
 
     private void initAdmin() {
-        if (accountRepo.findByEmail("systemteacher08@gmail.com").isPresent()) {
-            return;
-        }
+        String adminEmail = "systemteacher08@gmail.com";
 
-        accountRepo.save(Account.builder().email("systemteacher08@gmail.com").role(Role.ADMIN).firstLogin(true).registerDate(LocalDate.now()).status(Status.ACCOUNT_ACTIVE).isRestricted(false).build());
+        Optional<Account> existingAccount = accountRepo.findByEmail(adminEmail);
+
+        if (existingAccount.isEmpty()) {
+            accountRepo.save(Account.builder()
+                    .email(adminEmail)
+                    .role(Role.ADMIN)
+                    .firstLogin(true)
+                    .registerDate(LocalDate.now())
+                    .status(Status.ACCOUNT_ACTIVE)
+                    .isRestricted(false)
+                    .build());
+        }
     }
 
     private void initParent() {
-        if (accountRepo.findByEmail("parent@gmail.com").isPresent()) {
-            return;
+        String parentEmail = "quynhpvnse182895@fpt.edu.vn";
+        Optional<Account> accountOpt = accountRepo.findByEmail(parentEmail);
+        Account account;
+        if (accountOpt.isEmpty()) {
+            account = accountRepo.save(Account.builder()
+                    .email(parentEmail)
+                    .role(Role.PARENT)
+                    .firstLogin(false)
+                    .registerDate(LocalDate.now())
+                    .status(Status.ACCOUNT_ACTIVE)
+                    .isRestricted(false)
+                    .build());
+        } else {
+            account = accountOpt.get();
         }
 
-        Account account = accountRepo.save(Account.builder().email("quynhpvnse182895@fpt.edu.vn").role(Role.PARENT).firstLogin(false).registerDate(LocalDate.now()).status(Status.ACCOUNT_ACTIVE).isRestricted(false).build());
-
-        parentRepo.save(Parent.builder().account(account).relationship(Relationship.FATHER).name("John Doe").gender(Gender.MALE).idCardNumber("123456789").workplace("ABC Company").occupation("Engineer").currentAddress("District 1, Ho Chi Minh city").build());
+        if (!parentRepo.existsByAccountId(account.getId())) {
+            parentRepo.save(Parent.builder()
+                    .account(account)
+                    .relationship(Relationship.FATHER)
+                    .name("John Doe")
+                    .gender(Gender.MALE)
+                    .idCardNumber("123456789")
+                    .workplace("ABC Company")
+                    .occupation("Engineer")
+                    .currentAddress("District 1, Ho Chi Minh city")
+                    .build());
+        }
     }
 
     private void initPrimaryCampusAndCounsellor() {

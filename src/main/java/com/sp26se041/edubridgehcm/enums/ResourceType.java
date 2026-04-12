@@ -8,6 +8,5 @@ import lombok.RequiredArgsConstructor;
 public enum ResourceType {
     COUNSELLOR("counsellor"),
     ADMISSION("admission");
-
     private final String value;
 }

@@ -247,7 +247,7 @@ public class SchoolConfigRequest {
 
     @Data
     public static class ResourceAllocation {
-        ResourceType resourceType; // COUNSELLOR, ADMISSION_SLOT...
+        String resourceType; // COUNSELLOR, ADMISSION_SLOT...
         int campusId;
         int allocatedAmount;
     }

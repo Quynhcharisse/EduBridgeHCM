@@ -10,6 +10,5 @@ public enum Gender {
     BOY("boy"),
     MALE("male"),
     FEMALE("female");
-
     private final String value;
 }

@@ -34,8 +34,6 @@ public class RegisterRequest {
 
         String schoolName;
 
-        String campusName;
-
         String campusAddress;
 
         String campusPhone;

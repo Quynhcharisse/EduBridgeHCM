@@ -172,13 +172,27 @@ public class SchoolServiceImpl implements SchoolService {
 
         Account acc = accountRepo.save(Account.builder().email(normalize(request.getEmail())).role(Role.SCHOOL).status(Status.ACCOUNT_ACTIVE).registerDate(LocalDate.now()).firstLogin(true).isRestricted(false).build());
 
-        Campus campus = campusRepo.save(Campus.builder().school(actorCampus.getSchool()).account(acc).name(normalize(request.getName())).address(normalize(request.getAddress())).phoneNumber(normalize(request.getPhone())).city(normalize(request.getCity())).district(normalize(request.getDistrict())).ward(normalize(request.getWard())).boardingType(boardingType).latitude(request.getLatitude()).longitude(request.getLongitude()).status(Status.ACTIVE).isPrimaryBranch(false).build());
+        Campus campus = campusRepo.save(
+                Campus.builder()
+                        .school(actorCampus.getSchool())
+                        .account(acc)
+                        .name(generateCampusName(actorCampus.getSchool().getId()))
+                        .address(normalize(request.getAddress()))
+                        .phoneNumber(normalize(request.getPhone())).city(normalize(request.getCity())).district(normalize(request.getDistrict())).ward(normalize(request.getWard())).boardingType(boardingType).latitude(request.getLatitude()).longitude(request.getLongitude()).status(Status.ACTIVE).isPrimaryBranch(false).build());
 
         Map<String, Object> data = new HashMap<>();
         data.put("campus", buildCampusData(campus));
         data.put("account", buildAccountData(acc));
 
         return ResponseBuilder.build(HttpStatus.OK, "Create campus successfully", data);
+    }
+
+    private String generateCampusName(Integer schoolId) {
+        int currentCount = campusRepo.countBySchoolId(schoolId);
+        if (currentCount == 0) {
+            return "Cơ sở 1 (Cơ sở chính)";
+        }
+        return "Cơ sở " + (currentCount + 1);
     }
 
     @Override

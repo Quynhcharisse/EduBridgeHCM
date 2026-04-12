@@ -64,8 +64,8 @@ public class AuthServiceImpl implements AuthService {
         Map<String, String> response;
 
         try {
-            response  =  supabaseStorageService.uploadDocument(file,"BUSINESS_LICENSE", fileName, List.of("pdf", "doc", "docx"));
-        } catch (IllegalArgumentException ex){
+            response = supabaseStorageService.uploadDocument(file, "BUSINESS_LICENSE", fileName, List.of("pdf", "doc", "docx"));
+        } catch (IllegalArgumentException ex) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
         } catch (Exception ex) {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
@@ -138,7 +138,6 @@ public class AuthServiceImpl implements AuthService {
                     .email(request.getEmail())
                     .schoolName(request.getSchoolRequest().getSchoolName())
                     .description(request.getSchoolRequest().getDescription())
-                    .campusName(request.getSchoolRequest().getCampusName())
                     .campusAddress(request.getSchoolRequest().getCampusAddress())
                     .campusPhone(request.getSchoolRequest().getCampusPhone())
                     .taxCode(request.getSchoolRequest().getTaxCode())
@@ -146,7 +145,7 @@ public class AuthServiceImpl implements AuthService {
                     .logoUrl(request.getSchoolRequest().getLogoUrl())
                     .representativeName(request.getSchoolRequest().getRepresentativeName())
                     .hotline(request.getSchoolRequest().getHotline())
-                    .foundingDate(LocalDate.of(request.getSchoolRequest().getFoundingDate().getYear(), request.getSchoolRequest().getFoundingDate().getMonth(), request.getSchoolRequest().getFoundingDate().getDayOfMonth()))
+                    .foundingDate(request.getSchoolRequest().getFoundingDate())
                     .businessLicenseUrl(request.getSchoolRequest().getBusinessLicenseUrl())
                     .status(Status.ACCOUNT_PENDING_VERIFY) // trạng thái chờ Admin duyệt
                     .createdAt(LocalDateTime.now())
@@ -192,7 +191,6 @@ public class AuthServiceImpl implements AuthService {
         schoolRequestData.put("requestId", schoolRequest.getId());
         schoolRequestData.put("schoolName", schoolRequest.getSchoolName());
         schoolRequestData.put("description", schoolRequest.getDescription());
-        schoolRequestData.put("campusName", schoolRequest.getCampusName());
         schoolRequestData.put("campusAddress", schoolRequest.getCampusAddress());
         schoolRequestData.put("campusPhone", schoolRequest.getCampusPhone());
         schoolRequestData.put("taxCode", schoolRequest.getTaxCode());
