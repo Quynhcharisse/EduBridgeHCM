@@ -238,11 +238,8 @@ public class AdminServiceImpl implements AdminService {
 
     }
 
-
     private String mapBoardingDescription(BoardingType type) {
         return switch (type) {
-            case NONE ->
-                    "Cơ sở này không cung cấp dịch vụ nội trú. Học sinh tham gia học tập vào ban ngày và trở về nhà sau giờ học.";
 
             case FULL_BOARDING ->
                     "Cơ sở này cung cấp dịch vụ nội trú toàn phần, nơi học sinh sinh hoạt tại trường với chỗ ở, bữa ăn và sự chăm sóc toàn diện hằng ngày.";
