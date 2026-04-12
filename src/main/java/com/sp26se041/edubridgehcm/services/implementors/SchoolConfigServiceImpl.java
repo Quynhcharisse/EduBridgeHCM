@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -365,8 +366,14 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         );
 
         //Nhóm các yêu cầu phân bổ theo ResourceType để kiểm tra tổng
-        Map<ResourceType, List<SchoolConfigRequest.ResourceAllocation>> groupedAllocations = resourceDistributionData.getAllocations().stream()
-                .collect(Collectors.groupingBy(SchoolConfigRequest.ResourceAllocation::getResourceType));
+        Map<ResourceType, List<SchoolConfigRequest.ResourceAllocation>> groupedAllocations =
+                resourceDistributionData.getAllocations().stream()
+                        .collect(Collectors.groupingBy(alloc -> {
+                            ResourceType type = parseResourceType(alloc.getResourceType());
+                            if (type == null)
+                                throw new RuntimeException("Loại tài nguyên không hợp lệ: " + alloc.getResourceType());
+                            return type;
+                        }));
 
         //Duyệt qua từng loại tài nguyên để validate và lưu
         groupedAllocations.forEach((type, allocations) -> {
@@ -386,15 +393,23 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
 
             //Thực hiện kiểm tra tổng và lưu (giống logic chúng ta đã bàn)
             for (var alloc : allocations) {
-                CampusResourceQuota quota = campusResourceQuotaRepo.findByCampusIdAndResourceType(alloc.getCampusId(), alloc.getResourceType())
+
+                ResourceType safeType = parseResourceType(String.valueOf(alloc.getResourceType()));
+
+                if (safeType == null) {
+                    throw new RuntimeException("Tài nguyên không hợp lệ hoặc không được hỗ trợ");
+                }
+
+                CampusResourceQuota quota = campusResourceQuotaRepo.findByCampusIdAndResourceType(alloc.getCampusId(), type)
                         .orElse(new CampusResourceQuota());
 
                 quota.setCampus(campusRepo.getReferenceById(alloc.getCampusId()));
-                quota.setResourceType(type);
+                quota.setResourceType(safeType);
                 quota.setMaxQuota(alloc.getAllocatedAmount());
                 campusResourceQuotaRepo.save(quota);
             }
         });
+
         saveDistributionToConfig(schoolId, resourceDistributionData);
     }
 
@@ -403,7 +418,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         List<Map<String, Object>> allocationsJson = data.getAllocations().stream()
                 .map(alloc -> {
                     Map<String, Object> map = new HashMap<>();
-                    map.put("resourceType", alloc.getResourceType().name());
+                    map.put("resourceType", alloc.getResourceType().trim().toUpperCase());
                     map.put("campusId", alloc.getCampusId());
                     map.put("allocatedAmount", alloc.getAllocatedAmount());
                     return map;
@@ -432,6 +447,27 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
             case ADMISSION -> features.getMaxAdmissions();
             default -> 0;
         };
+    }
+
+    public static ResourceType parseResourceType(String value) {
+        String normalizedValue = normalize(value);
+        if (normalizedValue == null) {
+            return null;
+        }
+
+        return Arrays.stream(ResourceType.values())
+                .filter(r -> r.getValue().equalsIgnoreCase(normalizedValue) || r.name().equalsIgnoreCase(normalizedValue))
+                .findFirst()
+                .orElse(null);
+    }
+
+    public static String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     @Override
