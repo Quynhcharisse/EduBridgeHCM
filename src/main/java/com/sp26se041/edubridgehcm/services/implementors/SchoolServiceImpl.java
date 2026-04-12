@@ -1527,6 +1527,102 @@ public class SchoolServiceImpl implements SchoolService {
         return ResponseBuilder.build(HttpStatus.OK, "Payment URL generated", paymentUrl);
     }
 
+    @Override
+    public ResponseEntity<ResponseObject> handleVNPayCallback(HttpServletRequest request) {
+
+        Map<String, String> vnp_Params = new HashMap<>();
+
+        Map<String, String[]> requestParams = request.getParameterMap();
+
+        for (String paramName : requestParams.keySet()) {
+            vnp_Params.put(paramName, request.getParameter(paramName));
+        }
+
+        String vnp_SecureHash = vnp_Params.get("vnp_SecureHash");
+        if (vnp_SecureHash == null || vnp_SecureHash.isBlank()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Missing vnp_SecureHash", null);
+        }
+
+        vnp_Params.remove("vnp_SecureHash");
+        vnp_Params.remove("vnp_SecureHashType");
+
+        Map<String, String> sortedFields = new TreeMap<>(vnp_Params);
+        String hashData = buildVnpHashDataFromRawQuery(request.getQueryString());
+        if (hashData.isBlank()) {
+            // Fallback cho các case test nội bộ không truyền raw query string đầy đủ.
+            hashData = buildVnpHashData(sortedFields);
+        }
+        String checkSum = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, hashData);
+
+        if (checkSum.equalsIgnoreCase(vnp_SecureHash.trim())) {
+            String vnp_ResponseCode = vnp_Params.get("vnp_ResponseCode");
+            String vnp_TxnRef = vnp_Params.get("vnp_TxnRef");
+
+            if (vnp_TxnRef == null || vnp_TxnRef.isBlank()) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Missing transaction reference", null);
+            }
+
+            // 4. Tìm giao dịch trong hệ thống
+            PaymentTransaction transaction = paymentTransactionRepo.findByVnpTxnRef(vnp_TxnRef)
+                    .orElse(null);
+
+            if (transaction == null) {
+                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Transaction not found", null);
+            }
+
+            // Kiểm tra xem giao dịch này đã được xử lý trước đó chưa (tránh IPN gọi trùng)
+            if (transaction.getStatus() != Status.PAYMENT_PENDING) {
+                return ResponseBuilder.build(HttpStatus.OK, "Transaction already processed", null);
+            }
+
+            if ("00".equals(vnp_ResponseCode)) {
+                // Cập nhật giao dịch
+                transaction.setStatus(Status.PAYMENT_SUCCESS);
+                transaction.setUpdatedAt(LocalDateTime.now());
+                paymentTransactionRepo.save(transaction);
+
+                //==> sau khi thành công trả về kết quả kích hoạt gói SchoolSubscription
+                SchoolSubscription schoolSub = transaction.getSchoolSubscription();
+
+                //Hủy kích hoạt tất cả các gói isSelected=true hiện tại của School này
+                activateSchoolSubscription(schoolSub);
+
+                log.info("Payment success for txnRef: {}", vnp_TxnRef);
+                return ResponseBuilder.build(HttpStatus.OK, "Subscription activated successfully", null);
+            } else {
+                // thanh toán thất bại (Người dùng hủy hoặc lỗi thẻ)
+                transaction.setStatus(Status.PAYMENT_FAILED);
+                paymentTransactionRepo.save(transaction);
+
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Payment failed with code: " + vnp_ResponseCode, null);
+            }
+        } else {
+            log.warn("VNPay signature mismatch for txnRef={}, expected={}, actual={}, hashData={}",
+                    vnp_Params.get("vnp_TxnRef"), checkSum, vnp_SecureHash, hashData);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid Signature", null);
+        }
+    }
+
+    private void activateSchoolSubscription(SchoolSubscription newSubscription) {
+        Integer schoolId = newSubscription.getSchool().getId();
+
+        //tìm tất cả các gói đang được active (isSelected = true) của trường này
+        List<SchoolSubscription> activeSubs = schoolSubscriptionRepo.findBySchoolIdAndIsSelected(schoolId, true);
+
+        //chuyển tất cả về false
+        if (!activeSubs.isEmpty()) {
+            activeSubs.forEach(sub -> sub.setIsSelected(false));
+            schoolSubscriptionRepo.saveAll(activeSubs);
+        }
+
+        //kích hoạt gói mới
+        newSubscription.setIsSelected(true);
+        schoolSubscriptionRepo.save(newSubscription);
+
+        log.info("School ID {} activated package: {} (License: {})",
+                schoolId, newSubscription.getSubscription().getName(), newSubscription.getLicenseKey());
+    }
+
     private String sanitizeOrderInfo(String rawOrderInfo) {
         if (rawOrderInfo == null || rawOrderInfo.isBlank()) {
             return "Payment package";
@@ -1583,6 +1679,51 @@ public class SchoolServiceImpl implements SchoolService {
             }
 
             hashData.append(fieldName).append('=').append(urlEncode(fieldValue));
+            first = false;
+        }
+
+        return hashData.toString();
+    }
+
+    private String buildVnpHashDataFromRawQuery(String queryString) {
+        if (queryString == null || queryString.isBlank()) {
+            return "";
+        }
+
+        Map<String, String> sortedFields = new TreeMap<>();
+        String[] rawPairs = queryString.split("&");
+
+        for (String rawPair : rawPairs) {
+            if (rawPair == null || rawPair.isBlank()) {
+                continue;
+            }
+
+            int separatorIndex = rawPair.indexOf('=');
+            String key = separatorIndex >= 0 ? rawPair.substring(0, separatorIndex) : rawPair;
+            String value = separatorIndex >= 0 ? rawPair.substring(separatorIndex + 1) : "";
+
+            if (!key.startsWith("vnp_")) {
+                continue;
+            }
+
+            if ("vnp_SecureHash".equals(key) || "vnp_SecureHashType".equals(key)) {
+                continue;
+            }
+
+            if (value.isBlank()) {
+                continue;
+            }
+
+            sortedFields.put(key, value);
+        }
+
+        StringBuilder hashData = new StringBuilder();
+        boolean first = true;
+        for (Map.Entry<String, String> entry : sortedFields.entrySet()) {
+            if (!first) {
+                hashData.append('&');
+            }
+            hashData.append(entry.getKey()).append('=').append(entry.getValue());
             first = false;
         }
 
