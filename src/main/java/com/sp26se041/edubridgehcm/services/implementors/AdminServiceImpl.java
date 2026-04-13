@@ -109,7 +109,7 @@ public class AdminServiceImpl implements AdminService {
         } else {
             conversations = conversationRepo.findTop20ByAccAdminIdAndIdLessThan(accAdmin.get().getId(), cursorId);
         }
-        List<Map<String, Object>> items = buildConversationList(conversations, accAdmin.get().getId().toString());
+        List<Map<String, Object>> items = buildConversationList(conversations, accAdmin.get().getEmail().toString());
 
         boolean hasMore = conversations.size() == 20;
         Long nextCursorId = hasMore && !conversations.isEmpty()
@@ -155,7 +155,7 @@ public class AdminServiceImpl implements AdminService {
         boolean hasMore = false;
         Long nextCursorId = null;
 
-        if (existingConversation.isEmpty()) {
+        if (existingConversation.isPresent()) {
             if (cursorId == null) {
                 messages = chatMessageRepo.findTop20ByConversationIdOrderByTimestampDesc(existingConversation.get().getId());
             } else {
@@ -164,7 +164,7 @@ public class AdminServiceImpl implements AdminService {
             }
             hasMore = messages.size() == 20;
             nextCursorId = messages.isEmpty() ? null : messages.get(messages.size() - 1).getId();
-            return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(existingConversation.get(), messages, hasMore, nextCursorId));
+            return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(existingConversation.get(), accAdmin.get().getEmail(), campus.get().getAccount().getEmail(), messages, hasMore, nextCursorId));
         }
         Conversation conversation = Conversation.builder()
                 .campusId(campus.get().getId())
@@ -175,16 +175,18 @@ public class AdminServiceImpl implements AdminService {
                 .build();
 //        conversationRepo.save(conversation);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(conversation, messages, hasMore, nextCursorId));
+        return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(conversation, accAdmin.get().getEmail(), campus.get().getAccount().getEmail(), messages, hasMore, nextCursorId));
     }
 
-    private Map<String, Object> buildHistoryMessages(Conversation conversation, List<ChatMessage> messages, boolean hasMore, Long nextCursorId) {
+    private Map<String, Object> buildHistoryMessages(Conversation conversation, String adminEmail, String campusEmail,List<ChatMessage> messages, boolean hasMore, Long nextCursorId) {
 
         Map<String, Object> response = new HashMap<>();
 
         response.put("conversationId", conversation.getId());
         response.put("accAdminId", conversation.getAccAdminId());
+        response.put("adminEmail", adminEmail);
         response.put("campusId", conversation.getCampusId());
+        response.put("campusEmail", campusEmail);
         response.put("messages", buildMessages(messages));
         response.put("hasMore", hasMore);
         response.put("nextCursorId", nextCursorId);

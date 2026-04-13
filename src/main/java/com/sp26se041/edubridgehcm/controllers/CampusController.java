@@ -159,4 +159,9 @@ public class CampusController {
         return campusService.createConversationWithAdmin();
     }
 
+    @GetMapping("/conversation")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> getConversationWithAdmin() {
+        return campusService.getConversation();
+    }
 }

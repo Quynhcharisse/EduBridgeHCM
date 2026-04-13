@@ -56,4 +56,6 @@ public interface CampusService {
     
     ResponseEntity<ResponseObject> createConversationWithAdmin();
 
+    ResponseEntity<ResponseObject> getConversation();
+
 }
