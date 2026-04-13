@@ -1,6 +1,5 @@
 package com.sp26se041.edubridgehcm.validations.school;
 
-import com.sp26se041.edubridgehcm.enums.CurriculumType;
 import com.sp26se041.edubridgehcm.enums.LearningMethod;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Curriculum;
@@ -31,8 +30,8 @@ public class CurriculumValidation {
             // 2. Kiểm tra tính bất biến khi đã có Program liên kết
             int linkedPrograms = programRepo.countByCurriculumId(existing.getId());
             if (linkedPrograms > 0) {
-                if (existing.getEnrollmentYear() != request.getEnrollmentYear()) {
-                    return String.format("Cannot change enrollment year because %d programs are using this curriculum.", linkedPrograms);
+                if (existing.getApplicationYear() != request.getApplicationYear()) {
+                    return String.format("Cannot change application year because %d programs are using this curriculum.", linkedPrograms);
                 }
                 if (!existing.getCurriculumType().name().equals(request.getCurriculumType())) {
                     return "Cannot change curriculum type for a curriculum already linked to programs.";
@@ -48,8 +47,8 @@ public class CurriculumValidation {
         // 3. Kiểm tra trùng lặp Business Identity trong Database
         // Mục đích: Không cho phép tạo 2 bản DRAFT hoặc 2 bản ACTIVE cùng (Year + Type + SubType)
         String targetGroupCode = CurriculumNamingUtil.generateGroupCode(request);
-        boolean isDuplicateIdentity = curriculumRepo.existsByGroupCodeAndEnrollmentYearAndCurriculumStatusNotAndIdNot(
-                targetGroupCode, request.getEnrollmentYear(), Status.CUR_ARCHIVED, request.getCurriculumId() != null ? request.getCurriculumId() : -1
+        boolean isDuplicateIdentity = curriculumRepo.existsByGroupCodeAndApplicationYearAndCurriculumStatusNotAndIdNot(
+                targetGroupCode, request.getApplicationYear(), Status.CUR_ARCHIVED, request.getCurriculumId() != null ? request.getCurriculumId() : -1
         );
 
         if (isDuplicateIdentity) {
@@ -60,16 +59,22 @@ public class CurriculumValidation {
         if (StringUtils.isBlank(request.getSubTypeName())) return "Sub-type name is required.";
         if (request.getSubTypeName().length() > 50) return "Sub-type name is too long (max 50 chars).";
 
+
         try {
-            CurriculumType.valueOf(request.getCurriculumType());
-            LearningMethod.valueOf(request.getMethodLearning());
+            if (request.getMethodLearningList() == null || request.getMethodLearningList().isEmpty()) {
+                return "At least one learning method is required.";
+            }
+
+            for (String method : request.getMethodLearningList()) {
+                LearningMethod.valueOf(method.toUpperCase());
+            }
         } catch (Exception e) {
             return "Invalid Curriculum Type or Learning Method.";
         }
 
         // 5. Validate Năm học (Nới lỏng một chút: -2 đến +5 là thực tế nhất cho trường tư)
         int currentYear = Year.now().getValue();
-        if (request.getEnrollmentYear() < currentYear - 2 || request.getEnrollmentYear() > currentYear + 5) {
+        if (request.getApplicationYear() < currentYear - 2 || request.getApplicationYear() > currentYear + 5) {
             return "Enrollment year must be between " + (currentYear - 2) + " and " + (currentYear + 5);
         }
 
