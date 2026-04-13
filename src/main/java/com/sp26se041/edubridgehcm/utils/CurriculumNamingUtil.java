@@ -33,7 +33,7 @@ public class CurriculumNamingUtil {
         return String.format("Hệ %s - Khối %d (%d)",
                 request.getSubTypeName(), // Tên phụ (VD: Song Ngữ)
                 DEFAULT_GRADE,            // Mặc định là 10
-                request.getEnrollmentYear());
+                request.getApplicationYear());
     }
 
     public static String generateGroupCode(CurriculumRequest request) {

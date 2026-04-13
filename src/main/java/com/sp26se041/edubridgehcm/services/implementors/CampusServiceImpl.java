@@ -400,7 +400,7 @@ public class CampusServiceImpl implements CampusService {
         data.put("programName", offering.getProgram().getName());
         data.put("curriculumId", offering.getProgram().getCurriculum().getId());
         data.put("curriculumType", offering.getProgram().getCurriculum().getCurriculumType());
-        data.put("enrollmentYear", offering.getProgram().getCurriculum().getEnrollmentYear());
+        data.put("applicationYear", offering.getProgram().getCurriculum().getApplicationYear());
         data.put("quota", offering.getQuota());
         data.put("remainingQuota", offering.getRemainingQuota());
         data.put("learningMode", offering.getLearningMode());
@@ -1032,7 +1032,7 @@ public class CampusServiceImpl implements CampusService {
         try {
             StorageTreeNode result = supabaseStorageService.getStorageTree(folderPath);
             return ResponseBuilder.build(HttpStatus.OK, "View documents successfully", result);
-        } catch (Exception ex){
+        } catch (Exception ex) {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
         }
     }
@@ -1066,19 +1066,19 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(existingConversation.get(), messages, hasMore, nextCursorId));
         }
 
-        Account accAdmin =  accountRepo.findByRole(Role.ADMIN).get(0);
+        Account accAdmin = accountRepo.findByRole(Role.ADMIN).get(0);
 
-        if (accAdmin == null){
+        if (accAdmin == null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account admin not found or be deleted", null);
         }
 
-         Conversation conversation = Conversation.builder()
-                 .campusId(campus.getId())
-                 .accAdminId(accAdmin.getId())
+        Conversation conversation = Conversation.builder()
+                .campusId(campus.getId())
+                .accAdminId(accAdmin.getId())
 //                 .status(Status.CONVERSATION_ACTIVE)
-                 .createdDate(LocalDateTime.now())
-                 .updatedDate(LocalDateTime.now())
-                 .build();
+                .createdDate(LocalDateTime.now())
+                .updatedDate(LocalDateTime.now())
+                .build();
 
 //        conversationRepo.save(conversation);
 

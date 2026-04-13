@@ -72,8 +72,8 @@ public class CampusProgramOfferingValidation {
             return "Program curriculum must be active";
         }
 
-        if (campaign.getYear() != program.getCurriculum().getEnrollmentYear()) {
-            return "Campaign year must match curriculum enrollment year";
+        if (campaign.getYear() != program.getCurriculum().getApplicationYear()) {
+            return "Campaign year must match curriculum application year";
         }
 
         if (program.getBaseTuitionFee() == null) {
@@ -156,8 +156,8 @@ public class CampusProgramOfferingValidation {
             return "Cannot move offering to closed/expired campaign";
         }
 
-        if (targetCampaign.getYear() != targetProgram.getCurriculum().getEnrollmentYear()) {
-            return "Campaign year must match curriculum enrollment year";
+        if (targetCampaign.getYear() != targetProgram.getCurriculum().getApplicationYear()) {
+            return "Campaign year must match curriculum application year";
         }
 
         boolean identityChanged = !targetCampaign.getId().equals(offering.getAdmissionCampaign().getId())
