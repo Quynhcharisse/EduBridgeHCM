@@ -11,7 +11,6 @@ import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.models.Conversation;
-
 import com.sp26se041.edubridgehcm.models.PersonalityType;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolRegistrationRequest;
@@ -143,6 +142,7 @@ public class AdminServiceImpl implements AdminService {
         }
 
         Optional<Campus> campus =  campusRepo.findById(campusId);
+
 
         if (campus.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campus not found", null);
@@ -409,8 +409,10 @@ public class AdminServiceImpl implements AdminService {
         request.setStatus(Status.VERIFIED);
         schoolRegistrationRequestRepo.save(request);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Verified successfully", null);
+        Map<String, Object> response = new HashMap<>();
+        response.put("email", account.getEmail());
 
+        return ResponseBuilder.build(HttpStatus.OK, "Verified successfully", response);
     }
 
     private String mapBoardingDescription(BoardingType type) {

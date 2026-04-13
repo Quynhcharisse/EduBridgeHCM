@@ -53,6 +53,7 @@ public class AdmissionCampaign {
 
     String name;
 
+    @Column(columnDefinition = "TEXT")
     String description;
 
     String reason;

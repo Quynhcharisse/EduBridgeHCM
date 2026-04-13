@@ -24,9 +24,9 @@ public class CurriculumRequest {
 
     String curriculumType;
 
-    String methodLearning;
+    List<String> methodLearningList;
 
-    int enrollmentYear;
+    int applicationYear;
 
     List<SubjectOptionRequest> subjectOptions;
 

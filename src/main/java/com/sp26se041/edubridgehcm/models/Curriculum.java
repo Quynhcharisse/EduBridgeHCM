@@ -1,7 +1,6 @@
 package com.sp26se041.edubridgehcm.models;
 
 import com.sp26se041.edubridgehcm.enums.CurriculumType;
-import com.sp26se041.edubridgehcm.enums.LearningMethod;
 import com.sp26se041.edubridgehcm.enums.Status;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;
@@ -42,6 +41,7 @@ public class Curriculum {
 
     String name;
 
+    @Column(columnDefinition = "TEXT")
     String description;
 
     @Enumerated(EnumType.STRING)
@@ -52,12 +52,12 @@ public class Curriculum {
     @Column(name = "subjects_jsonb", columnDefinition = "jsonb")
     Object subjectsJsonb;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "learning_method")
-    LearningMethod methodLearning;
+    @Type(JsonBinaryType.class)
+    @Column(name = "learning_methods", columnDefinition = "jsonb")
+    Object learningMethodList;
 
-    @Column(name = "enrollment_year")
-    int enrollmentYear;
+    @Column(name = "application_year")
+    int applicationYear;
 
     @Column(name = "group_code")
     String groupCode;

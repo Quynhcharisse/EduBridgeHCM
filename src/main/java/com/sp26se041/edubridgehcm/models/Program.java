@@ -50,10 +50,10 @@ public class Program {
 
     // --- NHÓM TRƯỜNG PHỤC VỤ SEARCH & SO SÁNH (Ý THẦY) --
 
-    @Column(name = "graduation_standard")
+    @Column(name = "graduation_standard", columnDefinition = "TEXT")
     String graduationStandard;
 
-    @Column(name = "language_of_instruction")
+    @Column(name = "language_of_instruction", columnDefinition = "TEXT")
     @Enumerated(EnumType.STRING)
     LanguageInstruction languageOfInstruction; // Vietnamese, English, Bilingual
 
@@ -71,7 +71,7 @@ public class Program {
     FeeUnit feeUnit; // "Year", "Semester" -> Để so sánh "giá theo năm"
 
     // --- QUẢN TRỊ ---
-    @Column(name = "target_student_description")
+    @Column(name = "target_student_description", columnDefinition = "TEXT")
     String targetStudentDescription;
 
     @Enumerated(EnumType.STRING)

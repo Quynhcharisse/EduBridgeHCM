@@ -28,9 +28,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -195,7 +197,9 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
 
         SchoolConfigRequest.FinancePolicyData financePolicyData = request.getFinancePolicyData();
 
-        List<Map<String, Object>> feeItemsJson = financePolicyData.getFeeItems().stream()
+        List<Map<String, Object>> feeItemsJson = Optional.ofNullable(financePolicyData.getFeeItems())
+                .orElse(Collections.emptyList())
+                .stream()
                 .map(fee -> {
                     Map<String, Object> item = new HashMap<>();
                     item.put("feeCode", fee.getFeeCode());
