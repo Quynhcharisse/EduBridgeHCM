@@ -5,6 +5,7 @@ import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -151,4 +152,11 @@ public class CampusController {
     public ResponseEntity<ResponseObject> getHistoryChatWithAdmin(@RequestParam(required = false) Long cursorId){
         return campusService.getChatHistoryWithAdmin(cursorId);
     }
+
+    @PostMapping("/conversation")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> createConversationWithAdmin() {
+        return campusService.createConversationWithAdmin();
+    }
+
 }

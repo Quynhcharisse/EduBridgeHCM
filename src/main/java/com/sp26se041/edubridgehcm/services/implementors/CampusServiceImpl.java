@@ -1046,7 +1046,13 @@ public class CampusServiceImpl implements CampusService {
 
         Campus campus = extractActorCampus();
 
-        Optional<Conversation> existingConversation = conversationRepo.findByCampusIdAndAccAdminIdNotNull(campus.getId());
+        Account accAdmin =  accountRepo.findByRole(Role.ADMIN).get(0);
+
+        if (accAdmin == null){
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account admin not found or be deleted", null);
+        }
+
+        Optional<Conversation> existingConversation = conversationRepo.findByCampusIdAndAccAdminId(campus.getId(), accAdmin.getId());
 
         List<ChatMessage> messages = new ArrayList<>();
 
@@ -1066,12 +1072,6 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(existingConversation.get(), messages, hasMore, nextCursorId));
         }
 
-        Account accAdmin =  accountRepo.findByRole(Role.ADMIN).get(0);
-
-        if (accAdmin == null){
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account admin not found or be deleted", null);
-        }
-
          Conversation conversation = Conversation.builder()
                  .campusId(campus.getId())
                  .accAdminId(accAdmin.getId())
@@ -1083,6 +1083,38 @@ public class CampusServiceImpl implements CampusService {
 //        conversationRepo.save(conversation);
 
         return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(conversation, messages, hasMore, nextCursorId));
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> createConversationWithAdmin() {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Campus campus = extractActorCampus();
+
+        if (campus == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campus account not found or be deleted", null);
+        }
+
+        Account accAdmin =  accountRepo.findByRole(Role.ADMIN).get(0);
+
+        if (accAdmin == null){
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account admin not found or be deleted", null);
+        }
+
+        Conversation conversation = Conversation.builder()
+                .campusId(campus.getId())
+                .accAdminId(accAdmin.getId())
+                .status(Status.CONVERSATION_ACTIVE)
+                .createdDate(LocalDateTime.now())
+                .updatedDate(LocalDateTime.now())
+                .build();
+
+        conversationRepo.save(conversation);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Create conversation successfully", conversation.getId());
     }
 
     private Map<String, Object> buildHistoryMessages(Conversation conversation, List<ChatMessage> messages, boolean hasMore, Long nextCursorId) {

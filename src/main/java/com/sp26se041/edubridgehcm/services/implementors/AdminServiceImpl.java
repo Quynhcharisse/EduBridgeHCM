@@ -138,13 +138,17 @@ public class AdminServiceImpl implements AdminService {
 
         Optional<Account> accAdmin = accountRepo.findByEmail(email);
 
+        if (accAdmin.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,"Account admin not found or be deleted", null);
+        }
+
         Optional<Campus> campus =  campusRepo.findById(campusId);
 
         if (campus.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campus not found", null);
         }
 
-        Optional<Conversation> existingConversation = conversationRepo.findByCampusIdAndAccAdminIdNotNull(campus.get().getId());
+        Optional<Conversation> existingConversation = conversationRepo.findByCampusIdAndAccAdminId(campus.get().getId(), accAdmin.get().getId());
 
         List<ChatMessage> messages = new ArrayList<>();
 
