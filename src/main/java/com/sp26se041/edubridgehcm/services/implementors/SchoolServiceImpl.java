@@ -172,13 +172,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         Account acc = accountRepo.save(Account.builder().email(normalize(request.getEmail())).role(Role.SCHOOL).status(Status.ACCOUNT_ACTIVE).registerDate(LocalDate.now()).firstLogin(true).isRestricted(false).build());
 
-        Campus campus = campusRepo.save(
-                Campus.builder()
-                        .school(actorCampus.getSchool())
-                        .account(acc)
-                        .name(generateCampusName(actorCampus.getSchool().getId()))
-                        .address(normalize(request.getAddress()))
-                        .phoneNumber(normalize(request.getPhone())).city(normalize(request.getCity())).district(normalize(request.getDistrict())).ward(normalize(request.getWard())).boardingType(boardingType).latitude(request.getLatitude()).longitude(request.getLongitude()).status(Status.ACTIVE).isPrimaryBranch(false).build());
+        Campus campus = campusRepo.save(Campus.builder().school(actorCampus.getSchool()).account(acc).name(generateCampusName(actorCampus.getSchool().getId())).address(normalize(request.getAddress())).phoneNumber(normalize(request.getPhone())).city(normalize(request.getCity())).district(normalize(request.getDistrict())).ward(normalize(request.getWard())).boardingType(boardingType).latitude(request.getLatitude()).longitude(request.getLongitude()).status(Status.ACTIVE).isPrimaryBranch(false).build());
 
         Map<String, Object> data = new HashMap<>();
         data.put("campus", buildCampusData(campus));
@@ -652,16 +646,8 @@ public class SchoolServiceImpl implements SchoolService {
 
     private Curriculum buildNewCurriculum(CurriculumRequest request, School school) {
         // tạo mới thì draft
-        return Curriculum.builder()
-                .name(CurriculumNamingUtil.generateName(request))
-                .groupCode(CurriculumNamingUtil.generateGroupCode(request))
-                .curriculumType(CurriculumType.valueOf(request.getCurriculumType()))
-                .learningMethodList(request.getMethodLearningList().stream().map(LearningMethod::valueOf).collect(Collectors.toList()))
-                .applicationYear(request.getApplicationYear())
-                .description(request.getDescription())
-                .subjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()))
-                .school(school).curriculumStatus(Status.CUR_DRAFT)
-                .build();
+        CurriculumType type = CurriculumValidation.parseCurriculumType(request.getCurriculumType());
+        return Curriculum.builder().name(CurriculumNamingUtil.generateName(request)).groupCode(CurriculumNamingUtil.generateGroupCode(request)).curriculumType(type).learningMethodList(request.getMethodLearningList().stream().map(LearningMethod::valueOf).collect(Collectors.toList())).applicationYear(request.getApplicationYear()).description(request.getDescription()).subjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions())).school(school).curriculumStatus(Status.CUR_DRAFT).build();
     }
 
     // bảng update đối vs draft
@@ -675,9 +661,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         // Chỉ generate lại tên curriculum từ các trường thành phần, tuyệt đối không lấy từ request.getName()
         // Không setName ở bất kỳ nơi nào khác ngoài đây và buildNewCurriculum
-        boolean isIdentityChanging = curriculum.getApplicationYear() != request.getApplicationYear()
-                || !curriculum.getCurriculumType().name().equals(request.getCurriculumType())
-                || !curriculum.getGroupCode().equals(CurriculumNamingUtil.generateGroupCode(request));
+        boolean isIdentityChanging = curriculum.getApplicationYear() != request.getApplicationYear() || !curriculum.getCurriculumType().name().equals(request.getCurriculumType()) || !curriculum.getGroupCode().equals(CurriculumNamingUtil.generateGroupCode(request));
 
         if (isIdentityChanging) {
             // Chỉ khi có ý định đổi Identity mới kiểm tra DB
@@ -693,17 +677,7 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     private Curriculum evolveFromExisting(Curriculum existing, CurriculumRequest request) {
-        Curriculum clone = Curriculum.builder()
-                .name(existing.getName())
-                .groupCode(existing.getGroupCode())
-                .description(existing.getDescription())
-                .curriculumType(existing.getCurriculumType())
-                .learningMethodList(existing.getLearningMethodList())
-                .applicationYear(existing.getApplicationYear())
-                .subjectsJsonb(existing.getSubjectsJsonb())
-                .school(existing.getSchool())
-                .parent(existing)
-                .curriculumStatus(Status.CUR_DRAFT).build();
+        Curriculum clone = Curriculum.builder().name(existing.getName()).groupCode(existing.getGroupCode()).description(existing.getDescription()).curriculumType(existing.getCurriculumType()).learningMethodList(existing.getLearningMethodList()).applicationYear(existing.getApplicationYear()).subjectsJsonb(existing.getSubjectsJsonb()).school(existing.getSchool()).parent(existing).curriculumStatus(Status.CUR_DRAFT).build();
 
         if (request != null) {
             applyRequestToCurriculum(clone, request);
@@ -717,12 +691,7 @@ public class SchoolServiceImpl implements SchoolService {
         if (request == null) return Collections.emptyList();
 
         return request.stream().map(opt -> {
-            return Map.<String, Object>of(
-                    "name", Objects.requireNonNullElse(
-                            opt.getName(), ""), "description",
-                    Objects.requireNonNullElse(opt.getDescription(), ""), "isMandatory",
-                    Boolean.TRUE.equals(opt.getIsMandatory()
-                    ));
+            return Map.<String, Object>of("name", Objects.requireNonNullElse(opt.getName(), ""), "description", Objects.requireNonNullElse(opt.getDescription(), ""), "isMandatory", Boolean.TRUE.equals(opt.getIsMandatory()));
         }).collect(Collectors.toList());
     }
 
@@ -760,10 +729,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("curriculumType", curriculum.getCurriculumType());
 
         List<LearningMethod> methods = (List<LearningMethod>) curriculum.getLearningMethodList();
-        data.put("methodLearnings", methods.stream().map(m -> Map.of(
-                "code", m.name(),
-                "displayName", m.getDisplayName()
-        )).collect(Collectors.toList()));
+        data.put("methodLearnings", methods.stream().map(m -> Map.of("code", m.name(), "displayName", m.getDisplayName())).collect(Collectors.toList()));
         data.put("applicationYear", curriculum.getApplicationYear());
         data.put("groupCode", curriculum.getGroupCode());
         data.put("subjects", curriculum.getSubjectsJsonb());
@@ -1142,9 +1108,7 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     private Map<String, Object> getOperationConfig(int schoolId) {
-        return schoolConfigRepo.findBySchoolIdAndKey(schoolId, "operationSettingsData")
-                .map(config -> (Map<String, Object>) config.getValue())
-                .orElse(new HashMap<>());
+        return schoolConfigRepo.findBySchoolIdAndKey(schoolId, "operationSettingsData").map(config -> (Map<String, Object>) config.getValue()).orElse(new HashMap<>());
     }
 
     Map<String, Object> buildPublicCampusData(Campus campus) {
@@ -1520,14 +1484,8 @@ public class SchoolServiceImpl implements SchoolService {
         // step 3 : tạo SchoolSubscription (trạng thái chờ - isSelected = false)
         // giúp định danh loại chuỗi này là License ==> đóng vai trò là Số báo danh cho gói đăng kí đó
         String licenseKey = "LIC-" + VNPayConfig.getRandomNumber(8).toUpperCase();
-        SchoolSubscription schoolSubscription = SchoolSubscription.builder()
-                .school(school)
-                .subscription(subscription)
-                .startDate(calculatedStartDate)
-                .endDate(calculatedStartDate.plusDays(subscription.getDurationDays()))
-                .isSelected(false) // chưa kích hoạt cho đến khi thanh toán xong
-                .licenseKey(licenseKey)
-                .build();
+        SchoolSubscription schoolSubscription = SchoolSubscription.builder().school(school).subscription(subscription).startDate(calculatedStartDate).endDate(calculatedStartDate.plusDays(subscription.getDurationDays())).isSelected(false) // chưa kích hoạt cho đến khi thanh toán xong
+                .licenseKey(licenseKey).build();
 
         schoolSubscription = schoolSubscriptionRepo.save(schoolSubscription);
 
@@ -1562,8 +1520,7 @@ public class SchoolServiceImpl implements SchoolService {
         String vnp_SecureHash = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, hashData);
         String paymentUrl = VNPayConfig.vnp_PayUrl + "?" + queryUrl + "&vnp_SecureHash=" + vnp_SecureHash;
 
-        log.info("VNPay request prepared: tmnCode={}, returnUrl={}, txnRef={}, amount={}, version={}",
-                VNPayConfig.vnp_TmnCode, VNPayConfig.vnp_ReturnUrl, vnp_TxnRef, amount, vnp_Params.get("vnp_Version"));
+        log.info("VNPay request prepared: tmnCode={}, returnUrl={}, txnRef={}, amount={}, version={}", VNPayConfig.vnp_TmnCode, VNPayConfig.vnp_ReturnUrl, vnp_TxnRef, amount, vnp_Params.get("vnp_Version"));
         log.debug("VNPay hashData={}", hashData);
         log.debug("VNPay secureHash={}", vnp_SecureHash);
 
@@ -1608,8 +1565,7 @@ public class SchoolServiceImpl implements SchoolService {
             }
 
             // 4. Tìm giao dịch trong hệ thống
-            PaymentTransaction transaction = paymentTransactionRepo.findByVnpTxnRef(vnp_TxnRef)
-                    .orElse(null);
+            PaymentTransaction transaction = paymentTransactionRepo.findByVnpTxnRef(vnp_TxnRef).orElse(null);
 
             if (transaction == null) {
                 return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Transaction not found", null);
@@ -1642,8 +1598,7 @@ public class SchoolServiceImpl implements SchoolService {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Payment failed with code: " + vnp_ResponseCode, null);
             }
         } else {
-            log.warn("VNPay signature mismatch for txnRef={}, expected={}, actual={}, hashData={}",
-                    vnp_Params.get("vnp_TxnRef"), checkSum, vnp_SecureHash, hashData);
+            log.warn("VNPay signature mismatch for txnRef={}, expected={}, actual={}, hashData={}", vnp_Params.get("vnp_TxnRef"), checkSum, vnp_SecureHash, hashData);
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid Signature", null);
         }
     }
@@ -1664,8 +1619,7 @@ public class SchoolServiceImpl implements SchoolService {
         newSubscription.setIsSelected(true);
         schoolSubscriptionRepo.save(newSubscription);
 
-        log.info("School ID {} activated package: {} (License: {})",
-                schoolId, newSubscription.getSubscription().getName(), newSubscription.getLicenseKey());
+        log.info("School ID {} activated package: {} (License: {})", schoolId, newSubscription.getSubscription().getName(), newSubscription.getLicenseKey());
     }
 
     private String sanitizeOrderInfo(String rawOrderInfo) {
@@ -1827,10 +1781,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         School school = actorCampus.getSchool();
 
-        Optional<SchoolSubscription> activeSubOpt = schoolSubscriptionRepo
-                .findBySchoolIdAndIsSelected(school.getId(), true)
-                .stream()
-                .findFirst(); // tại 1 thời điểm chỉ có 1 gói đc active
+        Optional<SchoolSubscription> activeSubOpt = schoolSubscriptionRepo.findBySchoolIdAndIsSelected(school.getId(), true).stream().findFirst(); // tại 1 thời điểm chỉ có 1 gói đc active
 
         if (activeSubOpt.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.OK, "No active subscription found", null);
@@ -1854,9 +1805,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("dasRemaining", Math.max(0, daysRemaining));
         data.put("isExpired", isExpired);
         data.put("statusMessage", isExpired ? "Expired" : "Active (Remaining " + daysRemaining + " days)");
-        data.put("suggestion", isExpired
-                ? "Your package has expired. Please purchase new package to continue the service."
-                : "If you purchase the same package '" + schoolSub.getSubscription().getName() + "', time will be accumulated continuously from day to day" + schoolSub.getEndDate() + ".");
+        data.put("suggestion", isExpired ? "Your package has expired. Please purchase new package to continue the service." : "If you purchase the same package '" + schoolSub.getSubscription().getName() + "', time will be accumulated continuously from day to day" + schoolSub.getEndDate() + ".");
         return data;
     }
 }
