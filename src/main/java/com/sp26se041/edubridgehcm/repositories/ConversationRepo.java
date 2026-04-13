@@ -10,8 +10,6 @@ import java.util.Optional;
 
 public interface ConversationRepo extends JpaRepository<Conversation, Long> {
 
-    Optional<Conversation> findByParentEmailAndCounsellorEmail(String parentEmail, String counsellorEmail);
-
     Optional<Conversation> findByParentEmailAndCampusIdAndStudentProfile(String parentEmail, int campusId, StudentProfile studentProfile);
 
     List<Conversation> findTop20ByParentEmailAndStudentProfileIsNotNullOrderByIdDesc(String parentEmail);
@@ -25,4 +23,10 @@ public interface ConversationRepo extends JpaRepository<Conversation, Long> {
     List<Conversation> findTop20ByCampusIdAndStatusAndStudentProfileIsNotNullOrderByIdDesc(int campusId, Status status);
 
     List<Conversation> findTop20ByCampusIdAndStatusAndIdLessThanAndStudentProfileIsNotNullOrderByIdDesc(int campusId, Status status, Long idIsLessThan);
+
+    Optional<Conversation> findByCampusIdAndAccAdminIdNotNull(int campusId);
+
+    List<Conversation> findTop20ByAccAdminIdAndIdLessThan(int accAdminId, Long idIsLessThan);
+
+    List<Conversation> findTop20ByAccAdminId(int accAdminId);
 }

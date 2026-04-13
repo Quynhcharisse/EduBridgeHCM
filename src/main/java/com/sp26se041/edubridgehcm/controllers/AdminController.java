@@ -96,18 +96,34 @@ public class AdminController {
     }
 
     @PostMapping(value = "/{categoryTemplate}/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ResponseObject> uploadFile(@PathVariable String categoryTemplate, @RequestParam("file") MultipartFile file) {
         return adminService.uploadTemplateDocxTemplate(file, categoryTemplate);
     }
 
     @GetMapping("/{categoryTemplate}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ResponseObject> getFiles(@PathVariable String categoryTemplate) {
         return adminService.getTemplateDocs(categoryTemplate);
     }
 
     @DeleteMapping("/{templateId}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ResponseObject> deleteTemplate(@PathVariable long templateId) {
         return adminService.removeTemplateDocx(templateId);
+    }
+
+    @GetMapping("/conversation")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ResponseObject> getConversations(@RequestParam (required = false) Long cursorId){
+        return adminService.getConversations(cursorId);
+    }
+
+
+    @GetMapping("/message/history/{campusId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ResponseObject> getHistoryChatWithAdmin(@PathVariable int campusId,@RequestParam(required = false) Long cursorId){
+        return adminService.getChatHistory(campusId, cursorId);
     }
 
 }

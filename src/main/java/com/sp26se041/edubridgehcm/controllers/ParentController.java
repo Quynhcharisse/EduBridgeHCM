@@ -3,6 +3,7 @@ package com.sp26se041.edubridgehcm.controllers;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
 import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
+import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.ParentService;
@@ -53,7 +54,7 @@ public class ParentController {
 
             simpMessagingTemplate.convertAndSendToUser(
                     message.getSenderName(),
-                    "/private",
+                    "/queue/private",
                     systemMessage
             );
             return;
@@ -61,12 +62,12 @@ public class ParentController {
 
         simpMessagingTemplate.convertAndSendToUser(
                 message.getReceiverName(),
-                "/private",
+                "/queue/private",
                 message
         );
         simpMessagingTemplate.convertAndSendToUser(
                 message.getSenderName(),
-                "/private",
+                "/queue/private",
                 message
         );
     }
@@ -87,7 +88,11 @@ public class ParentController {
         return parentService.getConversations(cursorId);
     }
 
-
+    @PostMapping("/conversation")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<ResponseObject> createConversation(@RequestBody CreateConversationRequest createConversationRequest) {
+        return parentService.createConversation(createConversationRequest);
+    }
 
     @PostMapping("/favourite/school")
     @PreAuthorize("hasRole('PARENT')")

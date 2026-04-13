@@ -48,6 +48,9 @@ public class Conversation {
     @Column(name = "campus_id")
     int campusId;
 
+    @Column(name = "admin_acc_id")
+    int accAdminId;
+
     @Column(name = "created_date")
     LocalDateTime createdDate;
 

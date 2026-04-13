@@ -9,6 +9,9 @@ import com.sp26se041.edubridgehcm.enums.SubjectType;
 import com.sp26se041.edubridgehcm.enums.SupportLevel;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
+import com.sp26se041.edubridgehcm.models.ChatMessage;
+import com.sp26se041.edubridgehcm.models.Conversation;
+
 import com.sp26se041.edubridgehcm.models.PersonalityType;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolRegistrationRequest;
@@ -17,6 +20,7 @@ import com.sp26se041.edubridgehcm.models.Subscription;
 import com.sp26se041.edubridgehcm.models.TemplateDocx;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
+import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
 import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRegistrationRequestRepo;
@@ -39,6 +43,7 @@ import com.sp26se041.edubridgehcm.validations.admin.VerifyRegistrationValidation
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -49,6 +54,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -83,16 +89,175 @@ public class AdminServiceImpl implements AdminService {
     private final TemplateDocxRepo templateDocxRepo;
 
     private final ConversationRepo conversationRepo;
+    private final ChatMessageRepo chatMessageRepo;
 
 
     @Override
     public ResponseEntity<ResponseObject> getConversations(Long cursorId) {
-        return null;
+
+        String email = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
+        Optional<Account> accAdmin = accountRepo.findByEmail(email);
+
+        List<Conversation> conversations;
+
+        if (cursorId == null) {
+            conversations = conversationRepo.findTop20ByAccAdminId(accAdmin.get().getId());
+        } else {
+            conversations = conversationRepo.findTop20ByAccAdminIdAndIdLessThan(accAdmin.get().getId(), cursorId);
+        }
+        List<Map<String, Object>> items = buildConversationList(conversations, accAdmin.get().getId().toString());
+
+        boolean hasMore = conversations.size() == 20;
+        Long nextCursorId = hasMore && !conversations.isEmpty()
+                ? conversations.get(conversations.size() - 1).getId()
+                : null;
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("items", items);
+        result.put("hasMore", hasMore);
+        result.put("nextCursorId", nextCursorId);
+
+        return ResponseBuilder.build(
+                HttpStatus.OK,
+                "Get conversations successfully",
+                result
+        );
     }
 
     @Override
-    public ResponseEntity<ResponseObject> getChatHistoryWithAdmin(Long cursorId) {
-        return null;
+    public ResponseEntity<ResponseObject> getChatHistory(int campusId, Long cursorId) {
+
+        String email = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
+        Optional<Account> accAdmin = accountRepo.findByEmail(email);
+
+        Optional<Campus> campus =  campusRepo.findById(campusId);
+
+        if (campus.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campus not found", null);
+        }
+
+        Optional<Conversation> existingConversation = conversationRepo.findByCampusIdAndAccAdminIdNotNull(campus.get().getId());
+
+        List<ChatMessage> messages = new ArrayList<>();
+
+        boolean hasMore = false;
+        Long nextCursorId = null;
+
+        if (existingConversation.isEmpty()) {
+            if (cursorId == null) {
+                messages = chatMessageRepo.findTop20ByConversationIdOrderByTimestampDesc(existingConversation.get().getId());
+            } else {
+                messages = chatMessageRepo.findTop20ByConversationIdAndIdLessThanOrderByIdDesc(existingConversation.get().getId(), cursorId);
+
+            }
+            hasMore = messages.size() == 20;
+            nextCursorId = messages.isEmpty() ? null : messages.get(messages.size() - 1).getId();
+            return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(existingConversation.get(), messages, hasMore, nextCursorId));
+        }
+        Conversation conversation = Conversation.builder()
+                .campusId(campus.get().getId())
+                .accAdminId(accAdmin.get().getId())
+//                .status(Status.CONVERSATION_ACTIVE)
+                .createdDate(LocalDateTime.now())
+                .updatedDate(LocalDateTime.now())
+                .build();
+//        conversationRepo.save(conversation);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(conversation, messages, hasMore, nextCursorId));
+    }
+
+    private Map<String, Object> buildHistoryMessages(Conversation conversation, List<ChatMessage> messages, boolean hasMore, Long nextCursorId) {
+
+        Map<String, Object> response = new HashMap<>();
+
+        response.put("conversationId", conversation.getId());
+        response.put("accAdminId", conversation.getAccAdminId());
+        response.put("campusId", conversation.getCampusId());
+        response.put("messages", buildMessages(messages));
+        response.put("hasMore", hasMore);
+        response.put("nextCursorId", nextCursorId);
+
+        return response;
+    }
+
+    private List<Map<String, Object>> buildMessages(List<ChatMessage> messages) {
+
+        if (messages == null || messages.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return messages.stream()
+                .sorted(Comparator.comparing(ChatMessage::getTimestamp))
+                .map(this::buildMessage)
+                .toList();
+    }
+
+    private Map<String, Object> buildMessage(ChatMessage message) {
+        Map<String, Object> msg = new HashMap<>();
+        msg.put("id", message.getId());
+        msg.put("senderName", message.getSenderName());
+        msg.put("receiverName", message.getReceiverName());
+        msg.put("message", message.getMessage());
+        msg.put("timestamp", message.getTimestamp());
+        msg.put("status", message.getStatus());
+        return msg;
+    }
+
+    private List<Map<String, Object>> buildConversationList(
+            List<Conversation> conversations,
+            String receiverName
+    ) {
+
+        // 👉 tránh null pointer
+        if (conversations == null || conversations.isEmpty()) {
+            return List.of(); // hoặc return new ArrayList<>();
+        }
+
+        return conversations.stream()
+                .map(conversation -> {
+
+                    ChatMessage lastMessage = chatMessageRepo
+                            .findTopByConversationIdOrderByTimestampDesc(conversation.getId());
+
+                    Long unreadCount = chatMessageRepo
+                            .countByConversationIdAndReceiverNameAndStatusNot(
+                                    conversation.getId(),
+                                    receiverName,
+                                    Status.MESSAGE_READ
+                            );
+
+                    Map<String, Object> map = new HashMap<>();
+
+                    Optional<Campus> campus = campusRepo.findById(conversation.getCampusId());
+
+                    if (campus.isEmpty()) {
+                        return map;
+                    }
+
+                    map.put("conversationId", conversation.getId());
+                    map.put("campusId", campus.get().getId());
+                    map.put("accAdminId", conversation.getAccAdminId());
+                    map.put("lastMessage", lastMessage != null ? lastMessage.getMessage() : null);
+                    map.put("updatedAt", conversation.getUpdatedDate());
+                    map.put("unreadCount", unreadCount != null ? unreadCount : 0L);
+                    map.put("campusName", campus.get().getName());
+                    map.put("schoolId", campus.get().getSchool().getId());
+                    map.put("schoolName", campus.get().getSchool().getName());
+                    map.put("schoolLogoUrl", campus.get().getSchool().getLogoUrl());
+                    map.put("status", conversation.getStatus());
+
+                    return map;
+
+                })
+                .toList();
     }
 
     @Override

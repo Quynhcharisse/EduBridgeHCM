@@ -43,6 +43,7 @@ public class WebSocketServiceImpl implements WebSocketService {
         }
         chatMessage.setStatus(Status.MESSAGE_SENT);
         conversation.get().setUpdatedDate(LocalDateTime.now());
+        conversationRepo.save(conversation.get());
         chatMessageRepo.save(chatMessage);
         return "";
     }

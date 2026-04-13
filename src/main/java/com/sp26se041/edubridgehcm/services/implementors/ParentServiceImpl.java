@@ -27,6 +27,7 @@ import com.sp26se041.edubridgehcm.repositories.StudentInfoRepo;
 import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
 import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
 import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
+import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -169,10 +170,9 @@ public class ParentServiceImpl implements ParentService {
                 messages = chatMessageRepo.findTop20ByConversationIdOrderByTimestampDesc(existingConversation.get().getId());
             } else {
                 messages = chatMessageRepo.findTop20ByConversationIdAndIdLessThanOrderByIdDesc(existingConversation.get().getId(), cursorId);
-                hasMore = messages.size() == 20;
-                nextCursorId = messages.isEmpty() ? null : messages.get(messages.size() - 1).getId();
             }
-
+            hasMore = messages.size() == 20;
+            nextCursorId = messages.isEmpty() ? null : messages.get(messages.size() - 1).getId();
             return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(existingConversation.get(), studentProfile.get(), messages, hasMore, nextCursorId));
 
         }
@@ -181,9 +181,9 @@ public class ParentServiceImpl implements ParentService {
                     .counsellorEmail("N/A")
                     .campusId(campusId)
                     .studentProfile(studentProfile.get())
-                    .status(Status.CONVERSATION_PENDING)
+//                    .status(Status.CONVERSATION_PENDING)
                     .build();
-            conversationRepo.save(conservation);
+//            conversationRepo.save(conservation);
 
             return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(conservation, studentProfile.get(), messages, hasMore, cursorId));
 
@@ -196,6 +196,7 @@ public class ParentServiceImpl implements ParentService {
         response.put("conversationId", conversation.getId());
         response.put("campusId", conversation.getCampusId());
 
+        response.put("studentProfileId", conversation.getStudentProfile().getId());
         response.put("childName", childProfile.getStudentName());
         response.put("gender", childProfile.getGender());
 
@@ -272,11 +273,11 @@ public class ParentServiceImpl implements ParentService {
 
                     map.put("conversationId", conversation.getId());
                     map.put("campusId", campus.get().getId());
-
                     map.put("lastMessage", lastMessage != null ? lastMessage.getMessage() : null);
                     map.put("updatedAt", conversation.getUpdatedDate());
                     map.put("unreadCount", unreadCount != null ? unreadCount : 0L);
                     map.put("otherUser", conversation.getCounsellorEmail());
+                    map.put("campusName",  campus.get().getName());
                     map.put("schoolId", campus.get().getSchool().getId());
                     map.put("schoolName", campus.get().getSchool().getName());
                     map.put("schoolLogoUrl", campus.get().getSchool().getLogoUrl());
@@ -393,35 +394,44 @@ public class ParentServiceImpl implements ParentService {
         return ResponseBuilder.build(HttpStatus.OK, "Remove favourite school successfully", null);
     }
 
-//    @Override
-//    public ResponseEntity<ResponseObject> createFolder() {
-//
-//        String accessToken;
-//
-//        try {
-//
-//            accessToken = GoogleAuthUtil.getAccessToken();
-//
-//        } catch (Exception ex) {
-//
-//            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to connect to Google Drive service", null);
-//
-//        }
-//
-//
-//        String folderId;
-//
-//        GoogleDriveService ggDriveService = new GoogleDriveService(accessToken);
-//
-//        try {
-//            folderId = ggDriveService.createFolder("Test Folder", "1ZoWMhYQ9htHin861QK7jp1LJTRyY3XpR");
-//        } catch (Exception ex) {
-//            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create folder", null);
-//        }
-//
-//        return ResponseBuilder.build(HttpStatus.OK, "Folder created successfully", folderId);
-//
-//    }
+    @Override
+    public ResponseEntity<ResponseObject> createConversation(CreateConversationRequest request) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Optional<Account> accParent = accountRepo.findByEmail(request.getParentEmail().trim());
+
+        if (accParent.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Parent not found or be deleted", null);
+        }
+
+        Optional<Campus> campus = campusRepo.findById(request.getCampusId());
+
+        if (campus.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campus not found or be deleted", null);
+        }
+
+        Optional<StudentProfile> studentProfile = studentInfoRepo.findById(request.getStudentProfileId());
+
+        if(studentProfile.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Student profile not found or be deleted", null);
+        }
+
+
+        Conversation conservation = Conversation.builder()
+                .parentEmail(request.getParentEmail().trim())
+                .counsellorEmail("N/A")
+                .campusId(request.getCampusId())
+                .studentProfile(studentProfile.get())
+                .status(Status.CONVERSATION_PENDING)
+                .build();
+
+            conversationRepo.save(conservation);
+
+        return ResponseBuilder.build(HttpStatus.CREATED, "Conversation successfully created", conservation.getId());
+    }
 
     private Map<String, Object> buildFavouriteSchool(FavouriteSchool favouriteSchool) {
 

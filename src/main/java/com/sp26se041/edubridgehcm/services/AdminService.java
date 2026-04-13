@@ -11,7 +11,7 @@ public interface AdminService {
 
     ResponseEntity<ResponseObject> getConversations(Long cursorId);
 
-    ResponseEntity<ResponseObject> getChatHistoryWithAdmin(Long cursorId);
+    ResponseEntity<ResponseObject> getChatHistory(int campusId, Long cursorId);
 
     ResponseEntity<ResponseObject> verifyRegistration(int requestId);
 

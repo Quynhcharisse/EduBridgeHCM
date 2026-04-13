@@ -8,6 +8,8 @@ import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
 import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
+import com.sp26se041.edubridgehcm.models.ChatMessage;
+import com.sp26se041.edubridgehcm.models.Conversation;
 import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.CounsellorSlot;
 import com.sp26se041.edubridgehcm.models.Program;
@@ -20,6 +22,8 @@ import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusResourceQuotaRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
+import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
+import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorSlotRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
@@ -64,9 +68,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.Normalizer;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -101,6 +108,8 @@ public class CampusServiceImpl implements CampusService {
 
     private final CampusResourceQuotaRepo campusResourceQuotaRepo;
     private final SupabaseStorageService supabaseStorageService;
+    private final ConversationRepo conversationRepo;
+    private final ChatMessageRepo chatMessageRepo;
 
     @Override
     @Transactional
@@ -1026,6 +1035,91 @@ public class CampusServiceImpl implements CampusService {
         } catch (Exception ex){
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
         }
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getChatHistoryWithAdmin(Long cursorId) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Campus campus = extractActorCampus();
+
+        Optional<Conversation> existingConversation = conversationRepo.findByCampusIdAndAccAdminIdNotNull(campus.getId());
+
+        List<ChatMessage> messages = new ArrayList<>();
+
+        boolean hasMore = false;
+        Long nextCursorId = null;
+
+        if (existingConversation.isPresent()) {
+
+            if (cursorId == null) {
+                messages = chatMessageRepo.findTop20ByConversationIdOrderByTimestampDesc(existingConversation.get().getId());
+            } else {
+                messages = chatMessageRepo.findTop20ByConversationIdAndIdLessThanOrderByIdDesc(existingConversation.get().getId(), cursorId);
+
+            }
+            hasMore = messages.size() == 20;
+            nextCursorId = messages.isEmpty() ? null : messages.get(messages.size() - 1).getId();
+            return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(existingConversation.get(), messages, hasMore, nextCursorId));
+        }
+
+        Account accAdmin =  accountRepo.findByRole(Role.ADMIN).get(0);
+
+        if (accAdmin == null){
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account admin not found or be deleted", null);
+        }
+
+         Conversation conversation = Conversation.builder()
+                 .campusId(campus.getId())
+                 .accAdminId(accAdmin.getId())
+//                 .status(Status.CONVERSATION_ACTIVE)
+                 .createdDate(LocalDateTime.now())
+                 .updatedDate(LocalDateTime.now())
+                 .build();
+
+//        conversationRepo.save(conversation);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(conversation, messages, hasMore, nextCursorId));
+    }
+
+    private Map<String, Object> buildHistoryMessages(Conversation conversation, List<ChatMessage> messages, boolean hasMore, Long nextCursorId) {
+
+        Map<String, Object> response = new HashMap<>();
+
+        response.put("conversationId", conversation.getId());
+        response.put("accAdminId", conversation.getAccAdminId());
+        response.put("campusId", conversation.getCampusId());
+        response.put("messages", buildMessages(messages));
+        response.put("hasMore", hasMore);
+        response.put("nextCursorId", nextCursorId);
+
+        return response;
+    }
+
+    private List<Map<String, Object>> buildMessages(List<ChatMessage> messages) {
+
+        if (messages == null || messages.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return messages.stream()
+                .sorted(Comparator.comparing(ChatMessage::getTimestamp))
+                .map(this::buildMessage)
+                .toList();
+    }
+
+    private Map<String, Object> buildMessage(ChatMessage message) {
+        Map<String, Object> msg = new HashMap<>();
+        msg.put("id", message.getId());
+        msg.put("senderName", message.getSenderName());
+        msg.put("receiverName", message.getReceiverName());
+        msg.put("message", message.getMessage());
+        msg.put("timestamp", message.getTimestamp());
+        msg.put("status", message.getStatus());
+        return msg;
     }
 
     private String translateDayOfWeek(String day) {
