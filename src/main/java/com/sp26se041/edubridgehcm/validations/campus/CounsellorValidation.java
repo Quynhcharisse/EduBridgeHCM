@@ -29,7 +29,11 @@ public class CounsellorValidation {
         }
 
         if (accountRepo.findByEmail(email).isPresent()) {
-            return "Email is already in use";
+            return "This email is already registered in the system.";
+        }
+
+        if (counsellorRepo.existsByAccount_Email(email)) {
+            return "This email is already assigned to another counsellor.";
         }
 
         // 2. KIỂM TRA QUOTA (Logic mới)

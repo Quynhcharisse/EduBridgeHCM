@@ -33,7 +33,6 @@ public class UpsertServicePackageFeeRequest {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class FeatureData {
         Integer maxCounsellors;
-        Integer maxAdmissions;
         Boolean allowChat;
         String parentPostPermission; // NONE, VIEW_ONLY, CREATE_POST
         Boolean isFeatured;

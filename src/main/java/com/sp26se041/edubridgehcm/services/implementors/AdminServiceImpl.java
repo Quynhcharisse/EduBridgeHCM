@@ -529,7 +529,6 @@ public class AdminServiceImpl implements AdminService {
     private Map<String, Object> buildFeatureJson(UpsertServicePackageFeeRequest.FeatureData request) {
         Map<String, Object> data = new HashMap<>();
         data.put("maxCounsellors", request.getMaxCounsellors());
-        data.put("maxAdmissions", request.getMaxAdmissions());
         data.put("allowChat", request.getAllowChat());
         data.put("parentPostPermission", request.getParentPostPermission());
         data.put("isFeatured", request.getIsFeatured());
