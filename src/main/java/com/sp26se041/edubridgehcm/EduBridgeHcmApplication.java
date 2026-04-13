@@ -353,18 +353,30 @@ public class EduBridgeHcmApplication {
         documentRequirementsData.put("byMethod", byMethod);
         Map<String, Object> financePolicyData = new HashMap<>();
 
-        Map<String, Object> reservationFee = new HashMap<>();
-        reservationFee.put("amount", 2000000);
-        reservationFee.put("currency", "VND");
-        reservationFee.put("display", "2.000.000 VNĐ");
+        List<Map<String, Object>> feeItems = new ArrayList<>(List.of(
+                new HashMap<>(Map.of(
+                        "feeCode", "RESERVATION_FEE",
+                        "feeName", "Phí giữ chỗ",
+                        "amount", 2000000,
+                        "currency", "VND",
+                        "display", "2.000.000 VNĐ",
+                        "isReservationFee", true,
+                        "isMandatory", true
+                )),
+                new HashMap<>(Map.of(
+                        "feeCode", "ADMISSION_SERVICE_FEE",
+                        "feeName", "Phí hồ sơ & nhập học",
+                        "amount", 500000,
+                        "currency", "VND",
+                        "display", "500.000 VNĐ",
+                        "isReservationFee", false,
+                        "isMandatory", true
+                ))
+        ));
 
-        Map<String, Object> priceAdjustment = new HashMap<>();
-        priceAdjustment.put("minPercent", 5.0);
-        priceAdjustment.put("maxPercent", 15.0);
-
-        financePolicyData.put("reservationFee", reservationFee);
-        financePolicyData.put("priceAdjustment", priceAdjustment);
-        financePolicyData.put("paymentNotes", "Phí giữ chỗ không hoàn lại sau khi đã xác nhận nhập học.");
+        financePolicyData.put("feeItems", feeItems);
+        financePolicyData.put("priceAdjustment", Map.of("minPercent", 5.0, "maxPercent", 15.0));
+        financePolicyData.put("paymentNotes", "Phí giữ chỗ không hoàn lại...");
 
         Map<String, Object> operationSettingsData = new HashMap<>();
 

@@ -91,7 +91,7 @@ public class SchoolConfigRequest {
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class FinancePolicyData {
-        ReservationFeeDetail reservationFee;
+        List<FeeDetail> feeItems;
         PriceAdjustmentDetail priceAdjustment;
         String paymentNotes;
     }
@@ -101,10 +101,15 @@ public class SchoolConfigRequest {
     @AllArgsConstructor
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class ReservationFeeDetail {
-        long amount;
-        String currency;
-        String display;
+    public static class FeeDetail {
+        String feeCode;    // Mã phí (User tự nhập: TUITION, ADMISSION, UNIFORM...)
+        String feeName;    // Tên hiển thị (Học phí, Phí đồng phục...)
+        long amount;       // Số tiền
+        String currency;   // VND, USD
+        String display;    // "2.000.000 VNĐ"
+        boolean isReservationFee; // [x] Đánh dấu đây là phí giữ chỗ
+        boolean isMandatory;      // Có bắt buộc nộp hay không
+        String description;       // Mô tả thêm cho loại phí này
     }
 
     @Data
