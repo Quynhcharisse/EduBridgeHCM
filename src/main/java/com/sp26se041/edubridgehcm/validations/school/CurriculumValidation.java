@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.validations.school;
 
+import com.sp26se041.edubridgehcm.enums.CurriculumType;
 import com.sp26se041.edubridgehcm.enums.LearningMethod;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Curriculum;
@@ -10,6 +11,7 @@ import com.sp26se041.edubridgehcm.utils.CurriculumNamingUtil;
 import io.hypersistence.utils.common.StringUtils;
 
 import java.time.Year;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -19,7 +21,9 @@ public class CurriculumValidation {
         // 1. Kiểm tra tồn tại bản ghi & Trạng thái
         Curriculum existing = null;
         if (request.getCurriculumId() != null && request.getCurriculumId() > 0) {
+
             existing = curriculumRepo.findById(request.getCurriculumId()).orElse(null);
+
             if (existing == null) return "Curriculum not found.";
 
             // KHÔNG cho phép sửa nếu đã bị ARCHIVED
@@ -29,6 +33,7 @@ public class CurriculumValidation {
 
             // 2. Kiểm tra tính bất biến khi đã có Program liên kết
             int linkedPrograms = programRepo.countByCurriculumId(existing.getId());
+
             if (linkedPrograms > 0) {
                 if (existing.getApplicationYear() != request.getApplicationYear()) {
                     return String.format("Cannot change application year because %d programs are using this curriculum.", linkedPrograms);
@@ -47,6 +52,7 @@ public class CurriculumValidation {
         // 3. Kiểm tra trùng lặp Business Identity trong Database
         // Mục đích: Không cho phép tạo 2 bản DRAFT hoặc 2 bản ACTIVE cùng (Year + Type + SubType)
         String targetGroupCode = CurriculumNamingUtil.generateGroupCode(request);
+
         boolean isDuplicateIdentity = curriculumRepo.existsByGroupCodeAndApplicationYearAndCurriculumStatusNotAndIdNot(
                 targetGroupCode, request.getApplicationYear(), Status.CUR_ARCHIVED, request.getCurriculumId() != null ? request.getCurriculumId() : -1
         );
@@ -57,6 +63,7 @@ public class CurriculumValidation {
 
         // 4. Validate Enum & Basic Fields
         if (StringUtils.isBlank(request.getSubTypeName())) return "Sub-type name is required.";
+
         if (request.getSubTypeName().length() > 50) return "Sub-type name is too long (max 50 chars).";
 
 
@@ -122,5 +129,26 @@ public class CurriculumValidation {
         }
 
         return null;
+    }
+
+    public static CurriculumType parseCurriculumType(String value) {
+        String normalizedValue = normalize(value);
+        if (normalizedValue == null) {
+            return null;
+        }
+
+        return Arrays.stream(CurriculumType.values())
+                .filter(r -> r.getValue().equalsIgnoreCase(normalizedValue) || r.name().equalsIgnoreCase(normalizedValue))
+                .findFirst()
+                .orElse(null);
+    }
+
+    public static String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }
