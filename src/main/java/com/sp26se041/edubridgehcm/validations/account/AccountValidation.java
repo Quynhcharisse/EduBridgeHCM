@@ -171,8 +171,8 @@ public class AccountValidation {
                     return "Require school description";
                 }
 
-                if (normalize(request.getCampusData().getSchoolData().getDescription()).length() > 500) {
-                    return "School description must not exceed 500 characters";
+                if (normalize(request.getCampusData().getSchoolData().getDescription()).length() > 2000) {
+                    return "School description must not exceed 2000 characters";
                 }
 
                 if (normalize(request.getCampusData().getSchoolData().getHotline()) != null

@@ -39,6 +39,7 @@ public class School {
 
     String name;
 
+    @Column(columnDefinition = "TEXT")
     String description;
 
     @Column(name = "tax_code", length = 50)
