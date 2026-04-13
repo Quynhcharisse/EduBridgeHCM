@@ -114,7 +114,7 @@ public class EduBridgeHcmApplication {
     }
 
     private void initParent() {
-        String parentEmail = "quynhpvnse182895@fpt.edu.vn";
+        String parentEmail = "parent@gmail.com";
         Optional<Account> accountOpt = accountRepo.findByEmail(parentEmail);
         Account account;
         if (accountOpt.isEmpty()) {
