@@ -6,10 +6,8 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum SessionType {
-
     MORNING("morning"),
     AFTERNOON("afternoon"),
     EVENING("evening");
-
     private final String value;
 }

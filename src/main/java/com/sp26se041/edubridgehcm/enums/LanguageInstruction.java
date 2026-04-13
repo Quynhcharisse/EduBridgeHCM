@@ -6,7 +6,6 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum LanguageInstruction {
-
     VIETNAMESE("vietnamese"),   // Dạy bằng Tiếng Việt 100%
     ENGLISH("english"),         // Dạy bằng Tiếng Anh 100% (Thường là hệ Quốc tế)
     BILINGUAL("bilingual"),     // Song ngữ Anh - Việt (Hệ tích hợp)
@@ -14,6 +13,5 @@ public enum LanguageInstruction {
     JAPANESE("japanese"),       // Tiếng Nhật
     CHINESE("chinese"),         // Tiếng Trung
     KOREAN("korean");           // Tiếng Hàn
-
     private final String value;
 }

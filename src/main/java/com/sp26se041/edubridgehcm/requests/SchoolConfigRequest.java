@@ -1,6 +1,5 @@
 package com.sp26se041.edubridgehcm.requests;
 
-import com.sp26se041.edubridgehcm.enums.ResourceType;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -132,7 +131,7 @@ public class SchoolConfigRequest {
         int allowBookingBeforeHours; // Chặn đặt lịch sát giờ (ví dụ: phải đặt trước 24h)
         WorkingConfig workingConfig;
         // Phần quy trình đây:
-        List<AdmissionStep> admissionSteps;
+        List<MethodAdmissionProcess> methodAdmissionProcess; // các quy trình tuyển sinh
     }
 
     @Data
@@ -140,7 +139,17 @@ public class SchoolConfigRequest {
     @AllArgsConstructor
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class AdmissionStep {
+    public static class MethodAdmissionProcess {  // quy trình tuyển sinh của một phương thức
+        String methodCode; // Ví dụ: "ACADEMIC_RECORD" ==> lấy từ admission method trong admissionSetting
+        List<StepDetail> steps;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class StepDetail {
         int stepOrder;      // thứ tự bước (1, 2, 3...)
         String stepName;    // tên bước (ví dụ: "Mua hồ sơ", "Phỏng vấn")
         String description; // mô tả chi tiết (ví dụ: "Đóng 100k tại văn phòng")

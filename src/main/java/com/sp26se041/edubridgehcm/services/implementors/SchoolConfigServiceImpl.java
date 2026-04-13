@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -127,6 +128,24 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
     @Transactional
     public void updateDocumentRequirements(int schoolId, SchoolConfigRequest request) {
 
+        SchoolConfig admissionConfig = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "admissionSettingsData")
+                .orElseThrow(() -> new RuntimeException("Please configure admission method first"));
+
+        Map<String, Object> admissionData = (Map<String, Object>) admissionConfig.getValue();
+        List<Map<String, Object>> allowedMethods = (List<Map<String, Object>>) admissionData.get("allowedMethods");
+
+        List<String> validMethodCodes = allowedMethods.stream()
+                .map(m -> m.get("code").toString())
+                .collect(Collectors.toList());
+
+        if (request.getDocumentRequirementsData().getByMethod() != null) {
+            for (var methodReq : request.getDocumentRequirementsData().getByMethod()) {
+                if (!validMethodCodes.contains(methodReq.getMethodCode())) {
+                    throw new RuntimeException("Method code " + methodReq.getMethodCode() + "is invalid.");
+                }
+            }
+        }
+
         SchoolConfigRequest.DocumentRequirementsData documentRequirementsData = request.getDocumentRequirementsData();
 
         List<Map<String, Object>> mandatoryAllJson = documentRequirementsData.getMandatoryAll().stream()
@@ -204,6 +223,16 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
     @Transactional
     public void updateOperationSettings(int schoolId, SchoolConfigRequest request) {
 
+        SchoolConfig admissionConfig = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "admissionSettingsData")
+                .orElseThrow(() -> new RuntimeException("Please configure admission method first"));
+
+        Map<String, Object> admissionData = (Map<String, Object>) admissionConfig.getValue();
+        List<Map<String, Object>> allowedMethods = (List<Map<String, Object>>) admissionData.get("allowedMethods");
+
+        List<String> validMethodCodes = allowedMethods.stream()
+                .map(m -> m.get("code").toString())
+                .collect(Collectors.toList());
+
         SchoolConfigRequest.OperationSettingsData operationSettingsData = request.getOperationSettingsData();
 
         // 2. Map Working Config (Giờ làm việc)
@@ -226,15 +255,32 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
             workingConfigMap.put("workShifts", shiftsJson);
         }
 
-        // 3. Map Admission Steps (Quy trình các bước)
-        List<Map<String, Object>> stepsJson = operationSettingsData.getAdmissionSteps().stream()
-                .map(step -> {
-                    Map<String, Object> s = new HashMap<>();
-                    s.put("stepOrder", step.getStepOrder());
-                    s.put("stepName", step.getStepName());
-                    s.put("description", step.getDescription());
-                    return s;
-                }).collect(Collectors.toList());
+        //Map Admission Processes (Quy trình tuyển sinh theo từng phương thức)
+        List<Map<String, Object>> processesJson = new ArrayList<>();
+
+        if (operationSettingsData.getMethodAdmissionProcess() != null) {
+            for (var methodProcess : operationSettingsData.getMethodAdmissionProcess()) {
+
+                if (!validMethodCodes.contains(methodProcess.getMethodCode())) {
+                    throw new RuntimeException("Method code " + methodProcess.getMethodCode() + " is invalid.");
+                }
+
+                Map<String, Object> processMap = new HashMap<>();
+                processMap.put("methodCode", methodProcess.getMethodCode());
+
+                List<Map<String, Object>> stepsData = methodProcess.getSteps().stream()
+                        .map(step -> {
+                            Map<String, Object> s = new HashMap<>();
+                            s.put("stepOrder", step.getStepOrder());
+                            s.put("stepName", step.getStepName());
+                            s.put("description", step.getDescription());
+                            return s;
+                        }).collect(Collectors.toList());
+
+                processMap.put("steps", stepsData);
+                processesJson.add(processMap);
+            }
+        }
 
         // 4. Gom tất cả vào Map tổng của Operation
         Map<String, Object> operationJson = new HashMap<>();
@@ -244,8 +290,10 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         operationJson.put("slotDurationInMinutes", operationSettingsData.getSlotDurationInMinutes());
         operationJson.put("maxBookingPerSlot", operationSettingsData.getMaxBookingPerSlot());
         operationJson.put("allowBookingBeforeHours", operationSettingsData.getAllowBookingBeforeHours());
+        // allowBookingBeforeHours ==> Trường cần thời gian chuẩn bị phòng thi/hồ sơ phỏng vấn
+        // ==> không cho phép học sinh đặt lịch hôm nay để thi ngay hôm nay.
         operationJson.put("workingConfig", workingConfigMap);
-        operationJson.put("admissionSteps", stepsJson);
+        operationJson.put("admissionProcesses", processesJson);
 
         SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "operationSettingsData")
                 .orElse(SchoolConfig.builder()
