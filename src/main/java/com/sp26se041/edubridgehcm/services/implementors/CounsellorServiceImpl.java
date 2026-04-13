@@ -226,9 +226,9 @@ public class CounsellorServiceImpl implements CounsellorService {
                 messages = chatMessageRepo.findTop20ByConversationIdOrderByTimestampDesc(existingConversation.get().getId());
             } else {
                 messages = chatMessageRepo.findTop20ByConversationIdAndIdLessThanOrderByIdDesc(existingConversation.get().getId(), cursorId);
-                hasMore = messages.size() == 20;
-                nextCursorId = messages.isEmpty() ? null : messages.get(messages.size() - 1).getId();
             }
+            hasMore = messages.size() == 20;
+            nextCursorId = messages.isEmpty() ? null : messages.get(messages.size() - 1).getId();
         } else {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Conversation not found or be deleted or not active", null);
         }

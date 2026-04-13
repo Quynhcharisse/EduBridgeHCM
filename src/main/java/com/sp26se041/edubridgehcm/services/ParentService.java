@@ -3,6 +3,7 @@ package com.sp26se041.edubridgehcm.services;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
 import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
+import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import org.springframework.http.ResponseEntity;
@@ -29,4 +30,6 @@ public interface ParentService {
     ResponseEntity<ResponseObject> removeFavouriteSchool(long favouriteSchoolId);
 
 //    ResponseEntity<ResponseObject> createFolder();
+
+    ResponseEntity<ResponseObject> createConversation(CreateConversationRequest request);
 }

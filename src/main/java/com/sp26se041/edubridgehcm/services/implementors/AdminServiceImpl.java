@@ -43,6 +43,7 @@ import com.sp26se041.edubridgehcm.validations.admin.VerifyRegistrationValidation
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -155,19 +156,20 @@ public class AdminServiceImpl implements AdminService {
                 messages = chatMessageRepo.findTop20ByConversationIdOrderByTimestampDesc(existingConversation.get().getId());
             } else {
                 messages = chatMessageRepo.findTop20ByConversationIdAndIdLessThanOrderByIdDesc(existingConversation.get().getId(), cursorId);
-                hasMore = messages.size() == 20;
-                nextCursorId = messages.isEmpty() ? null : messages.get(messages.size() - 1).getId();
+
             }
+            hasMore = messages.size() == 20;
+            nextCursorId = messages.isEmpty() ? null : messages.get(messages.size() - 1).getId();
             return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(existingConversation.get(), messages, hasMore, nextCursorId));
         }
         Conversation conversation = Conversation.builder()
                 .campusId(campus.get().getId())
                 .accAdminId(accAdmin.get().getId())
-                .status(Status.CONVERSATION_ACTIVE)
+//                .status(Status.CONVERSATION_ACTIVE)
                 .createdDate(LocalDateTime.now())
                 .updatedDate(LocalDateTime.now())
                 .build();
-        conversationRepo.save(conversation);
+//        conversationRepo.save(conversation);
 
         return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(conversation, messages, hasMore, nextCursorId));
     }
