@@ -195,17 +195,28 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
 
         SchoolConfigRequest.FinancePolicyData financePolicyData = request.getFinancePolicyData();
 
-        Map<String, Object> reservationFeeJson = new HashMap<>();
-        reservationFeeJson.put("amount", financePolicyData.getReservationFee().getAmount());
-        reservationFeeJson.put("currency", financePolicyData.getReservationFee().getCurrency());
-        reservationFeeJson.put("display", financePolicyData.getReservationFee().getDisplay());
+        List<Map<String, Object>> feeItemsJson = financePolicyData.getFeeItems().stream()
+                .map(fee -> {
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("feeCode", fee.getFeeCode());
+                    item.put("feeName", fee.getFeeName());
+                    item.put("amount", fee.getAmount());
+                    item.put("currency", fee.getCurrency());
+                    item.put("display", fee.getDisplay());
+                    item.put("isReservationFee", fee.isReservationFee()); //==> Quan trọng để logic check giữ chỗ
+                    item.put("isMandatory", fee.isMandatory());
+                    item.put("description", fee.getDescription());
+                    return item;
+                })
+                .collect(Collectors.toList());
 
+        // Xử lý chính sách điều chỉnh giá theo %
         Map<String, Object> priceAdjustmentJson = new HashMap<>();
         priceAdjustmentJson.put("minPercent", financePolicyData.getPriceAdjustment().getMinPercent());
         priceAdjustmentJson.put("maxPercent", financePolicyData.getPriceAdjustment().getMaxPercent());
 
         Map<String, Object> financePolicyJson = new HashMap<>();
-        financePolicyJson.put("reservationFee", reservationFeeJson);
+        financePolicyJson.put("feeItems", feeItemsJson);
         financePolicyJson.put("priceAdjustment", priceAdjustmentJson);
         financePolicyJson.put("paymentNotes", financePolicyData.getPaymentNotes());
 
