@@ -290,14 +290,25 @@ public class EduBridgeHcmApplication {
                 new HashMap<>(Map.of(
                         "code", "ACADEMIC_RECORD",
                         "displayName", "Xét học bạ",
-                        "description", "Dựa trên điểm 5 học kỳ"
+                        "description", "Dựa trên kết quả học tập THCS"
                 )),
+
                 new HashMap<>(Map.of(
                         "code", "ENTRANCE_EXAM",
                         "displayName", "Thi tuyển",
-                        "description", "Kỳ thi riêng của trường"
-                ))
+                        "description", "Kỳ thi đánh giá năng lực của trường"
+                )),
 
+                new HashMap<>(Map.of(
+                        "code", "INTERNATIONAL_CERT",
+                        "displayName", "Chứng chỉ quốc tế",
+                        "description", "Xét tuyển thẳng bằng IELTS/SAT"
+                )),
+
+                new HashMap<>(Map.of(
+                        "code", "DIRECT_ADMISSION",
+                        "displayName", "Tuyển thẳng",
+                        "description", "Dành cho học sinh đạt giải quốc gia/thành phố"))
         ));
 
         admissionSettingsData.put("allowedMethods", allowedMethods);
@@ -313,18 +324,10 @@ public class EduBridgeHcmApplication {
                         "name", "Giấy khai sinh (Bản sao)",
                         "required", true
                 )),
+
                 new HashMap<>(Map.of(
                         "code", "PHOTO_4X6",
                         "name", "Ảnh chân dung 4x6",
-                        "required", true
-                ))
-
-        ));
-
-        List<Map<String, Object>> documents = new ArrayList<>(List.of(
-                new HashMap<>(Map.of(
-                        "code", "TRANSCRIPT",
-                        "name", "Học bạ THCS",
                         "required", true
                 ))
         ));
@@ -332,13 +335,22 @@ public class EduBridgeHcmApplication {
         List<Map<String, Object>> byMethod = new ArrayList<>(List.of(
                 new HashMap<>(Map.of(
                         "methodCode", "ACADEMIC_RECORD",
-                        "documents", documents
-                ))
-        ));
+                        "documents", List.of(Map.of(
+                                "code", "TRANSCRIPT",
+                                "name", "Học bạ THCS",
+                                "required", true
+                        )))),
 
+                new HashMap<>(Map.of(
+                        "methodCode", "INTERNATIONAL_CERT",
+                        "documents", List.of(Map.of(
+                                "code", "IELTS_CERT",
+                                "name", "Chứng chỉ IELTS/TOEFL",
+                                "required", true
+                        ))))
+        ));
         documentRequirementsData.put("mandatoryAll", mandatoryAll);
         documentRequirementsData.put("byMethod", byMethod);
-
         Map<String, Object> financePolicyData = new HashMap<>();
 
         Map<String, Object> reservationFee = new HashMap<>();
@@ -389,17 +401,21 @@ public class EduBridgeHcmApplication {
         workingConfig.put("isOpenSunday", false);
         workingConfig.put("note", "Nghỉ các ngày lễ Tết theo quy định.");
 
-        List<Map<String, Object>> admissionSteps = new ArrayList<>(List.of(
-                new HashMap<>(Map.of(
-                        "stepOrder", 1,
-                        "stepName", "Đăng ký trực tuyến",
-                        "description", "Điền form tại website"
-                )),
-                new HashMap<>(Map.of(
-                        "stepOrder", 2,
-                        "stepName", "Nộp phí giữ chỗ",
-                        "description", "Chuyển khoản hoặc nộp tại văn phòng"
-                ))
+        List<Map<String, Object>> admissionProcesses = new ArrayList<>(List.of(
+                new HashMap<>(Map.of("methodCode", "ACADEMIC_RECORD", "steps", List.of(
+                        Map.of("stepOrder", 1, "stepName", "Đăng ký trực tuyến", "description", "Điền form và upload học bạ"),
+                        Map.of("stepOrder", 2, "stepName", "Xét duyệt hồ sơ", "description", "Hội đồng kiểm tra điểm số"),
+                        Map.of("stepOrder", 3, "stepName", "Đóng phí giữ chỗ", "description", "Xác nhận nhập học trực tuyến")))),
+                new HashMap<>(Map.of("methodCode", "ENTRANCE_EXAM", "steps", List.of(
+                        Map.of("stepOrder", 1, "stepName", "Đăng ký dự thi", "description", "Chọn ngày thi và cơ sở"),
+                        Map.of("stepOrder", 2, "stepName", "Tham gia thi tuyển", "description", "Thi Toán và Tiếng Anh"),
+                        Map.of("stepOrder", 3, "stepName", "Phỏng vấn trực tiếp", "description", "Gặp mặt ban tuyển sinh")))),
+                new HashMap<>(Map.of("methodCode", "INTERNATIONAL_CERT", "steps", List.of(
+                        Map.of("stepOrder", 1, "stepName", "Nộp chứng chỉ", "description", "Xác thực chứng chỉ quốc tế"),
+                        Map.of("stepOrder", 2, "stepName", "Phỏng vấn tiếng Anh", "description", "Kiểm tra kỹ năng giao tiếp")))),
+                new HashMap<>(Map.of("methodCode", "DIRECT_ADMISSION", "steps", List.of(
+                        Map.of("stepOrder", 1, "stepName", "Nộp bằng chứng thành tích", "description", "Giải quốc gia/Thành phố"),
+                        Map.of("stepOrder", 2, "stepName", "Xét duyệt đặc cách", "description", "Ban giám hiệu phê duyệt"))))
         ));
 
         operationSettingsData.put("hotline", "1900 1234");
@@ -409,7 +425,7 @@ public class EduBridgeHcmApplication {
         operationSettingsData.put("maxBookingPerSlot", 1);         // Mỗi ca 1 khách (Tư vấn 1 kèm 1)
         operationSettingsData.put("allowBookingBeforeHours", 24);  // Phải đặt trước 24h
         operationSettingsData.put("workingConfig", workingConfig);
-        operationSettingsData.put("admissionSteps", admissionSteps);
+        operationSettingsData.put("admissionProcesses", admissionProcesses);
 
 
         Map<String, Object> facilityData = new HashMap<>();
