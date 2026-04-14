@@ -1,12 +1,9 @@
 package com.sp26se041.edubridgehcm.repositories;
 
-import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Program;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-
-import java.util.List;
 
 public interface ProgramRepo extends JpaRepository<Program, Integer> {
 
@@ -24,6 +21,8 @@ public interface ProgramRepo extends JpaRepository<Program, Integer> {
 
     boolean existsByCurriculum_School_IdAndCurriculum_IdAndGraduationStandardIgnoreCaseAndIdNot(Integer schoolId, Integer curriculumId, String graduationStandard, Integer id);
 
-    int countEffectiveOfferingsById(Integer programId, List<Status> campaignStatuses, List<Status> offeringStatuses);
+    boolean existsByCurriculum_IdAndNameIgnoreCaseAndIdNot(Integer curriculumId, String name, Integer programId);
+
+    boolean existsByCurriculum_IdAndNameIgnoreCase(Integer curriculumId, String name);
 }
 
