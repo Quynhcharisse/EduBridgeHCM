@@ -17,9 +17,9 @@ public interface ProgramRepo extends JpaRepository<Program, Integer> {
 
     Program findByIdAndCurriculum_School_Id(Integer id, Integer schoolId);
 
-    boolean existsByCurriculum_School_IdAndCurriculum_IdAndGraduationStandardIgnoreCase(Integer schoolId, Integer curriculumId, String graduationStandard);
+    boolean existsByCurriculum_IdAndGraduationStandardIgnoreCase(Integer curriculumId, String graduationStandard);
 
-    boolean existsByCurriculum_School_IdAndCurriculum_IdAndGraduationStandardIgnoreCaseAndIdNot(Integer schoolId, Integer curriculumId, String graduationStandard, Integer id);
+    boolean existsByCurriculum_IdAndGraduationStandardIgnoreCaseAndIdNot(Integer curriculumId, String graduationStandard, Integer id);
 
     boolean existsByCurriculum_IdAndNameIgnoreCaseAndIdNot(Integer curriculumId, String name, Integer programId);
 
