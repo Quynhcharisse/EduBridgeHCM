@@ -53,5 +53,9 @@ public interface CampusService {
     ResponseEntity<ResponseObject> getDocuments();
 
     ResponseEntity<ResponseObject> getChatHistoryWithAdmin(Long cursorId);
+    
+    ResponseEntity<ResponseObject> createConversationWithAdmin();
+
+    ResponseEntity<ResponseObject> getConversation();
 
 }

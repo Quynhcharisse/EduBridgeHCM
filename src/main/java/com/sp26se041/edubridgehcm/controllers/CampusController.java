@@ -5,15 +5,18 @@ import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.CampusService;
+import com.sp26se041.edubridgehcm.services.WebSocketService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,6 +36,7 @@ import java.time.LocalDate;
 public class CampusController {
 
     private final CampusService campusService;
+    private final WebSocketService webSocketService;
 
     @PostMapping("/offering")
     @PreAuthorize("hasRole('SCHOOL')")
@@ -150,5 +154,28 @@ public class CampusController {
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> getHistoryChatWithAdmin(@RequestParam(required = false) Long cursorId){
         return campusService.getChatHistoryWithAdmin(cursorId);
+    }
+
+    @PostMapping("/conversation")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> createConversationWithAdmin() {
+        return campusService.createConversationWithAdmin();
+    }
+
+    @GetMapping("/conversation")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> getConversationWithAdmin() {
+        return campusService.getConversation();
+    }
+
+    @PutMapping("/messages/read/{conversationId}")
+    public ResponseEntity<ResponseObject> readMessages(@PathVariable Long conversationId) {
+
+        String email = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
+        return webSocketService.markConversationAsRead(conversationId, email);
     }
 }

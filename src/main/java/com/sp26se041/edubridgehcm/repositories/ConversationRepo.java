@@ -24,9 +24,9 @@ public interface ConversationRepo extends JpaRepository<Conversation, Long> {
 
     List<Conversation> findTop20ByCampusIdAndStatusAndIdLessThanAndStudentProfileIsNotNullOrderByIdDesc(int campusId, Status status, Long idIsLessThan);
 
-    Optional<Conversation> findByCampusIdAndAccAdminIdNotNull(int campusId);
-
     List<Conversation> findTop20ByAccAdminIdAndIdLessThan(int accAdminId, Long idIsLessThan);
 
     List<Conversation> findTop20ByAccAdminId(int accAdminId);
+
+    Optional<Conversation> findByCampusIdAndAccAdminId(int campusId, int accAdminId);
 }
