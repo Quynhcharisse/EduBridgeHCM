@@ -1,9 +1,7 @@
 package com.sp26se041.edubridgehcm.validations.school;
 
-import com.sp26se041.edubridgehcm.enums.CurriculumType;
 import com.sp26se041.edubridgehcm.enums.FeeUnit;
 import com.sp26se041.edubridgehcm.enums.LanguageInstruction;
-import com.sp26se041.edubridgehcm.enums.ProgramCategory;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.Curriculum;
@@ -145,8 +143,7 @@ public class ProgramValidation {
                 return "Cannot change curriculum because this program has active offerings/enrollments.";
             }
 
-            boolean duplicatedWhenUpdate = programRepo.existsByCurriculum_School_IdAndCurriculum_IdAndGraduationStandardIgnoreCaseAndIdNot(
-                    actorCampus.getSchool().getId(),
+            boolean duplicatedWhenUpdate = programRepo.existsByCurriculum_IdAndGraduationStandardIgnoreCaseAndIdNot(
                     request.getCurriculumId(),
                     normalize(request.getGraduationStandard()),
                     existingProgram.getId()
@@ -156,8 +153,7 @@ public class ProgramValidation {
                 return "Graduation standard already exists in this curriculum";
             }
         } else {
-            boolean duplicatedWhenCreate = programRepo.existsByCurriculum_School_IdAndCurriculum_IdAndGraduationStandardIgnoreCase(
-                    actorCampus.getSchool().getId(),
+            boolean duplicatedWhenCreate = programRepo.existsByCurriculum_IdAndGraduationStandardIgnoreCase(
                     request.getCurriculumId(),
                     normalize(request.getGraduationStandard())
             );
