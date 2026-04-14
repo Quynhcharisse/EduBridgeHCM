@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -22,15 +23,22 @@ public class ProgramRequest {
 
     String name;
 
+    List<SubjectExtraRequest> extraSubjectList;
+
+    List<String> languageOfInstructionList;
+
     String graduationStandard;
-
-    String languageOfInstruction;
-
-    String programCategory;
 
     BigDecimal baseTuitionFee;
 
     String targetStudentDescription;
 
     String feeUnit;
+
+    @Data
+    public static class SubjectExtraRequest {
+        String name;
+        String description;
+        Boolean isMandatory;
+    }
 }

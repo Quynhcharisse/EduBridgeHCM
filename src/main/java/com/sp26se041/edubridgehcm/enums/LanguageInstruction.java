@@ -12,6 +12,7 @@ public enum LanguageInstruction {
     FRENCH("french"),           // Tiếng Pháp
     JAPANESE("japanese"),       // Tiếng Nhật
     CHINESE("chinese"),         // Tiếng Trung
-    KOREAN("korean");           // Tiếng Hàn
+    KOREAN("korean"),
+    GERMAN("german");           // Tiếng Hàn
     private final String value;
 }

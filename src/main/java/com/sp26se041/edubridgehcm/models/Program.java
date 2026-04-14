@@ -2,8 +2,8 @@ package com.sp26se041.edubridgehcm.models;
 
 import com.sp26se041.edubridgehcm.enums.FeeUnit;
 import com.sp26se041.edubridgehcm.enums.LanguageInstruction;
-import com.sp26se041.edubridgehcm.enums.ProgramCategory;
 import com.sp26se041.edubridgehcm.enums.Status;
+import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -23,6 +23,7 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.Type;
 import org.jspecify.annotations.NullMarked;
 
 import java.math.BigDecimal;
@@ -48,18 +49,17 @@ public class Program {
     @JoinColumn(name = "curriculum_id")
     Curriculum curriculum;
 
-    // --- NHÓM TRƯỜNG PHỤC VỤ SEARCH & SO SÁNH (Ý THẦY) --
+    @Type(JsonBinaryType.class)
+    @Column(name = "extra_subjects", columnDefinition = "jsonb")
+    Object extraSubjectsJsonb;
 
+    // --- NHÓM TRƯỜNG PHỤC VỤ SEARCH & SO SÁNH (Ý THẦY) --
     @Column(name = "graduation_standard", columnDefinition = "TEXT")
     String graduationStandard;
 
-    @Column(name = "language_of_instruction", columnDefinition = "TEXT")
-    @Enumerated(EnumType.STRING)
-    LanguageInstruction languageOfInstruction; // Vietnamese, English, Bilingual
-
-    @Column(name = "program_category")
-    @Enumerated(EnumType.STRING)
-    ProgramCategory programCategory;
+    @Type(JsonBinaryType.class)
+    @Column(name = "language_of_instruction", columnDefinition = "jsonb") // Vietnamese, English, Bilingual
+    Object languageOfInstructionList;
 
     // --- NHÓM TÀI CHÍNH GỐC ---
 

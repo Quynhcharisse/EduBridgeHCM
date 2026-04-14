@@ -6,7 +6,6 @@ import com.sp26se041.edubridgehcm.enums.CurriculumType;
 import com.sp26se041.edubridgehcm.enums.FeeUnit;
 import com.sp26se041.edubridgehcm.enums.LanguageInstruction;
 import com.sp26se041.edubridgehcm.enums.LearningMethod;
-import com.sp26se041.edubridgehcm.enums.ProgramCategory;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
@@ -91,6 +90,7 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -728,8 +728,27 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("description", curriculum.getDescription());
         data.put("curriculumType", curriculum.getCurriculumType());
 
-        List<LearningMethod> methods = (List<LearningMethod>) curriculum.getLearningMethodList();
-        data.put("methodLearnings", methods.stream().map(m -> Map.of("code", m.name(), "displayName", m.getDisplayName())).collect(Collectors.toList()));
+        Object rawMethods = curriculum.getLearningMethodList();
+        List<Map<String, String>> methodList = new ArrayList<>();
+
+        if (rawMethods instanceof List<?> list) {
+            for (Object obj : list) {
+                if (obj instanceof String methodStr) {
+                    // Nếu là String (do Jackson load từ JSONB)
+                    try {
+                        LearningMethod m = LearningMethod.valueOf(methodStr);
+                        methodList.add(Map.of("code", m.name(), "displayName", m.getDisplayName()));
+                    } catch (IllegalArgumentException e) {
+                        // Trường hợp data cũ hoặc sai định dạng
+                        methodList.add(Map.of("code", methodStr, "displayName", methodStr));
+                    }
+                } else if (obj instanceof LearningMethod m) {
+                    // Nếu đã là Enum (do Hibernate cast sẵn)
+                    methodList.add(Map.of("code", m.name(), "displayName", m.getDisplayName()));
+                }
+            }
+        }
+        data.put("methodLearnings", methodList);
         data.put("applicationYear", curriculum.getApplicationYear());
         data.put("groupCode", curriculum.getGroupCode());
         data.put("subjects", curriculum.getSubjectsJsonb());
@@ -809,13 +828,26 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot use an archived curriculum. Please use the latest active version.", null);
         }
 
-        // Đồng bộ dữ liệu (Gom chung cho cả Create/Update để tránh lặp code)
         program.setCurriculum(curriculum);
         program.setName(normalize(request.getName()));
-        program.setLanguageOfInstruction(LanguageInstruction.valueOf(normalize(request.getLanguageOfInstruction())));
-        program.setProgramCategory(ProgramCategory.valueOf(normalize(request.getProgramCategory())));
+        program.setLanguageOfInstructionList(request.getLanguageOfInstructionList().stream().map(LanguageInstruction::valueOf).collect(Collectors.toList()));
         program.setGraduationStandard(normalize(request.getGraduationStandard()));
         program.setTargetStudentDescription(normalize(request.getTargetStudentDescription()));
+
+        List<Map<String, Object>> extraSubjects = new ArrayList<>();
+        if (request.getExtraSubjectList() != null) {
+            extraSubjects = request.getExtraSubjectList().stream()
+                    .map(reqSub -> {
+                        Map<String, Object> map = new HashMap<>();
+                        map.put("name", normalize(reqSub.getName()));
+                        map.put("description", normalize(reqSub.getDescription()));
+                        map.put("isMandatory", Boolean.TRUE.equals(reqSub.getIsMandatory()));
+                        return map;
+                    })
+                    .collect(Collectors.toList());
+        }
+        program.setExtraSubjectsJsonb(extraSubjects);
+
         program.setBaseTuitionFee(request.getBaseTuitionFee());
         program.setFeeUnit(FeeUnit.valueOf(request.getFeeUnit()));
         program.setStatus(Status.PRO_DRAFT);
@@ -857,12 +889,23 @@ public class SchoolServiceImpl implements SchoolService {
         Program newProgram = new Program();
         newProgram.setName(oldProgram.getName() + " - Cloned (" + LocalDateTime.now().getYear() + ")");
         newProgram.setCurriculum(oldProgram.getCurriculum());
-        newProgram.setLanguageOfInstruction(oldProgram.getLanguageOfInstruction());
-        newProgram.setProgramCategory(oldProgram.getProgramCategory());
+
+        //copy danh sách môn học bổ sung
+        if (oldProgram.getExtraSubjectsJsonb() != null) {
+            // Ép kiểu về List và bọc trong new ArrayList để tách biệt vùng nhớ
+            List<?> oldExtraList = (List<?>) oldProgram.getExtraSubjectsJsonb();
+            newProgram.setExtraSubjectsJsonb(new ArrayList<>(oldExtraList));
+        }
+
+        //copy danh sách ngôn ngữ giảng dạy
+        if (oldProgram.getLanguageOfInstructionList() != null) {
+            List<?> oldLangList = (List<?>) oldProgram.getLanguageOfInstructionList();
+            newProgram.setLanguageOfInstructionList(new ArrayList<>(oldLangList));
+        }
+
         newProgram.setGraduationStandard(oldProgram.getGraduationStandard());
         newProgram.setTargetStudentDescription(oldProgram.getTargetStudentDescription());
-
-        // Giữ nguyên học phí cũ để Admin tự vào sửa sau
+        newProgram.setExtraSubjectsJsonb(oldProgram.getExtraSubjectsJsonb());
         newProgram.setBaseTuitionFee(oldProgram.getBaseTuitionFee());
         newProgram.setFeeUnit(oldProgram.getFeeUnit());
         newProgram.setStatus(Status.PRO_DRAFT);
@@ -976,12 +1019,34 @@ public class SchoolServiceImpl implements SchoolService {
 
         data.put("id", program.getId());
         data.put("name", program.getName());
-        data.put("languageOfInstruction", program.getLanguageOfInstruction()); // Thêm cái này
-        data.put("programCategory", program.getProgramCategory()); // Thêm cái này
+        data.put("languageOfInstructionList", program.getLanguageOfInstructionList());
         data.put("graduationStandard", program.getGraduationStandard());
         data.put("targetStudentDescription", program.getTargetStudentDescription());
         data.put("baseTuitionFee", program.getBaseTuitionFee());
         data.put("feeUnit", program.getFeeUnit()); // Rất quan trọng cho FE hiển thị
+
+        List<Map<String, Object>> allSubjects = new ArrayList<>();
+        // lấy môn học bắt buộc từ Khung (Chỉ đọc, FE không được sửa)
+        if (program.getCurriculum() != null && program.getCurriculum().getSubjectsJsonb() != null) {
+            List<Map<String, Object>> coreSubjects = (List<Map<String, Object>>) program.getCurriculum().getSubjectsJsonb();
+            coreSubjects.forEach(s -> {
+                Map<String, Object> subject = new HashMap<>(s);
+                subject.put("origin", "CORE"); //để FE hiển thị (Ví dụ: màu xám, không có nút xóa)
+                allSubjects.add(subject);
+            });
+        }
+
+        //extra môn thêm của Hệ có thể xóa / thêm
+        if (program.getExtraSubjectsJsonb() != null) {
+            List<Map<String, Object>> extraSubjects = (List<Map<String, Object>>) program.getExtraSubjectsJsonb();
+            extraSubjects.forEach(s -> {
+                Map<String, Object> subject = new HashMap<>(s);
+                subject.put("origin", "EXTRA"); //để FE cho phép xóa/sửa
+                allSubjects.add(subject);
+            });
+        }
+
+        data.put("subjects", allSubjects);
         data.put("status", program.getStatus());
 
         Curriculum curriculum = program.getCurriculum();
@@ -990,11 +1055,12 @@ public class SchoolServiceImpl implements SchoolService {
         curriculumData.put("name", curriculum.getName());
         curriculumData.put("type", curriculum.getCurriculumType());
         curriculumData.put("applicationYear", curriculum.getApplicationYear());
+        curriculumData.put("subjectOptions", curriculum.getSubjectsJsonb());
         curriculumData.put("status", curriculum.getCurriculumStatus());
         curriculumData.put("schoolId", curriculum.getSchool() != null ? curriculum.getSchool().getId() : null);
         data.put("curriculum", curriculumData);
 
-        // --- Thông tin Thống kê & Logic (Helper cho FE) ---
+        // --- Thông tin Thống kê & Logic ---
         int offeringCount = (program.getCampusProgramOfferingList() != null) ? program.getCampusProgramOfferingList().size() : 0;
         data.put("offeringCount", offeringCount);
 
