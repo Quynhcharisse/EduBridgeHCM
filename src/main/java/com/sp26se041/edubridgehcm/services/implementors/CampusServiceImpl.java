@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.sp26se041.edubridgehcm.enums.ResourceType;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.SessionType;
 import com.sp26se041.edubridgehcm.enums.Status;
@@ -7,6 +8,7 @@ import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
+import com.sp26se041.edubridgehcm.models.CampusResourceQuota;
 import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.models.Conversation;
@@ -43,6 +45,7 @@ import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.ExcelUtil;
 import com.sp26se041.edubridgehcm.utils.PaginationUtil;
+import com.sp26se041.edubridgehcm.utils.ResourceCheckerUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.utils.SchoolConfigUtil;
 import com.sp26se041.edubridgehcm.validations.campus.CampusProgramOfferingValidation;
@@ -58,7 +61,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -108,8 +110,11 @@ public class CampusServiceImpl implements CampusService {
     private final CounsellorSlotRepo counsellorSlotRepo;
 
     private final CampusResourceQuotaRepo campusResourceQuotaRepo;
+
     private final SupabaseStorageService supabaseStorageService;
+
     private final ConversationRepo conversationRepo;
+
     private final ChatMessageRepo chatMessageRepo;
 
     @Override
@@ -451,7 +456,21 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
+        //lấy thông tin Quota và Usage
+        var quotaOpt = campusResourceQuotaRepo.findByCampusIdAndResourceType(actorCampus.getId(), ResourceType.COUNSELLOR);
+        int maxQuota = quotaOpt.map(CampusResourceQuota::getMaxQuota).orElse(0);
+        long currentUsage = counsellorRepo.countByCampusId(actorCampus.getId());
+
+        //kiểm tra trạng thái access
+        Status accessStatus = ResourceCheckerUtil.checkAccessStatus(
+                actorCampus.getId(),
+                ResourceType.COUNSELLOR,
+                campusResourceQuotaRepo,
+                currentUsage
+        );
+
         Pageable pageable;
+
         try {
             pageable = PaginationUtil.buildPageRequest(page, size);
         } catch (IllegalArgumentException e) {
@@ -462,7 +481,16 @@ public class CampusServiceImpl implements CampusService {
 
         PageResponse<Map<String, Object>> pageResponse = PaginationUtil.buildPageResponse(counsellorPage, this::buildCounsellorData);
 
-        return ResponseBuilder.build(HttpStatus.OK, "View counsellor list successfully", pageResponse);
+        Map<String, Object> data = new HashMap<>();
+        data.put("counsellors", pageResponse);
+
+        data.put("accessStatus", accessStatus.name());
+        data.put("canCreate", accessStatus.isFeatureAvailable());
+        data.put("displayMessage", accessStatus.getDisplayMessage());
+        data.put("currentUsage", currentUsage);
+        data.put("maxQuota", maxQuota);
+
+        return ResponseBuilder.build(HttpStatus.OK, "View counsellor list successfully", data);
     }
 
     public String generateProfessionalEmployeeCode(Campus campus, UUID uuid) {
@@ -651,7 +679,9 @@ public class CampusServiceImpl implements CampusService {
         }
 
         if (request.getTemplateId() != null && request.getTemplateId() > 0) {
+
             CampusScheduleTemplate existing = campusScheduleTemplateRepo.findById(request.getTemplateId()).orElse(null);
+
             if (existing == null) {
                 return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Template does not exist.", null);
             }
@@ -1047,9 +1077,9 @@ public class CampusServiceImpl implements CampusService {
 
         Campus campus = extractActorCampus();
 
-        Account accAdmin =  accountRepo.findByRole(Role.ADMIN).get(0);
+        Account accAdmin = accountRepo.findByRole(Role.ADMIN).get(0);
 
-        if (accAdmin == null){
+        if (accAdmin == null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account admin not found or be deleted", null);
         }
 
@@ -1070,7 +1100,7 @@ public class CampusServiceImpl implements CampusService {
             }
             hasMore = messages.size() == 20;
             nextCursorId = messages.isEmpty() ? null : messages.get(messages.size() - 1).getId();
-            
+
             return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(existingConversation.get(), accAdmin.getEmail(), campus.getAccount().getEmail(), messages, hasMore, nextCursorId));
 
         }
@@ -1101,9 +1131,9 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campus account not found or be deleted", null);
         }
 
-        Account accAdmin =  accountRepo.findByRole(Role.ADMIN).get(0);
+        Account accAdmin = accountRepo.findByRole(Role.ADMIN).get(0);
 
-        if (accAdmin == null){
+        if (accAdmin == null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account admin not found or be deleted", null);
         }
 
@@ -1166,7 +1196,7 @@ public class CampusServiceImpl implements CampusService {
         return ResponseBuilder.build(HttpStatus.OK, "Get conversation success", data);
     }
 
-    private Map<String, Object> buildHistoryMessages(Conversation conversation, String emailAdmin, String campusEmail,List<ChatMessage> messages, boolean hasMore, Long nextCursorId) {
+    private Map<String, Object> buildHistoryMessages(Conversation conversation, String emailAdmin, String campusEmail, List<ChatMessage> messages, boolean hasMore, Long nextCursorId) {
 
         Map<String, Object> response = new HashMap<>();
 

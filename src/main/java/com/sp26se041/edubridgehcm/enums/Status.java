@@ -17,6 +17,11 @@ public enum Status {
     VERIFIED("verified"),
     PUBLISH("publish"),
 
+    //With status cho việc kiểm soát tính năng (Hạn ngạch/Gói) ==> để block tính năng
+    FEATURE_LOCKED_NO_PACKAGE("locked_no_package"),
+    FEATURE_LOCKED_QUOTA_FULL("locked_quota_full"),
+    FEATURE_AVAILABLE("available"),
+
     //With status for admissions
     OPEN_ADMISSION_CAMPAIGN("open"),
     CANCELLED_ADMISSION_CAMPAIGN("cancelled"),
@@ -85,4 +90,17 @@ public enum Status {
     SUBJECT_INACTIVE("inactive");
 
     private final String value;
+
+    public boolean isFeatureAvailable() {
+        return this == FEATURE_AVAILABLE;
+    }
+
+    public String getDisplayMessage() {
+        return switch (this) {
+            case FEATURE_LOCKED_NO_PACKAGE -> "Cơ sở chưa đăng ký gói dịch vụ này. Vui lòng liên hệ để kích hoạt.";
+            case FEATURE_LOCKED_QUOTA_FULL -> "Hạn ngạch đã sử dụng hết. Vui lòng nâng cấp gói để tiếp tục.";
+            case FEATURE_AVAILABLE -> "Tính năng sẵn dùng.";
+            default -> "";
+        };
+    }
 }
