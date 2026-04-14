@@ -58,6 +58,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -1046,7 +1047,13 @@ public class CampusServiceImpl implements CampusService {
 
         Campus campus = extractActorCampus();
 
-        Optional<Conversation> existingConversation = conversationRepo.findByCampusIdAndAccAdminIdNotNull(campus.getId());
+        Account accAdmin =  accountRepo.findByRole(Role.ADMIN).get(0);
+
+        if (accAdmin == null){
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account admin not found or be deleted", null);
+        }
+
+        Optional<Conversation> existingConversation = conversationRepo.findByCampusIdAndAccAdminId(campus.getId(), accAdmin.getId());
 
         List<ChatMessage> messages = new ArrayList<>();
 
@@ -1063,13 +1070,9 @@ public class CampusServiceImpl implements CampusService {
             }
             hasMore = messages.size() == 20;
             nextCursorId = messages.isEmpty() ? null : messages.get(messages.size() - 1).getId();
-            return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(existingConversation.get(), messages, hasMore, nextCursorId));
-        }
+            
+            return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(existingConversation.get(), accAdmin.getEmail(), campus.getAccount().getEmail(), messages, hasMore, nextCursorId));
 
-        Account accAdmin = accountRepo.findByRole(Role.ADMIN).get(0);
-
-        if (accAdmin == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account admin not found or be deleted", null);
         }
 
         Conversation conversation = Conversation.builder()
@@ -1082,16 +1085,96 @@ public class CampusServiceImpl implements CampusService {
 
 //        conversationRepo.save(conversation);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(conversation, messages, hasMore, nextCursorId));
+        return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(conversation, accAdmin.getEmail(), campus.getAccount().getEmail(), messages, hasMore, nextCursorId));
     }
 
-    private Map<String, Object> buildHistoryMessages(Conversation conversation, List<ChatMessage> messages, boolean hasMore, Long nextCursorId) {
+    @Override
+    public ResponseEntity<ResponseObject> createConversationWithAdmin() {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+        }
+
+        Campus campus = extractActorCampus();
+
+        if (campus == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campus account not found or be deleted", null);
+        }
+
+        Account accAdmin =  accountRepo.findByRole(Role.ADMIN).get(0);
+
+        if (accAdmin == null){
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account admin not found or be deleted", null);
+        }
+
+        Conversation conversation = Conversation.builder()
+                .campusId(campus.getId())
+                .accAdminId(accAdmin.getId())
+                .status(Status.CONVERSATION_ACTIVE)
+                .createdDate(LocalDateTime.now())
+                .updatedDate(LocalDateTime.now())
+                .build();
+
+        conversationRepo.save(conversation);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Create conversation successfully", conversation.getId());
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getConversation() {
+
+        Campus campus = extractActorCampus();
+
+        if (campus == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Campus account not found or be deleted", null);
+        }
+
+        List<Account> admins = accountRepo.findByRole(Role.ADMIN);
+        if (admins == null || admins.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Account admin not found or be deleted", null);
+        }
+
+        Account accAdmin = admins.get(0);
+
+        Optional<Conversation> conversationOpt =
+                conversationRepo.findByCampusIdAndAccAdminId(campus.getId(), accAdmin.getId());
+
+        if (conversationOpt.isEmpty()) {
+            Map<String, Object> data = new HashMap<>();
+            data.put("conversationId", null);
+            data.put("hasNewMessage", false);
+            data.put("unreadCount", 0);
+            return ResponseBuilder.build(HttpStatus.OK, "Get conversation success", data);
+        }
+
+        Conversation conversation = conversationOpt.get();
+
+        Long unreadCount = chatMessageRepo
+                .countByConversationIdAndReceiverNameAndStatusNot(
+                        conversation.getId(),
+                        campus.getAccount().getEmail(),
+                        Status.MESSAGE_READ
+                );
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("conversationId", conversation.getId());
+        data.put("hasNewMessage", unreadCount > 0);
+        data.put("unreadCount", unreadCount);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Get conversation success", data);
+    }
+
+    private Map<String, Object> buildHistoryMessages(Conversation conversation, String emailAdmin, String campusEmail,List<ChatMessage> messages, boolean hasMore, Long nextCursorId) {
 
         Map<String, Object> response = new HashMap<>();
 
         response.put("conversationId", conversation.getId());
         response.put("accAdminId", conversation.getAccAdminId());
+        response.put("emailAdmin", emailAdmin);
         response.put("campusId", conversation.getCampusId());
+        response.put("campusEmail", campusEmail);
         response.put("messages", buildMessages(messages));
         response.put("hasMore", hasMore);
         response.put("nextCursorId", nextCursorId);

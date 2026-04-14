@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,6 +35,7 @@ import java.time.LocalDateTime;
 public class AdminController {
 
     private final AdminService adminService;
+    private final WebSocketService webSocketService;
 
     @PostMapping("/school/registrations/verify")
     @PreAuthorize("hasRole('ADMIN')")
@@ -124,6 +126,17 @@ public class AdminController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ResponseObject> getHistoryChatWithAdmin(@PathVariable int campusId,@RequestParam(required = false) Long cursorId){
         return adminService.getChatHistory(campusId, cursorId);
+    }
+
+    @PutMapping("/messages/read/{conversationId}")
+    public ResponseEntity<ResponseObject> readMessages(@PathVariable Long conversationId) {
+
+        String email = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
+        return webSocketService.markConversationAsRead(conversationId, email);
     }
 
 }
