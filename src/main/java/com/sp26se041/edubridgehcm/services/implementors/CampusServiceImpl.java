@@ -493,6 +493,35 @@ public class CampusServiceImpl implements CampusService {
         return ResponseBuilder.build(HttpStatus.OK, "View counsellor list successfully", data);
     }
 
+    @Override
+    public ResponseEntity<ResponseObject> getQuotaRequestSummary() {
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campus not found", null);
+
+        // 1. Lấy thông tin Quota hiện tại của Campus phụ
+        var quotaOpt = campusResourceQuotaRepo.findByCampusIdAndResourceType(actorCampus.getId(), ResourceType.COUNSELLOR);
+        int maxQuota = quotaOpt.map(CampusResourceQuota::getMaxQuota).orElse(0);
+        long currentUsage = counsellorRepo.countByCampusId(actorCampus.getId());
+
+        // 2. Tìm thông tin Campus chính (để lấy Email nhận)
+        Campus primaryCampus = campusRepo.findAllBySchoolId(actorCampus.getSchool().getId()).stream()
+                .filter(Campus::getIsPrimaryBranch)
+                .findFirst()
+                .orElse(null);
+
+        // 3. Đóng gói dữ liệu trả về cho FE
+        Map<String, Object> summary = new HashMap<>();
+        summary.put("campusName", actorCampus.getName());
+        summary.put("currentUsage", currentUsage);
+        summary.put("maxQuota", maxQuota);
+        summary.put("primaryBranchEmail", primaryCampus != null ? primaryCampus.getAccount().getEmail() : "admin@school.com");
+        summary.put("schoolName", actorCampus.getSchool().getName());
+
+        return ResponseBuilder.build(HttpStatus.OK, "Summary fetched", summary);
+    }
+
     public String generateProfessionalEmployeeCode(Campus campus, UUID uuid) {
         if (campus == null || uuid == null) return "GLOBAL_CS_UNKNOWN";
 

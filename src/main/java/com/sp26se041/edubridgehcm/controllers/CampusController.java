@@ -83,6 +83,12 @@ public class CampusController {
         return campusService.viewAccountCounsellorList(page, pageSize);
     }
 
+    @GetMapping("/quota/request/summary/emailjs")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> getQuotaRequestSummary() {
+        return campusService.getQuotaRequestSummary();
+    }
+
     @PutMapping("/{campusId}/config")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> updateCampusConfig(@RequestBody UpdateCampusConfigRequest request) {

@@ -10,7 +10,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 public class SchoolConfigUtil {
@@ -258,7 +257,7 @@ public class SchoolConfigUtil {
         return null;
     }
 
-    public static String validateWithWorkingConfig(String dayOfWeek, LocalTime start, LocalTime end, Map<String, Object> workingConfig) {
+    public static String validateWithWorkingConfig(String dayOfWeek, LocalTime start, LocalTime end, String sessionTypeReq, Map<String, Object> workingConfig) {
         if (workingConfig == null) return null;
 
         String dayReq = (dayOfWeek != null) ? dayOfWeek.toUpperCase() : "";
@@ -277,21 +276,50 @@ public class SchoolConfigUtil {
         }
 
         // 2. Kiểm tra khung giờ (Work Shifts)
+        //ktra thêm khớp Session type
         List<Map<String, Object>> workShifts = (List<Map<String, Object>>) workingConfig.get("workShifts");
+
         if (workShifts != null && !workShifts.isEmpty()) {
-            boolean isInShift = workShifts.stream().anyMatch(shift -> {
+
+            // Tìm ca làm việc mà khung giờ user chọn nằm trọn bên trong
+            Map<String, Object> matchedShift = workShifts.stream().filter(shift -> {
                 LocalTime sStart = LocalTime.parse(String.valueOf(shift.get("startTime")));
                 LocalTime sEnd = LocalTime.parse(String.valueOf(shift.get("endTime")));
+
+                //khung giờ yêu cầu phải nằm trong (hoặc bằng) khung giờ ca làm việc
                 return (start.equals(sStart) || start.isAfter(sStart)) &&
                         (end.equals(sEnd) || end.isBefore(sEnd));
-            });
+            }).findFirst().orElse(null);
 
-            if (!isInShift) {
-                return "The requested time slot falls outside of operational shifts.";
+            if (matchedShift == null) {
+                return "The time slot " + start + " - " + end + " is not covered by any of the campus shifts";
+            }
+
+            //verify if the shift name khớp vs session type
+            String shiftName = String.valueOf(matchedShift.get("name")).toLowerCase();
+            String sessionValue = sessionTypeReq.toLowerCase();
+
+            if (!isSessionMatched(shiftName, sessionValue)) {
+                return "The time slot " + start + "-" + end + " belongs to the '" + shiftName +
+                        "' shift, which does not match the selected session: '" + sessionTypeReq + "'.";
             }
         }
 
         return null;
+    }
+
+    private static boolean isSessionMatched(String shiftName, String sessionValue) {
+        // Nếu ca tên là "Sáng" hoặc "Morning" thì khớp với MORNING
+        if (sessionValue.equals("morning")) {
+            return shiftName.contains("sáng") || shiftName.contains("morning");
+        }
+        if (sessionValue.equals("afternoon")) {
+            return shiftName.contains("chiều") || shiftName.contains("afternoon");
+        }
+        if (sessionValue.equals("evening")) {
+            return shiftName.contains("tối") || shiftName.contains("evening");
+        }
+        return false;
     }
 
     public static Map<String, Integer> getCampusPolicy(Object policyDetail) {

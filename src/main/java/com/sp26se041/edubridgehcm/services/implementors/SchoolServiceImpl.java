@@ -6,12 +6,14 @@ import com.sp26se041.edubridgehcm.enums.CurriculumType;
 import com.sp26se041.edubridgehcm.enums.FeeUnit;
 import com.sp26se041.edubridgehcm.enums.LanguageInstruction;
 import com.sp26se041.edubridgehcm.enums.LearningMethod;
+import com.sp26se041.edubridgehcm.enums.ResourceType;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
+import com.sp26se041.edubridgehcm.models.CampusResourceQuota;
 import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
 import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Curriculum;
@@ -27,6 +29,7 @@ import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionReservationFormRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusResourceQuotaRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
 import com.sp26se041.edubridgehcm.repositories.CurriculumRepo;
 import com.sp26se041.edubridgehcm.repositories.FavouriteSchoolRepo;
@@ -140,6 +143,7 @@ public class SchoolServiceImpl implements SchoolService {
     private final PaymentTransactionRepo paymentTransactionRepo;
 
     private final SchoolConfigRepo schoolConfigRepo;
+    private final CampusResourceQuotaRepo campusResourceQuotaRepo;
 
     @Override
     @Transactional
@@ -1673,7 +1677,9 @@ public class SchoolServiceImpl implements SchoolService {
         Integer schoolId = newSubscription.getSchool().getId();
 
         //tìm tất cả các gói đang được active (isSelected = true) của trường này
-        List<SchoolSubscription> activeSubs = schoolSubscriptionRepo.findBySchoolIdAndIsSelected(schoolId, true);
+        List<SchoolSubscription> activeSubs = schoolSubscriptionRepo.findBySchoolIdAndIsSelected(
+                schoolId,
+                true);
 
         //chuyển tất cả về false
         if (!activeSubs.isEmpty()) {
@@ -1685,7 +1691,52 @@ public class SchoolServiceImpl implements SchoolService {
         newSubscription.setIsSelected(true);
         schoolSubscriptionRepo.save(newSubscription);
 
+        // GỌI LOGIC PHÂN BỔ HẠN NGẠCH (QUOTA)
+        //Lấy thông tin gói cước thực tế từ Subscription
+        Subscription packageInfo = newSubscription.getSubscription();
+        distributeResourceQuotas(schoolId, packageInfo);
+
         log.info("School ID {} activated package: {} (License: {})", schoolId, newSubscription.getSubscription().getName(), newSubscription.getLicenseKey());
+    }
+
+    private void distributeResourceQuotas(Integer schoolId, Subscription packageBought) {
+        Map<String, Object> features = (Map<String, Object>) packageBought.getFeatures();
+        if (features == null) return;
+
+        // Lấy số lượng Counsellor tối đa từ gói (Ví dụ key là "maxCounsellors")
+        Object maxCounsellorsObj = features.get("maxCounsellors");
+        int totalMaxCounsellors = (maxCounsellorsObj instanceof Number) ? ((Number) maxCounsellorsObj).intValue() : 0;
+
+        // Lấy danh sách tất cả Campus thuộc School này
+        List<Campus> campuses = campusRepo.findAllBySchoolId(schoolId);
+        if (campuses.isEmpty()) return;
+
+        // Chiến thuật: Chia đều cho các Campus
+        int quotaPerCampus = totalMaxCounsellors / campuses.size();
+
+        // Nếu chia có dư (ví dụ 10 slot cho 3 campus), slot dư có thể cộng vào Campus chính
+        int remainder = totalMaxCounsellors % campuses.size();
+
+        for (int i = 0; i < campuses.size(); i++) {
+            Campus campus = campuses.get(i);
+
+            // Tìm bản ghi quota hiện tại hoặc tạo mới
+            CampusResourceQuota quota = campusResourceQuotaRepo
+                    .findByCampusIdAndResourceType(campus.getId(), ResourceType.COUNSELLOR)
+                    .orElseGet(() -> CampusResourceQuota.builder()
+                            .campus(campus)
+                            .resourceType(ResourceType.COUNSELLOR)
+                            .build());
+
+            // Chỉ campus chính mới được nhận thêm phần dư 'remainder'
+            // Gán hạn ngạch mới
+            int finalQuota = quotaPerCampus + (campus.getIsPrimaryBranch() ? remainder : 0);
+            quota.setMaxQuota(finalQuota);
+
+            campusResourceQuotaRepo.save(quota);
+        }
+
+        log.info("Distributed {} counsellors to {} campuses for School ID {}", totalMaxCounsellors, campuses.size(), schoolId);
     }
 
     private String sanitizeOrderInfo(String rawOrderInfo) {
@@ -1863,11 +1914,32 @@ public class SchoolServiceImpl implements SchoolService {
         long daysRemaining = ChronoUnit.DAYS.between(LocalDate.now(), schoolSub.getEndDate());
         boolean isExpired = LocalDate.now().isAfter(schoolSub.getEndDate());
 
+        // 1. Lấy thông tin Features từ gói cước
+        Map<String, Object> features = (Map<String, Object>) schoolSub.getSubscription().getFeatures();
+        Object maxCounsellorsObj = (features != null) ? features.get("maxCounsellors") : 0;
+        int totalCounsellorsInPackage = (maxCounsellorsObj instanceof Number) ? ((Number) maxCounsellorsObj).intValue() : 0;
+
+        Campus actorCampus = extractActorCampus();
+        var quotaOpt = campusResourceQuotaRepo.findByCampusIdAndResourceType(actorCampus.getId(), ResourceType.COUNSELLOR);
+        int myQuota = quotaOpt.map(CampusResourceQuota::getMaxQuota).orElse(0);
+
+        // 3. Tính toán số lượng đã chia cho các chi nhánh khác
+        int totalAllocatedToOthers = totalCounsellorsInPackage - myQuota;
+
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("packageName", schoolSub.getSubscription().getName());
         data.put("licenseKey", schoolSub.getLicenseKey());
         data.put("startDate", schoolSub.getStartDate());
         data.put("endDate", schoolSub.getEndDate());
+
+        // --- PHẦN BỔ SUNG TRỌNG ĐIỂM ĐỐI ĐỐI VS CAMPUS CHÍNH ---
+        Map<String, Object> resourceSummary = new LinkedHashMap<>();
+        resourceSummary.put("totalPackageQuota", totalCounsellorsInPackage);
+        resourceSummary.put("myCampusQuota", myQuota);
+        resourceSummary.put("otherCampusesQuota", Math.max(0, totalAllocatedToOthers));
+        data.put("resourceSummary", resourceSummary);
+        // ------------------------------
+
         data.put("dasRemaining", Math.max(0, daysRemaining));
         data.put("isExpired", isExpired);
         data.put("statusMessage", isExpired ? "Expired" : "Active (Remaining " + daysRemaining + " days)");

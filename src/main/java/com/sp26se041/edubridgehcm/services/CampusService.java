@@ -30,6 +30,8 @@ public interface CampusService {
 
     ResponseEntity<ResponseObject> viewAccountCounsellorList(int page, int size);
 
+    ResponseEntity<ResponseObject> getQuotaRequestSummary();
+
     ResponseEntity<ResponseObject> updateCampusConfig(UpdateCampusConfigRequest request);
 
     ResponseEntity<ResponseObject> getCampusConfig();
@@ -57,5 +59,4 @@ public interface CampusService {
     ResponseEntity<ResponseObject> createConversationWithAdmin();
 
     ResponseEntity<ResponseObject> getConversation();
-
 }
