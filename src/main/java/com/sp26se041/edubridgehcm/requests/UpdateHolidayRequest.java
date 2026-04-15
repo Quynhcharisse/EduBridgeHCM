@@ -12,6 +12,5 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class AddFavouriteSchoolRequest {
-    int schoolId;
+public class UpdateHolidayRequest {
 }
