@@ -1,8 +1,10 @@
 package com.sp26se041.edubridgehcm.utils;
 
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
+import com.sp26se041.edubridgehcm.models.SchoolHoliday;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -257,6 +259,60 @@ public class SchoolConfigUtil {
         return null;
     }
 
+    public static String validateSlotAvailability(
+            LocalDate targetDate,
+            LocalTime start,
+            LocalTime end,
+            String sessionTypeReq,
+            Map<String, Object> operationSettingsData,
+            List<SchoolHoliday> holidays) {
+
+        if (operationSettingsData == null) return null;
+
+        // KIỂM TRA HỌC KỲ (ACADEMIC SEMESTER)
+        if (!isWithinAcademicTerms(targetDate, operationSettingsData)) {
+            return "The selected date " + targetDate + " falls outside of the active academic semesters.";
+        }
+
+        // KIỂM TRA NGÀY NGHỈ/LỄ (SCHOOL HOLIDAYS)
+        if (holidays != null) {
+            for (SchoolHoliday holiday : holidays) {
+                // Check trùng ngày
+                if (!targetDate.isBefore(holiday.getStartDate()) && !targetDate.isAfter(holiday.getEndDate())) {
+                    if ((Boolean.TRUE.equals(holiday.getApplyToConsultant()))) {
+                        return "The campus is closed for: " + holiday.getTitle();
+                    }
+                }
+            }
+        }
+
+        //KIỂM TRA GIỜ LÀM VIỆC (WORKING CONFIG)
+        Object workingConfigObj = operationSettingsData.get("workingConfig");
+        if (workingConfigObj instanceof Map) {
+            String dayOfWeek = targetDate.getDayOfWeek().name().substring(0, 3); // "MON", "TUE"...
+            String error = validateWithWorkingConfig(dayOfWeek, start, end, sessionTypeReq, (Map<String, Object>) workingConfigObj);
+            if (error != null) return error;
+        }
+
+        return null;
+    }
+
+    //check nhanh "Ngày này có đi học không?
+    public static boolean isWithinAcademicTerms(LocalDate targetDate, Map<String, Object> operationSettingsData) {
+        if (operationSettingsData == null) return true;
+
+        Object calendarObj = operationSettingsData.get("academicCalendar");
+        if (!(calendarObj instanceof Map)) return true; // Nếu không config lịch thì mặc định cho phép
+
+        Map<String, Object> calendar = (Map<String, Object>) calendarObj;
+
+        // Tận dụng hàm isDateInTerm bạn đã viết ở dòng 282
+        boolean inTerm1 = isDateInTerm(targetDate, (Map<String, Object>) calendar.get("term1"));
+        boolean inTerm2 = isDateInTerm(targetDate, (Map<String, Object>) calendar.get("term2"));
+
+        return inTerm1 || inTerm2;
+    }
+
     public static String validateWithWorkingConfig(String dayOfWeek, LocalTime start, LocalTime end, String sessionTypeReq, Map<String, Object> workingConfig) {
         if (workingConfig == null) return null;
 
@@ -306,6 +362,22 @@ public class SchoolConfigUtil {
         }
 
         return null;
+    }
+
+    private static LocalDate parseDate(Object dateObj) {
+        if (dateObj == null) return null;
+        if (dateObj instanceof LocalDate) return (LocalDate) dateObj;
+        return LocalDate.parse(String.valueOf(dateObj));
+    }
+
+    // check date in this semester
+    private static boolean isDateInTerm(LocalDate date, Map<String, Object> term) {
+        if (term == null || term.get("start") == null || term.get("end") == null) return false;
+
+        LocalDate start = LocalDate.parse(String.valueOf(term.get("start")));
+        LocalDate end = LocalDate.parse(String.valueOf(term.get("end")));
+
+        return !date.isBefore(start) && !date.isAfter(end);
     }
 
     private static boolean isSessionMatched(String shiftName, String sessionValue) {

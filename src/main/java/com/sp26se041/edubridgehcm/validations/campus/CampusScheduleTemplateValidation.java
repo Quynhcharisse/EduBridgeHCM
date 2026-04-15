@@ -21,23 +21,23 @@ public class CampusScheduleTemplateValidation {
 
         if (request.getStartTime() == null || !request.getStartTime().matches(TIME_REGEX) ||
                 request.getEndTime() == null || !request.getEndTime().matches(TIME_REGEX)) {
-            return "Invalid time format (Expected HH:mm).";
+            return "Định dạng thời gian không hợp lệ (Yêu cầu HH:mm).";
         }
 
         LocalTime start = LocalTime.parse(request.getStartTime());
         LocalTime end = LocalTime.parse(request.getEndTime());
 
         if (!start.isBefore(end)) {
-            return "Start time must be earlier than end time.";
+            return "Thời gian bắt đầu phải trước thời gian kết thúc.";
         }
 
         long durationInMinutes = Duration.between(start, end).toMinutes();
         if (durationInMinutes < 30) {
-            return "A session must last at least 30 minutes.";
+            return "Một tiết học/phiên làm việc phải kéo dài ít nhất 30 phút.";
         }
 
         if (!isValidSessionType(request.getSessionType())) {
-            return "Invalid session type";
+            return "Loại buổi học không hợp lệ.";
         }
 
         String configError = SchoolConfigUtil.validateWithWorkingConfig(currentDay, start, end, request.getSessionType(), workingConfig);
@@ -52,7 +52,7 @@ public class CampusScheduleTemplateValidation {
                 .anyMatch(t -> start.isBefore(t.getEndTime()) && end.isAfter(t.getStartTime()));
 
         if (isOverLap) {
-            return "This time slot conflicts with an existing template.";
+            return "Khung giờ này đã trùng lặp với một lịch trình khác đã tồn tại.";
         }
 
         return null;

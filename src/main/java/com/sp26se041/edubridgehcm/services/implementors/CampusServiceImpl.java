@@ -17,6 +17,7 @@ import com.sp26se041.edubridgehcm.models.CounsellorSlot;
 import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
+import com.sp26se041.edubridgehcm.models.SchoolHoliday;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionReservationFormRepo;
@@ -30,6 +31,7 @@ import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorSlotRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolHolidayRepo;
 import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
@@ -116,6 +118,8 @@ public class CampusServiceImpl implements CampusService {
     private final ConversationRepo conversationRepo;
 
     private final ChatMessageRepo chatMessageRepo;
+
+    private final SchoolHolidayRepo schoolHolidayRepo;
 
     @Override
     @Transactional
@@ -815,6 +819,19 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
+        List<SchoolHoliday> holidayList = schoolHolidayRepo.findAllBySchoolIdAndCampusIdIn(actorCampus.getSchool().getId(), List.of(actorCampus.getId()));
+
+        // 1. Xác định các ngày lễ bị ảnh hưởng trong khoảng gán lịch
+        List<String> affectedHolidays = holidayList.stream()
+                .filter(h -> !(request.getEndDate().isBefore(h.getStartDate()) || request.getStartDate().isAfter(h.getEndDate())))
+                .filter(h -> Boolean.TRUE.equals(h.getApplyToConsultant())) // Chỉ lọc những ngày nghỉ có áp dụng cho tư vấn
+                .map(SchoolHoliday::getTitle)
+                .distinct()
+                .toList();
+
+        SchoolConfig operatingSystemsConfig = schoolConfigRepo.findBySchoolIdAndKey(
+                actorCampus.getSchool().getId(), "operationSettingsData").orElse(null);
+
         CampusScheduleTemplate template = campusScheduleTemplateRepo.findById(request.getTemplateId()).orElse(null);
         if (template == null) return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Template not found", null);
 
@@ -822,7 +839,11 @@ public class CampusServiceImpl implements CampusService {
 
         List<Counsellor> counsellors = counsellorRepo.findAllById(request.getCounsellorIds());
 
-        String error = CounsellorSlotValidation.validateAssignRequest(request, actorCampus, template, counsellors, allCurrentSlots);
+        Map<String, Object> operatingSettings = (operatingSystemsConfig != null)
+                ? (Map<String, Object>) operatingSystemsConfig.getValue()
+                : new HashMap<>();
+
+        String error = CounsellorSlotValidation.validateAssignRequest(operatingSettings, request, actorCampus, template, counsellors, allCurrentSlots);
 
         if (error != null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
@@ -862,7 +883,6 @@ public class CampusServiceImpl implements CampusService {
                 throw new IllegalArgumentException("Counsellor " + counsellor.getName() + " is busy during this period.");
             }
         }
-
         counsellorSlotRepo.save(CounsellorSlot.builder().campusScheduleTemplate(template).counsellor(counsellor).startDate(request.getStartDate()).endDate(request.getEndDate()).build());
     }
 
