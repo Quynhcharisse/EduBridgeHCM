@@ -70,14 +70,6 @@ public class SchoolConfigUtil {
 
         Map<String, Object> merged = new HashMap<>(hqData);
 
-        if (request.getHotline() != null) {
-            merged.put("hotline", request.getHotline());
-        }
-
-        if (request.getEmailSupport() != null) {
-            merged.put("emailSupport", request.getEmailSupport());
-        }
-
         if (request.getMinCounsellorPerSlot() != null) {
             merged.put("minCounsellorPerSlot", request.getMinCounsellorPerSlot());
         }
@@ -172,9 +164,11 @@ public class SchoolConfigUtil {
         if (operationData.get("slotDurationInMinutes") != null) {
             sb.append("⏱️ Thời lượng mỗi ca tư vấn: ").append(operationData.get("slotDurationInMinutes")).append(" phút\n");
         }
+
         if (operationData.get("maxBookingPerSlot") != null) {
             sb.append("🎟️ Số khách tối đa mỗi ca: ").append(operationData.get("maxBookingPerSlot")).append(" người\n");
         }
+
         if (operationData.get("allowBookingBeforeHours") != null) {
             sb.append("🛡️ Yêu cầu đặt lịch trước: ").append(operationData.get("allowBookingBeforeHours")).append(" giờ\n");
         }

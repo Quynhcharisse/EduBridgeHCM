@@ -21,10 +21,6 @@ public class UpdateCampusConfigRequest {
 
     Map<String, Object> imageJsonData;
 
-    String hotline;
-
-    String emailSupport;
-
     Integer minCounsellorPerSlot;
 
     Integer slotDurationInMinutes;   // Thời lượng mỗi ca tư vấn (ví dụ: 30, 45, 60)
