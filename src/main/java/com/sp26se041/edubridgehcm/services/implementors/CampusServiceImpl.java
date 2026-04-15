@@ -676,8 +676,35 @@ public class CampusServiceImpl implements CampusService {
 
         Map<String, Object> hqSection = new HashMap<>();
 
-        hqSection.put("facility", hqFacility != null ? hqFacility.getValue() : null);
-        hqSection.put("operation", hqOperation != null ? hqOperation.getValue() : null);
+        if (hqFacility != null && hqFacility.getValue() instanceof Map) {
+            Map<String, Object> fullFacility = (Map<String, Object>) hqFacility.getValue();
+            Map<String, Object> filteredFacility = new HashMap<>();
+
+            // CHỈ lấy những trường cần thiết, KHÔNG lấy overview
+            filteredFacility.put("itemList", fullFacility.get("itemList"));
+            filteredFacility.put("imageData", fullFacility.get("imageData"));
+
+            hqSection.put("facility", filteredFacility);
+        } else {
+            hqSection.put("facility", null);
+        }
+
+        if (hqOperation != null && hqOperation.getValue() instanceof Map) {
+            Map<String, Object> fullOp = (Map<String, Object>) hqOperation.getValue();
+            Map<String, Object> filteredOp = new HashMap<>();
+
+            filteredOp.put("workingConfig", fullOp.get("workingConfig"));
+            filteredOp.put("admissionProcesses", fullOp.get("admissionProcesses"));
+            filteredOp.put("maxBookingPerSlot", fullOp.get("maxBookingPerSlot"));
+            filteredOp.put("minCounsellorPerSlot", fullOp.get("minCounsellorPerSlot"));
+            filteredOp.put("slotDurationInMinutes", fullOp.get("slotDurationInMinutes"));
+            filteredOp.put("allowBookingBeforeHours", fullOp.get("allowBookingBeforeHours"));
+
+            hqSection.put("operation", filteredOp);
+        } else {
+            hqSection.put("operation", null);
+        }
+
         result.put("hqDefault", hqSection);
 
         Map<String, Object> campusUpdateInfo = new HashMap<>();
