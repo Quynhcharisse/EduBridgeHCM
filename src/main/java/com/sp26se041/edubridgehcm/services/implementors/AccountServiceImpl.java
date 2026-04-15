@@ -74,7 +74,9 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public ResponseEntity<ResponseObject> logout(HttpServletRequest request, HttpServletResponse response) {
+
         if (AuthRequestUtil.isMobileRequest(request)) {
+
             if (AuthRequestUtil.extractAuthenticatedAccount() == null) {
                 return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Logout failed", null);
             }

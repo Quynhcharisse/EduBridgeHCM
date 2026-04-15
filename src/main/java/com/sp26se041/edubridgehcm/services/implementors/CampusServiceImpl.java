@@ -723,6 +723,7 @@ public class CampusServiceImpl implements CampusService {
             campusUpdateInfo.put("slotDurationInMinutes", campusPolicyDb.get("slotDurationInMinutes"));
             campusUpdateInfo.put("maxBookingPerSlot", campusPolicyDb.get("maxBookingPerSlot"));
             campusUpdateInfo.put("allowBookingBeforeHours", campusPolicyDb.get("allowBookingBeforeHours"));
+            campusUpdateInfo.put("fullPolicyRendered", campusPolicyDb.get("fullTextRendered"));
             campusUpdateInfo.put("policyDetail", campusPolicyDb.get("rawCustomNote")); // Note riêng của campus
         }
 
