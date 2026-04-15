@@ -694,7 +694,7 @@ public class CampusServiceImpl implements CampusService {
             Map<String, Object> filteredOp = new HashMap<>();
 
             filteredOp.put("workingConfig", fullOp.get("workingConfig"));
-            filteredOp.put("academicCalendar", fullOp.get("academicCalendar"));git
+            filteredOp.put("academicCalendar", fullOp.get("academicCalendar"));
             filteredOp.put("admissionProcesses", fullOp.get("admissionProcesses"));
             filteredOp.put("maxBookingPerSlot", fullOp.get("maxBookingPerSlot"));
             filteredOp.put("minCounsellorPerSlot", fullOp.get("minCounsellorPerSlot"));
