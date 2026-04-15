@@ -99,4 +99,9 @@ public class School {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     List<FavouriteSchool> favouriteSchools;
+
+    @OneToMany(mappedBy = "school", cascade = CascadeType.ALL)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<SchoolHoliday> schoolHolidayList;
 }

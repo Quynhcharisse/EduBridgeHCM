@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -135,8 +136,24 @@ public class SchoolConfigRequest {
         int maxBookingPerSlot;       // Số học sinh tối đa trong 1 ca
         int allowBookingBeforeHours; // Chặn đặt lịch sát giờ (ví dụ: phải đặt trước 24h)
         WorkingConfig workingConfig;
-        // Phần quy trình đây:
+        AcademicCalendarConfig academicCalendar;
         List<MethodAdmissionProcess> methodAdmissionProcess; // các quy trình tuyển sinh
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class AcademicCalendarConfig {
+        SemesterTerm term1;
+        SemesterTerm term2;
+
+        @Data
+        public static class SemesterTerm {
+            LocalDate start;
+            LocalDate end;
+        }
     }
 
     @Data

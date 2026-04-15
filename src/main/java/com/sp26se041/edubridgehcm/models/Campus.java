@@ -3,10 +3,12 @@ package com.sp26se041.edubridgehcm.models;
 import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.Status;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -115,4 +117,8 @@ public class Campus {
     @EqualsAndHashCode.Exclude
     List<OpenDayEvent> openDayEvents;
 
+    @OneToMany(mappedBy = "campus", cascade = CascadeType.ALL)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<SchoolHoliday> schoolHolidayList;
 }

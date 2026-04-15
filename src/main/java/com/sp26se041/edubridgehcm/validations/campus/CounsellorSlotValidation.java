@@ -14,6 +14,7 @@ import java.util.Map;
 public class CounsellorSlotValidation {
 
     public static String validateAssignRequest(
+            Map<String, Object> operatingSettings,
             AssignCounsellorIntoSlotsRequest request,
             Campus campus,
             CampusScheduleTemplate template,
@@ -30,19 +31,17 @@ public class CounsellorSlotValidation {
             return "One or more counsellors do not exist in the system.";
         }
 
+        if (!SchoolConfigUtil.isWithinAcademicTerms(request.getStartDate(), operatingSettings)) {
+            return "Ngày bắt đầu gán lịch (" + request.getStartDate() + ") nằm ngoài học kỳ.";
+        }
+
+        if (!SchoolConfigUtil.isWithinAcademicTerms(request.getEndDate(), operatingSettings)) {
+            return "Ngày kết thúc gán lịch (" + request.getEndDate() + ") nằm ngoài học kỳ.";
+        }
+
         Map<String, Integer> policy = SchoolConfigUtil.getCampusPolicy(campus.getPolicyDetail());
 
         if ("ASSIGN".equalsIgnoreCase(request.getAction())) {
-
-            //check Thời lượng ca (Duration)
-            Integer requiredDuration = policy.get("slotDurationInMinutes");
-            if (requiredDuration != null) {
-                long actualDuration = java.time.Duration.between(template.getStartTime(), template.getEndTime()).toMinutes();
-                if (actualDuration != requiredDuration) {
-                    return String.format("Template duration (%d minutes) does not match campus policy (%d minutes).",
-                            actualDuration, requiredDuration);
-                }
-            }
 
             // Check số lượng Min/Max
             int minRequired = policy.getOrDefault("minCounsellorPerSlot", 1);
