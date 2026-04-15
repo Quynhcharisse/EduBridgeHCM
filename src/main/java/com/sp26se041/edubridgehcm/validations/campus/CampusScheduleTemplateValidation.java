@@ -1,13 +1,10 @@
 package com.sp26se041.edubridgehcm.validations.campus;
 
-import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.SessionType;
-import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
 import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
-import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.SchoolConfigUtil;
 
 import java.time.Duration;
@@ -43,7 +40,7 @@ public class CampusScheduleTemplateValidation {
             return "Invalid session type";
         }
 
-        String configError = SchoolConfigUtil.validateWithWorkingConfig(currentDay, start, end, workingConfig);
+        String configError = SchoolConfigUtil.validateWithWorkingConfig(currentDay, start, end, request.getSessionType(), workingConfig);
         if (configError != null) {
             return configError;
         }

@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.validations.campus;
 
 import com.sp26se041.edubridgehcm.enums.ResourceType;
+import com.sp26se041.edubridgehcm.models.CampusResourceQuota;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusResourceQuotaRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
@@ -36,15 +37,22 @@ public class CounsellorValidation {
             return "This email is already assigned to another counsellor.";
         }
 
-        // 2. KIỂM TRA QUOTA (Logic mới)
+        // 2. KIỂM TRA MUA GÓI & HẠN NGẠCH
         // Lấy hạn ngạch của Campus cho loại COUNSELLOR
         var quotaOpt = quotaRepo.findByCampusIdAndResourceType(campusId, ResourceType.COUNSELLOR);
 
+        // Trường hợp 1: Không tìm thấy bản ghi Quota -> Có thể chưa mua gói hoặc chưa phân bổ
         if (quotaOpt.isEmpty()) {
-            return "This campus has not been allocated a quota for Counsellors.";
+            return "Feature Locked: This campus has not subscribed to a service package or has not been allocated a counsellor quota.";
         }
 
-        int maxQuota = quotaOpt.get().getMaxQuota();
+        CampusResourceQuota quota = quotaOpt.get();
+        int maxQuota = quota.getMaxQuota();
+
+        // Trường hợp 2: Gói cước có tồn tại nhưng maxQuota được set = 0 (Gói không cho phép tạo)
+        if (maxQuota <= 0) {
+            return "Current service package does not support counsellor creation. Please upgrade your package.";
+        }
 
         // Đếm số lượng Counsellor hiện có của Campus này
         // Lưu ý: Bạn nên đếm những account đang ACTIVE hoặc tồn tại trong bảng Counsellor

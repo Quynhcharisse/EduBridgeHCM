@@ -39,4 +39,6 @@ public interface CampusRepo extends JpaRepository<Campus, Integer> {
     List<Campus> findNearbyCampuses(@Param("lat") Double lat,
                                     @Param("lng") Double lng,
                                     @Param("radius") Double radius);
+
+    List<Campus> findAllBySchoolId(Integer schoolId);
 }

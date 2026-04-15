@@ -87,7 +87,7 @@ public class EduBridgeHcmApplication {
             initTemplateDocx();
             initAdmin();
             initParent();
-            initPrimaryCampusAndCounsellor();
+            initPrimaryCampus();
             initConfigSystem();
             initSchoolConfig();
             initPersonalityTypes();
@@ -144,24 +144,39 @@ public class EduBridgeHcmApplication {
         }
     }
 
-    private void initPrimaryCampusAndCounsellor() {
+    private void initPrimaryCampus() {
         School school = resolveOrCreateSeedSchool();
 
-        Account primaryCampusAccount = accountRepo.findByEmail("main-campus@edubridge.local").orElseGet(() -> accountRepo.save(Account.builder().email("main-campus@edubridge.local").role(Role.SCHOOL).firstLogin(true).registerDate(LocalDate.now()).status(Status.ACCOUNT_ACTIVE).isRestricted(false).build()));
+        Account primaryCampusAccount = accountRepo.findByEmail("main-campus@edubridge.local")
+                .orElseGet(() -> accountRepo.save(Account.builder()
+                        .email("main-campus@edubridge.local")
+                        .role(Role.SCHOOL)
+                        .firstLogin(true)
+                        .registerDate(LocalDate.now())
+                        .status(Status.ACCOUNT_ACTIVE)
+                        .isRestricted(false)
+                        .build()));
 
-        Campus primaryCampus = campusRepo.findBySchoolId(school.getId()).stream().filter(campus -> Boolean.TRUE.equals(campus.getIsPrimaryBranch())).findFirst().orElseGet(() -> campusRepo.save(Campus.builder().school(school).account(primaryCampusAccount).name("Campus Chinh").phoneNumber("0900000000").address("Quan 1, TP Ho Chi Minh").city("Ho Chi Minh").district("Quan 1").latitude(10.7769).longitude(106.7009).boardingType(BoardingType.BOTH).status(Status.VERIFIED).isPrimaryBranch(true).build()));
+        Campus primaryCampus = campusRepo.findBySchoolId(school.getId()).stream()
+                .filter(campus -> Boolean.TRUE.equals(campus.getIsPrimaryBranch()))
+                .findFirst()
+                .orElseGet(() -> campusRepo.save(Campus.builder()
+                        .school(school)
+                        .account(primaryCampusAccount)
+                        .name("Campus Chinh")
+                        .phoneNumber("0900000000")
+                        .address("Quan 1, TP Ho Chi Minh")
+                        .city("Ho Chi Minh")
+                        .district("Quan 1")
+                        .latitude(10.7769)
+                        .longitude(106.7009)
+                        .boardingType(BoardingType.BOTH)
+                        .status(Status.VERIFIED)
+                        .isPrimaryBranch(true)
+                        .build()));
 
-        primaryCampus = ensurePrimaryCampusSeedFields(primaryCampus, school, primaryCampusAccount);
-
-        Account counsellorAccount = accountRepo.findByEmail("counsellor-main@edubridge.local").orElseGet(() -> accountRepo.save(Account.builder().email("counsellor-main@edubridge.local").role(Role.COUNSELLOR).firstLogin(true).registerDate(LocalDate.now()).status(Status.ACCOUNT_ACTIVE).isRestricted(false).build()));
-
-        Optional<Counsellor> existingCounsellor = counsellorRepo.findByAccountIdAndCampusId(counsellorAccount.getId(), primaryCampus.getId());
-
-        if (existingCounsellor.isPresent()) {
-            return;
-        }
-
-        counsellorRepo.save(Counsellor.builder().account(counsellorAccount).campus(primaryCampus).name("Counsellor Chinh").employeeCode(UUID.randomUUID()).build());
+        // Đã xóa phần counsellorRepo.save tại đây
+        ensurePrimaryCampusSeedFields(primaryCampus, school, primaryCampusAccount);
     }
 
     private Campus ensurePrimaryCampusSeedFields(Campus campus, School school, Account primaryCampusAccount) {
