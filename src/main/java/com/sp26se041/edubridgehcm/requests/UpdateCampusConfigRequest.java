@@ -17,8 +17,6 @@ import java.util.Map;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateCampusConfigRequest {
 
-    String overview;
-
     List<FacilityItemRequest> itemList;
 
     Map<String, Object> imageJsonData;

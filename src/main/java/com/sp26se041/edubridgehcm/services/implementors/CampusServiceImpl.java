@@ -627,7 +627,6 @@ public class CampusServiceImpl implements CampusService {
         );
 
         Map<String, Object> facilityJson = new HashMap<>();
-        facilityJson.put("overview", request.getOverview());
         facilityJson.put("itemList", mergedFinalFacilityItems);
         facilityJson.put("imageData", request.getImageJsonData());
         actorCampus.setFacility(facilityJson);
