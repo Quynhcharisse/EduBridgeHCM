@@ -644,17 +644,11 @@ public class CampusServiceImpl implements CampusService {
             }
 
             Map<String, Object> policyJsonb = new HashMap<>();
-
             policyJsonb.put("minCounsellorPerSlot", mergedOp.get("minCounsellorPerSlot"));
-
             policyJsonb.put("slotDurationInMinutes", mergedOp.get("slotDurationInMinutes"));
-
             policyJsonb.put("maxBookingPerSlot", mergedOp.get("maxBookingPerSlot"));
-
             policyJsonb.put("allowBookingBeforeHours", mergedOp.get("allowBookingBeforeHours"));
-
             policyJsonb.put("fullTextRendered", finalPolicyStr);
-
             policyJsonb.put("rawCustomNote", request.getPolicyDetail());
 
             actorCampus.setPolicyDetail(policyJsonb);
@@ -674,7 +668,6 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
-
         SchoolConfig hqFacility = schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), "facilityData").orElse(null);
 
         SchoolConfig hqOperation = schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), "operationSettingsData").orElse(null);
@@ -687,11 +680,25 @@ public class CampusServiceImpl implements CampusService {
         hqSection.put("operation", hqOperation != null ? hqOperation.getValue() : null);
         result.put("hqDefault", hqSection);
 
-        Map<String, Object> campusSection = new HashMap<>();
-        campusSection.put("facilityJson", actorCampus.getFacility());
-        campusSection.put("policyDetailRendered", actorCampus.getPolicyDetail());
+        Map<String, Object> campusUpdateInfo = new HashMap<>();
 
-        result.put("campusCurrent", campusSection);
+        Map<String, Object> campusFacilityData = (Map<String, Object>) actorCampus.getFacility();
+
+        if (campusFacilityData != null) {
+            campusUpdateInfo.put("itemList", campusFacilityData.get("itemList"));
+            campusUpdateInfo.put("imageData", campusFacilityData.get("imageData"));
+        }
+
+        Map<String, Object> campusPolicyDb = (Map<String, Object>) actorCampus.getPolicyDetail();
+        if (campusPolicyDb != null) {
+            campusUpdateInfo.put("minCounsellorPerSlot", campusPolicyDb.get("minCounsellorPerSlot"));
+            campusUpdateInfo.put("slotDurationInMinutes", campusPolicyDb.get("slotDurationInMinutes"));
+            campusUpdateInfo.put("maxBookingPerSlot", campusPolicyDb.get("maxBookingPerSlot"));
+            campusUpdateInfo.put("allowBookingBeforeHours", campusPolicyDb.get("allowBookingBeforeHours"));
+            campusUpdateInfo.put("policyDetail", campusPolicyDb.get("rawCustomNote")); // Note riêng của campus
+        }
+
+        result.put("campusCurrent", campusUpdateInfo);
 
         return ResponseBuilder.build(HttpStatus.OK, "", result);
     }
