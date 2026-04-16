@@ -26,10 +26,10 @@ public class SecurityConfig {
 
     private final AuthenticationProvider authenticationProvider;
 
-    @Value("${URL_DEV_FE}")
+    @Value("${URL_SERVER_FE}")
     private String feUrl;
 
-    @Value("${URL_DEV_BE}")
+    @Value("${URL_SERVER_BE}")
     private String beUrl;
 
     @Bean
