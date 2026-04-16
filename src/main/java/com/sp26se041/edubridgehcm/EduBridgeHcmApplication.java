@@ -1,18 +1,12 @@
 package com.sp26se041.edubridgehcm;
 
-import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.CategoryTemplate;
-import com.sp26se041.edubridgehcm.enums.Gender;
 import com.sp26se041.edubridgehcm.enums.PersonalityTypeGroup;
-import com.sp26se041.edubridgehcm.enums.Relationship;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.enums.SubjectType;
 import com.sp26se041.edubridgehcm.models.Account;
-import com.sp26se041.edubridgehcm.models.Campus;
-import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Major;
-import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.PersonalityType;
 import com.sp26se041.edubridgehcm.models.PlatformConfig;
 import com.sp26se041.edubridgehcm.models.School;
@@ -21,9 +15,7 @@ import com.sp26se041.edubridgehcm.models.Subject;
 import com.sp26se041.edubridgehcm.models.TemplateDocx;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
-import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.MajorRepo;
-import com.sp26se041.edubridgehcm.repositories.ParentRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
 import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
@@ -56,14 +48,6 @@ public class EduBridgeHcmApplication {
 
     private final AccountRepo accountRepo;
 
-    private final ParentRepo parentRepo;
-
-    private final SchoolRepo schoolRepo;
-
-    private final CampusRepo campusRepo;
-
-    private final CounsellorRepo counsellorRepo;
-
     private final PlatformConfigRepo platformConfigRepo;
 
     private final PersonalityTypeRepo personalityTypeRepo;
@@ -73,7 +57,9 @@ public class EduBridgeHcmApplication {
     private final SubjectRepo subjectRepo;
 
     private final SchoolConfigRepo schoolConfigRepo;
+
     private final TemplateDocxRepo templateDocxRepo;
+
     private final SupabaseStorageService supabaseStorageService;
 
     public static void main(String[] args) {
@@ -86,8 +72,6 @@ public class EduBridgeHcmApplication {
 
             initTemplateDocx();
             initAdmin();
-            initParent();
-            initPrimaryCampus();
             initConfigSystem();
             initSchoolConfig();
             initPersonalityTypes();
@@ -97,7 +81,7 @@ public class EduBridgeHcmApplication {
     }
 
     private void initAdmin() {
-        String adminEmail = "systemteacher08@gmail.com";
+        String adminEmail = "edubridgehcm@gmail.com";
 
         Optional<Account> existingAccount = accountRepo.findByEmail(adminEmail);
 
@@ -111,123 +95,6 @@ public class EduBridgeHcmApplication {
                     .isRestricted(false)
                     .build());
         }
-    }
-
-    private void initParent() {
-        String parentEmail = "parent@gmail.com";
-        Optional<Account> accountOpt = accountRepo.findByEmail(parentEmail);
-        Account account;
-        if (accountOpt.isEmpty()) {
-            account = accountRepo.save(Account.builder()
-                    .email(parentEmail)
-                    .role(Role.PARENT)
-                    .firstLogin(false)
-                    .registerDate(LocalDate.now())
-                    .status(Status.ACCOUNT_ACTIVE)
-                    .isRestricted(false)
-                    .build());
-        } else {
-            account = accountOpt.get();
-        }
-
-        if (!parentRepo.existsByAccountId(account.getId())) {
-            parentRepo.save(Parent.builder()
-                    .account(account)
-                    .relationship(Relationship.FATHER)
-                    .name("John Doe")
-                    .gender(Gender.MALE)
-                    .idCardNumber("123456789")
-                    .workplace("ABC Company")
-                    .occupation("Engineer")
-                    .currentAddress("District 1, Ho Chi Minh city")
-                    .build());
-        }
-    }
-
-    private void initPrimaryCampus() {
-        School school = resolveOrCreateSeedSchool();
-
-        Account primaryCampusAccount = accountRepo.findByEmail("main-campus@edubridge.local")
-                .orElseGet(() -> accountRepo.save(Account.builder()
-                        .email("main-campus@edubridge.local")
-                        .role(Role.SCHOOL)
-                        .firstLogin(true)
-                        .registerDate(LocalDate.now())
-                        .status(Status.ACCOUNT_ACTIVE)
-                        .isRestricted(false)
-                        .build()));
-
-        Campus primaryCampus = campusRepo.findBySchoolId(school.getId()).stream()
-                .filter(campus -> Boolean.TRUE.equals(campus.getIsPrimaryBranch()))
-                .findFirst()
-                .orElseGet(() -> campusRepo.save(Campus.builder()
-                        .school(school)
-                        .account(primaryCampusAccount)
-                        .name("Campus Chinh")
-                        .phoneNumber("0900000000")
-                        .address("Quan 1, TP Ho Chi Minh")
-                        .city("Ho Chi Minh")
-                        .district("Quan 1")
-                        .latitude(10.7769)
-                        .longitude(106.7009)
-                        .boardingType(BoardingType.BOTH)
-                        .status(Status.VERIFIED)
-                        .isPrimaryBranch(true)
-                        .build()));
-
-        // Đã xóa phần counsellorRepo.save tại đây
-        ensurePrimaryCampusSeedFields(primaryCampus, school, primaryCampusAccount);
-    }
-
-    private Campus ensurePrimaryCampusSeedFields(Campus campus, School school, Account primaryCampusAccount) {
-        boolean changed = false;
-
-        if (campus.getSchool() == null) {
-            campus.setSchool(school);
-            changed = true;
-        }
-
-        if (campus.getAccount() == null) {
-            campus.setAccount(primaryCampusAccount);
-            changed = true;
-        }
-
-        if (campus.getCity() == null) {
-            campus.setCity("Ho Chi Minh");
-            changed = true;
-        }
-
-        if (campus.getDistrict() == null) {
-            campus.setDistrict("Quan 1");
-            changed = true;
-        }
-
-        if (campus.getLatitude() == null) {
-            campus.setLatitude(10.7769);
-            changed = true;
-        }
-
-        if (campus.getLongitude() == null) {
-            campus.setLongitude(106.7009);
-            changed = true;
-        }
-
-        if (campus.getBoardingType() == null) {
-            campus.setBoardingType(BoardingType.BOTH);
-            changed = true;
-        }
-
-        if (changed) {
-            return campusRepo.save(campus);
-        }
-
-        return campus;
-    }
-
-    private School resolveOrCreateSeedSchool() {
-        String seedTaxCode = "0312345678";
-
-        return schoolRepo.findAll().stream().filter(school -> seedTaxCode.equals(school.getTaxCode())).findFirst().orElseGet(() -> schoolRepo.save(School.builder().name("EduBridge Seed School").taxCode(seedTaxCode).websiteUrl("https://edubridge.local").hotline("0900000000").averageRating(BigDecimal.ZERO).isFeatured(false).foundingDate(LocalDate.of(2020, 1, 1)).build()));
     }
 
     private void initConfigSystem() {
