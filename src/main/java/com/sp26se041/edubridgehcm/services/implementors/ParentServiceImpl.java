@@ -135,7 +135,7 @@ public class ParentServiceImpl implements ParentService {
     public ResponseEntity<ResponseObject> getChatHistory(String parentEmail, int campusId, int studentProfileId, Long cursorId) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn bị cấm", null);
         }
 
         Optional<Account> accParent = accountRepo.findByEmail(parentEmail);
@@ -331,7 +331,7 @@ public class ParentServiceImpl implements ParentService {
 
         boolean exists = favouriteSchoolRepo.existsByParentAndSchool(parent, school);
         if (exists) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "School is already in favourite list", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Trường đã tồn tại trong danh sách trường yêu thích", null);
         }
 
         FavouriteSchool favouriteSchool = FavouriteSchool.builder()
@@ -342,7 +342,7 @@ public class ParentServiceImpl implements ParentService {
 
         favouriteSchoolRepo.save(favouriteSchool);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Add favourite school successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Thêm trường yêu thích thành công", null);
     }
 
 
@@ -600,6 +600,98 @@ public class ParentServiceImpl implements ParentService {
         return ResponseBuilder.build(HttpStatus.OK, "Update student info successfully", null);
     }
 
+
+
+    // Get config admin persona, subject, major
+    @Override
+    public ResponseEntity<ResponseObject> getPersonalityTypes() {
+
+        List<PersonalityType> personalityTypes = personalityTypeRepo.findAllByStatus(Status.PERSONALITY_TYPE_ACTIVE);
+
+        Map<String, List<PersonalityType>> result = new LinkedHashMap<>();
+
+        for (PersonalityType p : personalityTypes) {
+            String group = p.getPersonalityTypeGroup().getValue();
+            result
+                    .computeIfAbsent(group, k -> new ArrayList<>())
+                    .add(p);
+        }
+
+        return ResponseBuilder.build(HttpStatus.OK, "Get personality types successfully", result);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getAllMajors() {
+        List<Map<String, Object>> result = majorRepo.findAll().stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.groupingBy(
+                        m -> Optional.ofNullable(m.getGroup()).orElse("UNKNOWN")
+                ))
+                .entrySet()
+                .stream()
+                .map(e -> Map.of(
+                        "group", e.getKey(),
+                        "majors", e.getValue().stream()
+                                .filter(Objects::nonNull)
+                                .map(m -> Map.of(
+                                        "code", Optional.ofNullable(m.getCode()).orElse(0L),
+                                        "name", Optional.ofNullable(m.getName()).orElse("N/A")
+                                ))
+                                .toList()
+                ))
+                .toList();
+
+        return ResponseBuilder.build(
+                HttpStatus.OK,
+                "Get all majors successfully",
+                result
+        );
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getAllSubjects() {
+
+        List<Subject> subjects = subjectRepo.findAll();
+
+        List<Map<String, Object>> result = subjects.stream()
+                .collect(Collectors.groupingBy(Subject::getType))
+                .entrySet()
+                .stream()
+                .map(entry -> {
+                    Map<String, Object> groupMap = new HashMap<>();
+
+                    // 🔥 dùng value thay vì name()
+                    groupMap.put("type", entry.getKey().getValue());
+
+                    // label cho FE
+                    String label = switch (entry.getKey()) {
+                        case REGULAR_SUBJECT -> "Môn học chính";
+                        case FOREIGN_LANGUAGE_SUBJECT -> "Ngoại ngữ";
+                    };
+                    groupMap.put("label", label);
+
+                    List<Map<String, Object>> subjectList = entry.getValue().stream()
+                            .map(s -> {
+                                Map<String, Object> item = new HashMap<>();
+                                item.put("id", s.getId());
+                                item.put("name", s.getName());
+                                return item;
+                            })
+                            .toList();
+
+                    groupMap.put("subjects", subjectList);
+
+                    return groupMap;
+                })
+                .toList();
+
+        return ResponseBuilder.build(
+                HttpStatus.OK,
+                "Get all subjects successfully",
+                result
+        );
+    }
+
     private String validateUpdateStudentInfoRequest(UpdateStudentInfoRequest request) {
         if (request == null) {
             return "Request must not be null";
@@ -665,9 +757,7 @@ public class ParentServiceImpl implements ParentService {
     }
 
     private String validateAddStudentInfoRequest(AddStudentInfoRequest request) {
-        if (request == null) {
-            return "Request must not be null";
-        }
+
         if (isBlank(request.getStudentName())) {
             return "Child name must not be blank";
         }
@@ -810,96 +900,6 @@ public class ParentServiceImpl implements ParentService {
             }
         }
         return "";
-    }
-
-    // Get config admin persona, subject, major
-    @Override
-    public ResponseEntity<ResponseObject> getPersonalityTypes() {
-
-        List<PersonalityType> personalityTypes = personalityTypeRepo.findAllByStatus(Status.PERSONALITY_TYPE_ACTIVE);
-
-        Map<String, List<PersonalityType>> result = new LinkedHashMap<>();
-
-        for (PersonalityType p : personalityTypes) {
-            String group = p.getPersonalityTypeGroup().getValue();
-            result
-                    .computeIfAbsent(group, k -> new ArrayList<>())
-                    .add(p);
-        }
-
-        return ResponseBuilder.build(HttpStatus.OK, "Get personality types successfully", result);
-    }
-
-    @Override
-    public ResponseEntity<ResponseObject> getAllMajors() {
-        List<Map<String, Object>> result = majorRepo.findAll().stream()
-                .filter(Objects::nonNull)
-                .collect(Collectors.groupingBy(
-                        m -> Optional.ofNullable(m.getGroup()).orElse("UNKNOWN")
-                ))
-                .entrySet()
-                .stream()
-                .map(e -> Map.of(
-                        "group", e.getKey(),
-                        "majors", e.getValue().stream()
-                                .filter(Objects::nonNull)
-                                .map(m -> Map.of(
-                                        "code", Optional.ofNullable(m.getCode()).orElse(0L),
-                                        "name", Optional.ofNullable(m.getName()).orElse("N/A")
-                                ))
-                                .toList()
-                ))
-                .toList();
-
-        return ResponseBuilder.build(
-                HttpStatus.OK,
-                "Get all majors successfully",
-                result
-        );
-    }
-
-    @Override
-    public ResponseEntity<ResponseObject> getAllSubjects() {
-
-        List<Subject> subjects = subjectRepo.findAll();
-
-        List<Map<String, Object>> result = subjects.stream()
-                .collect(Collectors.groupingBy(Subject::getType))
-                .entrySet()
-                .stream()
-                .map(entry -> {
-                    Map<String, Object> groupMap = new HashMap<>();
-
-                    // 🔥 dùng value thay vì name()
-                    groupMap.put("type", entry.getKey().getValue());
-
-                    // label cho FE
-                    String label = switch (entry.getKey()) {
-                        case REGULAR_SUBJECT -> "Môn học chính";
-                        case FOREIGN_LANGUAGE_SUBJECT -> "Ngoại ngữ";
-                    };
-                    groupMap.put("label", label);
-
-                    List<Map<String, Object>> subjectList = entry.getValue().stream()
-                            .map(s -> {
-                                Map<String, Object> item = new HashMap<>();
-                                item.put("id", s.getId());
-                                item.put("name", s.getName());
-                                return item;
-                            })
-                            .toList();
-
-                    groupMap.put("subjects", subjectList);
-
-                    return groupMap;
-                })
-                .toList();
-
-        return ResponseBuilder.build(
-                HttpStatus.OK,
-                "Get all subjects successfully",
-                result
-        );
     }
 
 }

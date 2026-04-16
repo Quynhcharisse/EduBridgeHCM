@@ -39,7 +39,7 @@ public class WebSocketServiceImpl implements WebSocketService {
     public String createChatMessage(ChatMessage chatMessage) {
         Optional<Conversation> conversation = conversationRepo.findById(chatMessage.getConversationId());
         if (conversation.isEmpty()) {
-            return "Please refresh page and try again later";
+            return "Hãy làm mới trang và thử lại sau";
         }
         chatMessage.setStatus(Status.MESSAGE_SENT);
         conversation.get().setUpdatedDate(LocalDateTime.now());

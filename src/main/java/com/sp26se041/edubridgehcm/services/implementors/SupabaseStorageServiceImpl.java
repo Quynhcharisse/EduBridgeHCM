@@ -2,6 +2,9 @@ package com.sp26se041.edubridgehcm.services.implementors;
 
 import aj.org.objectweb.asm.TypeReference;
 import com.deepoove.poi.XWPFTemplate;
+import com.deepoove.poi.config.Configure;
+import com.deepoove.poi.config.ConfigureBuilder;
+import com.deepoove.poi.plugin.table.LoopRowTableRenderPolicy;
 import com.sp26se041.edubridgehcm.responses.StorageTreeNode;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +35,6 @@ import java.util.Objects;
 
 public class SupabaseStorageServiceImpl implements SupabaseStorageService {
 
-    private final ObjectMapper objectMapper;
     @Value("${supabase.url}")
     private String supabaseUrl;
 
@@ -50,13 +52,13 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
                                  List<String> allowedExt) throws Exception {
 
         if (file.isEmpty()) {
-            throw new IllegalArgumentException("File is empty");
+            throw new IllegalArgumentException("File không được trống");
         }
 
         String originalFilename = file.getOriginalFilename();
 
         if (originalFilename == null || !originalFilename.contains(".")) {
-            throw new IllegalArgumentException("Invalid file name");
+            throw new IllegalArgumentException("Tên file không hợp lệ");
         }
 
         // ✅ lấy extension
@@ -65,7 +67,7 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
 
         if (!allowedExt.contains(ext)) {
             throw new IllegalArgumentException(
-                    "Only allowed file types: " + String.join(", ", allowedExt)
+                    "Chỉ cho các định dạng file: " + String.join(", ", allowedExt)
             );
         }
 
@@ -267,12 +269,31 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
         return response.getBody();
     }
 
+    private ConfigureBuilder buildDocxConfig(Map<String, Object> data, List<String> loopKeys) {
+        ConfigureBuilder builder = Configure.builder();
+
+        for (String key : loopKeys) {
+            Object value = data.get(key);
+            if (value instanceof List<?> list && !list.isEmpty()) {
+                builder.bind(key, new LoopRowTableRenderPolicy());
+            }
+        }
+
+        return builder;
+    }
+
     private byte[] replaceDocx(byte[] templateBytes, Map<String, Object> data) throws Exception {
         try (
                 ByteArrayInputStream in = new ByteArrayInputStream(templateBytes);
                 ByteArrayOutputStream out = new ByteArrayOutputStream()
         ) {
-            XWPFTemplate template = XWPFTemplate.compile(in).render(data);
+
+            Configure config = buildDocxConfig(
+                    data,
+                    List.of("facilityItems")
+            ).build();
+
+            XWPFTemplate template = XWPFTemplate.compile(in, config).render(data);
             template.write(out);
             return out.toByteArray();
         }

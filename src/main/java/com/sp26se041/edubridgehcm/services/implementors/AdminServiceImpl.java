@@ -312,6 +312,7 @@ public class AdminServiceImpl implements AdminService {
 
             Map<String, Object> fields = new LinkedHashMap<>();
             fields.put("name", autoGenCampusName);
+            fields.put("schoolName", request.getSchoolName().trim());
             fields.put("phoneNumber", request.getCampusPhone().trim());
             fields.put("address", request.getCampusAddress().trim());
             fields.put("boardingType", "UPDATING");
@@ -360,6 +361,7 @@ public class AdminServiceImpl implements AdminService {
                     .format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
             fields.put("logoUrl", request.getLogoUrl());
             fields.put("businessLicenseUrl", newBusinessLicenseUrl);
+            fields.put("overview", "UPDATING");
 
             String schoolName = toSafeObjectKey(request.getSchoolName());
             String folderName = schoolName + "_" + uuid;
@@ -389,7 +391,7 @@ public class AdminServiceImpl implements AdminService {
                 .websiteUrl(request.getWebsiteUrl())
                 .logoUrl(request.getLogoUrl()).representativeName(request.getRepresentativeName())
                 .hotline(request.getHotline()).foundingDate(request.getFoundingDate())
-                .folderPath(toSafeObjectKey(request.getSchoolName()) + "_" + uuid + "/")
+                .folderPath(toSafeObjectKey(request.getSchoolName()) + "_" + uuid)
                 .businessLicenseUrl(request.getBusinessLicenseUrl())
                 .build());
 

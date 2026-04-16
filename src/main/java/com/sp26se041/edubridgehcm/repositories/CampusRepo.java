@@ -41,4 +41,6 @@ public interface CampusRepo extends JpaRepository<Campus, Integer> {
                                     @Param("radius") Double radius);
 
     List<Campus> findAllBySchoolId(Integer schoolId);
+
+    List<Campus> findByFacilityIsNull();
 }

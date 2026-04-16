@@ -1,24 +1,31 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sp26se041.edubridgehcm.enums.CategoryTemplate;
 import com.sp26se041.edubridgehcm.enums.ResourceType;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusResourceQuota;
+import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.SchoolSubscription;
+import com.sp26se041.edubridgehcm.models.TemplateDocx;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusResourceQuotaRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolSubscriptionRepo;
+import com.sp26se041.edubridgehcm.repositories.TemplateDocxRepo;
 import com.sp26se041.edubridgehcm.requests.SchoolConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolConfigService;
+import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
+import org.jsoup.Jsoup;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -26,10 +33,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -48,6 +57,9 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
     private final ObjectMapper objectMapper;
 
     private final CampusResourceQuotaRepo campusResourceQuotaRepo;
+    private final SchoolRepo schoolRepo;
+    private final TemplateDocxRepo templateDocxRepo;
+    private final SupabaseStorageService supabaseStorageService;
 
     @Override
     @Transactional
@@ -355,6 +367,68 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
     public void updateFacility(int schoolId, SchoolConfigRequest request) {
 
         SchoolConfigRequest.FacilityData facilityData = request.getFacilityData();
+
+        try {
+
+            Optional<School> school = schoolRepo.findById(schoolId);
+
+            if (school.isEmpty()) {
+                 throw new Exception("School not found or be deleted");
+            }
+
+            Optional<TemplateDocx> schoolTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.SCHOOL_INFO_TEMPLATE);
+
+            if (schoolTemplateDocx.isEmpty()) {
+                throw new Exception("School template docx not found or be deleted");
+            }
+
+            String overview = facilityData.getOverview();
+
+            if (overview != null) {
+                overview = Jsoup.parse(overview).text();
+            }
+
+
+            Map<String, Object> fields = new LinkedHashMap<>();
+            fields.put("name", school.get().getName());
+            fields.put("description", school.get().getDescription());
+            fields.put("taxCode", school.get().getTaxCode());
+            fields.put("websiteUrl", school.get().getWebsiteUrl());
+            fields.put("representativeName", school.get().getRepresentativeName());
+            fields.put("hotline", school.get().getHotline());
+            fields.put("foundingDate", school.get().getFoundingDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+            fields.put("logoUrl", school.get().getLogoUrl());
+            fields.put("businessLicenseUrl", school.get().getBusinessLicenseUrl());
+            fields.put("overview", overview);
+
+            String folderName = school.get().getFolderPath();
+            String fileName = "school_info.docx";
+
+            String templatePath = schoolTemplateDocx.get().getFolderName() + "/" + schoolTemplateDocx.get().getFileName();
+
+            String fileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
+
+        } catch (Exception ex) {
+            System.out.println(ex.getMessage());
+        }
+
+        try {
+
+            List<Campus> campusList = campusRepo.findByFacilityIsNull();
+
+            Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
+
+            if (campusTemplateDocx.isEmpty()) {
+                throw new Exception("Campus document template is not available.");
+            }
+
+            String templatePath = campusTemplateDocx.get().getFolderName() + "/" + campusTemplateDocx.get().getFileName();
+
+
+
+        } catch (Exception ex){
+
+        }
 
         // 1. Xử lý phần Hình ảnh (ImageData)
         Map<String, Object> imageMap = new HashMap<>();
