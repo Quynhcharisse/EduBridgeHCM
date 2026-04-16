@@ -1,6 +1,5 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
-import aj.org.objectweb.asm.TypeReference;
 import com.deepoove.poi.XWPFTemplate;
 import com.deepoove.poi.config.Configure;
 import com.deepoove.poi.config.ConfigureBuilder;
@@ -8,8 +7,6 @@ import com.deepoove.poi.plugin.table.LoopRowTableRenderPolicy;
 import com.sp26se041.edubridgehcm.responses.StorageTreeNode;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import lombok.RequiredArgsConstructor;
-import org.docx4j.Docx4J;
-import org.docx4j.openpackaging.packages.WordprocessingMLPackage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -19,7 +16,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
-import tools.jackson.databind.ObjectMapper;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -151,7 +147,7 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
         try {
            generatedDocx = replaceDocx(templateBytes, data);
         } catch (Exception e)   {
-            throw new Exception("Failed to generate PDF document from template", e);
+            throw new Exception("Failed to generate document from template", e);
         }
 
 
@@ -160,7 +156,6 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(serviceRoleKey);
         headers.set("apikey", serviceRoleKey);
-        headers.set("x-upsert", "true");
         headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
 
         HttpEntity<byte[]> entity = new HttpEntity<>(generatedDocx, headers);
@@ -269,33 +264,23 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
         return response.getBody();
     }
 
-    private ConfigureBuilder buildDocxConfig(Map<String, Object> data, List<String> loopKeys) {
-        ConfigureBuilder builder = Configure.builder();
-
-        for (String key : loopKeys) {
-            Object value = data.get(key);
-            if (value instanceof List<?> list && !list.isEmpty()) {
-                builder.bind(key, new LoopRowTableRenderPolicy());
-            }
-        }
-
-        return builder;
-    }
-
     private byte[] replaceDocx(byte[] templateBytes, Map<String, Object> data) throws Exception {
         try (
                 ByteArrayInputStream in = new ByteArrayInputStream(templateBytes);
                 ByteArrayOutputStream out = new ByteArrayOutputStream()
         ) {
+            System.out.println("facilityItems = " + data.get("facilityItems"));
 
-            Configure config = buildDocxConfig(
-                    data,
-                    List.of("facilityItems")
-            ).build();
+            Configure config = Configure.builder()
+                    .bind("facilityItems", new LoopRowTableRenderPolicy(true))
+                    .build();
 
             XWPFTemplate template = XWPFTemplate.compile(in, config).render(data);
             template.write(out);
             return out.toByteArray();
+
+        } catch (Exception ex) {
+            throw new Exception("Failed to render DOCX template", ex);
         }
     }
 

@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.CategoryTemplate;
 import com.sp26se041.edubridgehcm.enums.ResourceType;
 import com.sp26se041.edubridgehcm.enums.Role;
@@ -31,6 +32,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -40,8 +42,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -388,6 +392,9 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                 overview = Jsoup.parse(overview).text();
             }
 
+            supabaseStorageService.removeFile(school.get().getFolderPath(), school.get().getFileName());
+
+            String uuid = UUID.randomUUID().toString();
 
             Map<String, Object> fields = new LinkedHashMap<>();
             fields.put("name", school.get().getName());
@@ -402,33 +409,69 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
             fields.put("overview", overview);
 
             String folderName = school.get().getFolderPath();
-            String fileName = "school_info.docx";
+            String fileName = "school_info_" + uuid + ".docx";
 
             String templatePath = schoolTemplateDocx.get().getFolderName() + "/" + schoolTemplateDocx.get().getFileName();
 
             String fileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
 
+            school.get().setFileName(fileName);
+            schoolRepo.save(school.get());
+
         } catch (Exception ex) {
             System.out.println(ex.getMessage());
         }
 
-        try {
+        List<Campus> campusList = campusRepo.findByFacilityIsNull();
 
-            List<Campus> campusList = campusRepo.findByFacilityIsNull();
+        Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
 
-            Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
-
-            if (campusTemplateDocx.isEmpty()) {
-                throw new Exception("Campus document template is not available.");
-            }
-
-            String templatePath = campusTemplateDocx.get().getFolderName() + "/" + campusTemplateDocx.get().getFileName();
-
-
-
-        } catch (Exception ex){
-
+        if (campusTemplateDocx.isEmpty()) {
+            System.out.println("Campus document template is not available.");
         }
+
+        String templatePath = campusTemplateDocx.get().getFolderName() + "/" + campusTemplateDocx.get().getFileName();
+
+        for (Campus campus : campusList) {
+
+            try {
+
+                supabaseStorageService.removeFile(campus.getFolderPath(), campus.getFileName());
+
+                String uuid = UUID.randomUUID().toString();
+
+                List<Map<String, Object>> facilityItems = facilityData.getItemList().stream()
+                        .map(item -> {
+                            Map<String, Object> row = new HashMap<>();
+                            row.put("code", item.getFacilityCode());
+                            row.put("facilityName", item.getName());
+                            row.put("category", item.getCategory());
+                            row.put("quantity", item.getValue());
+                            row.put("unit", item.getUnit());
+                            return row;
+                        })
+                        .toList();
+
+                Map<String, Object> campusData = buildCampusDocxData(campus, facilityItems);
+
+                String folderName = campus.getFolderPath();
+                String fileName = "campus_info_" + uuid + ".docx";
+
+                String fileUrl = supabaseStorageService.generateDocFileFromTemplate(
+                        campusData,
+                        templatePath,
+                        folderName,
+                        fileName
+                );
+
+                campus.setFileName(fileName);
+                campusRepo.save(campus);
+
+            } catch (Exception e) {
+                System.out.println("Failed to generate campus docx" + e.getMessage());
+            }
+        }
+
 
         // 1. Xử lý phần Hình ảnh (ImageData)
         Map<String, Object> imageMap = new HashMap<>();
@@ -469,6 +512,39 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         config.setValue(facilityJson);
         config.setUpdatedAt(LocalDateTime.now());
         schoolConfigRepo.save(config);
+    }
+
+    private Map<String, Object> buildCampusDocxData(Campus campus, List<Map<String, Object>> facilityItems) {
+        Map<String, Object> data = new LinkedHashMap<>();
+
+        data.put("name", campus.getName());
+        data.put("schoolName", campus.getSchool() != null ? campus.getSchool().getName() : "");
+        data.put("phoneNumber", campus.getPhoneNumber());
+        data.put("address", campus.getAddress());
+        data.put("boardingType", campus.getBoardingType());
+        data.put("boardingDescription", mapBoardingDescription(campus.getBoardingType()));
+        data.put("facilityItems", facilityItems);
+
+        return data;
+    }
+
+    private String mapBoardingDescription(BoardingType type) {
+
+        if (type == null) {
+            return "Hiện tại cơ sở chưa cập nhật thông tin về dịch vụ nội trú.";
+        }
+
+        return switch (type) {
+
+            case FULL_BOARDING ->
+                    "Cơ sở cung cấp dịch vụ nội trú toàn phần, nơi học sinh sinh hoạt tại trường với chỗ ở, bữa ăn và sự chăm sóc toàn diện hằng ngày.";
+
+            case SEMI_BOARDING ->
+                    "Cơ sở cung cấp dịch vụ bán trú, cho phép học sinh ở lại trường vào ban ngày để dùng bữa, được hỗ trợ học tập và tham gia các hoạt động ngoại khóa mà không lưu trú qua đêm.";
+
+            case BOTH ->
+                    "Cơ sở cung cấp cả dịch vụ nội trú toàn phần và bán trú, mang đến lựa chọn linh hoạt về lưu trú và chăm sóc ban ngày để đáp ứng nhu cầu đa dạng của học sinh.";
+        };
     }
 
     @Transactional

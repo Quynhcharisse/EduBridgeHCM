@@ -75,6 +75,10 @@ public class Campus {
     @Column(name = "longitude")
     Double longitude;
 
+    String folderPath;
+
+    String fileName;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "boarding_type")
     BoardingType boardingType;

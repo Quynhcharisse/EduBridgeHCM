@@ -318,8 +318,8 @@ public class AdminServiceImpl implements AdminService {
             String schoolName = toSafeObjectKey(request.getSchoolName());
             String campusName = toSafeObjectKey(autoGenCampusName);
             String templatePath = campusTemplateDocx.get().getFolderName() + "/" + campusTemplateDocx.get().getFileName();
-            String folderName = schoolName + "_" + uuid + "/" + campusName + "_(primary_campus)";
-            String fileName = "campus_info.docx";
+            String folderName = schoolName + "_" + uuid + "/" + campusName;
+            String fileName = "campus_info_" + uuid + ".docx";
 
             String fileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
 
@@ -362,7 +362,7 @@ public class AdminServiceImpl implements AdminService {
 
             String schoolName = toSafeObjectKey(request.getSchoolName());
             String folderName = schoolName + "_" + uuid;
-            String fileName = "school_info.docx";
+            String fileName = "school_info_" + uuid + ".docx";
 
             String templatePath = schoolTemplateDocx.get().getFolderName() + "/" + schoolTemplateDocx.get().getFileName();
 
@@ -372,7 +372,6 @@ public class AdminServiceImpl implements AdminService {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
         }
 
-        // tạo account
         Account account = accountRepo.save(Account.builder().role(Role.SCHOOL)
                 .email(request.getEmail().trim())
                 .registerDate(LocalDate.now())
@@ -380,7 +379,6 @@ public class AdminServiceImpl implements AdminService {
                 .firstLogin(true)
                 .build());
 
-        // tạo school (lấy thẳng từ bảng tạm)
         School school = schoolRepo.save(School.builder()
                 .name(request.getSchoolName().trim())
                 .description(request.getDescription().trim())
@@ -389,17 +387,19 @@ public class AdminServiceImpl implements AdminService {
                 .logoUrl(request.getLogoUrl()).representativeName(request.getRepresentativeName())
                 .hotline(request.getHotline()).foundingDate(request.getFoundingDate())
                 .folderPath(toSafeObjectKey(request.getSchoolName()) + "_" + uuid)
+                .fileName("school_info_" + uuid + ".docx")
                 .businessLicenseUrl(request.getBusinessLicenseUrl())
                 .build());
 
 
-        // tạo campus đầu tiên (primary branch)
         campusRepo.save(
                 Campus.builder()
                         .account(account)
                         .name(autoGenCampusName)
                         .phoneNumber(request.getCampusPhone())
                         .address(request.getCampusAddress().trim())
+                        .folderPath(toSafeObjectKey(request.getSchoolName().trim()) + "_" + uuid + "/" + toSafeObjectKey(autoGenCampusName))
+                        .fileName("campus_info_" + uuid + ".docx")
                         .status(Status.ACTIVE)
                         .isPrimaryBranch(true)
                         .school(school).build());
