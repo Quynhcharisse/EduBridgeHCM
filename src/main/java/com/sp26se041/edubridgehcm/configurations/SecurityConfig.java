@@ -32,9 +32,7 @@ public class SecurityConfig {
                         cors.configurationSource(
                                 request -> {
                                     CorsConfiguration config = new CorsConfiguration();
-                                    config.setAllowedOrigins(List.of("https://edubridgehcm-fe.onrender.com", "http://localhost:8080"));
-                                    config.setAllowedMethods(Collections.singletonList("*"));
-                                    config.setAllowedHeaders(Collections.singletonList("*"));
+                                    config.setAllowedOrigins(List.of("https://edubridgehcm-fe.onrender.comit ngletonList("*"));
                                     config.setAllowCredentials(true);
                                     return config;
                                 }
