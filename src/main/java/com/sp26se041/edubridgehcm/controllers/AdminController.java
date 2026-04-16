@@ -1,6 +1,5 @@
 package com.sp26se041.edubridgehcm.controllers;
 
-import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.requests.AddSubjectRequest;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
 import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
@@ -11,8 +10,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -25,8 +22,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -117,14 +112,14 @@ public class AdminController {
 
     @GetMapping("/conversation")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> getConversations(@RequestParam (required = false) Long cursorId){
+    public ResponseEntity<ResponseObject> getConversations(@RequestParam(required = false) Long cursorId) {
         return adminService.getConversations(cursorId);
     }
 
 
     @GetMapping("/message/history/{campusId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> getHistoryChatWithAdmin(@PathVariable int campusId,@RequestParam(required = false) Long cursorId){
+    public ResponseEntity<ResponseObject> getHistoryChatWithAdmin(@PathVariable int campusId, @RequestParam(required = false) Long cursorId) {
         return adminService.getChatHistory(campusId, cursorId);
     }
 
