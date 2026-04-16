@@ -13,6 +13,7 @@ public class JacksonConfig {
     @Bean
     @Primary
     public ObjectMapper objectMapper() {
+
         ObjectMapper mapper = new ObjectMapper();
 
         mapper.registerModule(new JavaTimeModule());

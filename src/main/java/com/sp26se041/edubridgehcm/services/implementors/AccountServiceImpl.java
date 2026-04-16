@@ -454,7 +454,7 @@ public class AccountServiceImpl implements AccountService {
                     Object overviewObj = rawMap.get("overview");
 
                     if (overviewObj instanceof String overviewStr && !overviewStr.trim().isEmpty()) {
-                        overview = Jsoup.parse(overviewStr).text(); 
+                        overview = Jsoup.parse(overviewStr).text();
                     }
                 }
 
