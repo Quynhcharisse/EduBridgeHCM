@@ -27,10 +27,14 @@ import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.text.Normalizer;
 import java.time.LocalDate;
@@ -61,9 +65,14 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
     private final ObjectMapper objectMapper;
 
     private final CampusResourceQuotaRepo campusResourceQuotaRepo;
+
     private final SchoolRepo schoolRepo;
+
     private final TemplateDocxRepo templateDocxRepo;
+
     private final SupabaseStorageService supabaseStorageService;
+
+    private final RestTemplate restTemplate = new RestTemplate();
 
     @Override
     @Transactional
@@ -413,63 +422,35 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
 
             String templatePath = schoolTemplateDocx.get().getFolderName() + "/" + schoolTemplateDocx.get().getFileName();
 
-            String fileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
+            String schoolFileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
+
+                try {
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("type", "school_info");
+                    payload.put("schoolId", school.get().getId());
+                    payload.put("schoolName", school.get().getName());
+                    payload.put("schoolInfoFileUrl", schoolFileUrl);
+
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.setContentType(MediaType.APPLICATION_JSON);
+
+                    HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+
+                    restTemplate.postForEntity(
+                            "https://n8n-service-ijbl.onrender.com/webhook/b1960e9f-cd99-4dd0-96a7-c765244651ec",
+                            entity,
+                            String.class
+                    );
+
+                } catch (Exception e) {
+                    System.out.println(e.getMessage());
+                }
 
             school.get().setFileName(fileName);
             schoolRepo.save(school.get());
 
         } catch (Exception ex) {
             System.out.println(ex.getMessage());
-        }
-
-        List<Campus> campusList = campusRepo.findByFacilityIsNull();
-
-        Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
-
-        if (campusTemplateDocx.isEmpty()) {
-            System.out.println("Campus document template is not available.");
-        }
-
-        String templatePath = campusTemplateDocx.get().getFolderName() + "/" + campusTemplateDocx.get().getFileName();
-
-        for (Campus campus : campusList) {
-
-            try {
-
-                supabaseStorageService.removeFile(campus.getFolderPath(), campus.getFileName());
-
-                String uuid = UUID.randomUUID().toString();
-
-                List<Map<String, Object>> facilityItems = facilityData.getItemList().stream()
-                        .map(item -> {
-                            Map<String, Object> row = new HashMap<>();
-                            row.put("code", item.getFacilityCode());
-                            row.put("facilityName", item.getName());
-                            row.put("category", item.getCategory());
-                            row.put("quantity", item.getValue());
-                            row.put("unit", item.getUnit());
-                            return row;
-                        })
-                        .toList();
-
-                Map<String, Object> campusData = buildCampusDocxData(campus, facilityItems);
-
-                String folderName = campus.getFolderPath();
-                String fileName = "campus_info_" + uuid + ".docx";
-
-                String fileUrl = supabaseStorageService.generateDocFileFromTemplate(
-                        campusData,
-                        templatePath,
-                        folderName,
-                        fileName
-                );
-
-                campus.setFileName(fileName);
-                campusRepo.save(campus);
-
-            } catch (Exception e) {
-                System.out.println("Failed to generate campus docx" + e.getMessage());
-            }
         }
 
 
@@ -512,6 +493,76 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         config.setValue(facilityJson);
         config.setUpdatedAt(LocalDateTime.now());
         schoolConfigRepo.save(config);
+
+        List<Campus> campusList = campusRepo.findByFacilityIsNull();
+
+        Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
+
+        if (campusTemplateDocx.isEmpty()) {
+            System.out.println("Campus document template is not available.");
+            return;
+        }
+
+        String templatePath = campusTemplateDocx.get().getFolderName() + "/" + campusTemplateDocx.get().getFileName();
+
+        for (Campus campus : campusList) {
+
+            try {
+
+                supabaseStorageService.removeFile(campus.getFolderPath(), campus.getFileName());
+
+                String uuid = UUID.randomUUID().toString();
+
+
+                List<Map<String, Object>> facilityItemsBuild = facilityData.getItemList().stream()
+                        .map(item -> {
+                            Map<String, Object> row = new HashMap<>();
+                            row.put("code", item.getFacilityCode());
+                            row.put("facilityName", item.getName());
+                            row.put("category", item.getCategory());
+                            row.put("quantity", item.getValue());
+                            row.put("unit", item.getUnit());
+                            return row;
+                        })
+                        .toList();
+
+                Map<String, Object> campusData = buildCampusDocxData(campus, facilityItemsBuild);
+
+                String folderName = campus.getFolderPath();
+                String fileName = "campus_info_" + uuid + ".docx";
+
+                String campusFileUrl = supabaseStorageService.generateDocFileFromTemplate(
+                        campusData,
+                        templatePath,
+                        folderName,
+                        fileName
+                );
+
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("type", "campus_info");
+                    payload.put("schoolId", campus.getSchool().getId());
+                    payload.put("schoolName", campus.getSchool().getName());
+                    payload.put("campusId", campus.getId());
+                    payload.put("campusInfoFileUrl", campusFileUrl);
+
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.setContentType(MediaType.APPLICATION_JSON);
+
+                    HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+
+                    restTemplate.postForEntity(
+                            "https://n8n-service-ijbl.onrender.com/webhook/b1960e9f-cd99-4dd0-96a7-c765244651ec",
+                            entity,
+                            String.class
+                    );
+
+                campus.setFileName(fileName);
+                campusRepo.save(campus);
+
+            } catch (Exception e) {
+                System.out.println("Failed to generate campus docx" + e.getMessage());
+            }
+        }
     }
 
     private Map<String, Object> buildCampusDocxData(Campus campus, List<Map<String, Object>> facilityItems) {

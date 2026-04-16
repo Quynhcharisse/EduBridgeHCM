@@ -1,5 +1,7 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.sp26se041.edubridgehcm.enums.BoardingType;
+import com.sp26se041.edubridgehcm.enums.CategoryTemplate;
 import com.sp26se041.edubridgehcm.enums.ResourceType;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.SessionType;
@@ -18,6 +20,7 @@ import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.SchoolHoliday;
+import com.sp26se041.edubridgehcm.models.TemplateDocx;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionReservationFormRepo;
@@ -32,6 +35,7 @@ import com.sp26se041.edubridgehcm.repositories.CounsellorSlotRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolHolidayRepo;
+import com.sp26se041.edubridgehcm.repositories.TemplateDocxRepo;
 import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
@@ -59,12 +63,14 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -120,6 +126,10 @@ public class CampusServiceImpl implements CampusService {
     private final ChatMessageRepo chatMessageRepo;
 
     private final SchoolHolidayRepo schoolHolidayRepo;
+
+    private final TemplateDocxRepo templateDocxRepo;
+
+    private final RestTemplate restTemplate = new RestTemplate();
 
     @Override
     @Transactional
@@ -654,9 +664,105 @@ public class CampusServiceImpl implements CampusService {
             actorCampus.setPolicyDetail(policyJsonb);
         }
 
+        try {
+
+            Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
+
+            if (campusTemplateDocx.isEmpty()) {
+                throw new Exception("Campus document template is not available.");
+            }
+
+            String templatePath = campusTemplateDocx.get().getFolderName() + "/" + campusTemplateDocx.get().getFileName();
+
+            supabaseStorageService.removeFile(actorCampus.getFolderPath(), actorCampus.getFileName());
+
+            String uuid = UUID.randomUUID().toString();
+
+
+            List<Map<String, Object>> facilityItemsBuild = mergedFinalFacilityItems.stream()
+                    .map(item -> {
+                        Map<String, Object> row = new HashMap<>();
+                        row.put("code", item.get("facilityCode"));
+                        row.put("facilityName", item.get("name"));
+                        row.put("category", item.get("category"));
+                        row.put("quantity", item.get("value"));
+                        row.put("unit", item.get("unit"));
+                        return row;
+                    })
+                    .toList();
+
+            Map<String, Object> campusBuildedData = buildCampusDocxData(actorCampus, facilityItemsBuild);
+
+            String folderName = actorCampus.getFolderPath();
+            String fileName = "campus_info_" + uuid + ".docx";
+
+            String campusFileUrl = supabaseStorageService.generateDocFileFromTemplate(
+                    campusBuildedData,
+                    templatePath,
+                    folderName,
+                    fileName
+            );
+
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("type", "campus_info");
+            payload.put("schoolId", actorCampus.getSchool().getId());
+            payload.put("schoolName", actorCampus.getSchool().getName());
+            payload.put("campusId", actorCampus.getId());
+            payload.put("campusInfoFileUrl", campusFileUrl);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+
+            restTemplate.postForEntity(
+                    "https://n8n-service-ijbl.onrender.com/webhook/b1960e9f-cd99-4dd0-96a7-c765244651ec",
+                    entity,
+                    String.class
+            );
+
+            actorCampus.setFileName(fileName);
+
+        } catch (Exception e) {
+            System.out.println("Failed to generate campus docx" + e.getMessage());
+        }
+
         campusRepo.save(actorCampus);
 
         return ResponseBuilder.build(HttpStatus.OK, "Campus config updated successfully", null);
+    }
+
+    private Map<String, Object> buildCampusDocxData(Campus campus, List<Map<String, Object>> facilityItems) {
+        Map<String, Object> data = new LinkedHashMap<>();
+
+        data.put("name", campus.getName());
+        data.put("schoolName", campus.getSchool() != null ? campus.getSchool().getName() : "");
+        data.put("phoneNumber", campus.getPhoneNumber());
+        data.put("address", campus.getAddress());
+        data.put("boardingType", campus.getBoardingType());
+        data.put("boardingDescription", mapBoardingDescription(campus.getBoardingType()));
+        data.put("facilityItems", facilityItems);
+
+        return data;
+    }
+
+    private String mapBoardingDescription(BoardingType type) {
+
+        if (type == null) {
+            return "Hiện tại cơ sở chưa cập nhật thông tin về dịch vụ nội trú.";
+        }
+
+        return switch (type) {
+
+            case FULL_BOARDING ->
+                    "Cơ sở cung cấp dịch vụ nội trú toàn phần, nơi học sinh sinh hoạt tại trường với chỗ ở, bữa ăn và sự chăm sóc toàn diện hằng ngày.";
+
+            case SEMI_BOARDING ->
+                    "Cơ sở cung cấp dịch vụ bán trú, cho phép học sinh ở lại trường vào ban ngày để dùng bữa, được hỗ trợ học tập và tham gia các hoạt động ngoại khóa mà không lưu trú qua đêm.";
+
+            case BOTH ->
+                    "Cơ sở cung cấp cả dịch vụ nội trú toàn phần và bán trú, mang đến lựa chọn linh hoạt về lưu trú và chăm sóc ban ngày để đáp ứng nhu cầu đa dạng của học sinh.";
+        };
     }
 
     @Override

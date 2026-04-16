@@ -1,5 +1,7 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.sp26se041.edubridgehcm.enums.BoardingType;
+import com.sp26se041.edubridgehcm.enums.CategoryTemplate;
 import com.sp26se041.edubridgehcm.enums.Gender;
 import com.sp26se041.edubridgehcm.enums.Relationship;
 import com.sp26se041.edubridgehcm.enums.Role;
@@ -9,17 +11,22 @@ import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.School;
+import com.sp26se041.edubridgehcm.models.SchoolConfig;
+import com.sp26se041.edubridgehcm.models.TemplateDocx;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.ParentRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
+import com.sp26se041.edubridgehcm.repositories.TemplateDocxRepo;
 import com.sp26se041.edubridgehcm.requests.RestrictionRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateProfileRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AccountService;
 import com.sp26se041.edubridgehcm.services.JWTService;
+import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.CookieUtil;
 import com.sp26se041.edubridgehcm.utils.ExcelUtil;
@@ -30,15 +37,18 @@ import com.sp26se041.edubridgehcm.validations.account.AccountValidation;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.jsoup.Jsoup;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -47,11 +57,14 @@ import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -71,6 +84,14 @@ public class AccountServiceImpl implements AccountService {
     private final ParentRepo parentRepo;
 
     private final SchoolRepo schoolRepo;
+
+    private final TemplateDocxRepo templateDocxRepo;
+
+    private final SupabaseStorageService supabaseStorageService;
+
+    private final SchoolConfigRepo schoolConfigRepo;
+
+    private final RestTemplate restTemplate = new RestTemplate();
 
     @Override
     public ResponseEntity<ResponseObject> logout(HttpServletRequest request, HttpServletResponse response) {
@@ -423,6 +444,72 @@ public class AccountServiceImpl implements AccountService {
             school.setWebsiteUrl(normalize(campusData.getSchoolData().getWebsiteUrl()));
             school.setHotline(normalize(campusData.getSchoolData().getHotline()));
 
+            try {
+
+                SchoolConfig hqFacility = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "facilityData").orElse(null);
+
+                String overview = "UPDATING";
+
+                if (hqFacility != null && hqFacility.getValue() instanceof Map<?, ?> rawMap) {
+                    Object overviewObj = rawMap.get("overview");
+
+                    if (overviewObj instanceof String overviewStr && !overviewStr.trim().isEmpty()) {
+                        overview = Jsoup.parse(overviewStr).text(); 
+                    }
+                }
+
+                    Optional<TemplateDocx> schoolTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.SCHOOL_INFO_TEMPLATE);
+
+                if (schoolTemplateDocx.isEmpty()) {
+                    throw new Exception("School template docx not found or be deleted");
+                }
+
+                supabaseStorageService.removeFile(school.getFolderPath(), school.getFileName());
+
+                String uuid = UUID.randomUUID().toString();
+
+                Map<String, Object> fields = new LinkedHashMap<>();
+                fields.put("name", school.getName());
+                fields.put("description", school.getDescription());
+                fields.put("taxCode", school.getTaxCode());
+                fields.put("websiteUrl", school.getWebsiteUrl());
+                fields.put("representativeName", school.getRepresentativeName());
+                fields.put("hotline", school.getHotline());
+                fields.put("foundingDate", school.getFoundingDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+                fields.put("logoUrl", school.getLogoUrl());
+                fields.put("businessLicenseUrl", school.getBusinessLicenseUrl());
+                fields.put("overview", overview);
+
+                String folderName = school.getFolderPath();
+                String fileName = "school_info_" + uuid + ".docx";
+
+                String templatePath = schoolTemplateDocx.get().getFolderName() + "/" + schoolTemplateDocx.get().getFileName();
+
+                String schoolFileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
+
+                Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("type", "school_info");
+                    payload.put("schoolId", school.getId());
+                    payload.put("schoolName", school.getName());
+                    payload.put("schoolInfoFileUrl", schoolFileUrl);
+
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.setContentType(MediaType.APPLICATION_JSON);
+
+                    HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+
+                    restTemplate.postForEntity(
+                            "https://n8n-service-ijbl.onrender.com/webhook/b1960e9f-cd99-4dd0-96a7-c765244651ec",
+                            entity,
+                            String.class
+                    );
+
+                school.setFileName(fileName);
+
+            } catch (Exception ex) {
+                System.out.println(ex.getMessage());
+            }
+
             schoolRepo.save(school);
 
             campus.setAddress(normalize(campusData.getAddress()));
@@ -435,7 +522,139 @@ public class AccountServiceImpl implements AccountService {
 
         campus.setPhoneNumber(normalize(campusData.getPhoneNumber()));
         campus.setBoardingType(Objects.requireNonNull(AccountValidation.parseBoardingType(campusData.getBoardingType())));
+
+        try {
+
+        Map<String, Object> currentCampusFacility = (Map<String, Object>) campus.getFacility();
+
+        List<Map<String, Object>> currentItems = new ArrayList<>();
+
+        if (currentCampusFacility != null && currentCampusFacility.get("itemList") != null) {
+            currentItems = (List<Map<String, Object>>) currentCampusFacility.get("itemList");
+        }
+
+        // lấy facility từ primary chính đã config cơ sở vật chất chung cho các campus
+        // ==> để biết bên primary campus có thêm / bớt CSVC nào ko?
+        SchoolConfig facilityData = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "facilityData").orElse(null);
+
+        List<Map<String, Object>> itemList = new ArrayList<>();
+
+        if (facilityData != null && facilityData.getValue() instanceof Map) {
+            Map<String, Object> val = (Map<String, Object>) facilityData.getValue();
+            itemList = (List<Map<String, Object>>) val.get("itemList");
+        }
+
+        Map<String, Map<String, Object>> finalResultMap = new LinkedHashMap<>();
+
+        // s1 : đổ dữ liệu làm khung
+        if (itemList != null) {
+            for (Map<String, Object> item : itemList) {
+                Map<String, Object> newItem = new HashMap<>(item);
+                finalResultMap.put((String) item.get("facilityCode"), newItem);
+            }
+        }
+
+        if (currentItems != null) {
+            for (Map<String, Object> item : currentItems) {
+                finalResultMap.put((String) item.get("facilityCode"), new HashMap<>(item));
+            }
+        }
+
+        Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
+
+        if (campusTemplateDocx.isEmpty()) {
+            throw  new Exception("Campus document template is not available.");
+        }
+
+        String templatePath = campusTemplateDocx.get().getFolderName() + "/" + campusTemplateDocx.get().getFileName();
+
+            supabaseStorageService.removeFile(campus.getFolderPath(), campus.getFileName());
+
+            String uuid = UUID.randomUUID().toString();
+
+
+            List<Map<String, Object>> facilityItemsBuild = finalResultMap.values().stream()
+                    .map(item -> {
+                        Map<String, Object> row = new HashMap<>();
+                        row.put("code", item.get("facilityCode"));
+                        row.put("facilityName", item.get("name"));
+                        row.put("category", item.get("category"));
+                        row.put("quantity", item.get("value"));
+                        row.put("unit", item.get("unit"));
+                        return row;
+                    })
+                    .toList();
+
+            Map<String, Object> campusBuildedData = buildCampusDocxData(campus, facilityItemsBuild);
+
+            String folderName = campus.getFolderPath();
+            String fileName = "campus_info_" + uuid + ".docx";
+
+            String campusFileUrl = supabaseStorageService.generateDocFileFromTemplate(
+                    campusBuildedData,
+                    templatePath,
+                    folderName,
+                    fileName
+            );
+
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("type", "campus_info");
+            payload.put("schoolId", campus.getSchool().getId());
+            payload.put("schoolName", campus.getSchool().getName());
+            payload.put("campusId", campus.getId());
+            payload.put("campusInfoFileUrl", campusFileUrl);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+
+            restTemplate.postForEntity(
+                    "https://n8n-service-ijbl.onrender.com/webhook/b1960e9f-cd99-4dd0-96a7-c765244651ec",
+                    entity,
+                    String.class
+            );
+
+            campus.setFileName(fileName);
+
+        } catch (Exception e) {
+            System.out.println("Failed to generate campus docx" + e.getMessage());
+        }
+
         campusRepo.save(campus);
+    }
+
+    private Map<String, Object> buildCampusDocxData(Campus campus, List<Map<String, Object>> facilityItems) {
+        Map<String, Object> data = new LinkedHashMap<>();
+
+        data.put("name", campus.getName());
+        data.put("schoolName", campus.getSchool() != null ? campus.getSchool().getName() : "");
+        data.put("phoneNumber", campus.getPhoneNumber());
+        data.put("address", campus.getAddress());
+        data.put("boardingType", campus.getBoardingType());
+        data.put("boardingDescription", mapBoardingDescription(campus.getBoardingType()));
+        data.put("facilityItems", facilityItems);
+
+        return data;
+    }
+
+    private String mapBoardingDescription(BoardingType type) {
+
+        if (type == null) {
+            return "Hiện tại cơ sở chưa cập nhật thông tin về dịch vụ nội trú.";
+        }
+
+        return switch (type) {
+
+            case FULL_BOARDING ->
+                    "Cơ sở cung cấp dịch vụ nội trú toàn phần, nơi học sinh sinh hoạt tại trường với chỗ ở, bữa ăn và sự chăm sóc toàn diện hằng ngày.";
+
+            case SEMI_BOARDING ->
+                    "Cơ sở cung cấp dịch vụ bán trú, cho phép học sinh ở lại trường vào ban ngày để dùng bữa, được hỗ trợ học tập và tham gia các hoạt động ngoại khóa mà không lưu trú qua đêm.";
+
+            case BOTH ->
+                    "Cơ sở cung cấp cả dịch vụ nội trú toàn phần và bán trú, mang đến lựa chọn linh hoạt về lưu trú và chăm sóc ban ngày để đáp ứng nhu cầu đa dạng của học sinh.";
+        };
     }
 
     private String normalize(String value) {
