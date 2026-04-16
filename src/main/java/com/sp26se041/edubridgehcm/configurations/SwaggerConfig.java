@@ -14,7 +14,7 @@ import io.swagger.v3.oas.annotations.servers.Server;
         servers = {
                 @Server(
                         description = "Local host",
-                        url = "http://localhost:8080/"
+                        url = "https://edubridgehcm.onrender.com/"
                 ),
 
                 @Server(

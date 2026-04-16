@@ -87,7 +87,13 @@ public enum Status {
 
     //SUBJECT STATUS
     SUBJECT_ACTIVE("active"),
-    SUBJECT_INACTIVE("inactive");
+    SUBJECT_INACTIVE("inactive"),
+
+    //with status ==> booking ==> đặt lịch tư vấn trạng thái của counsellor slot
+    BOOKED("booked"),
+    CANCELLED("cancelled"),
+    AVAILABLE("available"),
+    DISABLED("disabled");
 
     private final String value;
 

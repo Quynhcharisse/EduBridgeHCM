@@ -32,7 +32,7 @@ public class SecurityConfig {
                         cors.configurationSource(
                                 request -> {
                                     CorsConfiguration config = new CorsConfiguration();
-                                    config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:8080"));
+                                    config.setAllowedOrigins(List.of("https://edubridgehcm-fe.onrender.com", "https://edubridgehcm.onrender.com"));
                                     config.setAllowedMethods(Collections.singletonList("*"));
                                     config.setAllowedHeaders(Collections.singletonList("*"));
                                     config.setAllowCredentials(true);
@@ -58,7 +58,7 @@ public class SecurityConfig {
                                         "/api/v1/school/public/list/**",
                                         "/api/v1/school/*/public/detail/**",
                                         "/api/v1/post/list/**",
-                                        "/api/v1/campus/counsellor/slots/assigned"
+                                        "/api/v1/campus/counsellor/slots/assigned/**"
                                 ).permitAll()
                                 .anyRequest().authenticated()
                 )

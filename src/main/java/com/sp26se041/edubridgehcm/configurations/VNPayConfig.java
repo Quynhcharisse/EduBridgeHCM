@@ -17,7 +17,7 @@ public class VNPayConfig {
 
     public static String vnp_PayUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
 
-    public static String vnp_ReturnUrl = "http://localhost:5173/payment/vnpay-result";
+    public static String vnp_ReturnUrl = "https://edubridgehcm-fe.onrender.com/payment/vnpay-result";
 
     public static String vnp_TmnCode;
 
