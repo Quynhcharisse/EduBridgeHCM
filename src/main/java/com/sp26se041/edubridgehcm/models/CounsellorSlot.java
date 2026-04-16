@@ -1,8 +1,11 @@
 package com.sp26se041.edubridgehcm.models;
 
+import com.sp26se041.edubridgehcm.enums.Status;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -51,6 +54,9 @@ public class CounsellorSlot {
 
     @Column(name = "end_date")
     LocalDate endDate;
+
+    @Enumerated(EnumType.STRING)
+    Status status;
 
     @OneToMany(mappedBy = "counsellorSlot", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @ToString.Exclude

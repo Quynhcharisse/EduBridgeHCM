@@ -88,6 +88,7 @@ public class AdminServiceImpl implements AdminService {
     private final TemplateDocxRepo templateDocxRepo;
 
     private final ConversationRepo conversationRepo;
+
     private final ChatMessageRepo chatMessageRepo;
 
 
@@ -120,11 +121,7 @@ public class AdminServiceImpl implements AdminService {
         result.put("hasMore", hasMore);
         result.put("nextCursorId", nextCursorId);
 
-        return ResponseBuilder.build(
-                HttpStatus.OK,
-                "Get conversations successfully",
-                result
-        );
+        return ResponseBuilder.build(HttpStatus.OK, "", result);
     }
 
     @Override
@@ -138,10 +135,10 @@ public class AdminServiceImpl implements AdminService {
         Optional<Account> accAdmin = accountRepo.findByEmail(email);
 
         if (accAdmin.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,"Account admin not found or be deleted", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy hoặc đã xóa tài khoản quản trị viên.", null);
         }
 
-        Optional<Campus> campus =  campusRepo.findById(campusId);
+        Optional<Campus> campus = campusRepo.findById(campusId);
 
 
         if (campus.isEmpty()) {
@@ -178,7 +175,7 @@ public class AdminServiceImpl implements AdminService {
         return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(conversation, accAdmin.get().getEmail(), campus.get().getAccount().getEmail(), messages, hasMore, nextCursorId));
     }
 
-    private Map<String, Object> buildHistoryMessages(Conversation conversation, String adminEmail, String campusEmail,List<ChatMessage> messages, boolean hasMore, Long nextCursorId) {
+    private Map<String, Object> buildHistoryMessages(Conversation conversation, String adminEmail, String campusEmail, List<ChatMessage> messages, boolean hasMore, Long nextCursorId) {
 
         Map<String, Object> response = new HashMap<>();
 
