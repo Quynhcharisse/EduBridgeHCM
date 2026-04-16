@@ -179,7 +179,7 @@ public class SchoolServiceImpl implements SchoolService {
         Campus campus = campusRepo.save(Campus.builder().school(actorCampus.getSchool()).account(acc).name(generateCampusName(actorCampus.getSchool().getId())).address(normalize(request.getAddress())).phoneNumber(normalize(request.getPhone())).city(normalize(request.getCity())).district(normalize(request.getDistrict())).ward(normalize(request.getWard())).boardingType(boardingType).latitude(request.getLatitude()).longitude(request.getLongitude()).status(Status.ACTIVE).isPrimaryBranch(false).build());
 
         Map<String, Object> data = new HashMap<>();
-        data.put("campus", buildCampusData(campus));
+        data.put("campus",  buildCampusData(campus));
         data.put("account", buildAccountData(acc));
 
         return ResponseBuilder.build(HttpStatus.OK, "Create campus successfully", data);

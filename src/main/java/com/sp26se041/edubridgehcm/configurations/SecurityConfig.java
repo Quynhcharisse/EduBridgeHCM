@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.configurations;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationProvider;
@@ -25,6 +26,12 @@ public class SecurityConfig {
 
     private final AuthenticationProvider authenticationProvider;
 
+    @Value("${URL_DEV_FE}")
+    private String feUrl;
+
+    @Value("${URL_DEV_BE}")
+    private String beUrl;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -32,7 +39,7 @@ public class SecurityConfig {
                         cors.configurationSource(
                                 request -> {
                                     CorsConfiguration config = new CorsConfiguration();
-                                    config.setAllowedOrigins(List.of("https://edubridgehcm-fe.onrender.com", "https://edubridgehcm.onrender.com"));
+                                    config.setAllowedOrigins(List.of(feUrl, beUrl));
                                     config.setAllowedMethods(Collections.singletonList("*"));
                                     config.setAllowedHeaders(Collections.singletonList("*"));
                                     config.setAllowCredentials(true);

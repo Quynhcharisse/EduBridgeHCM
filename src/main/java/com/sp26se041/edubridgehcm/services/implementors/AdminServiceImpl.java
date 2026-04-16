@@ -397,7 +397,7 @@ public class AdminServiceImpl implements AdminService {
                 .hotline(request.getHotline()).foundingDate(request.getFoundingDate())
                 .folderPath(toSafeObjectKey(request.getSchoolName()) + "_" + uuid)
                 .fileName("school_info_" + uuid + ".docx")
-                .businessLicenseUrl(request.getBusinessLicenseUrl())
+                .businessLicenseUrl(newBusinessLicenseUrl)
                 .build());
 
         if (!schoolFileUrl.isEmpty()) {
