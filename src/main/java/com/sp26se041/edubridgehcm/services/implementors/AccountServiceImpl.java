@@ -442,7 +442,6 @@ public class AccountServiceImpl implements AccountService {
             school.setDescription(normalize(campusData.getSchoolData().getDescription()));
             school.setLogoUrl(normalize(campusData.getSchoolData().getLogoUrl()));
             school.setWebsiteUrl(normalize(campusData.getSchoolData().getWebsiteUrl()));
-            school.setHotline(normalize(campusData.getSchoolData().getHotline()));
 
             try {
 
