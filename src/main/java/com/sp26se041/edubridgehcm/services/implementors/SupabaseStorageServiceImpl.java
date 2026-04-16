@@ -1,12 +1,12 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
-import aj.org.objectweb.asm.TypeReference;
 import com.deepoove.poi.XWPFTemplate;
+import com.deepoove.poi.config.Configure;
+import com.deepoove.poi.config.ConfigureBuilder;
+import com.deepoove.poi.plugin.table.LoopRowTableRenderPolicy;
 import com.sp26se041.edubridgehcm.responses.StorageTreeNode;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import lombok.RequiredArgsConstructor;
-import org.docx4j.Docx4J;
-import org.docx4j.openpackaging.packages.WordprocessingMLPackage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -16,7 +16,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
-import tools.jackson.databind.ObjectMapper;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -32,7 +31,6 @@ import java.util.Objects;
 
 public class SupabaseStorageServiceImpl implements SupabaseStorageService {
 
-    private final ObjectMapper objectMapper;
     @Value("${supabase.url}")
     private String supabaseUrl;
 
@@ -50,13 +48,13 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
                                  List<String> allowedExt) throws Exception {
 
         if (file.isEmpty()) {
-            throw new IllegalArgumentException("File is empty");
+            throw new IllegalArgumentException("File không được trống");
         }
 
         String originalFilename = file.getOriginalFilename();
 
         if (originalFilename == null || !originalFilename.contains(".")) {
-            throw new IllegalArgumentException("Invalid file name");
+            throw new IllegalArgumentException("Tên file không hợp lệ");
         }
 
         // ✅ lấy extension
@@ -65,7 +63,7 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
 
         if (!allowedExt.contains(ext)) {
             throw new IllegalArgumentException(
-                    "Only allowed file types: " + String.join(", ", allowedExt)
+                    "Chỉ cho các định dạng file: " + String.join(", ", allowedExt)
             );
         }
 
@@ -149,7 +147,7 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
         try {
            generatedDocx = replaceDocx(templateBytes, data);
         } catch (Exception e)   {
-            throw new Exception("Failed to generate PDF document from template", e);
+            throw new Exception("Failed to generate document from template", e);
         }
 
 
@@ -158,7 +156,6 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(serviceRoleKey);
         headers.set("apikey", serviceRoleKey);
-        headers.set("x-upsert", "true");
         headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
 
         HttpEntity<byte[]> entity = new HttpEntity<>(generatedDocx, headers);
@@ -272,9 +269,18 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
                 ByteArrayInputStream in = new ByteArrayInputStream(templateBytes);
                 ByteArrayOutputStream out = new ByteArrayOutputStream()
         ) {
-            XWPFTemplate template = XWPFTemplate.compile(in).render(data);
+            System.out.println("facilityItems = " + data.get("facilityItems"));
+
+            Configure config = Configure.builder()
+                    .bind("facilityItems", new LoopRowTableRenderPolicy(true))
+                    .build();
+
+            XWPFTemplate template = XWPFTemplate.compile(in, config).render(data);
             template.write(out);
             return out.toByteArray();
+
+        } catch (Exception ex) {
+            throw new Exception("Failed to render DOCX template", ex);
         }
     }
 

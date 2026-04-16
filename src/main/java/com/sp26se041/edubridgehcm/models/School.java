@@ -58,6 +58,8 @@ public class School {
 
     String folderPath;
 
+    String fileName;
+
     @Column(name = "average_rating")
     BigDecimal averageRating;
 

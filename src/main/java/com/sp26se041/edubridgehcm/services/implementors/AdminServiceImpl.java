@@ -40,11 +40,15 @@ import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.validations.admin.SubscriptionValidation;
 import com.sp26se041.edubridgehcm.validations.admin.VerifyRegistrationValidation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.text.Normalizer;
@@ -91,6 +95,7 @@ public class AdminServiceImpl implements AdminService {
 
     private final ChatMessageRepo chatMessageRepo;
 
+    private final RestTemplate restTemplate = new RestTemplate();
 
     @Override
     public ResponseEntity<ResponseObject> getConversations(Long cursorId) {
@@ -303,12 +308,17 @@ public class AdminServiceImpl implements AdminService {
 
         String uuid = UUID.randomUUID().toString();
 
+        String campusFileUrl = "";
+
+        String schoolFileUrl = "";
+
         String autoGenCampusName = "Cơ sở 1 (Cơ sở chính)";
 
         try {
 
             Map<String, Object> fields = new LinkedHashMap<>();
             fields.put("name", autoGenCampusName);
+            fields.put("schoolName", request.getSchoolName().trim());
             fields.put("phoneNumber", request.getCampusPhone().trim());
             fields.put("address", request.getCampusAddress().trim());
             fields.put("boardingType", "UPDATING");
@@ -317,10 +327,10 @@ public class AdminServiceImpl implements AdminService {
             String schoolName = toSafeObjectKey(request.getSchoolName());
             String campusName = toSafeObjectKey(autoGenCampusName);
             String templatePath = campusTemplateDocx.get().getFolderName() + "/" + campusTemplateDocx.get().getFileName();
-            String folderName = schoolName + "_" + uuid + "/" + campusName + "_(primary_campus)";
-            String fileName = "campus_info.docx";
+            String folderName = schoolName + "_" + uuid + "/" + campusName;
+            String fileName = "campus_info_" + uuid + ".docx";
 
-            String fileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
+            campusFileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
 
         } catch (Exception ex) {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
@@ -357,20 +367,20 @@ public class AdminServiceImpl implements AdminService {
                     .format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
             fields.put("logoUrl", request.getLogoUrl());
             fields.put("businessLicenseUrl", newBusinessLicenseUrl);
+            fields.put("overview", "UPDATING");
 
             String schoolName = toSafeObjectKey(request.getSchoolName());
             String folderName = schoolName + "_" + uuid;
-            String fileName = "school_info.docx";
+            String fileName = "school_info_" + uuid + ".docx";
 
             String templatePath = schoolTemplateDocx.get().getFolderName() + "/" + schoolTemplateDocx.get().getFileName();
 
-            String fileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
+             schoolFileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
 
         } catch (Exception ex) {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
         }
 
-        // tạo account
         Account account = accountRepo.save(Account.builder().role(Role.SCHOOL)
                 .email(request.getEmail().trim())
                 .registerDate(LocalDate.now())
@@ -378,7 +388,6 @@ public class AdminServiceImpl implements AdminService {
                 .firstLogin(true)
                 .build());
 
-        // tạo school (lấy thẳng từ bảng tạm)
         School school = schoolRepo.save(School.builder()
                 .name(request.getSchoolName().trim())
                 .description(request.getDescription().trim())
@@ -386,21 +395,70 @@ public class AdminServiceImpl implements AdminService {
                 .websiteUrl(request.getWebsiteUrl())
                 .logoUrl(request.getLogoUrl()).representativeName(request.getRepresentativeName())
                 .hotline(request.getHotline()).foundingDate(request.getFoundingDate())
-                .folderPath(toSafeObjectKey(request.getSchoolName()) + "_" + uuid + "/")
+                .folderPath(toSafeObjectKey(request.getSchoolName()) + "_" + uuid)
+                .fileName("school_info_" + uuid + ".docx")
                 .businessLicenseUrl(request.getBusinessLicenseUrl())
                 .build());
 
+        if (!schoolFileUrl.isEmpty()) {
+           try {
+               Map<String, Object> payload = new LinkedHashMap<>();
+               payload.put("type", "school_info");
+               payload.put("schoolId", school.getId());
+               payload.put("schoolName", request.getSchoolName().trim());
+               payload.put("schoolInfoFileUrl", schoolFileUrl);
 
-        // tạo campus đầu tiên (primary branch)
-        campusRepo.save(
+               HttpHeaders headers = new HttpHeaders();
+               headers.setContentType(MediaType.APPLICATION_JSON);
+
+               HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+
+               restTemplate.postForEntity(
+                       "https://n8n-service-ijbl.onrender.com/webhook/b1960e9f-cd99-4dd0-96a7-c765244651ec",
+                       entity,
+                       String.class
+               );
+
+           } catch (Exception e) {
+               System.out.println(e.getMessage());
+           }
+        }
+
+        Campus campus = campusRepo.save(
                 Campus.builder()
                         .account(account)
                         .name(autoGenCampusName)
                         .phoneNumber(request.getCampusPhone())
                         .address(request.getCampusAddress().trim())
+                        .folderPath(toSafeObjectKey(request.getSchoolName().trim()) + "_" + uuid + "/" + toSafeObjectKey(autoGenCampusName))
+                        .fileName("campus_info_" + uuid + ".docx")
                         .status(Status.ACTIVE)
                         .isPrimaryBranch(true)
                         .school(school).build());
+
+        if (!campusFileUrl.isEmpty()) {
+            try {
+                Map<String, Object> payload = new LinkedHashMap<>();
+                payload.put("type", "campus_info");
+                payload.put("schoolId", school.getId());
+                payload.put("schoolName", request.getSchoolName().trim());
+                payload.put("campusId", campus.getId());
+                payload.put("campusInfoFileUrl", campusFileUrl);
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+
+                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+
+                restTemplate.postForEntity(
+                        "https://n8n-service-ijbl.onrender.com/webhook/b1960e9f-cd99-4dd0-96a7-c765244651ec",
+                        entity,
+                        String.class
+                );
+            } catch (Exception ex) {
+                System.out.println(ex.getMessage());
+            }
+        }
 
         // đánh dấu bảng tạm đã duyệt
         request.setStatus(Status.VERIFIED);
