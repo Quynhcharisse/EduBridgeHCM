@@ -462,6 +462,7 @@ public class AdminServiceImpl implements AdminService {
 
         // đánh dấu bảng tạm đã duyệt
         request.setStatus(Status.VERIFIED);
+        request.setBusinessLicenseUrl(newBusinessLicenseUrl);
         schoolRegistrationRequestRepo.save(request);
 
         Map<String, Object> response = new HashMap<>();
