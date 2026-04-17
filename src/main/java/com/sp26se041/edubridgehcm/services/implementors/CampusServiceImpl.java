@@ -664,6 +664,9 @@ public class CampusServiceImpl implements CampusService {
             policyJsonb.put("allowBookingBeforeHours", mergedOp.get("allowBookingBeforeHours"));
             policyJsonb.put("fullTextRendered", finalPolicyStr);
             policyJsonb.put("rawCustomNote", request.getPolicyDetail());
+            if (mergedOp.get("workingConfig") != null) {
+                policyJsonb.put("workingConfig", mergedOp.get("workingConfig"));
+            }
 
             actorCampus.setPolicyDetail(policyJsonb);
         }
@@ -835,6 +838,7 @@ public class CampusServiceImpl implements CampusService {
             campusUpdateInfo.put("allowBookingBeforeHours", campusPolicyDb.get("allowBookingBeforeHours"));
             campusUpdateInfo.put("fullPolicyRendered", campusPolicyDb.get("fullTextRendered"));
             campusUpdateInfo.put("policyDetail", campusPolicyDb.get("rawCustomNote")); // Note riêng của campus
+            campusUpdateInfo.put("workingConfig", campusPolicyDb.get("workingConfig"));
         }
 
         result.put("campusCurrent", campusUpdateInfo);
@@ -856,6 +860,10 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
+        if (request.getDayOfWeek() == null || request.getDayOfWeek().isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Danh sách ngày trong tuần (dayOfWeek) không được để trống.", null);
+        }
+
         if (request.getTemplateId() != null && request.getTemplateId() > 0) {
 
             CampusScheduleTemplate existing = campusScheduleTemplateRepo.findById(request.getTemplateId()).orElse(null);
@@ -867,13 +875,34 @@ public class CampusServiceImpl implements CampusService {
             if (!existing.getCampus().getId().equals(actorCampus.getId())) {
                 return ResponseBuilder.build(HttpStatus.FORBIDDEN, "You do not edit another campus template", null);
             }
+
+            if (request.getDayOfWeek().size() != 1) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Khi cập nhật template (có templateId), chỉ được gửi đúng một ngày trong dayOfWeek. "
+                                + "Để thêm khung cho nhiều ngày, hãy tạo template mới (không gửi templateId) hoặc gọi lần lượt từng ngày.",
+                        null);
+            }
         }
 
-        Map<String, Object> workingConfig = SchoolConfigUtil.getWorkingConfig(schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), "operationSettingsData").orElse(null));
+        SchoolConfig hqSchoolConfig = schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), "operationSettingsData").orElse(null);
+        Map<String, Object> effectiveOperation = SchoolConfigUtil.getEffectiveOperationSettingsMap(hqSchoolConfig, actorCampus);
+        Map<String, Object> workingConfig = (Map<String, Object>) effectiveOperation.get("workingConfig");
+        if (workingConfig == null) {
+            workingConfig = SchoolConfigUtil.getWorkingConfig(hqSchoolConfig);
+        }
+        Map<String, Integer> numericPolicy = SchoolConfigUtil.getNumericPolicyFromOperationMap(effectiveOperation);
+        Integer slotDurationMinutes = numericPolicy.get("slotDurationInMinutes");
 
         for (String day : request.getDayOfWeek()) {
 
-            String error = CampusScheduleTemplateValidation.validateCampusScheduleTemplate(request.getTemplateId(), request, day, workingConfig, campusScheduleTemplateRepo, actorCampus);
+            String error = CampusScheduleTemplateValidation.validateCampusScheduleTemplate(
+                    request.getTemplateId(),
+                    request,
+                    day,
+                    workingConfig,
+                    campusScheduleTemplateRepo,
+                    actorCampus,
+                    slotDurationMinutes);
 
             if (error != null) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
@@ -888,7 +917,7 @@ public class CampusServiceImpl implements CampusService {
     private void saveSingleTemplate(CampusScheduleTemplateRequest request, String day, Campus campus) {
         CampusScheduleTemplate template;
 
-        boolean isUpdate = request.getTemplateId() != null && request.getTemplateId() > 0 && request.getDayOfWeek().size() == 1;
+        boolean isUpdate = request.getTemplateId() != null && request.getTemplateId() > 0;
 
         if (isUpdate) {
             template = campusScheduleTemplateRepo.findById(request.getTemplateId()).get();
@@ -964,52 +993,62 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
-        List<SchoolHoliday> holidayList = schoolHolidayRepo.findAllBySchoolIdAndCampusIdIn(actorCampus.getSchool().getId(), List.of(actorCampus.getId()));
-
-        // 1. Xác định các ngày lễ bị ảnh hưởng trong khoảng gán lịch
-        List<String> affectedHolidays = holidayList.stream()
-                .filter(h -> !(request.getEndDate().isBefore(h.getStartDate()) || request.getStartDate().isAfter(h.getEndDate())))
-              // thiếu Chỉ lọc những ngày nghỉ có áp dụng cho tư vấn
-                .map(SchoolHoliday::getTitle)
-                .distinct()
-                .toList();
-
         SchoolConfig operatingSystemsConfig = schoolConfigRepo.findBySchoolIdAndKey(
                 actorCampus.getSchool().getId(), "operationSettingsData").orElse(null);
 
+        Map<String, Object> effectiveOperationSettings = SchoolConfigUtil.getEffectiveOperationSettingsMap(operatingSystemsConfig, actorCampus);
+
         CampusScheduleTemplate template = campusScheduleTemplateRepo.findById(request.getTemplateId()).orElse(null);
-        if (template == null) return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Template not found", null);
+        if (template == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Template not found", null);
+        }
 
         List<CounsellorSlot> allCurrentSlots = counsellorSlotRepo.findByCampusScheduleTemplate_Campus_Id(actorCampus.getId());
 
         List<Counsellor> counsellors = counsellorRepo.findAllById(request.getCounsellorIds());
 
-        Map<String, Object> operatingSettings = (operatingSystemsConfig != null)
-                ? (Map<String, Object>) operatingSystemsConfig.getValue()
-                : new HashMap<>();
-
-        String error = CounsellorSlotValidation.validateAssignRequest(operatingSettings, request, actorCampus, template, counsellors, allCurrentSlots);
+        String error = CounsellorSlotValidation.validateAssignRequest(effectiveOperationSettings, request, actorCampus, template, counsellors, allCurrentSlots);
 
         if (error != null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
-        // 4. Xác định Action
-        String actionInput = (request.getAction() != null) ? request.getAction().toUpperCase() : "ASSIGN";
+        List<SchoolHoliday> holidayList = mergeSchoolHolidaysForCampus(actorCampus.getSchool().getId(), actorCampus.getId());
 
-        for (Counsellor counsellor : counsellors) {
+        String actionInput = (request.getAction() != null && !request.getAction().isBlank())
+                ? request.getAction().trim().toUpperCase()
+                : "ASSIGN";
+        if (!"ASSIGN".equals(actionInput) && !"UNASSIGN".equals(actionInput)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tham số action phải là ASSIGN hoặc UNASSIGN.", null);
+        }
+        boolean isAssign = "ASSIGN".equals(actionInput);
 
-            // Lọc ra các slot của riêng counsellor này từ list tổng
-            List<CounsellorSlot> counsellorSlots = allCurrentSlots.stream().filter(s -> s.getCounsellor().getId().equals(counsellor.getId())).toList();
-
-            if ("ASSIGN".equals(actionInput)) {
-                handleAssignAction(counsellor, template, request, counsellorSlots);
-            } else {
-                handleUnassignAction(template, request, counsellorSlots);
+        if (isAssign && request.getStartDate() != null && request.getEndDate() != null) {
+            String holidayBlock = SchoolConfigUtil.validateAssignmentRangeAgainstBlockingHolidays(
+                    request.getStartDate(), request.getEndDate(), holidayList, actorCampus.getId());
+            if (holidayBlock != null) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, holidayBlock, null);
             }
         }
 
-        return ResponseBuilder.build(HttpStatus.OK, actionInput + " counsellors successful", null);
+        try {
+            for (Counsellor counsellor : counsellors) {
+
+                List<CounsellorSlot> counsellorSlots = allCurrentSlots.stream()
+                        .filter(s -> s.getCounsellor().getId().equals(counsellor.getId()))
+                        .toList();
+
+                if (isAssign) {
+                    handleAssignAction(counsellor, template, request, counsellorSlots);
+                } else {
+                    handleUnassignAction(template, request, counsellorSlots, counsellor);
+                }
+            }
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
+
+        return ResponseBuilder.build(HttpStatus.OK, (isAssign ? "ASSIGN" : "UNASSIGN") + " counsellors successful", null);
     }
 
     private void handleAssignAction(Counsellor counsellor, CampusScheduleTemplate template, AssignCounsellorIntoSlotsRequest request, List<CounsellorSlot> existingSlots) {
@@ -1021,25 +1060,53 @@ public class CampusServiceImpl implements CampusService {
             boolean isTimeOverlap = template.getStartTime().isBefore(slot.getCampusScheduleTemplate().getEndTime()) && template.getEndTime().isAfter(slot.getCampusScheduleTemplate().getStartTime());
 
             if (isDateOverlap && isDayOfWeekSame && isTimeOverlap) {
-                // Nếu trùng chính xác tuyệt đối (trùng cả template id, start/end date) thì bỏ qua (Idempotent)
-                if (slot.getCampusScheduleTemplate().getId().equals(template.getId()) && slot.getStartDate().equals(request.getStartDate()))
+                if (slot.getCampusScheduleTemplate().getId().equals(template.getId())
+                        && slot.getStartDate().equals(request.getStartDate())
+                        && slot.getEndDate().equals(request.getEndDate())) {
                     return;
+                }
 
-                throw new IllegalArgumentException("Counsellor " + counsellor.getName() + " is busy during this period.");
+                throw new IllegalArgumentException("Chuyên viên " + counsellor.getName() + " đã có lịch trùng khoảng thời gian / khung giờ này.");
             }
         }
-        counsellorSlotRepo.save(CounsellorSlot.builder().campusScheduleTemplate(template).counsellor(counsellor).startDate(request.getStartDate()).endDate(request.getEndDate()).build());
+        counsellorSlotRepo.save(CounsellorSlot.builder()
+                .campusScheduleTemplate(template)
+                .counsellor(counsellor)
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate())
+                .status(Status.AVAILABLE)
+                .build());
     }
 
-    private void handleUnassignAction(CampusScheduleTemplate template, AssignCounsellorIntoSlotsRequest request, List<CounsellorSlot> existingSlots) {
+    private void handleUnassignAction(CampusScheduleTemplate template, AssignCounsellorIntoSlotsRequest request, List<CounsellorSlot> existingSlots, Counsellor counsellor) {
 
-        CounsellorSlot targetSlot = existingSlots.stream().filter(s -> s.getCampusScheduleTemplate().getId().equals(template.getId()) && s.getStartDate().equals(request.getStartDate()) && s.getEndDate().equals(request.getEndDate())).findFirst().orElse(null);
+        CounsellorSlot targetSlot = existingSlots.stream()
+                .filter(s -> s.getCampusScheduleTemplate().getId().equals(template.getId())
+                        && s.getStartDate().equals(request.getStartDate())
+                        && s.getEndDate().equals(request.getEndDate()))
+                .findFirst()
+                .orElse(null);
 
-        if (targetSlot != null) {
-            // Logic kiểm tra Consultation (giữ nguyên của bạn)
-            CounsellorSlotValidation.validateNoActiveConsultation(targetSlot);
-            counsellorSlotRepo.delete(targetSlot);
+        if (targetSlot == null) {
+            throw new IllegalArgumentException(
+                    "Không tìm thấy lịch gán của " + counsellor.getName() + " cho template này và khoảng ngày đã chọn.");
         }
+        CounsellorSlotValidation.validateNoActiveConsultation(targetSlot);
+        counsellorSlotRepo.delete(targetSlot);
+    }
+
+    //phần gộp nghỉ toàn trường + nghỉ theo cơ sở xử lý ở đây.
+    private List<SchoolHoliday> mergeSchoolHolidaysForCampus(Integer schoolId, Integer campusId) {
+        List<SchoolHoliday> global = schoolHolidayRepo.findBySchoolIdAndCampusIsNull(schoolId);
+        List<SchoolHoliday> local = schoolHolidayRepo.findBySchoolIdAndCampusId(schoolId, campusId);
+        Map<Integer, SchoolHoliday> merged = new LinkedHashMap<>();
+        for (SchoolHoliday h : global) {
+            merged.put(h.getId(), h);
+        }
+        for (SchoolHoliday h : local) {
+            merged.put(h.getId(), h);
+        }
+        return new ArrayList<>(merged.values());
     }
 
     @Override
@@ -1050,7 +1117,11 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
         }
 
-        String dayOfWeek = targetDate.getDayOfWeek().name();
+        String dayOfWeek = targetDate.getDayOfWeek().name().substring(0, 3);
+
+        SchoolConfig hqOp = schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), "operationSettingsData").orElse(null);
+        Map<String, Object> effectiveOperation = SchoolConfigUtil.getEffectiveOperationSettingsMap(hqOp, actorCampus);
+        List<SchoolHoliday> holidays = mergeSchoolHolidaysForCampus(actorCampus.getSchool().getId(), actorCampus.getId());
 
         List<CounsellorSlot> assignedSlots = counsellorSlotRepo.findByStartDateLessThanEqualAndEndDateGreaterThanEqualAndCampusScheduleTemplate_DayOfWeekAndCampusScheduleTemplate_Campus_IdAndCampusScheduleTemplate_ActiveTrue(targetDate, // khớp với StartDateLessThanEqual
                 targetDate, dayOfWeek, actorCampus.getId());
@@ -1058,15 +1129,30 @@ public class CampusServiceImpl implements CampusService {
         Map<String, List<Map<String, Object>>> groupedByTime = new LinkedHashMap<>();
 
         for (CounsellorSlot slot : assignedSlots) {
-            if (isSlotAvailable(slot, targetDate)) {
-
-                String startTimeKey = slot.getCampusScheduleTemplate().getStartTime().toString();
-
-                groupedByTime.putIfAbsent(startTimeKey, new ArrayList<>());
-
-                Map<String, Object> slotData = buildCounsellorSlotData(slot);
-                groupedByTime.get(startTimeKey).add(slotData);
+            if (slot.getStatus() != null && slot.getStatus() != Status.AVAILABLE) {
+                continue;
             }
+            if (!isSlotAvailable(slot, targetDate)) {
+                continue;
+            }
+            CampusScheduleTemplate t = slot.getCampusScheduleTemplate();
+            String policyError = SchoolConfigUtil.validateSlotAvailability(
+                    targetDate,
+                    t.getStartTime(),
+                    t.getEndTime(),
+                    t.getSessionType().getValue(),
+                    effectiveOperation,
+                    holidays);
+            if (policyError != null) {
+                continue;
+            }
+
+            String startTimeKey = t.getStartTime().toString();
+
+            groupedByTime.putIfAbsent(startTimeKey, new ArrayList<>());
+
+            Map<String, Object> slotData = buildCounsellorSlotData(slot);
+            groupedByTime.get(startTimeKey).add(slotData);
         }
 
         return ResponseBuilder.build(HttpStatus.OK, "Get slots grouped by time", groupedByTime);
