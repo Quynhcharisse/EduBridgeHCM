@@ -11,51 +11,51 @@ public class CampusValidation {
 
     public static String validateCreateCampus(CreateCampusRequest request, AccountRepo accountRepo, CampusRepo campusRepo, int schoolId) {
         if (request == null) {
-            return "Request is required";
+            return "Dữ liệu yêu cầu không được để trống";
         }
 
         if (normalize(request.getEmail()) == null) {
-            return "Email is required";
+            return "Email không được để trống";
         }
 
         if (normalize(request.getEmail()).length() > 100) {
-            return "Email exceeds 100 characters";
+            return "Email không được vượt quá 100 ký tự";
         }
 
         if (accountRepo.findByEmail(normalize(request.getEmail())).isPresent()) {
-            return "Email is already in use";
+            return "Email này đã được sử dụng trên hệ thống";
         }
 
         if (normalize(request.getAddress()) == null) {
-            return "Address is required";
+            return "Địa chỉ không được để trống";
         }
 
         if (normalize(request.getAddress()).length() > 250) {
-            return "Address exceeds 250 characters";
+            return "Địa chỉ không được vượt quá 250 ký tự";
         }
 
         if (normalize(request.getPhone()) == null) {
-            return "Phone is required";
+            return "Số điện thoại không được để trống";
         }
 
-        if (!normalize(request.getPhone()).matches("^(09|08|07|03)\\d{8}$")) {
-            return "Phone must start with 09, 08, 07, or 03 and contain 10 digits";
+        if (!normalize(request.getPhone()).matches("^0\\d{9}$")) {
+            return "Số điện thoại không hợp lệ (phải bắt đầu bằng số 0 và có đúng 10 chữ số)";
         }
 
         if (normalize(request.getCity()) == null) {
-            return "City is required";
+            return "Vui lòng chọn Tỉnh/Thành phố";
         }
 
         if (normalize(request.getDistrict()) == null) {
-            return "District is required";
+            return "Vui lòng chọn Quận/Huyện";
         }
 
         if (normalize(request.getWard()) == null) {
-            return "Ward is required";
+            return "Vui lòng chọn Phường/Xã";
         }
 
         if (parseBoardingType(request.getBoardingType()) == null) {
-            return "Boarding type is invalid. Accepted values: NONE, FULL_BOARDING, SEMI_BOARDING, BOTH";
+            return "Loại hình nội trú không hợp lệ. Các giá trị chấp nhận: NONE, FULL_BOARDING, SEMI_BOARDING, BOTH";
         }
 
         return null;

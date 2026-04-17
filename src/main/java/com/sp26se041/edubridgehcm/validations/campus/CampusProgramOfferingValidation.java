@@ -25,72 +25,70 @@ public class CampusProgramOfferingValidation {
                                                              CampusProgramOfferingRepo campusProgramOfferingRepo, CampusRepo campusRepo) {
 
         if (request == null || request.getAdmissionCampaignId() == null) {
-            return "Campaign are required";
+            return "Vui lòng chọn chiến dịch tuyển sinh";
         }
 
         if (request.getProgramId() == null) {
-            return "Program are required";
+            return "Vui lòng chọn chương trình đào tạo";
         }
 
         if (request.getLearningMode() == null) {
-            return "Learning mode are required";
+            return "Vui lòng chọn phương thức học tập";
         }
 
         if (!request.getLearningMode().equals(LearningMode.BOARDING)
                 && !request.getLearningMode().equals(LearningMode.DAY_SCHOOL)
                 && !request.getLearningMode().equals(LearningMode.SEMI_BOARDING)
                 && !request.getLearningMode().equals(LearningMode.HALF_DAY)) {
-            return "Selected learning mode is not supported for this offering";
+            return "Phương thức học tập đã chọn không được hỗ trợ cho suất tuyển sinh này";
         }
 
-
         if (request.getQuota() <= 0) {
-            return "Quota are required";
+            return "Chỉ tiêu tuyển sinh phải lớn hơn 0";
         }
 
         AdmissionCampaign campaign = admissionCampaignRepo.findById(request.getAdmissionCampaignId()).orElse(null);
         if (campaign == null || !campaign.getSchool().getId().equals(actorCampus.getSchool().getId())) {
-            return "Campaign is out of your school scope";
+            return "Chiến dịch tuyển sinh không nằm trong phạm vi quản lý của trường bạn";
         }
 
-        // ko đc create campusProgramOffering khi chưa open
+        // Không được tạo suất tuyển sinh khi chiến dịch chưa mở
         if (!campaign.getStatus().equals(Status.OPEN_ADMISSION_CAMPAIGN)) {
-            return "Offering can only be created when the campaign is officially OPEN. Current status: " + campaign.getStatus();
+            return "Suất tuyển sinh chỉ có thể được tạo khi chiến dịch đang ở trạng thái MỞ. Trạng thái hiện tại: " + campaign.getStatus();
         }
 
         Program program = programRepo.findByIdAndCurriculum_School_Id(request.getProgramId(), actorCampus.getSchool().getId());
 
         if (program == null) {
-            return "Program not found";
+            return "Không tìm thấy chương trình đào tạo";
         }
 
         if (!program.getStatus().equals(Status.PRO_INACTIVE)) {
-            return "Program is inactive";
+            return "Chương trình đào tạo hiện không hoạt động";
         }
 
         if (program.getCurriculum().getCurriculumStatus() != Status.CUR_ACTIVE) {
-            return "Program curriculum must be active";
+            return "Khung chương trình của chương trình này phải ở trạng thái hoạt động";
         }
 
         if (campaign.getYear() != program.getCurriculum().getApplicationYear()) {
-            return "Campaign year must match curriculum application year";
+            return "Năm của chiến dịch phải khớp với năm áp dụng của khung chương trình";
         }
 
         if (program.getBaseTuitionFee() == null) {
-            return "The selected program does not have a base tuition fee defined by the primary campus";
+            return "Chương trình đã chọn chưa được quy định mức học phí cơ bản bởi cơ sở chính";
         }
-
 
         Campus targetCampus = resolveTargetCampus(actorCampus, request.getCampusId(), campusRepo);
 
         if (targetCampus == null) {
-            return "Campus is out of your scope";
+            return "Cơ sở được chọn không thuộc phạm vi quản lý của bạn";
         }
 
-        // 6. Check % Adjustment hợp lệ (Ví dụ: không giảm quá 100%)
+        // Kiểm tra % điều chỉnh giá
         if (request.getPriceAdjustmentPercentage() != null) {
             if (request.getPriceAdjustmentPercentage() < -100) {
-                return "Price adjustment cannot result in a negative tuition fee";
+                return "Phần trăm điều chỉnh không thể làm học phí trở thành số âm";
             }
         }
 
@@ -98,21 +96,21 @@ public class CampusProgramOfferingValidation {
         LocalDate closeDate = request.getCloseDate() != null ? request.getCloseDate() : campaign.getEndDate();
 
         if (closeDate.isBefore(LocalDate.now())) {
-            return "The offering's closing date cannot be in the past";
+            return "Ngày đóng nhận hồ sơ không được ở trong quá khứ";
         }
 
         if (closeDate.isBefore(openDate)) {
-            return "Close date must be after or equal to open date";
+            return "Ngày kết thúc phải sau hoặc bằng ngày bắt đầu";
         }
 
         if (openDate.isBefore(campaign.getStartDate()) || closeDate.isAfter(campaign.getEndDate())) {
-            return "Offering registration period must be within the campaign timeframe ("
-                    + campaign.getStartDate() + " to " + campaign.getEndDate() + ")";
+            return "Thời hạn nhận hồ sơ của suất tuyển sinh phải nằm trong khoảng thời gian của chiến dịch ("
+                    + campaign.getStartDate() + " đến " + campaign.getEndDate() + ")";
         }
 
         if (campusProgramOfferingRepo.existsByAdmissionCampaignIdAndCampusIdAndProgramIdAndLearningMode(
                 campaign.getId(), targetCampus.getId(), program.getId(), request.getLearningMode())) {
-            return "This campus already has the same program offering for this mode in this campaign";
+            return "Cơ sở này đã tồn tại suất tuyển sinh cho chương trình và phương thức học tập này trong chiến dịch hiện tại";
         }
 
         return null;
@@ -124,40 +122,39 @@ public class CampusProgramOfferingValidation {
                                                                      targetOpenDate, LocalDate targetCloseDate, LearningMode targetLearningMode, CampusProgramOfferingRepo campusProgramOfferingRepo) {
 
         if (request.getId() == null || request.getId() <= 0) {
-            return "Offering id is required";
+            return "Yêu cầu ID của suất tuyển sinh";
         }
 
         if (offering == null) {
-            return "Offering not found";
+            return "Không tìm thấy suất tuyển sinh";
         }
 
         if (!offering.getAdmissionCampaign().getSchool().getId().equals(actorCampus.getSchool().getId())) {
-            return "Offering is out of your school scope";
+            return "Suất tuyển sinh không nằm trong phạm vi quản lý của trường bạn";
         }
 
         if (!actorCampus.getIsPrimaryBranch() && !offering.getCampus().getId().equals(actorCampus.getId())) {
-            return "You can only update your campus offering";
+            return "Bạn chỉ có quyền cập nhật suất tuyển sinh của cơ sở mình";
         }
 
         if (targetProgram == null) {
-            return "Target program is invalid";
+            return "Chương trình đào tạo mục tiêu không hợp lệ";
         }
 
-        // Nếu status LÀ INACTIVE
         if (Status.PRO_INACTIVE.equals(targetProgram.getStatus())) {
-            return "This program has been inactivated by the school.";
+            return "Chương trình đào tạo này đã bị tạm dừng bởi nhà trường";
         }
 
         if (targetProgram.getCurriculum().getCurriculumStatus() != Status.CUR_ACTIVE) {
-            return "Program curriculum must be active";
+            return "Khung chương trình của chương trình này phải ở trạng thái hoạt động";
         }
 
         if (targetCampaign.getStatus() == Status.CLOSED || targetCampaign.getStatus() == Status.EXPIRED) {
-            return "Cannot move offering to closed/expired campaign";
+            return "Không thể chuyển suất tuyển sinh sang chiến dịch đã đóng hoặc đã hết hạn";
         }
 
         if (targetCampaign.getYear() != targetProgram.getCurriculum().getApplicationYear()) {
-            return "Campaign year must match curriculum application year";
+            return "Năm của chiến dịch phải khớp với năm áp dụng của khung chương trình";
         }
 
         boolean identityChanged = !targetCampaign.getId().equals(offering.getAdmissionCampaign().getId())
@@ -166,48 +163,46 @@ public class CampusProgramOfferingValidation {
                 || targetLearningMode != offering.getLearningMode();
 
         if (usedQuota > 0 && identityChanged) {
-            return "Cannot change campaign/campus/program/mode after applications have been received";
+            return "Không thể thay đổi chiến dịch/cơ sở/chương trình/phương thức sau khi đã có hồ sơ đăng ký";
         }
 
         if (targetQuota == null || targetQuota <= 0) {
-            return "Quota must be greater than 0";
+            return "Chỉ tiêu tuyển sinh phải lớn hơn 0";
         }
 
         if (targetQuota < usedQuota) {
-            return "Quota cannot be smaller than registered quantity";
+            return "Chỉ tiêu không thể nhỏ hơn số lượng hồ sơ đã đăng ký";
         }
 
         if (targetOpenDate == null || targetCloseDate == null) {
-            return "Open date and close date are required";
+            return "Ngày mở và ngày đóng nhận hồ sơ không được để trống";
         }
 
         if (targetCloseDate.isBefore(targetOpenDate)) {
-            return "Close date must be after or equal to open date";
+            return "Ngày kết thúc phải sau hoặc bằng ngày bắt đầu";
         }
 
         if (targetOpenDate.isBefore(targetCampaign.getStartDate()) || targetCloseDate.isAfter(targetCampaign.getEndDate())) {
-            return "Offering open/close date must be within campaign date range";
+            return "Ngày mở/đóng suất tuyển sinh phải nằm trong phạm vi thời gian của chiến dịch";
         }
 
         if (targetApplicationStatus == null) {
-            return "Application status must be OPEN, PAUSED, FULL, or CLOSED";
+            return "Trạng thái hồ sơ phải là MỞ, TẠM DỪNG, ĐẦY, hoặc ĐÓNG";
         }
-        // Không cho phép chuyển từ FULL hoặc CLOSED về trạng thái khác
+
         Status currentStatus = offering.getApplicationStatus();
 
         if ((currentStatus == Status.FULL || currentStatus == Status.CLOSED)
                 && targetApplicationStatus != currentStatus) {
-            return "Cannot change status from FULL or CLOSED to another status";
+            return "Không thể chuyển trạng thái từ ĐẦY hoặc ĐÓNG sang trạng thái khác";
         }
 
-        // Không cho phép chuyển về OPEN nếu quota đã đủ
         if (targetApplicationStatus == Status.OPEN && targetQuota == usedQuota) {
-            return "Cannot set OPEN status when remaining quota is zero";
+            return "Không thể đặt trạng thái MỞ khi chỉ tiêu còn lại đã hết";
         }
 
-        // Chỉ cho phép chuyển trạng thái theo luồng hợp lệ
         if (currentStatus == Status.PAUSED && (targetApplicationStatus == Status.FULL || targetApplicationStatus == Status.CLOSED)) {
-            return "Cannot set status to FULL or CLOSED from PAUSED directly";
+            return "Không thể chuyển trực tiếp từ TẠM DỪNG sang ĐẦY hoặc ĐÓNG";
         }
 
         boolean duplicatedOffering = campusProgramOfferingRepo.existsByAdmissionCampaignIdAndCampusIdAndProgramIdAndLearningModeAndIdNot(
@@ -219,13 +214,13 @@ public class CampusProgramOfferingValidation {
         );
 
         if (duplicatedOffering) {
-            return "This campus already has the same program offering in this campaign";
+            return "Cơ sở này đã có suất tuyển sinh tương tự trong chiến dịch này";
         }
 
         BigDecimal targetTuition = request.getTuitionFee() != null ? request.getTuitionFee() : offering.getFinalTuitionFee();
 
         if (targetTuition.signum() < 0) {
-            return "Tuition fee must be >= 0";
+            return "Học phí phải lớn hơn hoặc bằng 0";
         }
 
         return null;

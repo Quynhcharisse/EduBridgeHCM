@@ -15,51 +15,49 @@ public class CounsellorValidation {
                                                   CounsellorRepo counsellorRepo,
                                                   int campusId
     ) {
-
         String email = normalize(request.getEmail());
         if (email == null) {
-            return "Email is required";
+            return "Email không được để trống";
         }
 
         if (email.length() > 100) {
-            return "Email exceeds 100 characters";
+            return "Email không được vượt quá 100 ký tự";
         }
 
         if (!isValidEmail(email)) {
-            return "Email is invalid";
+            return "Địa chỉ email không hợp lệ";
         }
 
         if (accountRepo.findByEmail(email).isPresent()) {
-            return "This email is already registered in the system.";
+            return "Email này đã được đăng ký trên hệ thống.";
         }
 
         if (counsellorRepo.existsByAccount_Email(email)) {
-            return "This email is already assigned to another counsellor.";
+            return "Email này đã được chỉ định cho một tư vấn viên khác.";
         }
 
-        // 2. KIỂM TRA MUA GÓI & HẠN NGẠCH
-        // Lấy hạn ngạch của Campus cho loại COUNSELLOR
+        // --- 2. KIỂM TRA MUA GÓI & HẠN NGẠCH ---
+        // Lấy hạn ngạch của cơ sở (Campus) cho loại TƯ VẤN VIÊN (COUNSELLOR)
         var quotaOpt = quotaRepo.findByCampusIdAndResourceType(campusId, ResourceType.COUNSELLOR);
 
-        // Trường hợp 1: Không tìm thấy bản ghi Quota -> Có thể chưa mua gói hoặc chưa phân bổ
+        // Trường hợp 1: Không tìm thấy bản ghi Quota -> Chưa mua gói hoặc chưa được phân bổ
         if (quotaOpt.isEmpty()) {
-            return "Feature Locked: This campus has not subscribed to a service package or has not been allocated a counsellor quota.";
+            return "Tính năng bị khóa: Cơ sở này chưa đăng ký gói dịch vụ hoặc chưa được phân bổ hạn ngạch tư vấn viên.";
         }
 
         CampusResourceQuota quota = quotaOpt.get();
         int maxQuota = quota.getMaxQuota();
 
-        // Trường hợp 2: Gói cước có tồn tại nhưng maxQuota được set = 0 (Gói không cho phép tạo)
+        // Trường hợp 2: Gói cước tồn tại nhưng maxQuota = 0 (Gói không cho phép tạo thêm)
         if (maxQuota <= 0) {
-            return "Current service package does not support counsellor creation. Please upgrade your package.";
+            return "Gói dịch vụ hiện tại không hỗ trợ tạo tư vấn viên. Vui lòng nâng cấp gói dịch vụ của bạn.";
         }
 
-        // Đếm số lượng Counsellor hiện có của Campus này
-        // Lưu ý: Bạn nên đếm những account đang ACTIVE hoặc tồn tại trong bảng Counsellor
+        // Đếm số lượng Tư vấn viên hiện có của cơ sở
         long currentCount = counsellorRepo.countByCampusId(campusId);
 
         if (currentCount >= maxQuota) {
-            return "The counsellor quota for this campus has been reached (" + maxQuota + ").";
+            return "Cơ sở đã đạt giới hạn hạn ngạch tư vấn viên (" + maxQuota + ").";
         }
 
         return null;

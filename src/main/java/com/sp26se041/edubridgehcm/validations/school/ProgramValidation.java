@@ -26,55 +26,56 @@ public class ProgramValidation {
                                                  ProgramRepo programRepo) {
 
         if (request == null) {
-            return "Request is required";
+            return "Dữ liệu yêu cầu không được để trống";
         }
 
-        if (request.getCurriculumId() == null) return "Curriculum ID is required";
+        if (request.getCurriculumId() == null) return "Yêu cầu mã khung chương trình (Curriculum ID)";
 
         Curriculum curriculum = curriculumRepo.findById(request.getCurriculumId()).orElse(null);
 
         if (curriculum == null || !curriculum.getSchool().getId().equals(actorCampus.getSchool().getId())) {
-            return "Curriculum is invalid or does not belong to your school";
+            return "Khung chương trình không hợp lệ hoặc không thuộc về trường của bạn";
         }
 
         if (curriculum.getCurriculumStatus() != Status.CUR_ACTIVE) {
-            return "Cannot use this curriculum. Only ACTIVE curriculums can be linked to a program.";
+            return "Không thể sử dụng khung chương trình này. Chỉ những khung chương trình đang HOẠT ĐỘNG mới có thể liên kết với chương trình đào tạo.";
         }
 
-        if (normalize(request.getName()) == null) return "Name is required";
+        if (normalize(request.getName()) == null) return "Tên chương trình không được để trống";
 
-        if (normalize(request.getName()).length() > 100) return "Name exceeds 100 characters";
+        if (normalize(request.getName()).length() > 100) return "Tên chương trình quá dài (tối đa 100 ký tự)";
 
-        if (normalize(request.getGraduationStandard()) == null) return "Graduation standard is required";
+        if (normalize(request.getGraduationStandard()) == null) return "Chuẩn đầu ra không được để trống";
 
         if (normalize(request.getGraduationStandard()).length() > 2000)
-            return "Graduation standard exceeds 2000 characters";
+            return "Chuẩn đầu ra quá dài (tối đa 2000 ký tự)";
 
         if (request.getLanguageOfInstructionList() == null || request.getLanguageOfInstructionList().isEmpty()) {
-            return "At least one language of instruction is required.";
+            return "Yêu cầu ít nhất một ngôn ngữ giảng dạy.";
         }
         for (String lang : request.getLanguageOfInstructionList()) {
             if (!isValidLanguageOfInstruction(lang)) {
-                return "Invalid language: " + lang + ". Must be one of: " + Arrays.toString(LanguageInstruction.values());
+                return "Ngôn ngữ không hợp lệ: " + lang + ". Phải là một trong: " + Arrays.toString(LanguageInstruction.values());
             }
         }
 
-        if (request.getBaseTuitionFee() == null) return "Tuition fee is required";
+        if (request.getBaseTuitionFee() == null) return "Học phí không được để trống";
 
-        if (request.getBaseTuitionFee().compareTo(BigDecimal.ZERO) < 0) return "Tuition fee cannot be negative";
+        if (request.getBaseTuitionFee().compareTo(BigDecimal.ZERO) < 0) return "Học phí không được là số âm";
 
         if (normalize(request.getFeeUnit()) == null) {
-            return "Fee unit is required";
+            return "Đơn vị tính phí không được để trống";
         }
 
         if (!isValidFeeUnit(request.getFeeUnit())) {
-            return "Invalid fee unit. Must be one of:" + Arrays.toString(FeeUnit.values());
+            return "Đơn vị tính phí không hợp lệ. Phải là một trong:" + Arrays.toString(FeeUnit.values());
         }
 
-        if (normalize(request.getTargetStudentDescription()) == null) return "Target student description is required";
+        if (normalize(request.getTargetStudentDescription()) == null)
+            return "Mô tả đối tượng học sinh không được để trống";
 
         if (normalize(request.getTargetStudentDescription()).length() > 2000)
-            return "Target student description exceeds 2000 characters";
+            return "Mô tả đối tượng học sinh quá dài (tối đa 2000 ký tự)";
 
         if (request.getExtraSubjectList() != null && !request.getExtraSubjectList().isEmpty()) {
             List<Map<String, Object>> coreSubjects = (List<Map<String, Object>>) curriculum.getSubjectsJsonb();
@@ -88,20 +89,20 @@ public class ProgramValidation {
 
                 String extraName = normalize(extra.getName());
 
-                if (extraName == null) return "Extra subject name cannot be empty";
+                if (extraName == null) return "Tên môn học bổ sung không được để trống";
 
-                //chặn trùng với môn trong Curriculum (Kế thừa rồi thì không cần thêm)
+                // Chặn trùng với môn trong Curriculum
                 if (coreNames.contains(extraName.toLowerCase())) {
-                    return "Subject '" + extraName + "' already exists in the core Curriculum.";
+                    return "Môn học '" + extraName + "' đã tồn tại trong Khung chương trình cốt lõi.";
                 }
 
-                // chặn trùng tên ngay trong chính danh sách gửi lên
+                // Chặn trùng tên ngay trong danh sách gửi lên
                 if (!extraNamesInRequest.add(extraName.toLowerCase())) {
-                    return "Duplicate extra subject name found in request: " + extraName;
+                    return "Phát hiện tên môn học bổ sung bị trùng lặp trong yêu cầu: " + extraName;
                 }
 
                 if (normalize(extra.getDescription()) == null) {
-                    return "Description for extra subject '" + extraName + "' is required.";
+                    return "Mô tả cho môn học bổ sung '" + extraName + "' không được để trống.";
                 }
             }
         }
@@ -112,26 +113,26 @@ public class ProgramValidation {
             Program existingProgram = programRepo.findByIdAndCurriculum_School_Id(request.getProgramId(), actorCampus.getSchool().getId());
 
             if (existingProgram == null) {
-                return "Program not found in your school scope";
+                return "Không tìm thấy chương trình đào tạo trong phạm vi quản lý của trường bạn";
             }
 
             boolean duplicatedName = isUpdate
                     ? programRepo.existsByCurriculum_IdAndNameIgnoreCaseAndIdNot(request.getCurriculumId(), normalize(request.getName()), request.getProgramId())
                     : programRepo.existsByCurriculum_IdAndNameIgnoreCase(request.getCurriculumId(), normalize(request.getName()));
 
-            if (duplicatedName) return "Program name already exists in this curriculum";
+            if (duplicatedName) return "Tên chương trình đào tạo đã tồn tại trong khung chương trình này";
 
             if (Status.PRO_ACTIVE.equals(existingProgram.getStatus())) {
 
-                // 1. Chặn đổi Curriculum (Đã có logic check offeringCount bên dưới, nhưng check status cho chắc)
+                // 1. Chặn đổi Curriculum khi đã ACTIVE
                 if (!existingProgram.getCurriculum().getId().equals(request.getCurriculumId())) {
-                    return "Cannot change curriculum of an ACTIVE program.";
+                    return "Không thể thay đổi khung chương trình của một chương trình đào tạo đang HOẠT ĐỘNG.";
                 }
 
                 // 2. Chặn đổi học phí hoặc đơn vị tính khi đã ACTIVE
                 if (existingProgram.getBaseTuitionFee().compareTo(request.getBaseTuitionFee()) != 0
                         || !existingProgram.getFeeUnit().name().equalsIgnoreCase(request.getFeeUnit())) {
-                    return "Cannot change tuition fee or fee unit of an ACTIVE program. Please close this and create a new program.";
+                    return "Không thể thay đổi học phí hoặc đơn vị tính của chương trình đào tạo đang HOẠT ĐỘNG. Vui lòng đóng chương trình này và tạo chương trình mới.";
                 }
             }
 
@@ -140,7 +141,7 @@ public class ProgramValidation {
             int offeringCount = programRepo.countOfferingsById(existingProgram.getId());
 
             if (offeringCount > 0 && isCurriculumChanging) {
-                return "Cannot change curriculum because this program has active offerings/enrollments.";
+                return "Không thể thay đổi khung chương trình vì chương trình đào tạo này đã có các suất tuyển sinh hoặc hồ sơ nhập học đang hoạt động.";
             }
 
             boolean duplicatedWhenUpdate = programRepo.existsByCurriculum_IdAndGraduationStandardIgnoreCaseAndIdNot(
@@ -150,7 +151,7 @@ public class ProgramValidation {
             );
 
             if (duplicatedWhenUpdate) {
-                return "Graduation standard already exists in this curriculum";
+                return "Chuẩn đầu ra đã tồn tại trong khung chương trình này";
             }
         } else {
             boolean duplicatedWhenCreate = programRepo.existsByCurriculum_IdAndGraduationStandardIgnoreCase(
@@ -159,7 +160,7 @@ public class ProgramValidation {
             );
 
             if (duplicatedWhenCreate) {
-                return "Graduation standard already exists in this curriculum";
+                return "Chuẩn đầu ra đã tồn tại trong khung chương trình này";
             }
         }
 

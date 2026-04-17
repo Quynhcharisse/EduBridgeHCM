@@ -22,32 +22,32 @@ public class CounsellorSlotValidation {
             List<CounsellorSlot> allCurrentSlots) {
 
         if (request.getStartDate() == null || request.getEndDate() == null) {
-            return "Start date and end date cannot be empty.";
+            return "Ngày bắt đầu và ngày kết thúc không được để trống.";
         }
         if (request.getStartDate().isAfter(request.getEndDate())) {
-            return "Start date cannot be after end date.";
+            return "Ngày bắt đầu không được sau ngày kết thúc.";
         }
         if (counsellors == null || counsellors.size() != request.getCounsellorIds().size()) {
-            return "One or more counsellors do not exist in the system.";
+            return "Một hoặc nhiều chuyên viên tư vấn không tồn tại trong hệ thống.";
         }
 
         if (!SchoolConfigUtil.isWithinAcademicTerms(request.getStartDate(), operatingSettings)) {
-            return "Ngày bắt đầu gán lịch (" + request.getStartDate() + ") nằm ngoài học kỳ.";
+            return "Ngày bắt đầu gán lịch (" + request.getStartDate() + ") nằm ngoài phạm vi học kỳ.";
         }
 
         if (!SchoolConfigUtil.isWithinAcademicTerms(request.getEndDate(), operatingSettings)) {
-            return "Ngày kết thúc gán lịch (" + request.getEndDate() + ") nằm ngoài học kỳ.";
+            return "Ngày kết thúc gán lịch (" + request.getEndDate() + ") nằm ngoài phạm vi học kỳ.";
         }
 
         Map<String, Integer> policy = SchoolConfigUtil.getCampusPolicy(campus.getPolicyDetail());
 
         if ("ASSIGN".equalsIgnoreCase(request.getAction())) {
 
-            // Check số lượng Min/Max
+            // Check số lượng tối thiểu/tối đa
             int minRequired = policy.getOrDefault("minCounsellorPerSlot", 1);
-            int maxAllowed = 5; // Có thể lấy từ policy.getOrDefault("maxCounsellorPerSlot", 5)
+            int maxAllowed = 5;
 
-            // Lấy danh sách chuyên viên ĐÃ CÓ trong ca này (cùng template, cùng ngày)
+            // Lấy danh sách chuyên viên ĐÃ CÓ trong ca này (cùng mẫu lịch, cùng ngày)
             List<Integer> existingCounsellorIds = allCurrentSlots.stream()
                     .filter(s -> s.getCampusScheduleTemplate().getId().equals(template.getId())
                             && s.getStartDate().equals(request.getStartDate())
@@ -66,7 +66,7 @@ public class CounsellorSlotValidation {
                 return String.format("Số lượng chuyên viên chưa đủ. Ca này yêu cầu tối thiểu %d người.", minRequired);
             }
             if (totalAfterAssign > maxAllowed) {
-                return String.format("Ca này đã đầy. Tối đa chỉ cho phép %d người (Hiện tại: %d, Mới: %d).",
+                return String.format("Ca này đã đầy. Tối đa chỉ cho phép %d người (Hiện tại: %d, Mới thêm: %d).",
                         maxAllowed, existingCounsellorIds.size(), newUniqueAssignees);
             }
         }
@@ -74,7 +74,7 @@ public class CounsellorSlotValidation {
         // --- 3. Kiểm tra quyền sở hữu (Ownership) ---
         for (Counsellor c : counsellors) {
             if (!c.getCampus().getId().equals(campus.getId())) {
-                return String.format("Counsellor %s does not belong to this campus.", c.getName());
+                return String.format("Chuyên viên %s không thuộc cơ sở này.", c.getName());
             }
         }
 
@@ -82,7 +82,7 @@ public class CounsellorSlotValidation {
     }
 
     public static void validateNoActiveConsultation(CounsellorSlot slot) {
-        // Danh sách các trạng thái "đang bận" không được phép xóa/unassign
+        // Danh sách các trạng thái "đang bận" không được phép xóa/gỡ lịch
         List<Status> activeStatuses = List.of(
                 Status.CONSULTATION_PENDING,
                 Status.CONSULTATION_CONFIRMED,
@@ -95,9 +95,8 @@ public class CounsellorSlotValidation {
 
         if (hasActiveRequests) {
             throw new IllegalArgumentException(
-                    String.format("Cannot unassign %s. There are still Pending, Confirmed, or In-Progress appointments.",
+                    String.format("Không thể gỡ lịch của %s. Hiện vẫn còn các lịch hẹn đang ở trạng thái Chờ, Đã xác nhận hoặc Đang tiến hành.",
                             slot.getCounsellor().getName()));
         }
     }
-
 }
