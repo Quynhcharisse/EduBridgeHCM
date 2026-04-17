@@ -135,9 +135,28 @@ public class SchoolConfigRequest {
         int slotDurationInMinutes;   // Thời lượng 1 ca (ví dụ: 30, 45, 60)
         int maxBookingPerSlot;       // Số học sinh tối đa trong 1 ca
         int allowBookingBeforeHours; // Chặn đặt lịch sát giờ (ví dụ: phải đặt trước 24h)
-        WorkingConfig workingConfig;
+        WorkingConfig workingConfig; //Default Policy (Quy tắc nền) ==> áp dụng 365 ngày
         AcademicCalendarConfig academicCalendar;
         List<MethodAdmissionProcess> methodAdmissionProcess; // các quy trình tuyển sinh
+        //Danh sách các mùa tuyển sinh/chiến dịch đặc biệt
+        //Override Policy (Quy tắc đè). Nó chỉ tồn tại trong một khoảng thời gian ngắn (ví dụ 1 tháng cao điểm).
+        List<AdmissionSeason> admissionSeasons;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class AdmissionSeason {
+        String seasonName;    // "Tuyển sinh lớp 10 cao điểm"
+        LocalDate startDate;  // 01/06
+        LocalDate endDate;    // 15/07
+        // Các quy tắc ghi đè (Overrides)
+        Boolean enableSunday;            // Có mở ngày Chủ nhật không?
+        List<WorkShift> extraShifts;     // Các ca làm việc tăng cường (ví dụ ca tối)
+        Integer minCounsellorMultiplier; // Hệ số nhân nhân sự (ví dụ x2 người trực)
+        String note;                     // Ghi chú chiến dịch
     }
 
     @Data

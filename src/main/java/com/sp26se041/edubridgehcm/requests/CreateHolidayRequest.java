@@ -22,18 +22,11 @@ public class CreateHolidayRequest {
 
     LocalDate endDate;
 
-    // true: Áp dụng toàn trường (campus_id sẽ null)
-    // false: Chỉ áp dụng cho 1 campus cụ thể
     Boolean isGlobal;
 
-    // ID của campus nhận lịch nghỉ (Bắt buộc nếu isGlobal = false)
     Integer campusId;
 
-    // true: Tư vấn viên nghỉ (ẩn slot)
-    // false: Chỉ học sinh nghỉ (vẫn hiện slot)
-    Boolean applyToConsultant;
+    String holidayImpactLevel;
 
-    // Mặc định false. Nếu Backend báo có lịch đã đặt (Conflict),
-    // Frontend sẽ gửi lại request với forceCreate = true để xác nhận hủy.
-    Boolean forceCreate; //==> Cờ xác nhận (Xử lý Level 2)
+    Boolean forceCreate;
 }

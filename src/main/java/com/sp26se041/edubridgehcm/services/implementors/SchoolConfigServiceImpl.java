@@ -355,6 +355,35 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
             }
         }
 
+        // map Admission Seasons (Các chiến dịch/mùa tuyển sinh đặc biệt)
+        List<Map<String, Object>> seasonsJson = new ArrayList<>();
+        if (operationSettingsData.getAdmissionSeasons() != null) {
+            seasonsJson = operationSettingsData.getAdmissionSeasons().stream()
+                    .map(season -> {
+                        Map<String, Object> s = new HashMap<>();
+                        s.put("seasonName", season.getSeasonName());
+                        s.put("startDate", season.getStartDate());
+                        s.put("endDate", season.getEndDate());
+                        s.put("enableSunday", Boolean.TRUE.equals(season.getEnableSunday()));
+                        s.put("minCounsellorMultiplier", season.getMinCounsellorMultiplier() != null ? season.getMinCounsellorMultiplier() : 1);
+                        s.put("note", season.getNote());
+
+                        // Map thêm extraShifts nếu mùa đó có ca làm việc tăng cường
+                        if (season.getExtraShifts() != null) {
+                            List<Map<String, Object>> extraShiftsJson = season.getExtraShifts().stream()
+                                    .map(shift -> {
+                                        Map<String, Object> sh = new HashMap<>();
+                                        sh.put("name", shift.getName());
+                                        sh.put("startTime", shift.getStartTime());
+                                        sh.put("endTime", shift.getEndTime());
+                                        return sh;
+                                    }).collect(Collectors.toList());
+                            s.put("extraShifts", extraShiftsJson);
+                        }
+                        return s;
+                    }).collect(Collectors.toList());
+        }
+
         // 4. Gom tất cả vào Map tổng của Operation
         Map<String, Object> operationJson = new HashMap<>();
         operationJson.put("hotline", operationSettingsData.getHotline());
@@ -368,6 +397,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         operationJson.put("workingConfig", workingConfigMap);
         operationJson.put("academicCalendar", academicCalendarMap);
         operationJson.put("admissionProcesses", processesJson);
+        operationJson.put("admissionSeasons", seasonsJson);
 
         SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "operationSettingsData")
                 .orElse(SchoolConfig.builder()

@@ -35,6 +35,7 @@ public class SchoolRegistrationRequest {
 
     String email;
 
+    @Column(columnDefinition = "TEXT")
     String description;
 
     @Column(name = "school_name")
