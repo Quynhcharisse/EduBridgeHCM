@@ -38,6 +38,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
@@ -73,6 +74,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AccountServiceImpl implements AccountService {
 
+    @Value("${AI_SERVICE_N8N}")
+    private String n8nUrl;
+
     private final JWTService jWTService;
 
     private final AccountRepo accountRepo;
@@ -92,6 +96,7 @@ public class AccountServiceImpl implements AccountService {
     private final SchoolConfigRepo schoolConfigRepo;
 
     private final RestTemplate restTemplate = new RestTemplate();
+
 
     @Override
     public ResponseEntity<ResponseObject> logout(HttpServletRequest request, HttpServletResponse response) {
@@ -498,7 +503,7 @@ public class AccountServiceImpl implements AccountService {
                     HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
 
                     restTemplate.postForEntity(
-                            "https://n8n-service-ijbl.onrender.com/webhook/b1960e9f-cd99-4dd0-96a7-c765244651ec",
+                            n8nUrl,
                             entity,
                             String.class
                     );
@@ -609,7 +614,7 @@ public class AccountServiceImpl implements AccountService {
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
 
             restTemplate.postForEntity(
-                    "https://n8n-service-ijbl.onrender.com/webhook/b1960e9f-cd99-4dd0-96a7-c765244651ec",
+                    n8nUrl,
                     entity,
                     String.class
             );

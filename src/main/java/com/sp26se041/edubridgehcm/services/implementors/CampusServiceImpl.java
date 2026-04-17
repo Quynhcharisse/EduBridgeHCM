@@ -59,6 +59,7 @@ import com.sp26se041.edubridgehcm.validations.campus.CampusScheduleTemplateValid
 import com.sp26se041.edubridgehcm.validations.campus.CounsellorSlotValidation;
 import com.sp26se041.edubridgehcm.validations.campus.CounsellorValidation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
@@ -96,6 +97,9 @@ import java.util.regex.Pattern;
 @Service
 @RequiredArgsConstructor
 public class CampusServiceImpl implements CampusService {
+
+    @Value("${AI_SERVICE_N8N}")
+    private String n8nUrl;
 
     private final CampusRepo campusRepo;
 
@@ -716,7 +720,7 @@ public class CampusServiceImpl implements CampusService {
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
 
             restTemplate.postForEntity(
-                    "https://n8n-service-ijbl.onrender.com/webhook/b1960e9f-cd99-4dd0-96a7-c765244651ec",
+                    n8nUrl,
                     entity,
                     String.class
             );
