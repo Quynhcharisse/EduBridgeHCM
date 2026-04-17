@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.utils;
 
+import com.sp26se041.edubridgehcm.enums.HolidayImpactLevel;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.SchoolHoliday;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
@@ -215,6 +216,33 @@ public class SchoolConfigUtil {
                 sb.append("  Bước ").append(step.get("stepOrder")).append(". ").append(step.get("stepName")).append(": ").append(step.get("description")).append("\n");
             }
         }
+
+        List<Map<String, Object>> seasons = (List<Map<String, Object>>) operationData.get("admissionSeasons");
+        if (seasons != null && !seasons.isEmpty()) {
+            sb.append("\n🚀 CÁC CHIẾN DỊCH TUYỂN SINH ĐẶC BIỆT:\n");
+            for (Map<String, Object> s : seasons) {
+                sb.append("- ").append(s.get("seasonName"))
+                        .append(" [").append(s.get("startDate")).append(" -> ").append(s.get("endDate")).append("]\n");
+
+                if (Boolean.TRUE.equals(s.get("enableSunday"))) {
+                    sb.append("  • 🟢 Mở cửa làm việc ngày Chủ Nhật\n");
+                }
+
+                if (s.get("minCounsellorMultiplier") != null && (int) s.get("minCounsellorMultiplier") > 1) {
+                    sb.append("  • 👥 Tăng cường nhân sự: x")
+                            .append(s.get("minCounsellorMultiplier")).append(" tư vấn viên/ca\n");
+                }
+
+                List<Map<String, Object>> extraShifts = (List<Map<String, Object>>) s.get("extraShifts");
+                if (extraShifts != null && !extraShifts.isEmpty()) {
+                    sb.append("  • 🌙 Ca làm việc tăng cường:\n");
+                    for (Map<String, Object> shift : extraShifts) {
+                        sb.append("    + ").append(shift.get("name"))
+                                .append(": ").append(shift.get("startTime")).append(" - ").append(shift.get("endTime")).append("\n");
+                    }
+                }
+            }
+        }
         return sb.toString();
     }
 
@@ -263,32 +291,86 @@ public class SchoolConfigUtil {
 
         if (operationSettingsData == null) return null;
 
+        //Lấy chính sách thực thi cho ngày này (đã bao gồm Season Overrides)
+        // Lưu ý: Dùng hàm getEffectivePolicy mà mình đã nâng cấp ở trên để lấy toàn bộ Map
+        Map<String, Object> effectivePolicy = getEffectiveWorkingConfig(targetDate, operationSettingsData);
+
         // KIỂM TRA HỌC KỲ (ACADEMIC SEMESTER)
-        if (!isWithinAcademicTerms(targetDate, operationSettingsData)) {
-            return "The selected date " + targetDate + " falls outside of the active academic semesters.";
+        if (!isWithinAcademicTerms(targetDate, effectivePolicy)) {
+            return "Ngày " + targetDate + " nằm ngoài học kỳ chính thức.";
         }
 
         // KIỂM TRA NGÀY NGHỈ/LỄ (SCHOOL HOLIDAYS)
         if (holidays != null) {
             for (SchoolHoliday holiday : holidays) {
-                // Check trùng ngày
                 if (!targetDate.isBefore(holiday.getStartDate()) && !targetDate.isAfter(holiday.getEndDate())) {
-                    if ((Boolean.TRUE.equals(holiday.getApplyToConsultant()))) {
-                        return "The campus is closed for: " + holiday.getTitle();
+                    var impact = holiday.getHolidayImpactLevel();
+                    // Chặn tuyệt đối nếu nghỉ toàn bộ hoặc nhân viên nghỉ
+                    if (impact == HolidayImpactLevel.ALL_SHUTDOWN || impact == HolidayImpactLevel.STAFF_ONLY) {
+                        return "Cơ sở đóng cửa: " + holiday.getTitle();
                     }
                 }
             }
         }
 
-        //KIỂM TRA GIỜ LÀM VIỆC (WORKING CONFIG)
-        Object workingConfigObj = operationSettingsData.get("workingConfig");
-        if (workingConfigObj instanceof Map) {
+        //KIỂM TRA GIỜ LÀM VIỆC (Dựa trên Policy đã được Override)
+        Map<String, Object> workingConfig = (Map<String, Object>) effectivePolicy.get("workingConfig");
+        if (workingConfig != null) {
             String dayOfWeek = targetDate.getDayOfWeek().name().substring(0, 3); // "MON", "TUE"...
-            String error = validateWithWorkingConfig(dayOfWeek, start, end, sessionTypeReq, (Map<String, Object>) workingConfigObj);
+
+            String error = validateWithWorkingConfig(dayOfWeek, start, end, sessionTypeReq, workingConfig);
             if (error != null) return error;
         }
 
         return null;
+    }
+
+    //Đây là hàm then chốt để xử lý Override Policy
+    // Nó sẽ quyết định xem ngày hôm đó dùng lịch thường hay lịch mùa cao điểm.
+    public static Map<String, Object> getEffectiveWorkingConfig(LocalDate date, Map<String, Object> operationData) {
+        if (operationData == null) return new HashMap<>();
+
+        // 1. Lấy dữ liệu gốc làm nền
+        Map<String, Object> effectivePolicy = new HashMap<>(operationData);
+        Map<String, Object> baseWorking = (Map<String, Object>) operationData.get("workingConfig");
+        List<Map<String, Object>> seasons = (List<Map<String, Object>>) operationData.get("admissionSeasons");
+
+        if (seasons == null || seasons.isEmpty()) return effectivePolicy;
+
+        // 2. Tìm mùa tuyển sinh đang hoạt động
+        Map<String, Object> activeSeason = seasons.stream().filter(s -> {
+            LocalDate start = parseDate(s.get("startDate"));
+            LocalDate end = parseDate(s.get("endDate"));
+            return start != null && end != null && !date.isBefore(start) && !date.isAfter(end);
+        }).findFirst().orElse(null);
+
+        // 3. Nếu không có mùa nào, trả về Policy gốc
+        if (activeSeason == null) return effectivePolicy;
+
+        // 4. TIẾN HÀNH "NẤU" (MERGE) - Ưu tiên Season Overrides
+        Map<String, Object> effectiveWorking = new HashMap<>(baseWorking);
+
+        // Đè trạng thái mở cửa Chủ Nhật
+        if (Boolean.TRUE.equals(activeSeason.get("enableSunday"))) {
+            effectiveWorking.put("isOpenSunday", true);
+        }
+
+        // Đè hoặc Cộng dồn ca làm việc
+        if (activeSeason.get("extraShifts") != null) {
+            List<Map<String, Object>> combinedShifts = new ArrayList<>((List<Map<String, Object>>) baseWorking.get("workShifts"));
+            combinedShifts.addAll((List<Map<String, Object>>) activeSeason.get("extraShifts"));
+            effectiveWorking.put("workShifts", combinedShifts);
+        }
+
+        // Áp dụng hệ số nhân nhân sự (minCounsellorMultiplier)
+        int baseCounsellor = (int) operationData.getOrDefault("minCounsellorPerSlot", 1);
+        int multiplier = (int) activeSeason.getOrDefault("minCounsellorMultiplier", 1);
+
+        effectivePolicy.put("minCounsellorPerSlot", baseCounsellor * multiplier);
+        effectivePolicy.put("workingConfig", effectiveWorking);
+        effectivePolicy.put("activeSeasonName", activeSeason.get("seasonName")); // Để hiển thị cho UI
+
+        return effectivePolicy;
     }
 
     //check nhanh "Ngày này có đi học không?

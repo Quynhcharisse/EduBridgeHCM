@@ -969,7 +969,7 @@ public class CampusServiceImpl implements CampusService {
         // 1. Xác định các ngày lễ bị ảnh hưởng trong khoảng gán lịch
         List<String> affectedHolidays = holidayList.stream()
                 .filter(h -> !(request.getEndDate().isBefore(h.getStartDate()) || request.getStartDate().isAfter(h.getEndDate())))
-                .filter(h -> Boolean.TRUE.equals(h.getApplyToConsultant())) // Chỉ lọc những ngày nghỉ có áp dụng cho tư vấn
+              // thiếu Chỉ lọc những ngày nghỉ có áp dụng cho tư vấn
                 .map(SchoolHoliday::getTitle)
                 .distinct()
                 .toList();

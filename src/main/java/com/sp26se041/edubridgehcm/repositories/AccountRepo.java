@@ -19,4 +19,6 @@ public interface AccountRepo extends JpaRepository<Account, Integer> {
     Page<Account> findByRoleOrderByIdDesc(Role role, Pageable pageable);
 
     List<Account> findByRole(Role role);
+
+    boolean existsByEmail(String email);
 }

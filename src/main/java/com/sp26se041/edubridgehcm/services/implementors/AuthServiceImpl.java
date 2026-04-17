@@ -4,9 +4,11 @@ import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Parent;
+import com.sp26se041.edubridgehcm.models.PlatformConfig;
 import com.sp26se041.edubridgehcm.models.SchoolRegistrationRequest;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.ParentRepo;
+import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRegistrationRequestRepo;
 import com.sp26se041.edubridgehcm.requests.LoginRequest;
 import com.sp26se041.edubridgehcm.requests.RefreshTokenRequest;
@@ -18,6 +20,7 @@ import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.CookieUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
+import com.sp26se041.edubridgehcm.validations.auth.RegisterValidation;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +42,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
     private static final String TOKEN_TYPE = "Bearer";
+    private final PlatformConfigRepo platformConfigRepo;
 
     @Value("${jwt.expiration.access-token}")
     private long accessExpiration;
@@ -71,7 +75,7 @@ public class AuthServiceImpl implements AuthService {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
         }
 
-        return ResponseBuilder.build(HttpStatus.OK, "Upload successful", response);
+        return ResponseBuilder.build(HttpStatus.OK, "Tải tệp lên thành công", response);
 
     }
 
@@ -81,40 +85,50 @@ public class AuthServiceImpl implements AuthService {
         String email = normalize(request == null ? null : request.getEmail());
 
         if (email == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Email is require", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Yêu cầu nhập email", null);
         }
 
         Account account = accountRepo.findByEmail(email).orElse(null);
 
         if (account == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account not found", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tài khoản không tồn tại trong hệ thống", null);
         }
 
         if (account.getStatus().equals(Status.ACCOUNT_INACTIVE)) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is inactive", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị tạm khóa", null);
         }
 
         if (account.getStatus().equals(Status.ACCOUNT_PENDING_VERIFY)) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is awaiting admin verified", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang chờ quản trị viên phê duyệt", null);
         }
 
         String access = jwtService.generateAccessToken(account);
         String refresh = jwtService.generateRefreshToken(account);
 
         if (AuthRequestUtil.isMobileRequest(httpRequest)) {
-            return ResponseBuilder.build(HttpStatus.OK, "Login successfully", buildMobileAuthData(account, access, refresh));
+            return ResponseBuilder.build(HttpStatus.OK, "Đăng nhập thành công", buildMobileAuthData(account, access, refresh));
         }
 
         CookieUtil.createCookies(response, access, refresh, accessExpiration, refreshExpiration);
-        return ResponseBuilder.build(HttpStatus.OK, "Login successfully", buildAccountData(account));
+        return ResponseBuilder.build(HttpStatus.OK, "Đăng nhập thành công", buildAccountData(account));
     }
 
     @Override
     @Transactional
     public ResponseEntity<ResponseObject> register(RegisterRequest request, HttpServletResponse response) {
 
+        //Lấy cấu hình Media từ hệ thống để validate định dạng file (Logo, Giấy phép, Avatar)
+        Map<String, Object> mediaConfig = (Map<String, Object>) platformConfigRepo.findByKey("media")
+                .map(PlatformConfig::getValue)
+                .orElse(null);
+
+        String error = RegisterValidation.registerValidation(request, mediaConfig);
+        if (error != null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+        }
+
         if (accountRepo.findByEmail(request.getEmail()).isPresent()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Email already exists", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Email đã tồn tại trong hệ thống", null);
         }
 
         if (Role.valueOf(request.getRole().toUpperCase()).equals(Role.PARENT)) {
@@ -130,7 +144,7 @@ public class AuthServiceImpl implements AuthService {
                     .account(account)
                     .avatar(request.getAvatar())
                     .build()));
-            return ResponseBuilder.build(HttpStatus.OK, "Register successfully", buildAccountData(account));
+            return ResponseBuilder.build(HttpStatus.OK, "Đăng ký tài khoản thành công", buildAccountData(account));
         }
 
         if (Role.valueOf(request.getRole().toUpperCase()).equals(Role.SCHOOL)) {
@@ -150,10 +164,10 @@ public class AuthServiceImpl implements AuthService {
                     .status(Status.ACCOUNT_PENDING_VERIFY) // trạng thái chờ Admin duyệt
                     .createdAt(LocalDateTime.now())
                     .build());
-            return ResponseBuilder.build(HttpStatus.OK, "Registration submitted. Your account is pending admin verified.", buildSchoolRegistrationData(schoolRegistrationRequest));
+            return ResponseBuilder.build(HttpStatus.OK, "Yêu cầu đăng ký đã được gửi. Vui lòng chờ quản trị viên phê duyệt.", buildSchoolRegistrationData(schoolRegistrationRequest));
         }
 
-        return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "This role is not allowed for self-registration", null);
+        return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Vai trò này không được phép tự đăng ký", null);
     }
 
     private Map<String, Object> buildAccountData(Account account) {
@@ -210,19 +224,19 @@ public class AuthServiceImpl implements AuthService {
         String refreshToken = AuthRequestUtil.extractRefreshToken(httpRequest, request == null ? null : request.getRefreshToken());
 
         if (refreshToken == null) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "No refresh token found", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Không tìm thấy mã làm mới (Refresh Token)", null);
         }
 
         String email = jwtService.extractEmailFromJWT(refreshToken);
 
         if (email == null) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Refresh token invalid", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Mã làm mới không hợp lệ hoặc đã hết hạn", null);
         }
 
         Account currentAcc = accountRepo.findByEmailAndStatus(email, Status.ACCOUNT_ACTIVE).orElse(null);
 
         if (currentAcc == null) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "No user found", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản không tồn tại", null);
         }
 
         String newAccess = jwtService.generateAccessToken(currentAcc);
@@ -230,12 +244,12 @@ public class AuthServiceImpl implements AuthService {
         String newRefresh = jwtService.generateRefreshToken(currentAcc);
 
         if (AuthRequestUtil.isMobileRequest(httpRequest)) {
-            return ResponseBuilder.build(HttpStatus.OK, "Refresh access token successfully", buildMobileAuthData(currentAcc, newAccess, newRefresh));
+            return ResponseBuilder.build(HttpStatus.OK, "Làm mới mã truy cập thành công", buildMobileAuthData(currentAcc, newAccess, newRefresh));
         }
 
         CookieUtil.createCookies(response, newAccess, newRefresh, accessExpiration, refreshExpiration);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Refresh access token successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Làm mới mã truy cập thành công", null);
     }
 
     private Map<String, Object> buildMobileAuthData(Account account, String accessToken, String refreshToken) {

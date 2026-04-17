@@ -9,7 +9,6 @@ public interface SchoolHolidayService {
     
     ResponseEntity<ResponseObject> createHoliday(CreateHolidayRequest request);
 
-
     ResponseEntity<ResponseObject> updateHoliday(UpdateHolidayRequest request);
 
     ResponseEntity<ResponseObject> viewHolidayList();
