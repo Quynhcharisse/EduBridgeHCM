@@ -7,37 +7,41 @@ import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.requests.UpdateProfileRequest;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
+import com.sp26se041.edubridgehcm.utils.ConfigSystemUtil;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 
 public class AccountValidation {
 
-    public static String updateProfileValidation(UpdateProfileRequest request, Account account) {
+    public static String updateProfileValidation(UpdateProfileRequest request, Account account, Map<String, Object> mediaConfig) {
 
         if (account == null) {
-            return "Account does not exist";
+            return "Tài khoản không tồn tại";
         }
 
         if (request == null) {
-            return "Request body is required";
+            return "Dữ liệu yêu cầu không được để trống";
         }
 
         if (AccountRestrictionUtil.isRestricted(account)) {
-            return "Your account is restricted";
+            return "Tài khoản của bạn hiện đang bị hạn chế chức năng";
         }
 
         if (account.getRole() == Role.ADMIN) {
-            return "Admin does not support this profile update API";
+            return "Quản trị viên không hỗ trợ cập nhật hồ sơ qua chức năng này";
         }
 
+        // --- VALIDATE PHỤ HUYNH ---
         if (account.getRole() == Role.PARENT) {
 
             if (request.getCounsellorData() != null || request.getCampusData() != null) {
-                return "Only parentData is allowed for parent role";
+                return "Vai trò phụ huynh chỉ được phép cập nhật dữ liệu phụ huynh";
             }
 
             if (request.getParentData() == null) {
-                return "Require parent data";
+                return "Yêu cầu cung cấp thông tin phụ huynh";
             }
 
             String parentName = normalize(request.getParentData().getName());
@@ -49,163 +53,186 @@ public class AccountValidation {
             boolean isFirstLogin = account.getFirstLogin();
 
             if (isFirstLogin && idCardNumber == null) {
-                return "Require parent id card number on first login";
+                return "Vui lòng nhập số CCCD/CMND trong lần đăng nhập đầu tiên";
             }
 
             if (idCardNumber != null && !isExactDigits(idCardNumber)) {
-                return "Parent id card number must contain exactly 12 digits";
+                return "Số CCCD phải bao gồm chính xác 12 chữ số";
             }
 
             if (!isFirstLogin && idCardNumber != null && !idCardNumber.equals(account.getParent().getIdCardNumber())) {
-                return "Parent id card number can only be updated on first login";
+                return "Số CCCD chỉ có thể được cập nhật trong lần đăng nhập đầu tiên";
             }
 
             if (parentName == null) {
-                return "Require parent name";
+                return "Vui lòng nhập họ và tên phụ huynh";
             }
 
             if (parseGender(request.getParentData().getGender()) == null) {
-                return "Invalid parent gender";
+                return "Giới tính không hợp lệ";
             }
 
             if (parseRelationship(request.getParentData().getRelationship()) == null) {
-                return "Invalid parent relationship";
+                return "Mối quan hệ không hợp lệ";
             }
 
             if (parentPhone == null) {
-                return "Require parent phone";
+                return "Vui lòng nhập số điện thoại phụ huynh";
             }
 
             if (!isValidPhoneNumber(parentPhone)) {
-                return "Parent phone number must contain exactly 10 digits and start with 03, 07, 08, or 09";
+                return "Số điện thoại phụ huynh không hợp lệ (phải đủ 10 chữ số và bắt đầu bằng số 0)";
             }
 
             if (parentOccupation == null) {
-                return "Require parent occupation";
+                return "Vui lòng cung cấp thông tin nghề nghiệp";
             }
 
             if (hasMaxWords(parentOccupation)) {
-                return "Parent occupation must not exceed 100 words";
+                return "Thông tin nghề nghiệp không được vượt quá 100 từ";
             }
 
             if (parentWorkplace == null) {
-                return "Require parent workplace";
+                return "Vui lòng cung cấp thông tin nơi làm việc";
             }
 
             if (hasMaxWords(parentWorkplace)) {
-                return "Parent workplace must not exceed 100 words";
+                return "Thông tin nơi làm việc không được vượt quá 100 từ";
             }
 
             if (parentAddress == null) {
-                return "Require parent address";
+                return "Vui lòng cung cấp địa chỉ hiện tại";
             }
 
             if (hasMaxWords(parentAddress)) {
-                return "Parent address must not exceed 100 words";
+                return "Địa chỉ không được vượt quá 100 từ";
             }
 
             return "";
         }
 
+        // --- VALIDATE TƯ VẤN VIÊN ---
         if (account.getRole() == Role.COUNSELLOR) {
 
             if (request.getParentData() != null || request.getCampusData() != null) {
-                return "Only counsellorData is allowed for counsellor role";
+                return "Vai trò tư vấn viên chỉ được phép cập nhật dữ liệu tư vấn";
             }
 
             if (request.getCounsellorData() == null) {
-                return "Require counsellor data";
+                return "Yêu cầu cung cấp thông tin tư vấn viên";
             }
 
             if (normalize(request.getCounsellorData().getName()) == null) {
-                return "Require counsellor name";
+                return "Vui lòng nhập họ và tên tư vấn viên";
             }
             return "";
         }
 
+        // --- VALIDATE TRƯỜNG HỌC (CAMPUS) ---
         if (account.getRole() == Role.SCHOOL) {
 
             if (request.getParentData() != null || request.getCounsellorData() != null) {
-                return "Only campusData is allowed for school role";
+                return "Vai trò trường học chỉ được phép cập nhật dữ liệu cơ sở";
             }
 
             if (request.getCampusData() == null) {
-                return "Require campus data";
+                return "Yêu cầu cung cấp thông tin cơ sở";
             }
 
             if (normalize(request.getCampusData().getPhoneNumber()) == null) {
-                return "Require campus phone number";
+                return "Vui lòng nhập số điện thoại cơ sở";
             }
 
             if (!isValidPhoneNumber(request.getCampusData().getPhoneNumber())) {
-                return "Campus phone number must contain exactly 10 digits and start with 03, 07, 08, or 09";
+                return "Số điện thoại cơ sở không hợp lệ (phải đủ 10 chữ số và bắt đầu bằng số 0)";
             }
 
             if (normalize(request.getCampusData().getCity()) == null) {
-                return "Require campus city";
+                return "Vui lòng chọn Tỉnh/Thành phố";
             }
 
             if (normalize(request.getCampusData().getDistrict()) == null) {
-                return "Require campus district";
+                return "Vui lòng chọn Quận/Huyện";
             }
 
-
             if (parseBoardingType(normalize(request.getCampusData().getBoardingType())) == null) {
-                return "Require campus boarding type";
+                return "Vui lòng chọn loại hình nội trú";
             }
 
             if (normalize(request.getCampusData().getAddress()) == null) {
-                return "Require campus address";
+                return "Vui lòng nhập địa chỉ cơ sở";
             }
 
             if (hasMaxWords(request.getCampusData().getAddress())) {
-                return "Campus address must not exceed 100 words";
+                return "Địa chỉ cơ sở không được vượt quá 100 từ";
             }
 
             if (account.getCampus().getIsPrimaryBranch()) {
                 if (request.getCampusData().getSchoolData() == null) {
-                    return "Require school data for primary branch";
+                    return "Cơ sở chính yêu cầu phải có thông tin chung của trường";
                 }
 
                 if (normalize(request.getCampusData().getSchoolData().getDescription()) == null) {
-                    return "Require school description";
+                    return "Vui lòng nhập mô tả giới thiệu trường";
                 }
 
                 if (normalize(request.getCampusData().getSchoolData().getDescription()).length() > 2000) {
-                    return "School description must not exceed 2000 characters";
+                    return "Mô tả trường không được vượt quá 2000 ký tự";
                 }
 
                 if (normalize(request.getCampusData().getSchoolData().getHotline()) != null
-                        && !isValidHotline(normalize(request.getCampusData().getSchoolData().getHotline()))) { // Dùng isValidHotline
-                    return "School hotline is invalid (should start with 02, 03, 07, 08, 09, 1800, or 1900)";
+                        && !isValidHotline(normalize(request.getCampusData().getSchoolData().getHotline()))) {
+                    return "Số Hotline không hợp lệ (phải từ 8-11 chữ số và bắt đầu bằng 0, 18 hoặc 19)";
                 }
 
                 if (normalize(request.getCampusData().getSchoolData().getLogoUrl()) == null) {
-                    return "Require school logoUrl";
+                    return "Vui lòng cung cấp Logo trường";
                 }
-                if (!normalize(request.getCampusData().getSchoolData().getLogoUrl()).startsWith("http")) {
-                    return "School logoUrl must be a valid URL";
+
+                String logoError = validateFileFormat(request.getCampusData().getSchoolData().getLogoUrl(), mediaConfig, "imgFormat");
+                if (logoError != null) {
+                    return "Logo trường: " + logoError;
                 }
 
                 if (normalize(request.getCampusData().getSchoolData().getWebsiteUrl()) == null) {
-                    return "Require school websiteUrl";
+                    return "Vui lòng nhập địa chỉ Website trường";
                 }
                 if (!normalize(request.getCampusData().getSchoolData().getWebsiteUrl()).startsWith("http")) {
-                    return "School websiteUrl must be a valid URL";
+                    return "Địa chỉ Website trường phải là một đường dẫn (URL) hợp lệ";
                 }
             }
 
             return "";
         }
 
-        return "Role does not support profile update";
+        return "Vai trò hiện tại không hỗ trợ cập nhật thông tin hồ sơ";
+    }
+
+    private static String validateFileFormat(String url, Map<String, Object> mediaConfig, String typeKey) {
+        String normalizedUrl = normalize(url);
+        if (normalizedUrl == null) return "Đường dẫn không được để trống";
+
+        if (!normalizedUrl.startsWith("http")) {
+            return "Đường dẫn phải là một URL hợp lệ";
+        }
+
+        List<String> allowedFormats = ConfigSystemUtil.getAllowedFormats(mediaConfig, typeKey);
+
+        if (!allowedFormats.isEmpty()) {
+            boolean isValid = allowedFormats.stream()
+                    .anyMatch(ext -> normalizedUrl.toLowerCase().endsWith(ext.toLowerCase()));
+
+            if (!isValid) {
+                return "định dạng không hỗ trợ. Chỉ chấp nhận: " + String.join(", ", allowedFormats);
+            }
+        }
+
+        return null;
     }
 
     public static Gender parseGender(String value) {
         String normalizedValue = normalize(value);
-        if (normalizedValue == null) {
-            return null;
-        }
+        if (normalizedValue == null) return null;
 
         return Arrays.stream(Gender.values())
                 .filter(g -> g.getValue().equalsIgnoreCase(normalizedValue) || g.name().equalsIgnoreCase(normalizedValue))
@@ -215,9 +242,7 @@ public class AccountValidation {
 
     public static Relationship parseRelationship(String value) {
         String normalizedValue = normalize(value);
-        if (normalizedValue == null) {
-            return null;
-        }
+        if (normalizedValue == null) return null;
 
         return Arrays.stream(Relationship.values())
                 .filter(r -> r.getValue().equalsIgnoreCase(normalizedValue) || r.name().equalsIgnoreCase(normalizedValue))
@@ -227,9 +252,7 @@ public class AccountValidation {
 
     public static BoardingType parseBoardingType(String value) {
         String normalizedValue = normalize(value);
-        if (normalizedValue == null) {
-            return null;
-        }
+        if (normalizedValue == null) return null;
 
         return Arrays.stream(BoardingType.values())
                 .filter(r -> r.getValue().equalsIgnoreCase(normalizedValue) || r.name().equalsIgnoreCase(normalizedValue))
@@ -239,33 +262,27 @@ public class AccountValidation {
 
     public static boolean isValidPhoneNumber(String value) {
         String normalizedValue = normalize(value);
-        return normalizedValue != null && normalizedValue.matches("^(03|07|08|09)\\d{8}$");
+        return normalizedValue != null && normalizedValue.matches("^0\\d{9}$");
     }
 
     public static boolean isValidHotline(String value) {
         String normalizedValue = normalize(value);
-        return normalizedValue != null && normalizedValue.matches("^(02|03|07|08|09|18|19)\\d{6,9}$");
+        return normalizedValue != null && normalizedValue.matches("^(0|18|19)\\d{7,10}$");
     }
 
     public static boolean isExactDigits(String value) {
         String normalizedValue = normalize(value);
-        return normalizedValue != null && normalizedValue.matches("^\\d{" + 12 + "}$");
+        return normalizedValue != null && normalizedValue.matches("^\\d{12}$");
     }
 
     public static boolean hasMaxWords(String value) {
         String normalizedValue = normalize(value);
-        if (normalizedValue == null) {
-            return true;
-        }
-
+        if (normalizedValue == null) return false;
         return normalizedValue.split("\\s+").length > 100;
     }
 
     public static String normalize(String value) {
-        if (value == null) {
-            return null;
-        }
-
+        if (value == null) return null;
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
     }

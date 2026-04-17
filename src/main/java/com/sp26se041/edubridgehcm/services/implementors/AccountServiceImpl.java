@@ -10,6 +10,7 @@ import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Parent;
+import com.sp26se041.edubridgehcm.models.PlatformConfig;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.TemplateDocx;
@@ -17,6 +18,7 @@ import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.ParentRepo;
+import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.TemplateDocxRepo;
@@ -37,7 +39,6 @@ import com.sp26se041.edubridgehcm.validations.account.AccountValidation;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.jsoup.Jsoup;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -94,6 +95,8 @@ public class AccountServiceImpl implements AccountService {
     private final SupabaseStorageService supabaseStorageService;
 
     private final SchoolConfigRepo schoolConfigRepo;
+
+    private final PlatformConfigRepo platformConfigRepo;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -395,7 +398,11 @@ public class AccountServiceImpl implements AccountService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No account", null);
         }
 
-        String error = AccountValidation.updateProfileValidation(request, account);
+        Map<String, Object> mediaConfig = (Map<String, Object>) platformConfigRepo.findByKey("media")
+                .map(PlatformConfig::getValue)
+                .orElse(null);
+
+        String error = AccountValidation.updateProfileValidation(request, account, mediaConfig);
 
         if (!error.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
@@ -453,7 +460,7 @@ public class AccountServiceImpl implements AccountService {
                 SchoolConfig hqFacility = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "facilityData").orElse(null);
 
 
-                    Optional<TemplateDocx> schoolTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.SCHOOL_INFO_TEMPLATE);
+                Optional<TemplateDocx> schoolTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.SCHOOL_INFO_TEMPLATE);
 
                 if (schoolTemplateDocx.isEmpty()) {
                     throw new Exception("School template docx not found or be deleted");
@@ -482,21 +489,21 @@ public class AccountServiceImpl implements AccountService {
                 String schoolFileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
 
                 Map<String, Object> payload = new LinkedHashMap<>();
-                    payload.put("type", "school_info");
-                    payload.put("schoolId", school.getId());
-                    payload.put("schoolName", school.getName());
-                    payload.put("schoolInfoFileUrl", schoolFileUrl);
+                payload.put("type", "school_info");
+                payload.put("schoolId", school.getId());
+                payload.put("schoolName", school.getName());
+                payload.put("schoolInfoFileUrl", schoolFileUrl);
 
-                    HttpHeaders headers = new HttpHeaders();
-                    headers.setContentType(MediaType.APPLICATION_JSON);
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
 
-                    HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
 
-                    restTemplate.postForEntity(
-                            n8nUrl,
-                            entity,
-                            String.class
-                    );
+                restTemplate.postForEntity(
+                        n8nUrl,
+                        entity,
+                        String.class
+                );
 
                 school.setFileName(fileName);
 
@@ -519,48 +526,48 @@ public class AccountServiceImpl implements AccountService {
 
         try {
 
-        Map<String, Object> currentCampusFacility = (Map<String, Object>) campus.getFacility();
+            Map<String, Object> currentCampusFacility = (Map<String, Object>) campus.getFacility();
 
-        List<Map<String, Object>> currentItems = new ArrayList<>();
+            List<Map<String, Object>> currentItems = new ArrayList<>();
 
-        if (currentCampusFacility != null && currentCampusFacility.get("itemList") != null) {
-            currentItems = (List<Map<String, Object>>) currentCampusFacility.get("itemList");
-        }
-
-        // lấy facility từ primary chính đã config cơ sở vật chất chung cho các campus
-        // ==> để biết bên primary campus có thêm / bớt CSVC nào ko?
-        SchoolConfig facilityData = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "facilityData").orElse(null);
-
-        List<Map<String, Object>> itemList = new ArrayList<>();
-
-        if (facilityData != null && facilityData.getValue() instanceof Map) {
-            Map<String, Object> val = (Map<String, Object>) facilityData.getValue();
-            itemList = (List<Map<String, Object>>) val.get("itemList");
-        }
-
-        Map<String, Map<String, Object>> finalResultMap = new LinkedHashMap<>();
-
-        // s1 : đổ dữ liệu làm khung
-        if (itemList != null) {
-            for (Map<String, Object> item : itemList) {
-                Map<String, Object> newItem = new HashMap<>(item);
-                finalResultMap.put((String) item.get("facilityCode"), newItem);
+            if (currentCampusFacility != null && currentCampusFacility.get("itemList") != null) {
+                currentItems = (List<Map<String, Object>>) currentCampusFacility.get("itemList");
             }
-        }
 
-        if (currentItems != null) {
-            for (Map<String, Object> item : currentItems) {
-                finalResultMap.put((String) item.get("facilityCode"), new HashMap<>(item));
+            // lấy facility từ primary chính đã config cơ sở vật chất chung cho các campus
+            // ==> để biết bên primary campus có thêm / bớt CSVC nào ko?
+            SchoolConfig facilityData = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "facilityData").orElse(null);
+
+            List<Map<String, Object>> itemList = new ArrayList<>();
+
+            if (facilityData != null && facilityData.getValue() instanceof Map) {
+                Map<String, Object> val = (Map<String, Object>) facilityData.getValue();
+                itemList = (List<Map<String, Object>>) val.get("itemList");
             }
-        }
 
-        Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
+            Map<String, Map<String, Object>> finalResultMap = new LinkedHashMap<>();
 
-        if (campusTemplateDocx.isEmpty()) {
-            throw  new Exception("Campus document template is not available.");
-        }
+            // s1 : đổ dữ liệu làm khung
+            if (itemList != null) {
+                for (Map<String, Object> item : itemList) {
+                    Map<String, Object> newItem = new HashMap<>(item);
+                    finalResultMap.put((String) item.get("facilityCode"), newItem);
+                }
+            }
 
-        String templatePath = campusTemplateDocx.get().getFolderName() + "/" + campusTemplateDocx.get().getFileName();
+            if (currentItems != null) {
+                for (Map<String, Object> item : currentItems) {
+                    finalResultMap.put((String) item.get("facilityCode"), new HashMap<>(item));
+                }
+            }
+
+            Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
+
+            if (campusTemplateDocx.isEmpty()) {
+                throw new Exception("Campus document template is not available.");
+            }
+
+            String templatePath = campusTemplateDocx.get().getFolderName() + "/" + campusTemplateDocx.get().getFileName();
 
             supabaseStorageService.removeFile(campus.getFolderPath(), campus.getFileName());
 

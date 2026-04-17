@@ -26,7 +26,6 @@ import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
-import org.jsoup.Jsoup;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -37,7 +36,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
-import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -47,7 +45,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -85,17 +82,17 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "School base account not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học", null);
         }
 
         if (!actorCampus.getIsPrimaryBranch()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN,
-                    "Only the main facility has the authority to change the system configuration.", null);
+                    "Chỉ cơ sở chính mới có quyền thay đổi cấu hình hệ thống.", null);
         }
 
         if (actorCampus.getSchool().getId() != schoolId) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN,
-                    "You do not have permission to modify the configuration for this field.", null);
+                    "Bạn không có quyền sửa đổi cấu hình cho trường này.", null);
         }
 
         if (request.getAdmissionSettingsData() == null &&
@@ -107,11 +104,11 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                 request.getResourceDistributionData() == null
         ) {
 
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "The updated data must not be left blank.", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Dữ liệu cập nhật không được để trống.", null);
         }
 
         updateConfig(schoolId, request);
-        return ResponseBuilder.build(HttpStatus.OK, "Update successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Cập nhật thành công", null);
     }
 
     @Transactional
@@ -160,7 +157,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
     public void updateDocumentRequirements(int schoolId, SchoolConfigRequest request) {
 
         SchoolConfig admissionConfig = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "admissionSettingsData")
-                .orElseThrow(() -> new RuntimeException("Please configure admission method first"));
+                .orElseThrow(() -> new RuntimeException("Vui lòng định cấu hình phương thức nhập học trước"));
 
         Map<String, Object> admissionData = (Map<String, Object>) admissionConfig.getValue();
         List<Map<String, Object>> allowedMethods = (List<Map<String, Object>>) admissionData.get("allowedMethods");
@@ -172,7 +169,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         if (request.getDocumentRequirementsData().getByMethod() != null) {
             for (var methodReq : request.getDocumentRequirementsData().getByMethod()) {
                 if (!validMethodCodes.contains(methodReq.getMethodCode())) {
-                    throw new RuntimeException("Method code " + methodReq.getMethodCode() + "is invalid.");
+                    throw new RuntimeException("Mã phương pháp " + methodReq.getMethodCode() + "không hợp lệ.");
                 }
             }
         }
@@ -299,7 +296,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         }
 
         SchoolConfig admissionConfig = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "admissionSettingsData")
-                .orElseThrow(() -> new RuntimeException("Please configure admission method first"));
+                .orElseThrow(() -> new RuntimeException("Vui lòng định cấu hình phương thức nhập học trước"));
 
         Map<String, Object> admissionData = (Map<String, Object>) admissionConfig.getValue();
         List<Map<String, Object>> allowedMethods = (List<Map<String, Object>>) admissionData.get("allowedMethods");
@@ -335,7 +332,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
             for (var methodProcess : operationSettingsData.getMethodAdmissionProcess()) {
 
                 if (!validMethodCodes.contains(methodProcess.getMethodCode())) {
-                    throw new RuntimeException("Method code " + methodProcess.getMethodCode() + " is invalid.");
+                    throw new RuntimeException("Mã phương pháp " + methodProcess.getMethodCode() + " không hợp lệ.");
                 }
 
                 Map<String, Object> processMap = new HashMap<>();
@@ -420,13 +417,13 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
             Optional<School> school = schoolRepo.findById(schoolId);
 
             if (school.isEmpty()) {
-                 throw new Exception("School not found or be deleted");
+                throw new Exception("Trường ko tìm thấy hoặc đã bị xóa");
             }
 
             Optional<TemplateDocx> schoolTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.SCHOOL_INFO_TEMPLATE);
 
             if (schoolTemplateDocx.isEmpty()) {
-                throw new Exception("School template docx not found or be deleted");
+                throw new Exception("Mẫu trường học docx không được tìm thấy hoặc đã bị xóa");
             }
 
             supabaseStorageService.removeFile(school.get().getFolderPath(), school.get().getFileName());
@@ -451,27 +448,27 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
 
             String schoolFileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
 
-                try {
-                    Map<String, Object> payload = new LinkedHashMap<>();
-                    payload.put("type", "school_info");
-                    payload.put("schoolId", school.get().getId());
-                    payload.put("schoolName", school.get().getName());
-                    payload.put("schoolInfoFileUrl", schoolFileUrl);
+            try {
+                Map<String, Object> payload = new LinkedHashMap<>();
+                payload.put("type", "school_info");
+                payload.put("schoolId", school.get().getId());
+                payload.put("schoolName", school.get().getName());
+                payload.put("schoolInfoFileUrl", schoolFileUrl);
 
-                    HttpHeaders headers = new HttpHeaders();
-                    headers.setContentType(MediaType.APPLICATION_JSON);
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
 
-                    HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
 
-                    restTemplate.postForEntity(
-                            n8nUrl,
-                            entity,
-                            String.class
-                    );
+                restTemplate.postForEntity(
+                        n8nUrl,
+                        entity,
+                        String.class
+                );
 
-                } catch (Exception e) {
-                    System.out.println(e.getMessage());
-                }
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+            }
 
             school.get().setFileName(fileName);
             schoolRepo.save(school.get());
@@ -526,7 +523,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
 
         if (campusTemplateDocx.isEmpty()) {
-            System.out.println("Campus document template is not available.");
+            System.out.println("Mẫu tài liệu của trường không có sẵn.");
             return;
         }
 
@@ -565,29 +562,29 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                         fileName
                 );
 
-                    Map<String, Object> payload = new LinkedHashMap<>();
-                    payload.put("type", "campus_info");
-                    payload.put("schoolId", campus.getSchool().getId());
-                    payload.put("schoolName", campus.getSchool().getName());
-                    payload.put("campusId", campus.getId());
-                    payload.put("campusInfoFileUrl", campusFileUrl);
+                Map<String, Object> payload = new LinkedHashMap<>();
+                payload.put("type", "campus_info");
+                payload.put("schoolId", campus.getSchool().getId());
+                payload.put("schoolName", campus.getSchool().getName());
+                payload.put("campusId", campus.getId());
+                payload.put("campusInfoFileUrl", campusFileUrl);
 
-                    HttpHeaders headers = new HttpHeaders();
-                    headers.setContentType(MediaType.APPLICATION_JSON);
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
 
-                    HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
 
-                    restTemplate.postForEntity(
-                            n8nUrl,
-                            entity,
-                            String.class
-                    );
+                restTemplate.postForEntity(
+                        n8nUrl,
+                        entity,
+                        String.class
+                );
 
                 campus.setFileName(fileName);
                 campusRepo.save(campus);
 
             } catch (Exception e) {
-                System.out.println("Failed to generate campus docx" + e.getMessage());
+                System.out.println("Không tạo được docx của trường" + e.getMessage());
             }
         }
     }
@@ -639,8 +636,8 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         // Kiểm tra xem có vượt quá chỉ tiêu tổng không
         // (Giả sử totalSystemQuota trong request là con số thực tế lấy từ PlatformConfig)
         if (totalAssigned > quotaConfigData.getTotalSystemQuota()) {
-            throw new IllegalArgumentException("Total allocation for facilities (" + totalAssigned +
-                    ") exceeding the system's allowed limits. (" + quotaConfigData.getTotalSystemQuota() + ")");
+            throw new IllegalArgumentException("Tổng phân bổ cho cơ sở vật chất (" + totalAssigned +
+                    ") vượt quá giới hạn cho phép của hệ thống. (" + quotaConfigData.getTotalSystemQuota() + ")");
         }
 
         List<Map<String, Object>> campusAssignmentsJson = quotaConfigData.getCampusAssignments().stream()
@@ -679,7 +676,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         SchoolSubscription activeSub = schoolSubscriptionRepo
                 .findBySchoolIdAndEndDateGreaterThanEqualAndIsSelectedTrue(
                         schoolId, LocalDate.now())
-                .orElseThrow(() -> new RuntimeException("The school has not registered a package or the package has expired"));
+                .orElseThrow(() -> new RuntimeException("Trường chưa đăng ký gói hoặc gói đã hết hạn"));
 
         UpsertServicePackageFeeRequest.FeatureData systemFeatures = objectMapper.convertValue(
                 activeSub.getSubscription().getFeatures(),
@@ -708,11 +705,10 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
             int systemLimit = getSystemLimitByType(systemFeatures, type);
 
             if (totalAllocated > systemLimit) {
-                throw new RuntimeException("Total allocated for " + type + " (" + totalAllocated +
-                        ") exceeds system limit (" + systemLimit + ")");
+                throw new RuntimeException("Tổng phân bổ cho " + type + " (" + totalAllocated +
+                        ") vượt quá giới hạn hệ thống (" + systemLimit + ")");
             }
 
-            //Thực hiện kiểm tra tổng và lưu (giống logic chúng ta đã bàn)
             for (var alloc : allocations) {
 
                 ResourceType safeType = parseResourceType(String.valueOf(alloc.getResourceType()));
@@ -795,7 +791,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         List<SchoolConfig> configs = schoolConfigRepo.findAllBySchoolId(schoolId);
         Map<String, Object> result = configs.stream().collect(Collectors.toMap(SchoolConfig::getKey, SchoolConfig::getValue));
 
-        return ResponseBuilder.build(HttpStatus.OK, "Fetch successfully", result);
+        return ResponseBuilder.build(HttpStatus.OK, "", result);
     }
 
     @Override
@@ -803,18 +799,18 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
 
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "Unauthorized", null);
+            return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "không có phép", null);
         }
 
         SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), k).orElse(null);
 
         if (config == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Configuration not found for this school", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy cấu hình cho trường này", null);
         }
 
         Map<String, Object> data = getConfigByKey(k);
 
-        if (data == null) return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Data invalid", null);
+        if (data == null) return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Dữ liệu không hợp lệ", null);
 
         return ResponseBuilder.build(HttpStatus.OK, "", data);
     }
@@ -835,7 +831,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                 })
                 .collect(Collectors.toList());
 
-        return ResponseBuilder.build(HttpStatus.OK, "Fetch campus configs successfully", campusConfigJson);
+        return ResponseBuilder.build(HttpStatus.OK, "", campusConfigJson);
     }
 
     private Map<String, Object> getConfigByKey(String key) {
