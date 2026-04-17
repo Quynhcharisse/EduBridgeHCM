@@ -5,8 +5,10 @@ import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
+import com.sp26se041.edubridgehcm.models.PlatformConfig;
 import com.sp26se041.edubridgehcm.models.Post;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
+import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.PostRepo;
 import com.sp26se041.edubridgehcm.requests.CreatePostRequest;
 import com.sp26se041.edubridgehcm.requests.DisablePostRequest;
@@ -47,11 +49,13 @@ public class PostServiceImpl implements PostService {
 
     private final SupabaseStorageService supabaseStorageService;
 
+    private final PlatformConfigRepo platformConfigRepo;
+
     @Override
     public ResponseEntity<ResponseObject> createPost(CreatePostRequest request, HttpServletRequest httpRequest) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế chức năng", null);
         }
 
         Account acc = AuthRequestUtil.extractAuthenticatedAccount();
@@ -60,20 +64,20 @@ public class PostServiceImpl implements PostService {
         }
 
         if (acc == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account not found", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy thông tin tài khoản", null);
         }
 
         CategoryPost category;
         try {
             category = CategoryPost.valueOf(request.getCategoryPost().toUpperCase());
         } catch (Exception e) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid post category", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Danh mục bài viết không hợp lệ", null);
         }
 
         if (acc.getRole() == Role.ADMIN) {
 
             if (!isAdminCategory(category)) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Admin can only post system notifications or general news", null);
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Quản trị viên chỉ có thể đăng thông báo hệ thống hoặc tin tức giáo dục chung", null);
             }
 
         } else if (acc.getRole() == Role.SCHOOL) {
@@ -81,21 +85,26 @@ public class PostServiceImpl implements PostService {
             Campus actorCampus = acc.getCampus();
 
             if (actorCampus == null) {
-                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy thông tin cơ sở trường học", null);
             }
 
             if (!actorCampus.getIsPrimaryBranch()) {
-                return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can add new campus", null);
+                return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Chỉ có cơ sở chính mới có quyền đăng bài viết", null);
             }
 
             if (!isCampusCategory(category)) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Schools are only allowed to post information about admissions, events, or scholarships.", null);
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Trường học chỉ được phép đăng thông tin tuyển sinh, sự kiện hoặc học bổng", null);
             }
         } else {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "You do not have permission to post", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền đăng bài viết", null);
         }
 
-        String error = PostValidation.createPostValidation(request);
+        //Lấy cấu hình Media từ hệ thống để validate định dạng file (Logo, Giấy phép, Avatar)
+        Map<String, Object> mediaConfig = (Map<String, Object>) platformConfigRepo.findByKey("media")
+                .map(PlatformConfig::getValue)
+                .orElse(null);
+
+        String error = PostValidation.createPostValidation(request, mediaConfig);
 
         if (error != null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
@@ -105,14 +114,14 @@ public class PostServiceImpl implements PostService {
 
         postRepo.save(post);
 
-        return ResponseBuilder.build(HttpStatus.CREATED, "Created post successfully", null);
+        return ResponseBuilder.build(HttpStatus.CREATED, "Đăng bài viết thành công", null);
     }
 
     @Override
     public ResponseEntity<ResponseObject> uploadDocumentPost(MultipartFile file, String categoryPostTemplate, HttpServletRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế chức năng", null);
         }
 
         Account acc = AuthRequestUtil.extractAuthenticatedAccount();
@@ -121,14 +130,14 @@ public class PostServiceImpl implements PostService {
         }
 
         if (acc == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account not found", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy thông tin tài khoản", null);
         }
 
         CategoryPost categoryTemplate;
         try {
             categoryTemplate = CategoryPost.valueOf(categoryPostTemplate.toUpperCase());
         } catch (IllegalArgumentException ex) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid post category", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Danh mục bài viết không hợp lệ", null);
         }
 
         String rootFolder;
@@ -138,7 +147,7 @@ public class PostServiceImpl implements PostService {
             // Kiểm tra category cho ADMIN
             List<CategoryPost> adminCategories = List.of(CategoryPost.SYSTEM_NOTIFICATIONS, CategoryPost.GENERAL_EDUCATION_NEWS);
             if (!adminCategories.contains(categoryTemplate)) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Admin can only post system notifications or general news", null);
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Quản trị viên chỉ có thể tải tài liệu cho thông báo hoặc tin tức giáo dục", null);
             }
 
             rootFolder = "ADMIN_POSTS";
@@ -147,16 +156,16 @@ public class PostServiceImpl implements PostService {
         } else if (acc.getRole() == Role.SCHOOL) {
             Campus actorCampus = acc.getCampus();
             if (actorCampus == null || actorCampus.getSchool() == null) {
-                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school/campus information found", null);
+                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy thông tin trường học/cơ sở", null);
             }
 
             if (!actorCampus.getIsPrimaryBranch()) {
-                return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can perform this action", null);
+                return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Chỉ cơ sở chính mới có quyền thực hiện thao tác này", null);
             }
 
             // Kiểm tra category cho SCHOOL
             if (!isCampusCategory(categoryTemplate)) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Schools are only allowed to post admissions, events, or scholarships.", null);
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Trường học chỉ được tải tài liệu liên quan đến tuyển sinh, sự kiện hoặc học bổng.", null);
             }
 
             rootFolder = "SCHOOL_POSTS";
@@ -164,7 +173,7 @@ public class PostServiceImpl implements PostService {
             subFolder = toSafeObjectKey(actorCampus.getSchool().getName()) + "/" + categoryTemplate.name().toUpperCase();
 
         } else {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "You do not have permission to post", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền thực hiện thao tác này", null);
         }
 
         // 5. Thực hiện Upload
@@ -195,12 +204,12 @@ public class PostServiceImpl implements PostService {
             responseData.put("category", categoryTemplate);
             responseData.put("storagePath", finalPath);
 
-            return ResponseBuilder.build(HttpStatus.OK, "Upload successfully", responseData);
+            return ResponseBuilder.build(HttpStatus.OK, "Tải tệp lên thành công", responseData);
 
         } catch (IllegalArgumentException ex) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
         } catch (Exception ex) {
-            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Upload failed: " + ex.getMessage(), null);
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Tải tệp thất bại: " + ex.getMessage(), null);
         }
     }
 
@@ -277,7 +286,7 @@ public class PostServiceImpl implements PostService {
         }
 
         if (acc == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account not found", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy thông tin tài khoản", null);
         }
 
         if (acc.getRole() == Role.ADMIN) {
@@ -287,36 +296,36 @@ public class PostServiceImpl implements PostService {
             Campus actorCampus = acc.getCampus();
 
             if (actorCampus == null) {
-                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy thông tin cơ sở", null);
             }
 
             if (!actorCampus.getIsPrimaryBranch()) {
-                return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can add new campus", null);
+                return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Chỉ cơ sở chính mới có quyền ẩn bài viết", null);
             }
 
         } else {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "You do not have permission to post", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền thực hiện thao tác này", null);
         }
 
         Post post = postRepo.findById(request.getPostId()).orElse(null);
 
         if (post == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Post not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy bài viết", null);
         }
 
         if (acc.getRole() != Role.ADMIN && !post.getAuthor().getId().equals(acc.getId())) {
             // ex: admin create post --> author will be admin
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "You are not the author of this post", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không phải là tác giả của bài viết này", null);
         }
 
         if (post.getStatus() == Status.POST_DISABLED) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Post is already disabled", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Bài viết này đã được ẩn trước đó", null);
         }
 
         post.setStatus(Status.POST_DISABLED);
         postRepo.save(post);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Post has been disabled successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Đã ẩn bài viết thành công", null);
     }
 
     @Override
@@ -328,7 +337,7 @@ public class PostServiceImpl implements PostService {
                 .map(this::buildPostData)
                 .toList();
 
-        return ResponseBuilder.build(HttpStatus.OK, "Get post list successfully", data);
+        return ResponseBuilder.build(HttpStatus.OK, "", data);
     }
 
     private Map<String, Object> buildPostData(Post post) {

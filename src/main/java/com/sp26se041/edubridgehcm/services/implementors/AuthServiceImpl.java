@@ -41,8 +41,8 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
+
     private static final String TOKEN_TYPE = "Bearer";
-    private final PlatformConfigRepo platformConfigRepo;
 
     @Value("${jwt.expiration.access-token}")
     private long accessExpiration;
@@ -59,6 +59,8 @@ public class AuthServiceImpl implements AuthService {
     private final ParentRepo parentRepo;
 
     private final SchoolRegistrationRequestRepo schoolRegistrationRequestRepo;
+
+    private final PlatformConfigRepo platformConfigRepo;
 
     @Override
     public ResponseEntity<ResponseObject> uploadBusinessLicensePdf(MultipartFile file) {

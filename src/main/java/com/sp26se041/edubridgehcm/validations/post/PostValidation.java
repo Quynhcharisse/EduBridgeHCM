@@ -2,72 +2,111 @@ package com.sp26se041.edubridgehcm.validations.post;
 
 import com.sp26se041.edubridgehcm.enums.CategoryPost;
 import com.sp26se041.edubridgehcm.requests.CreatePostRequest;
+import com.sp26se041.edubridgehcm.utils.ConfigSystemUtil;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 public class PostValidation {
 
-    public static String createPostValidation(CreatePostRequest request) {
+    public static String createPostValidation(CreatePostRequest request, Map<String, Object> mediaConfig) {
 
         if (request.getHashTagList() == null || request.getHashTagList().isEmpty())
-            return "At least one hashtag is required.";
+            return "Vui lòng nhập ít nhất một hashtag.";
 
         if (request.getTotalPosition() <= 0) {
-            return "Total position must be greater than 0.";
+            return "Tổng số vị trí (Total position) phải lớn hơn 0.";
         }
 
         CreatePostRequest.Content content = request.getContent();
 
-        if (content == null) return "Content body is missing.";
+        if (content == null) return "Nội dung bài viết không được để trống.";
 
-        if (content.getType() == null || content.getType().isBlank()) return "Content type is required.";
+        if (content.getType() == null || content.getType().isBlank()) return "Loại nội dung không được để trống.";
 
         if (content.getShortDescription() == null || content.getShortDescription().isBlank())
-            return "Content short description is required.";
+            return "Mô tả ngắn không được để trống.";
 
         List<CreatePostRequest.ContentData> contentDataList = request.getContent().getContentDataList();
 
-        if (contentDataList == null) return "Content data list is missing.";
+        if (contentDataList == null) return "Danh sách dữ liệu nội dung bị thiếu.";
 
         for (int i = 0; i < contentDataList.size(); i++) {
 
             var item = contentDataList.get(i);
 
             if (item.getText() == null || item.getText().trim().isEmpty()) {
-                return "Text at content item " + (i + 1) + " cannot be empty.";
+                return "Văn bản tại mục nội dung thứ " + (i + 1) + " không được để trống.";
             }
 
             if (item.getPosition() < 0) {
-                return "Position at content item " + (i + 1) + " must be non-negative.";
+                return "Vị trí tại mục nội dung thứ " + (i + 1) + " phải là số không âm.";
             }
         }
 
         CreatePostRequest.Image image = request.getImage();
 
-        if (image == null) return "Image object is missing.";
+        if (image == null) return "Thông tin hình ảnh bị thiếu.";
 
         List<CreatePostRequest.ImageItem> imageItems = image.getImageItemList();
 
-        if (imageItems == null || imageItems.isEmpty()) return "Image list cannot be empty.";
+        if (imageItems == null || imageItems.isEmpty()) return "Danh sách hình ảnh không được để trống.";
 
         for (int i = 0; i < imageItems.size(); i++) {
             var img = imageItems.get(i);
-            if (img.getUrl() == null || img.getUrl().isBlank()) {
-                return "URL at image item " + (i + 1) + " cannot be empty.";
-            }
-            if (!img.getUrl().startsWith("http")) {
-                return "URL at image item " + (i + 1) + " is invalid.";
-            }
+            String urlError = validateMediaFormat(img.getUrl(), mediaConfig, "imgFormat");
+            if (urlError != null) return "Hình ảnh thứ " + (i + 1) + ": " + urlError;
         }
 
-        if (request.getThumbnail() == null || request.getThumbnail().isBlank()) return "Thumbnail URL is required.";
+        if (isBlank(request.getThumbnail())) return "Ảnh đại diện (Thumbnail) bài viết là bắt buộc.";
+        String thumbnailError = validateMediaFormat(request.getThumbnail(), mediaConfig, "imgFormat");
+        if (thumbnailError != null) return "Ảnh đại diện: " + thumbnailError;
 
-        if (request.getTypeFile() == null || request.getTypeFile().isBlank()) return "Type file is required.";
+        if (request.getTypeFile() == null || request.getTypeFile().isBlank()) return "Loại tệp không được để trống.";
+
+        if (isBlank(request.getTypeFile())) return "Loại tệp không được để trống.";
+        String typeFileError = validateTypeFileFormat(request.getTypeFile(), mediaConfig);
+        if (typeFileError != null) return typeFileError;
 
         if (parseCategoryPost(request.getCategoryPost()) == null)
-            return "Invalid category post. Please provide a valid category name or value.";
+            return "Danh mục bài viết không hợp lệ. Vui lòng chọn một danh mục hợp lệ.";
+        return null;
+    }
 
+    private static String validateTypeFileFormat(String typeFile, Map<String, Object> mediaConfig) {
+        if (mediaConfig == null) return null;
+
+        // Thu thập tất cả định dạng hợp lệ từ Admin (Ảnh, Video, Tài liệu)
+        List<String> allAllowed = new ArrayList<>();
+        allAllowed.addAll(ConfigSystemUtil.getAllowedFormats(mediaConfig, "imgFormat"));
+        allAllowed.addAll(ConfigSystemUtil.getAllowedFormats(mediaConfig, "videoFormat"));
+        allAllowed.addAll(ConfigSystemUtil.getAllowedFormats(mediaConfig, "docFormat"));
+
+        if (allAllowed.isEmpty()) return null;
+
+        // Chuẩn hóa typeFile để so sánh (ví dụ: "pdf" -> ".pdf")
+        String ext = typeFile.trim().toLowerCase();
+        if (!ext.startsWith(".")) ext = "." + ext;
+
+        if (!allAllowed.contains(ext)) {
+            return "Loại tệp '" + typeFile + "' không hỗ trợ. Chỉ chấp nhận: " + String.join(", ", allAllowed);
+        }
+        return null;
+    }
+
+    private static String validateMediaFormat(String url, Map<String, Object> mediaConfig, String formatKey) {
+        if (isBlank(url)) return "Đường dẫn không được để trống.";
+        if (!url.startsWith("http")) return "Đường dẫn không hợp lệ.";
+
+        List<String> allowedFormats = ConfigSystemUtil.getAllowedFormats(mediaConfig, formatKey);
+        if (!allowedFormats.isEmpty()) {
+            boolean isValid = allowedFormats.stream().anyMatch(url.toLowerCase()::endsWith);
+            if (!isValid) {
+                return "định dạng không hỗ trợ. Chỉ chấp nhận: " + String.join(", ", allowedFormats);
+            }
+        }
         return null;
     }
 
@@ -90,5 +129,9 @@ public class PostValidation {
 
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private static boolean isBlank(String str) {
+        return str == null || str.trim().isEmpty();
     }
 }
