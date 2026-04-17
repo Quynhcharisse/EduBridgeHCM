@@ -429,12 +429,6 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                 throw new Exception("School template docx not found or be deleted");
             }
 
-            String overview = facilityData.getOverview();
-
-            if (overview != null) {
-                overview = Jsoup.parse(overview).text();
-            }
-
             supabaseStorageService.removeFile(school.get().getFolderPath(), school.get().getFileName());
 
             String uuid = UUID.randomUUID().toString();
@@ -449,7 +443,6 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
             fields.put("foundingDate", school.get().getFoundingDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
             fields.put("logoUrl", school.get().getLogoUrl());
             fields.put("businessLicenseUrl", school.get().getBusinessLicenseUrl());
-            fields.put("overview", overview);
 
             String folderName = school.get().getFolderPath();
             String fileName = "school_info_" + uuid + ".docx";
@@ -471,7 +464,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                     HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
 
                     restTemplate.postForEntity(
-                            "https://n8n-service-ijbl.onrender.com/webhook/b1960e9f-cd99-4dd0-96a7-c765244651ec",
+                            n8nUrl,
                             entity,
                             String.class
                     );
