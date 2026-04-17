@@ -630,7 +630,7 @@ public class EduBridgeHcmApplication {
 
             try {
 
-                String templatePath = "TEMPLATE/" + CategoryTemplate.SCHOOL_INFO_TEMPLATE.name() + "/school_info_template_v2.docx";
+                String templatePath = "TEMPLATE/" + CategoryTemplate.SCHOOL_INFO_TEMPLATE.name() + "/school_info_template_v3.docx";
                 String folderName = "TEMPLATE/" + CategoryTemplate.SCHOOL_INFO_TEMPLATE.name() + "_" + uuid;
                 String fileName = "school_info_template_v0.docx";
 

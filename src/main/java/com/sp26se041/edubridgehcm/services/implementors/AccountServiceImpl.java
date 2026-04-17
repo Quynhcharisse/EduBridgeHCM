@@ -452,15 +452,6 @@ public class AccountServiceImpl implements AccountService {
 
                 SchoolConfig hqFacility = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "facilityData").orElse(null);
 
-                String overview = "UPDATING";
-
-                if (hqFacility != null && hqFacility.getValue() instanceof Map<?, ?> rawMap) {
-                    Object overviewObj = rawMap.get("overview");
-
-                    if (overviewObj instanceof String overviewStr && !overviewStr.trim().isEmpty()) {
-                        overview = Jsoup.parse(overviewStr).text();
-                    }
-                }
 
                     Optional<TemplateDocx> schoolTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.SCHOOL_INFO_TEMPLATE);
 
@@ -482,7 +473,6 @@ public class AccountServiceImpl implements AccountService {
                 fields.put("foundingDate", school.getFoundingDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
                 fields.put("logoUrl", school.getLogoUrl());
                 fields.put("businessLicenseUrl", school.getBusinessLicenseUrl());
-                fields.put("overview", overview);
 
                 String folderName = school.getFolderPath();
                 String fileName = "school_info_" + uuid + ".docx";
