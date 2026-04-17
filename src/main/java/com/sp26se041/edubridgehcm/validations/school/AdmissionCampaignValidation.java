@@ -19,72 +19,72 @@ public class AdmissionCampaignValidation {
                                                                    Campus actorCampus,
                                                                    AdmissionCampaignRepo admissionCampaignRepo) {
         if (request == null) {
-            return "Request is required";
+            return "Dữ liệu yêu cầu không được để trống";
         }
 
         if (normalize(request.getName()) == null) {
-            return "Name is required";
+            return "Tên chiến dịch không được để trống";
         }
 
         if (normalize(request.getName()).length() > 100) {
-            return "Name is too long. Maximum length is 100 characters";
+            return "Tên chiến dịch quá dài. Độ dài tối đa là 100 ký tự";
         }
 
         if (normalize(request.getDescription()) == null) {
-            return "Description is required";
+            return "Mô tả chiến dịch không được để trống";
         }
 
         if (request.getYear() <= 0) {
-            return "Year is required";
+            return "Năm học không được để trống";
         }
 
         // Cho phép tạo chiến dịch cho năm hiện tại hoặc các năm tương lai
         if (request.getYear() < LocalDate.now().getYear()) {
-            return "Cannot create a campaign for a past academic year";
+            return "Không thể tạo chiến dịch cho một năm học trong quá khứ";
         }
 
         // 3. Kiểm tra Ngày tháng (Dates)
         if (request.getStartDate() == null) {
-            return "Start date are required";
+            return "Ngày bắt đầu không được để trống";
         }
 
         if (request.getEndDate() == null) {
-            return "End date are required";
+            return "Ngày kết thúc không được để trống";
         }
 
         // Check quá khứ cho StartDate (cho phép lùi 1 ngày)
         if (request.getStartDate().isBefore(LocalDate.now().minusDays(1))) {
-            return "Start date cannot be in the past";
+            return "Ngày bắt đầu không được ở trong quá khứ";
         }
 
         // Check quá khứ cho EndDate
         if (request.getEndDate().isBefore(LocalDate.now())) {
-            return "End date must be in the future";
+            return "Ngày kết thúc phải ở trong tương lai";
         }
 
         //chiến dịch phải diễn ra ít nhất là hơn 1 ngày
         if (!request.getEndDate().isAfter(request.getStartDate())) {
-            return "End date must be after start date";
+            return "Ngày kết thúc phải sau ngày bắt đầu";
         }
 
         // Quy tắc: StartDate có thể nằm ở quý 4 của năm trước (n-1)
         // để bắt đầu nhận hồ sơ sớm cho năm học (n).
         // Ví dụ: Chiến dịch 2027 có thể bắt đầu từ 01/10/2026.
         if (request.getStartDate().isBefore(LocalDate.of(request.getYear() - 1, 10, 1))) {
-            return "Start date is too early. Early bird for " + request.getYear() + " should start from October " + (request.getYear() - 1);
+            return "Ngày bắt đầu quá sớm. Đợt tuyển sinh sớm cho năm " + request.getYear() + " nên bắt đầu từ tháng 10 năm " + (request.getYear() - 1);
         }
 
         if (request.getEndDate().isBefore(LocalDate.of(request.getYear() - 1, 12, 31))) {
-            return "End date is invalid. A campaign for " + request.getYear() + " must at least last until the end of " + (request.getYear() - 1);
+            return "Ngày kết thúc không hợp lệ. Chiến dịch cho năm " + request.getYear() + " phải kéo dài ít nhất đến hết năm " + (request.getYear() - 1);
         }
 
         // Quy tắc: EndDate phải kết thúc trong năm học đó để chốt sổ
         if (request.getEndDate().getYear() != request.getYear()) {
-            return "End date must be within the academic year " + request.getYear();
+            return "Ngày kết thúc phải nằm trong năm học " + request.getYear();
         }
 
         if (admissionCampaignRepo.existsByYearAndSchoolIdAndStatusIn(actorCampus.getSchool().getId(), request.getYear(), List.of(Status.OPEN_ADMISSION_CAMPAIGN))) {
-            return "A campaign template for the " + request.getYear() + " year already exists";
+            return "Mẫu chiến dịch cho năm học " + request.getYear() + " đã tồn tại";
         }
 
         return null;
@@ -95,82 +95,71 @@ public class AdmissionCampaignValidation {
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return "No school campus account found";
+            return "Không tìm thấy tài khoản cơ sở trường học";
         }
 
         if (request == null) {
-            return "Request is required";
+            return "Dữ liệu yêu cầu không được để trống";
         }
 
         if (normalize(request.getName()) == null) {
-            return "Name is required";
+            return "Tên chiến dịch không được để trống";
         }
 
         if (normalize(request.getName()).length() > 100) {
-            return "Name is too long. Maximum length is 100 characters";
+            return "Tên chiến dịch quá dài. Độ dài tối đa là 100 ký tự";
         }
 
         if (normalize(request.getDescription()) == null) {
-            return "Description is required";
+            return "Mô tả chiến dịch không được để trống";
         }
 
         if (request.getYear() <= 0) {
-            return "Year is required";
+            return "Năm học không được để trống";
         }
 
-        // Cho phép tạo chiến dịch cho năm hiện tại hoặc các năm tương lai
         if (request.getYear() < LocalDate.now().getYear()) {
-            return "Cannot create a campaign for a past academic year";
+            return "Không thể cập nhật chiến dịch cho một năm học trong quá khứ";
         }
 
-        // 3. Kiểm tra Ngày tháng (Dates)
         if (request.getStartDate() == null) {
-            return "Start date are required";
+            return "Ngày bắt đầu không được để trống";
         }
 
         if (request.getEndDate() == null) {
-            return "End date are required";
+            return "Ngày kết thúc không được để trống";
         }
 
-        // Check quá khứ cho StartDate (cho phép lùi 1 ngày)
         if (request.getStartDate().isBefore(LocalDate.now().minusDays(1))) {
-            return "Start date cannot be in the past";
+            return "Ngày bắt đầu không được ở trong quá khứ";
         }
 
-        // Check quá khứ cho EndDate
         if (request.getEndDate().isBefore(LocalDate.now())) {
-            return "End date must be in the future";
+            return "Ngày kết thúc phải ở trong tương lai";
         }
 
-        //chiến dịch phải diễn ra ít nhất là hơn 1 ngày
         if (!request.getEndDate().isAfter(request.getStartDate())) {
-            return "End date must be after start date";
+            return "Ngày kết thúc phải sau ngày bắt đầu";
         }
 
-        // Quy tắc: StartDate có thể nằm ở quý 4 của năm trước (n-1)
-        // để bắt đầu nhận hồ sơ sớm cho năm học (n).
-        // Ví dụ: Chiến dịch 2027 có thể bắt đầu từ 01/10/2026.
         if (request.getStartDate().isBefore(LocalDate.of(request.getYear() - 1, 10, 1))) {
-            return "Start date is too early. Early bird for " + request.getYear() + " should start from October " + (request.getYear() - 1);
+            return "Ngày bắt đầu quá sớm. Đợt tuyển sinh sớm cho năm " + request.getYear() + " nên bắt đầu từ tháng 10 năm " + (request.getYear() - 1);
         }
 
         if (request.getEndDate().isBefore(LocalDate.of(request.getYear() - 1, 12, 31))) {
-            return "End date is invalid. A campaign for " + request.getYear() + " must at least last until the end of " + (request.getYear() - 1);
+            return "Ngày kết thúc không hợp lệ. Chiến dịch cho năm " + request.getYear() + " phải kéo dài ít nhất đến hết năm " + (request.getYear() - 1);
         }
 
-        // Quy tắc: EndDate phải kết thúc trong năm học đó để chốt sổ
         if (request.getEndDate().getYear() != request.getYear()) {
-            return "End date must be within the academic year " + request.getYear();
+            return "Ngày kết thúc phải nằm trong năm học " + request.getYear();
         }
 
-        // Sửa lại đoạn check trùng trong hàm Update
         List<AdmissionCampaign> existingCampaigns = admissionCampaignRepo
                 .findAllBySchoolIdAndYearAndIdNot(actorCampus.getSchool().getId(), request.getYear(), request.getAdmissionCampaignTemplateId());
 
         for (AdmissionCampaign other : existingCampaigns) {
-            // RULE 1: Nếu đã có một chiến dịch khác đang OPEN_ADMISSION_CAMPAIGN ==> Thì ko đc trùng
             if (other.getStatus() == Status.OPEN_ADMISSION_CAMPAIGN) {
-                return "Academic year " + request.getYear() + " already has an OPEN campaign (ID: " + other.getId() + "). Cannot have multiple campaigns when one is already active.";
+                return "Năm học " + request.getYear() + " đã có một chiến dịch đang MỞ (ID: " + other.getId() + "). Không thể có nhiều chiến dịch hoạt động cùng lúc.";
             }
         }
 

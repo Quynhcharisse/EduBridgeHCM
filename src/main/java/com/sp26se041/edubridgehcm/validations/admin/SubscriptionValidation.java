@@ -12,48 +12,48 @@ public class SubscriptionValidation {
     public static String upsertSubscriptionValidation(UpsertServicePackageFeeRequest request) {
 
         if (!StringUtils.hasText(request.getName())) {
-            return "Package name is required";
+            return "Tên gói dịch vụ không được để trống.";
         }
 
         if (request.getName().length() > 100) {
-            return "Package name is too long (max 100 characters).";
+            return "Tên gói dịch vụ quá dài (tối đa 100 ký tự).";
         }
 
         if (request.getPrice() == null || request.getPrice() < 0) {
-            return "Price is required and cannot be negative.";
+            return "Giá tiền không được để trống và không được là số âm.";
         }
 
         // Validate Duration
         if (request.getDurationDays() == null || request.getDurationDays() <= 0) {
-            return "Duration days is required and must be greater than 0.";
+            return "Thời hạn (số ngày) không được để trống và phải lớn hơn 0.";
         }
 
         // 2. Validate Features (Cực kỳ quan trọng vì đây là cục JSON)
         if (request.getFeatureData() == null) {
-            return "Feature data is required.";
+            return "Dữ liệu tính năng của gói không được để trống.";
         }
 
         UpsertServicePackageFeeRequest.FeatureData features = request.getFeatureData();
 
         if (features.getMaxCounsellors() != null && features.getMaxCounsellors() < -1) {
-            return "Max counsellors cannot be less than -1.";
+            return "Số lượng tư vấn viên tối đa không được nhỏ hơn -1.";
         }
 
-        if (features.getAllowChat() == null) return "Allow chat setting is required.";
+        if (features.getAllowChat() == null) return "Vui lòng thiết lập quyền cho phép chat.";
 
-        if (features.getIsFeatured() == null) return "Is featured setting is required.";
+        if (features.getIsFeatured() == null) return "Vui lòng thiết lập trạng thái gói nổi bật (Featured).";
 
         if (parseParentPostPermission(features.getParentPostPermission()) == null) {
-            return "Parent post permission is required. Must be one of: " + Arrays.toString(ParentPostPermission.values());
+            return "Quyền đăng bài không hợp lệ. Phải thuộc một trong các giá trị: " + Arrays.toString(ParentPostPermission.values());
         }
 
         if (features.getTopRanking() == null || features.getTopRanking() < 0) {
-            return "Top ranking is required and must be a non-negative integer.";
+            return "Thứ tự ưu tiên (Top ranking) là bắt buộc và phải là số nguyên không âm.";
         }
 
         // 2. Validate supportLevel (Ví dụ: "24/7", "Email only", "Priority Support")
         if (parseSupportLevel(features.getSupportLevel()) == null) {
-            return "Support level description is required.. Must be one of: " + Arrays.toString(SupportLevel.values());
+            return "Mức độ hỗ trợ không hợp lệ. Phải thuộc một trong các giá trị: " + Arrays.toString(SupportLevel.values());
         }
 
         return null;

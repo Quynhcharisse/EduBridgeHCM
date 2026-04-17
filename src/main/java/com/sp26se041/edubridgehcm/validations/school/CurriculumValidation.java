@@ -24,33 +24,32 @@ public class CurriculumValidation {
 
             existing = curriculumRepo.findById(request.getCurriculumId()).orElse(null);
 
-            if (existing == null) return "Curriculum not found.";
+            if (existing == null) return "Không tìm thấy khung chương trình.";
 
-            // KHÔNG cho phép sửa nếu đã bị ARCHIVED
+            // KHÔNG cho phép sửa nếu đã bị ARCHIVED (Lưu trữ)
             if (Status.CUR_ARCHIVED.equals(existing.getCurriculumStatus())) {
-                return "Cannot update an archived curriculum. Please create a new version or use an active one.";
+                return "Không thể cập nhật khung chương trình đã được lưu trữ. Vui lòng tạo phiên bản mới hoặc sử dụng bản đang hoạt động.";
             }
 
-            // 2. Kiểm tra tính bất biến khi đã có Program liên kết
+            // 2. Kiểm tra tính bất biến khi đã có Chương trình (Program) liên kết
             int linkedPrograms = programRepo.countByCurriculumId(existing.getId());
 
             if (linkedPrograms > 0) {
                 if (existing.getApplicationYear() != request.getApplicationYear()) {
-                    return String.format("Cannot change application year because %d programs are using this curriculum.", linkedPrograms);
+                    return String.format("Không thể thay đổi năm áp dụng vì có %d chương trình đang sử dụng khung chương trình này.", linkedPrograms);
                 }
                 if (!existing.getCurriculumType().name().equals(request.getCurriculumType())) {
-                    return "Cannot change curriculum type for a curriculum already linked to programs.";
+                    return "Không thể thay đổi loại chương trình khi đã có chương trình đào tạo liên kết.";
                 }
                 // Nếu đổi SubType dẫn đến đổi GroupCode cũng phải chặn
                 String newGroupCode = CurriculumNamingUtil.generateGroupCode(request);
                 if (!existing.getGroupCode().equals(newGroupCode)) {
-                    return "Cannot change sub-type name for a curriculum already linked to programs.";
+                    return "Không thể thay đổi tên phân loại phụ (Sub-type) khi đã có chương trình đào tạo liên kết.";
                 }
             }
         }
 
         // 3. Kiểm tra trùng lặp Business Identity trong Database
-        // Mục đích: Không cho phép tạo 2 bản DRAFT hoặc 2 bản ACTIVE cùng (Year + Type + SubType)
         String targetGroupCode = CurriculumNamingUtil.generateGroupCode(request);
 
         boolean isDuplicateIdentity = curriculumRepo.existsByGroupCodeAndApplicationYearAndCurriculumStatusNotAndIdNot(
@@ -58,41 +57,40 @@ public class CurriculumValidation {
         );
 
         if (isDuplicateIdentity) {
-            return "A curriculum with the same type, year, and sub-type already exists (Draft or Active).";
+            return "Khung chương trình có cùng loại, năm và phân loại phụ này đã tồn tại (ở dạng Nháp hoặc Đang hoạt động).";
         }
 
-        // 4. Validate Enum & Basic Fields
-        if (StringUtils.isBlank(request.getSubTypeName())) return "Sub-type name is required.";
+        // 4. Validate Enum & Các trường cơ bản
+        if (StringUtils.isBlank(request.getSubTypeName())) return "Tên phân loại phụ (Sub-type) không được để trống.";
 
-        if (request.getSubTypeName().length() > 50) return "Sub-type name is too long (max 50 chars).";
-
+        if (request.getSubTypeName().length() > 50) return "Tên phân loại phụ quá dài (tối đa 50 ký tự).";
 
         try {
             if (request.getMethodLearningList() == null || request.getMethodLearningList().isEmpty()) {
-                return "At least one learning method is required.";
+                return "Yêu cầu ít nhất một phương thức học tập.";
             }
 
             for (String method : request.getMethodLearningList()) {
                 LearningMethod.valueOf(method.toUpperCase());
             }
         } catch (Exception e) {
-            return "Invalid Curriculum Type or Learning Method.";
+            return "Loại chương trình hoặc Phương thức học tập không hợp lệ.";
         }
 
-        // 5. Validate Năm học (Nới lỏng một chút: -2 đến +5 là thực tế nhất cho trường tư)
+        // 5. Validate Năm áp dụng
         int currentYear = Year.now().getValue();
         if (request.getApplicationYear() < currentYear - 2 || request.getApplicationYear() > currentYear + 5) {
-            return "Enrollment year must be between " + (currentYear - 2) + " and " + (currentYear + 5);
+            return "Năm áp dụng phải nằm trong khoảng từ " + (currentYear - 2) + " đến " + (currentYear + 5);
         }
 
         // 6. Validate Nội dung môn học (Subjects)
         if (request.getSubjectOptions() == null || request.getSubjectOptions().isEmpty()) {
-            return "The curriculum must contain at least one subject.";
+            return "Khung chương trình phải chứa ít nhất một môn học.";
         }
 
-        // Chốt chặn số lượng môn học (Safety Limit)
+        // Giới hạn số lượng môn học
         if (request.getSubjectOptions().size() > 50) {
-            return "A curriculum cannot have more than 50 subjects.";
+            return "Một khung chương trình không thể có quá 50 môn học.";
         }
 
         Set<String> subjectNames = new HashSet<>();
@@ -100,23 +98,21 @@ public class CurriculumValidation {
 
         for (var opt : request.getSubjectOptions()) {
             String sName = opt.getName() != null ? opt.getName().trim() : "";
-            if (StringUtils.isBlank(sName)) return "Subject name cannot be empty.";
+            if (StringUtils.isBlank(sName)) return "Tên môn học không được để trống.";
 
-            // Check độ dài tên môn (Ví dụ: tối đa 100 ký tự)
-            if (sName.length() > 100) return "Subject name '" + sName + "' is too long (max 100).";
+            if (sName.length() > 100) return "Tên môn học '" + sName + "' quá dài (tối đa 100 ký tự).";
 
             if (!subjectNames.add(sName.toLowerCase())) {
-                return "Duplicate subject name found: " + sName;
+                return "Phát hiện tên môn học bị trùng lặp: " + sName;
             }
 
             String sDesc = opt.getDescription() != null ? opt.getDescription().trim() : "";
             if (StringUtils.isBlank(sDesc)) {
-                return "Description for subject '" + sName + "' is required.";
+                return "Mô tả cho môn học '" + sName + "' không được để trống.";
             }
 
-            // Chốt chặn độ dài mô tả môn học
             if (sDesc.length() > 1000) {
-                return "Description for subject '" + sName + "' is too long (max 1000).";
+                return "Mô tả cho môn học '" + sName + "' quá dài (tối đa 1000 ký tự).";
             }
 
             if (Boolean.TRUE.equals(opt.getIsMandatory())) {
@@ -125,7 +121,7 @@ public class CurriculumValidation {
         }
 
         if (!hasMandatory) {
-            return "The curriculum must have at least one mandatory subject.";
+            return "Khung chương trình phải có ít nhất một môn học bắt buộc.";
         }
 
         return null;
