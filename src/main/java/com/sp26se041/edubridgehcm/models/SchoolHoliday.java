@@ -1,7 +1,10 @@
 package com.sp26se041.edubridgehcm.models;
 
+import com.sp26se041.edubridgehcm.enums.HolidayImpactLevel;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -32,7 +35,7 @@ public class SchoolHoliday {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
 
-    String title; // Nghỉ Tết Nguyên Đán
+    String title; // hiển thị cho Tư vấn viên biết lý do tại sao slot bị khóa hoặc có cảnh báo
 
     @Column(name = "start_date")
     LocalDate startDate;
@@ -50,8 +53,7 @@ public class SchoolHoliday {
     // NOT NULL: Chỉ áp dụng cho cơ sở này (Local)
     Campus campus;
 
-    // true: Tư vấn viên nghỉ luôn (Ẩn slot).
-    // false: Chỉ học sinh nghỉ, tư vấn vẫn trực.
     @Column(name = "apply_to_consultant")
-    Boolean applyToConsultant;
+    @Enumerated(EnumType.STRING)
+    HolidayImpactLevel holidayImpactLevel;
 }

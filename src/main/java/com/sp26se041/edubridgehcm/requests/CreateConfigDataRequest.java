@@ -45,23 +45,14 @@ public class CreateConfigDataRequest {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class MediaData {
 
+        // Dung lượng (Size)
         int maxImgSize;
-
         int maxVideoSize;
+        int maxDocSize; // Thêm dung lượng tối đa cho file tài liệu (PDF, DOCX)
 
-        int maxDesignRefImg;
-
-        int maxFeedbackImg;
-
-        int maxFeedbackVideo;
-
-        int maxReportImg;
-
-        int maxReportVideo;
-
-        List<MediaFormat> imgFormats;
-
-        List<MediaFormat> videoFormats;
+        List<MediaFormat> imgFormats;   // Cho Avatar, Logo
+        List<MediaFormat> videoFormats; // Cho Video giới thiệu trường
+        List<MediaFormat> docFormats;   // Cho Giấy phép kinh doanh (PDF, DOCX)
     }
 
     @Data

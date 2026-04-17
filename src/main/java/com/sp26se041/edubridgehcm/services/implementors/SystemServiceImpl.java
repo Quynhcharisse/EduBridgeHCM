@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -156,29 +157,11 @@ public class SystemServiceImpl implements SystemService {
 
         mediaJson.put("maxImgSize", mediaData.getMaxImgSize());
         mediaJson.put("maxVideoSize", mediaData.getMaxVideoSize());
-        mediaJson.put("maxDesignRefImg", mediaData.getMaxDesignRefImg());
-        mediaJson.put("maxFeedbackImg", mediaData.getMaxFeedbackImg());
-        mediaJson.put("maxFeedbackVideo", mediaData.getMaxFeedbackVideo());
-        mediaJson.put("maxReportImg", mediaData.getMaxReportImg());
-        mediaJson.put("maxReportVideo", mediaData.getMaxReportVideo());
+        mediaJson.put("maxDocSize", mediaData.getMaxDocSize());
 
-        List<Map<String, String>> imgFormats = mediaData.getImgFormats().stream()
-                .map(format -> {
-                    Map<String, String> f = new HashMap<>();
-                    f.put("format", "." + format.getFormat());
-                    return f;
-                })
-                .toList();
-        mediaJson.put("imgFormat", imgFormats);
-
-        List<Map<String, String>> videoFormats = mediaData.getVideoFormats().stream()
-                .map(format -> {
-                    Map<String, String> f = new HashMap<>();
-                    f.put("format", "." + format.getFormat());
-                    return f;
-                })
-                .toList();
-        mediaJson.put("videoFormat", videoFormats);
+        mediaJson.put("imgFormat", mapFormats(mediaData.getImgFormats()));
+        mediaJson.put("videoFormat", mapFormats(mediaData.getVideoFormats()));
+        mediaJson.put("docFormat", mapFormats(mediaData.getDocFormats()));
 
         PlatformConfig config = platformConfigRepo.findByKey("media").orElse(
                 PlatformConfig.builder()
@@ -190,6 +173,23 @@ public class SystemServiceImpl implements SystemService {
         config.setValue(mediaJson);
         config.setModifiedDate(LocalDateTime.now());
         platformConfigRepo.save(config);
+    }
+
+    private List<Map<String, String>> mapFormats(List<CreateConfigDataRequest.MediaFormat> formats) {
+        if (formats == null) return Collections.emptyList();
+
+        return formats.stream()
+                .map(f -> {
+                    String ext = f.getFormat().trim().toLowerCase();
+                    // Nếu Admin quên nhập dấu chấm, mình sẽ tự thêm vào (ví dụ: "pdf" -> ".pdf")
+                    if (!ext.startsWith(".")) {
+                        ext = "." + ext;
+                    }
+                    Map<String, String> map = new HashMap<>();
+                    map.put("format", ext);
+                    return map;
+                })
+                .toList();
     }
 
     @Transactional
