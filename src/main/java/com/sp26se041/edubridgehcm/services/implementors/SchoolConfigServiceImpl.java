@@ -27,6 +27,7 @@ import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -55,6 +56,9 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class SchoolConfigServiceImpl implements SchoolConfigService {
+
+    @Value("${AI_SERVICE_N8N}")
+    private String n8nUrl;
 
     private final SchoolConfigRepo schoolConfigRepo;
 
@@ -551,7 +555,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                     HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
 
                     restTemplate.postForEntity(
-                            "https://n8n-service-ijbl.onrender.com/webhook/b1960e9f-cd99-4dd0-96a7-c765244651ec",
+                            n8nUrl,
                             entity,
                             String.class
                     );
