@@ -17,13 +17,18 @@ public class VNPayConfig {
 
     public static String vnp_PayUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
 
-    public static String vnp_ReturnUrl = "https://edubridgehcm-fe.onrender.com/payment/vnpay-result";
-
     public static String vnp_TmnCode;
 
     public static String vnp_HashSecret;
 
+    public static String vnp_ReturnUrl;
+
     public static String vnp_apiUrl = "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
+
+    @Value("${VNPAY_RETURN_URL}")
+    public void setReturnUrl(String url) {
+        vnp_ReturnUrl = url;
+    }
 
     @Value("${vnp.tmn-code:ZDT0KK8Q}")
     public void setVnpTmnCode(String tmnCode) {

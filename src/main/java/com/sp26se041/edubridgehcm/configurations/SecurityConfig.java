@@ -22,6 +22,7 @@ import java.util.List;
 @EnableMethodSecurity
 @EnableWebSecurity
 public class SecurityConfig {
+
     private final JWTAuthenticationFilter jwtAuthenticationFilter;
 
     private final AuthenticationProvider authenticationProvider;
