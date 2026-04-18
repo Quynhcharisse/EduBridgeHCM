@@ -25,7 +25,8 @@ public class CampusScheduleTemplateValidation {
             Map<String, Object> workingConfig,
             CampusScheduleTemplateRepo campusScheduleTemplateRepo,
             Campus campus,
-            Integer slotDurationMinutesFromPolicy) {
+            Integer slotDurationMinutesFromPolicy,
+            Integer bufferBetweenSlotsMinutesFromPolicy) {
 
         if (startTime == null || !startTime.matches(TIME_REGEX) ||
                 endTime == null || !endTime.matches(TIME_REGEX)) {
@@ -45,9 +46,19 @@ public class CampusScheduleTemplateValidation {
         }
 
         if (slotDurationMinutesFromPolicy != null && slotDurationMinutesFromPolicy > 0) {
-            if (durationInMinutes % slotDurationMinutesFromPolicy != 0) {
-                return "Độ dài khung giờ (" + durationInMinutes + " phút) phải là bội số của thời lượng mỗi ca tư vấn ("
-                        + slotDurationMinutesFromPolicy + " phút) theo cấu hình vận hành.";
+            int buffer = bufferBetweenSlotsMinutesFromPolicy != null ? Math.max(0, bufferBetweenSlotsMinutesFromPolicy) : 0;
+            if (buffer == 0) {
+                if (durationInMinutes % slotDurationMinutesFromPolicy != 0) {
+                    return "Độ dài khung giờ (" + durationInMinutes + " phút) phải là bội số của thời lượng mỗi ca tư vấn ("
+                            + slotDurationMinutesFromPolicy + " phút) theo cấu hình vận hành.";
+                }
+            } else {
+                int step = slotDurationMinutesFromPolicy + buffer;
+                if ((durationInMinutes + buffer) % step != 0) {
+                    return "Độ dài khung giờ (" + durationInMinutes + " phút) không khớp mô hình tiết "
+                            + slotDurationMinutesFromPolicy + " phút + nghỉ " + buffer + " phút giữa các tiết. "
+                            + "(Độ dài ca + " + buffer + ") phải chia hết cho " + step + " phút (bước = tiết + nghỉ).";
+                }
             }
         }
 

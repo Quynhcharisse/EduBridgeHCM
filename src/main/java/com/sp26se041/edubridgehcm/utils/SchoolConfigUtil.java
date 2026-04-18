@@ -86,6 +86,9 @@ public class SchoolConfigUtil {
         if (request.getSlotDurationInMinutes() != null) {
             merged.put("slotDurationInMinutes", request.getSlotDurationInMinutes());
         }
+        if (request.getBufferBetweenSlotsMinutes() != null) {
+            merged.put("bufferBetweenSlotsMinutes", request.getBufferBetweenSlotsMinutes());
+        }
         if (request.getMaxBookingPerSlot() != null) {
             merged.put("maxBookingPerSlot", request.getMaxBookingPerSlot());
         }
@@ -141,6 +144,14 @@ public class SchoolConfigUtil {
 
         if (operationData.get("slotDurationInMinutes") != null) {
             sb.append("⏱️ Thời lượng mỗi ca tư vấn: ").append(operationData.get("slotDurationInMinutes")).append(" phút\n");
+        }
+
+        if (operationData.get("bufferBetweenSlotsMinutes") != null) {
+            Object buf = operationData.get("bufferBetweenSlotsMinutes");
+            int b = buf instanceof Number ? ((Number) buf).intValue() : Integer.parseInt(String.valueOf(buf));
+            if (b > 0) {
+                sb.append("☕ Nghỉ giữa các tiết tư vấn: ").append(b).append(" phút\n");
+            }
         }
 
         if (operationData.get("maxBookingPerSlot") != null) {
@@ -541,6 +552,7 @@ public class SchoolConfigUtil {
         String[] keys = {
                 "minCounsellorPerSlot",
                 "slotDurationInMinutes",
+                "bufferBetweenSlotsMinutes",
                 "maxBookingPerSlot",
                 "allowBookingBeforeHours"
         };
@@ -572,6 +584,7 @@ public class SchoolConfigUtil {
         String[] numericKeys = {
                 "minCounsellorPerSlot",
                 "slotDurationInMinutes",
+                "bufferBetweenSlotsMinutes",
                 "maxBookingPerSlot",
                 "allowBookingBeforeHours"
         };
@@ -584,30 +597,63 @@ public class SchoolConfigUtil {
         return base;
     }
 
+    /**
+     * Tách [start, end) thành các khung [t, t+slotDuration), khung tiếp theo bắt đầu sau slotDuration+buffer.
+     * Điều kiện: tổng phút ca = n×slotDuration + (n−1)×buffer (buffer chỉ nằm giữa các tiết).
+     * Tương đương: (totalMinutes + buffer) chia hết cho (slotDuration + buffer) khi buffer ≥ 0.
+     */
     public static List<String[]> splitRangeIntoPolicySlotWindows(LocalTime start, LocalTime end, int slotDurationMinutes) {
+        return splitRangeIntoPolicySlotWindows(start, end, slotDurationMinutes, 0);
+    }
+
+    public static List<String[]> splitRangeIntoPolicySlotWindows(
+            LocalTime start, LocalTime end, int slotDurationMinutes, int bufferBetweenSlotsMinutes) {
         if (slotDurationMinutes <= 0) {
             throw new IllegalArgumentException("Thời lượng mỗi slot trong cấu hình phải > 0 để tách slot.");
+        }
+        if (bufferBetweenSlotsMinutes < 0) {
+            throw new IllegalArgumentException("Khoảng nghỉ giữa các tiết (buffer) không được âm.");
         }
         long totalMinutes = Duration.between(start, end).toMinutes();
         if (totalMinutes <= 0) {
             throw new IllegalArgumentException("Thời gian bắt đầu phải trước thời gian kết thúc.");
         }
-        if (totalMinutes % slotDurationMinutes != 0) {
-            int usable = (int) (totalMinutes / slotDurationMinutes) * slotDurationMinutes;
-            throw new IllegalArgumentException(
-                    "Độ dài ca " + totalMinutes + " phút phải chia hết cho " + slotDurationMinutes
-                            + " phút/slot (theo cấu hình vận hành). Gợi ý: rút endTime còn " + usable + " phút ("
-                            + (usable / slotDurationMinutes) + " slot) hoặc chỉnh policy/slot phút.");
+
+        int step = slotDurationMinutes + bufferBetweenSlotsMinutes;
+        int n;
+        if (bufferBetweenSlotsMinutes == 0) {
+            if (totalMinutes % slotDurationMinutes != 0) {
+                int usable = (int) (totalMinutes / slotDurationMinutes) * slotDurationMinutes;
+                throw new IllegalArgumentException(
+                        "Độ dài ca " + totalMinutes + " phút phải chia hết cho " + slotDurationMinutes
+                                + " phút/tiết (theo cấu hình vận hành). Gợi ý: rút endTime còn " + usable + " phút ("
+                                + (usable / slotDurationMinutes) + " tiết) hoặc chỉnh policy/slot phút.");
+            }
+            n = (int) (totalMinutes / slotDurationMinutes);
+        } else {
+            long sumPlusBuf = totalMinutes + bufferBetweenSlotsMinutes;
+            if (sumPlusBuf % step != 0) {
+                throw new IllegalArgumentException(
+                        "Độ dài ca " + totalMinutes + " phút không khớp mô hình tiết " + slotDurationMinutes
+                                + " phút + nghỉ " + bufferBetweenSlotsMinutes + " phút giữa các tiết. "
+                                + "Quy tắc: (độ dài ca + " + bufferBetweenSlotsMinutes + " phút) phải chia hết cho "
+                                + step + " phút (mỗi bước = tiết + nghỉ). "
+                                + "Ví dụ: 3 tiết 30' + 2 lần nghỉ 10' = 110 phút ca.");
+            }
+            n = (int) (sumPlusBuf / step);
+            if (n < 1) {
+                throw new IllegalArgumentException("Ca quá ngắn so với một tiết tư vấn.");
+            }
         }
-        int n = (int) (totalMinutes / slotDurationMinutes);
+
         List<String[]> windows = new ArrayList<>(n);
-        LocalTime cur = start;
         for (int i = 0; i < n; i++) {
-            LocalTime next = cur.plusMinutes(slotDurationMinutes);
-            windows.add(new String[]{cur.format(SLOT_WINDOW_TIME_FMT), next.format(SLOT_WINDOW_TIME_FMT)});
-            cur = next;
+            LocalTime windowStart = start.plusMinutes((long) i * step);
+            LocalTime windowEnd = windowStart.plusMinutes(slotDurationMinutes);
+            windows.add(new String[]{windowStart.format(SLOT_WINDOW_TIME_FMT), windowEnd.format(SLOT_WINDOW_TIME_FMT)});
         }
-        if (!cur.equals(end)) {
+        LocalTime expectedEnd = start.plusMinutes((long) n * slotDurationMinutes + (long) (n - 1) * bufferBetweenSlotsMinutes);
+        if (!expectedEnd.equals(end)) {
             throw new IllegalStateException("Lệch biên khi tách slot.");
         }
         return windows;
@@ -621,6 +667,7 @@ public class SchoolConfigUtil {
         String[] keys = {
                 "minCounsellorPerSlot",
                 "slotDurationInMinutes",
+                "bufferBetweenSlotsMinutes",
                 "maxBookingPerSlot",
                 "allowBookingBeforeHours"
         };

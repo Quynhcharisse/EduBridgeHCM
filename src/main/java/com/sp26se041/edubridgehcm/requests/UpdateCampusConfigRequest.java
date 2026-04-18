@@ -24,6 +24,8 @@ public class UpdateCampusConfigRequest {
 
     Integer slotDurationInMinutes;   // Thời lượng mỗi ca tư vấn (ví dụ: 30, 45, 60)
 
+    Integer bufferBetweenSlotsMinutes; // Nghỉ giữa hai tiết (phút), override campus
+
     Integer maxBookingPerSlot;        // Số khách tối đa trong 1 ca (Tư vấn 1:1 hay 1:n)
 
     Integer allowBookingBeforeHours;  // Thời gian phải đặt trước (ví dụ: 24 tiếng)

@@ -382,6 +382,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         operationJson.put("emailSupport", operationSettingsData.getEmailSupport());
         operationJson.put("minCounsellorPerSlot", operationSettingsData.getMinCounsellorPerSlot());
         operationJson.put("slotDurationInMinutes", operationSettingsData.getSlotDurationInMinutes());
+        operationJson.put("bufferBetweenSlotsMinutes", operationSettingsData.getBufferBetweenSlotsMinutes());
         operationJson.put("maxBookingPerSlot", operationSettingsData.getMaxBookingPerSlot());
         operationJson.put("allowBookingBeforeHours", operationSettingsData.getAllowBookingBeforeHours());
         // allowBookingBeforeHours ==> Trường cần thời gian chuẩn bị phòng thi/hồ sơ phỏng vấn

@@ -660,6 +660,7 @@ public class CampusServiceImpl implements CampusService {
             Map<String, Object> policyJsonb = new HashMap<>();
             policyJsonb.put("minCounsellorPerSlot", mergedOp.get("minCounsellorPerSlot"));
             policyJsonb.put("slotDurationInMinutes", mergedOp.get("slotDurationInMinutes"));
+            policyJsonb.put("bufferBetweenSlotsMinutes", mergedOp.get("bufferBetweenSlotsMinutes"));
             policyJsonb.put("maxBookingPerSlot", mergedOp.get("maxBookingPerSlot"));
             policyJsonb.put("allowBookingBeforeHours", mergedOp.get("allowBookingBeforeHours"));
             policyJsonb.put("fullTextRendered", finalPolicyStr);
@@ -811,6 +812,7 @@ public class CampusServiceImpl implements CampusService {
             filteredOp.put("maxBookingPerSlot", fullOp.get("maxBookingPerSlot"));
             filteredOp.put("minCounsellorPerSlot", fullOp.get("minCounsellorPerSlot"));
             filteredOp.put("slotDurationInMinutes", fullOp.get("slotDurationInMinutes"));
+            filteredOp.put("bufferBetweenSlotsMinutes", fullOp.get("bufferBetweenSlotsMinutes"));
             filteredOp.put("allowBookingBeforeHours", fullOp.get("allowBookingBeforeHours"));
 
             hqSection.put("operation", filteredOp);
@@ -833,6 +835,7 @@ public class CampusServiceImpl implements CampusService {
         if (campusPolicyDb != null) {
             campusUpdateInfo.put("minCounsellorPerSlot", campusPolicyDb.get("minCounsellorPerSlot"));
             campusUpdateInfo.put("slotDurationInMinutes", campusPolicyDb.get("slotDurationInMinutes"));
+            campusUpdateInfo.put("bufferBetweenSlotsMinutes", campusPolicyDb.get("bufferBetweenSlotsMinutes"));
             campusUpdateInfo.put("maxBookingPerSlot", campusPolicyDb.get("maxBookingPerSlot"));
             campusUpdateInfo.put("allowBookingBeforeHours", campusPolicyDb.get("allowBookingBeforeHours"));
             campusUpdateInfo.put("fullPolicyRendered", campusPolicyDb.get("fullTextRendered"));
@@ -905,6 +908,7 @@ public class CampusServiceImpl implements CampusService {
         }
         Map<String, Integer> numericPolicy = SchoolConfigUtil.getNumericPolicyFromOperationMap(effectiveOperation);
         Integer slotDurationMinutes = numericPolicy.get("slotDurationInMinutes");
+        int bufferBetweenSlotsMinutes = numericPolicy.getOrDefault("bufferBetweenSlotsMinutes", 0);
 
         LocalTime[] window = SchoolConfigUtil.resolveShiftTimeWindowForSessionType(workingConfig, request.getSessionType());
         if (window == null) {
@@ -929,7 +933,8 @@ public class CampusServiceImpl implements CampusService {
                 try {
                     LocalTime rangeStart = LocalTime.parse(startStr);
                     LocalTime rangeEnd = LocalTime.parse(endStr);
-                    windows = SchoolConfigUtil.splitRangeIntoPolicySlotWindows(rangeStart, rangeEnd, slotDurationMinutes);
+                    windows = SchoolConfigUtil.splitRangeIntoPolicySlotWindows(
+                            rangeStart, rangeEnd, slotDurationMinutes, bufferBetweenSlotsMinutes);
                 } catch (IllegalArgumentException | java.time.format.DateTimeParseException | IllegalStateException e) {
                     return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
                 }
@@ -944,7 +949,8 @@ public class CampusServiceImpl implements CampusService {
                             workingConfig,
                             campusScheduleTemplateRepo,
                             actorCampus,
-                            slotDurationMinutes);
+                            slotDurationMinutes,
+                            bufferBetweenSlotsMinutes);
                     if (error != null) {
                         return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
                     }
@@ -962,7 +968,8 @@ public class CampusServiceImpl implements CampusService {
                         workingConfig,
                         campusScheduleTemplateRepo,
                         actorCampus,
-                        slotDurationMinutes);
+                        slotDurationMinutes,
+                        bufferBetweenSlotsMinutes);
 
                 if (error != null) {
                     return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
