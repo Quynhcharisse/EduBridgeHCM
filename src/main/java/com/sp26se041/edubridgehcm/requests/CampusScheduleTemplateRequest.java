@@ -25,4 +25,6 @@ public class CampusScheduleTemplateRequest {
     String endTime;
 
     String sessionType;
+
+    Boolean expandToPolicySlots;
 }

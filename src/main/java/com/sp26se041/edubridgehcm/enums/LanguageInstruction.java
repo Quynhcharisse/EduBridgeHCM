@@ -8,7 +8,6 @@ import lombok.RequiredArgsConstructor;
 public enum LanguageInstruction {
     VIETNAMESE("vietnamese"),   // Dạy bằng Tiếng Việt 100%
     ENGLISH("english"),         // Dạy bằng Tiếng Anh 100% (Thường là hệ Quốc tế)
-    BILINGUAL("bilingual"),     // Song ngữ Anh - Việt (Hệ tích hợp)
     FRENCH("french"),           // Tiếng Pháp
     JAPANESE("japanese"),       // Tiếng Nhật
     CHINESE("chinese"),         // Tiếng Trung
