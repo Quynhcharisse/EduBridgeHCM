@@ -818,13 +818,24 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
     @Override
     public ResponseEntity<ResponseObject> getCampusConfigList() {
 
-        List<Campus> campusList = campusRepo.findAll();
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "Không có quyền truy cập", null);
+        }
+
+        List<Campus> campusList;
+        if (Boolean.TRUE.equals(actorCampus.getIsPrimaryBranch())) {
+            campusList = campusRepo.findBySchoolId(actorCampus.getSchool().getId());
+        } else {
+            campusList = Collections.singletonList(actorCampus);
+        }
 
         List<Map<String, Object>> campusConfigJson = campusList.stream()
                 .map(campus -> {
                     Map<String, Object> map = new HashMap<>();
                     map.put("campusId", campus.getId());
                     map.put("campusName", campus.getName());
+                    map.put("campusPrimary", Boolean.TRUE.equals(campus.getIsPrimaryBranch()));
                     map.put("facilityConfig", campus.getFacility());
                     map.put("policyDetail", campus.getPolicyDetail());
                     return map;

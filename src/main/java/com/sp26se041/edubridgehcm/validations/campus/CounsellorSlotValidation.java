@@ -21,6 +21,10 @@ public class CounsellorSlotValidation {
             List<Counsellor> counsellors,
             List<CounsellorSlot> allCurrentSlots) {
 
+        if (request.getCounsellorIds() == null || request.getCounsellorIds().isEmpty()) {
+            return "Danh sách chuyên viên tư vấn (counsellorIds) không được để trống.";
+        }
+
         if (request.getStartDate() == null || request.getEndDate() == null) {
             return "Ngày bắt đầu và ngày kết thúc không được để trống.";
         }
@@ -39,11 +43,11 @@ public class CounsellorSlotValidation {
             return "Ngày kết thúc gán lịch (" + request.getEndDate() + ") nằm ngoài phạm vi học kỳ.";
         }
 
-        Map<String, Integer> policy = SchoolConfigUtil.getCampusPolicy(campus.getPolicyDetail());
+        Map<String, Integer> policy = SchoolConfigUtil.getNumericPolicyFromOperationMap(operatingSettings);
 
         if ("ASSIGN".equalsIgnoreCase(request.getAction())) {
 
-            // Check số lượng tối thiểu/tối đa
+            // Check số lượng tối thiểu/tối đa (ưu tiên số trong cấu hình hiệu lực HQ + campus)
             int minRequired = policy.getOrDefault("minCounsellorPerSlot", 1);
             int maxAllowed = 5;
 

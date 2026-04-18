@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.utils;
 
 import com.sp26se041.edubridgehcm.enums.HolidayImpactLevel;
+import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.SchoolHoliday;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
@@ -498,6 +499,104 @@ public class SchoolConfigUtil {
         }
 
         return constraints;
+    }
+
+    /**
+     * Gộp cấu hình vận hành HQ ({@code operationSettingsData}) với phần campus đã lưu trong {@code campus.policyDetail}
+     * (số phút/ca, max booking, và đặc biệt {@code workingConfig} sau override).
+     */
+    public static Map<String, Object> getEffectiveOperationSettingsMap(SchoolConfig hqOperationConfig, Campus campus) {
+        Map<String, Object> base = new HashMap<>();
+        if (hqOperationConfig != null && hqOperationConfig.getValue() instanceof Map) {
+            base.putAll(new HashMap<>((Map<String, Object>) hqOperationConfig.getValue()));
+        }
+        Object pd = campus.getPolicyDetail();
+        if (!(pd instanceof Map)) {
+            return base;
+        }
+        Map<String, Object> policy = (Map<String, Object>) pd;
+        String[] numericKeys = {
+                "minCounsellorPerSlot",
+                "slotDurationInMinutes",
+                "maxBookingPerSlot",
+                "allowBookingBeforeHours"
+        };
+        for (String key : numericKeys) {
+            if (policy.get(key) != null) {
+                base.put(key, policy.get(key));
+            }
+        }
+        if (policy.get("workingConfig") != null) {
+            base.put("workingConfig", policy.get("workingConfig"));
+        }
+        return base;
+    }
+
+    /**
+     * Lấy các số từ map cấu hình hiệu lực (HQ + override campus), dùng cho validate gán slot / đặt lịch.
+     */
+    public static Map<String, Integer> getNumericPolicyFromOperationMap(Map<String, Object> effectiveOperationSettings) {
+        Map<String, Integer> constraints = new HashMap<>();
+        if (effectiveOperationSettings == null) {
+            return constraints;
+        }
+        String[] keys = {
+                "minCounsellorPerSlot",
+                "slotDurationInMinutes",
+                "maxBookingPerSlot",
+                "allowBookingBeforeHours"
+        };
+        for (String key : keys) {
+            Object value = effectiveOperationSettings.get(key);
+            if (value != null) {
+                try {
+                    constraints.put(key, Integer.parseInt(String.valueOf(value)));
+                } catch (NumberFormatException ignored) {
+                    // bỏ qua giá trị lỗi
+                }
+            }
+        }
+        return constraints;
+    }
+
+    /**
+     * Rule gán tư vấn viên: chỉ các mức {@link HolidayImpactLevel#ALL_SHUTDOWN} và {@link HolidayImpactLevel#STAFF_ONLY}
+     * chặn làm việc tại cơ sở (không gán lịch onsite trong khoảng trùng ngày nghỉ đó).
+     * {@code STUDENT_ONLY} và {@code ONLINE_ONLY} không chặn gán (nhân sự vẫn có thể làm việc / tư vấn theo quy định trường).
+     */
+    public static String validateAssignmentRangeAgainstBlockingHolidays(
+            LocalDate startDate,
+            LocalDate endDate,
+            List<SchoolHoliday> holidays,
+            Integer campusId) {
+        if (holidays == null || holidays.isEmpty()) {
+            return null;
+        }
+        for (SchoolHoliday h : holidays) {
+            if (!holidayAppliesToCampus(h, campusId)) {
+                continue;
+            }
+            if (!dateRangesOverlap(startDate, endDate, h.getStartDate(), h.getEndDate())) {
+                continue;
+            }
+            HolidayImpactLevel impact = h.getHolidayImpactLevel();
+            if (impact == HolidayImpactLevel.ALL_SHUTDOWN || impact == HolidayImpactLevel.STAFF_ONLY) {
+                return "Khoảng gán lịch trùng ngày nghỉ \"" + h.getTitle() + "\" (mức " + impact.name()
+                        + "). Không gán tư vấn tại cơ sở khi đóng cửa toàn phần hoặc nhân sự nghỉ.";
+            }
+        }
+        return null;
+    }
+
+    private static boolean holidayAppliesToCampus(SchoolHoliday h, Integer campusId) {
+        if (h.getCampus() == null) {
+            return true;
+        }
+        return campusId != null && h.getCampus().getId().equals(campusId);
+    }
+
+    private static boolean dateRangesOverlap(LocalDate aStart, LocalDate aEnd, LocalDate bStart, LocalDate bEnd) {
+        return !aEnd.isBefore(bStart) && !aStart.isAfter(bEnd);
     }
 }
 

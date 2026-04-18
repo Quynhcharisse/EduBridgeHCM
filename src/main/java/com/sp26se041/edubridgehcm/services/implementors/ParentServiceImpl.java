@@ -86,8 +86,6 @@ public class ParentServiceImpl implements ParentService {
 
     private final CampusRepo campusRepo;
 
-
-
     @Override
     public  ResponseEntity<ResponseObject> getConversations(Long cursorId) {
         try {

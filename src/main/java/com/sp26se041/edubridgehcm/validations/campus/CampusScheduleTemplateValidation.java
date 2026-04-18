@@ -17,7 +17,7 @@ public class CampusScheduleTemplateValidation {
     // regex to validate HH:mm format (00:00 to 23:59)
     private static final String TIME_REGEX = "^([01]?[0-9]|2[0-3]):[0-5][0-9]$";
 
-    public static String validateCampusScheduleTemplate(Integer templateId, CampusScheduleTemplateRequest request, String currentDay, Map<String, Object> workingConfig, CampusScheduleTemplateRepo campusScheduleTemplateRepo, Campus campus) {
+    public static String validateCampusScheduleTemplate(Integer templateId, CampusScheduleTemplateRequest request, String currentDay, Map<String, Object> workingConfig, CampusScheduleTemplateRepo campusScheduleTemplateRepo, Campus campus, Integer slotDurationMinutesFromPolicy) {
 
         if (request.getStartTime() == null || !request.getStartTime().matches(TIME_REGEX) ||
                 request.getEndTime() == null || !request.getEndTime().matches(TIME_REGEX)) {
@@ -34,6 +34,13 @@ public class CampusScheduleTemplateValidation {
         long durationInMinutes = Duration.between(start, end).toMinutes();
         if (durationInMinutes < 30) {
             return "Một tiết học/phiên làm việc phải kéo dài ít nhất 30 phút.";
+        }
+
+        if (slotDurationMinutesFromPolicy != null && slotDurationMinutesFromPolicy > 0) {
+            if (durationInMinutes % slotDurationMinutesFromPolicy != 0) {
+                return "Độ dài khung giờ (" + durationInMinutes + " phút) phải là bội số của thời lượng mỗi ca tư vấn ("
+                        + slotDurationMinutesFromPolicy + " phút) theo cấu hình vận hành.";
+            }
         }
 
         if (!isValidSessionType(request.getSessionType())) {

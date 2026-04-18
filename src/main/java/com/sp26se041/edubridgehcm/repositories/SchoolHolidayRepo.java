@@ -10,6 +10,8 @@ public interface SchoolHolidayRepo extends JpaRepository<SchoolHoliday, Integer>
 
     List<SchoolHoliday> findAllBySchoolIdAndCampusIdIn(Integer schoolId, List<Integer> campusId);
 
+    List<SchoolHoliday> findBySchoolIdAndCampusIsNull(Integer schoolId);
+
     boolean existsBySchoolIdAndCampusIdAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
             Integer schoolId,
             Integer campusId,
