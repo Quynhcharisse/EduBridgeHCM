@@ -20,8 +20,6 @@ public class CreateConfigDataRequest {
 
     MediaData mediaData;
 
-    SubscriptionData subscriptionData;
-
     AdmissionQuotaData admissionQuotaData;
 
     AdmissionSettingsData admissionSettingsData;
@@ -65,17 +63,6 @@ public class CreateConfigDataRequest {
     public static class MediaFormat {
 
         String format;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class SubscriptionData {
-        int trialDays;      // Số ngày dùng thử mặc định
-        int gracePeriod;    // Thời gian gia hạn (ân hạn) trước khi khóa
-        int minSubscriptionMonth; // Số tháng mua tối thiểu (VD: 3 tháng)
     }
 
     @Data
