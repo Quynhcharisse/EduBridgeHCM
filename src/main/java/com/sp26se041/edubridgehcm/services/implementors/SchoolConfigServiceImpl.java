@@ -25,6 +25,7 @@ import com.sp26se041.edubridgehcm.services.SchoolConfigService;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
+import com.sp26se041.edubridgehcm.utils.WorkShiftConfigValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -181,7 +182,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                     Map<String, Object> map = new HashMap<>();
                     map.put("code", doc.getCode());
                     map.put("name", doc.getName());
-                    map.put("required", doc.isRequired());
+                    map.put("required", true);
                     return map;
                 })
                 .collect(Collectors.toList());
@@ -313,15 +314,14 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
             workingConfigMap.put("isOpenSunday", Boolean.TRUE.equals(operationSettingsData.getWorkingConfig().getOpenSunday()));
             workingConfigMap.put("note", operationSettingsData.getWorkingConfig().getNote());
 
-            // Map danh sách ca làm việc (Shifts)
-            List<Map<String, Object>> shiftsJson = operationSettingsData.getWorkingConfig().getWorkShifts().stream()
-                    .map(shift -> {
-                        Map<String, Object> s = new HashMap<>();
-                        s.put("name", shift.getName());
-                        s.put("startTime", shift.getStartTime());
-                        s.put("endTime", shift.getEndTime());
-                        return s;
-                    }).collect(Collectors.toList());
+            // Map danh sách ca làm việc — chuẩn hóa tên enum + kiểm tra khung giờ theo loại ca
+            List<SchoolConfigRequest.WorkShift> shiftList = operationSettingsData.getWorkingConfig().getWorkShifts();
+            if (shiftList == null) {
+                shiftList = Collections.emptyList();
+            }
+            List<Map<String, Object>> shiftsJson = shiftList.stream()
+                    .map(WorkShiftConfigValidator::toPersistedShiftMap)
+                    .collect(Collectors.toList());
             workingConfigMap.put("workShifts", shiftsJson);
         }
 
@@ -368,13 +368,8 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                         // Map thêm extraShifts nếu mùa đó có ca làm việc tăng cường
                         if (season.getExtraShifts() != null) {
                             List<Map<String, Object>> extraShiftsJson = season.getExtraShifts().stream()
-                                    .map(shift -> {
-                                        Map<String, Object> sh = new HashMap<>();
-                                        sh.put("name", shift.getName());
-                                        sh.put("startTime", shift.getStartTime());
-                                        sh.put("endTime", shift.getEndTime());
-                                        return sh;
-                                    }).collect(Collectors.toList());
+                                    .map(WorkShiftConfigValidator::toPersistedShiftMap)
+                                    .collect(Collectors.toList());
                             s.put("extraShifts", extraShiftsJson);
                         }
                         return s;

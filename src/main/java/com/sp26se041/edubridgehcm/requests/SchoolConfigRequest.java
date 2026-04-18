@@ -215,9 +215,9 @@ public class SchoolConfigRequest {
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class WorkShift {
-        String name; // MORNING, AFTERNOON, EVENING
-        String startTime; // "07:30"
-        String endTime;   // "11:30"
+        String name;
+        String startTime;
+        String endTime;
     }
 
     @Data

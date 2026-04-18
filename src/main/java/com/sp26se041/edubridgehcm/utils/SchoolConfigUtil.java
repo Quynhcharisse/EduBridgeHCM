@@ -1,6 +1,8 @@
 package com.sp26se041.edubridgehcm.utils;
 
 import com.sp26se041.edubridgehcm.enums.HolidayImpactLevel;
+import com.sp26se041.edubridgehcm.enums.SessionType;
+import com.sp26se041.edubridgehcm.enums.WorkShiftKind;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.SchoolHoliday;
@@ -160,7 +162,8 @@ public class SchoolConfigUtil {
 
         if (shifts != null && !shifts.isEmpty()) {
             for (Map<String, Object> shift : shifts) {
-                sb.append("  • ").append(shift.get("name")).append(": ").append(shift.get("startTime")).append(" - ").append(shift.get("endTime")).append("\n");
+                sb.append("  • ").append(formatWorkShiftLabel(shift.get("name"))).append(": ")
+                        .append(shift.get("startTime")).append(" - ").append(shift.get("endTime")).append("\n");
             }
         }
 
@@ -212,13 +215,25 @@ public class SchoolConfigUtil {
                 if (extraShifts != null && !extraShifts.isEmpty()) {
                     sb.append("  • 🌙 Ca làm việc tăng cường:\n");
                     for (Map<String, Object> shift : extraShifts) {
-                        sb.append("    + ").append(shift.get("name"))
+                        sb.append("    + ").append(formatWorkShiftLabel(shift.get("name")))
                                 .append(": ").append(shift.get("startTime")).append(" - ").append(shift.get("endTime")).append("\n");
                     }
                 }
             }
         }
         return sb.toString();
+    }
+
+    private static String formatWorkShiftLabel(Object nameObj) {
+        if (nameObj == null) {
+            return "—";
+        }
+        String s = String.valueOf(nameObj);
+        WorkShiftKind k = WorkShiftKind.resolve(s);
+        if (k != null) {
+            return k.getDisplayNameVi() + " (" + k.name() + ")";
+        }
+        return s;
     }
 
     public static String mapDayToVietnamese(String day) {
@@ -379,7 +394,7 @@ public class SchoolConfigUtil {
                 ("SUN".equals(dayReq) && isOpenSunday);
 
         if (!isWorkingDay) {
-            return "The campus is not operational on " + dayReq + ".";
+            return "Cơ sở không làm việc vào " + mapDayToVietnamese(dayReq) + " (mã ngày: " + dayReq + ").";
         }
 
         // 2. Kiểm tra khung giờ (Work Shifts)
@@ -399,19 +414,75 @@ public class SchoolConfigUtil {
             }).findFirst().orElse(null);
 
             if (matchedShift == null) {
-                return "The time slot " + start + " - " + end + " is not covered by any of the campus shifts";
+                return "Khung giờ " + start + " – " + end + " không nằm trọn trong một ca làm việc đã cấu hình cho cơ sở.";
             }
 
-            //verify if the shift name khớp vs session type
-            String shiftName = String.valueOf(matchedShift.get("name")).toLowerCase();
+            String shiftRaw = String.valueOf(matchedShift.get("name"));
+            String shiftName = shiftRaw.toLowerCase();
             String sessionValue = sessionTypeReq.toLowerCase();
 
             if (!isSessionMatched(shiftName, sessionValue)) {
-                return "The time slot " + start + "-" + end + " belongs to the '" + shiftName +
-                        "' shift, which does not match the selected session: '" + sessionTypeReq + "'.";
+                return "Khung giờ " + start + " – " + end + " thuộc ca \"" + shiftRaw
+                        + "\" nhưng không khớp loại buổi đã chọn (" + sessionTypeReq + ").";
             }
         }
 
+        return null;
+    }
+
+     //Lấy khung giờ từ <strong>một</strong> ca trong {@code workingConfig.workShifts} khớp {@code sessionType} (MORNING / AFTERNOON / EVENING).
+     //Nếu có nhiều ca cùng buổi, lấy <strong>ca đầu tiên</strong> trong danh sách (thứ tự cấu hình HQ). Không gộp nhiều ca —
+     //{@link #validateWithWorkingConfig} yêu cầu cả [start,end] nằm trọn trong một ca.
+    // @return {@code [0] = start, [1] = end} hoặc {@code null} nếu không có ca tương ứng
+    public static LocalTime[] resolveShiftTimeWindowForSessionType(Map<String, Object> workingConfig, String sessionTypeName) {
+        if (workingConfig == null || sessionTypeName == null || sessionTypeName.isBlank()) {
+            return null;
+        }
+        final String sessionValue;
+        try {
+            sessionValue = SessionType.valueOf(sessionTypeName.trim().toUpperCase()).getValue();
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+        List<Map<String, Object>> workShifts = (List<Map<String, Object>>) workingConfig.get("workShifts");
+        if (workShifts == null || workShifts.isEmpty()) {
+            return null;
+        }
+        // Buổi chiều (AFTERNOON) khớp cả NOON và AFTERNOON — ưu tiên ca chiều rồi mới ca trưa
+        if ("afternoon".equals(sessionValue)) {
+            LocalTime[] fromAfternoon = pickFirstShiftWindow(workShifts, sessionValue, WorkShiftKind.AFTERNOON);
+            if (fromAfternoon != null) {
+                return fromAfternoon;
+            }
+            LocalTime[] fromNoon = pickFirstShiftWindow(workShifts, sessionValue, WorkShiftKind.NOON);
+            if (fromNoon != null) {
+                return fromNoon;
+            }
+        }
+        return pickFirstShiftWindow(workShifts, sessionValue, null);
+    }
+
+    private static LocalTime[] pickFirstShiftWindow(List<Map<String, Object>> workShifts, String sessionValue, WorkShiftKind requiredKind) {
+        for (Map<String, Object> shift : workShifts) {
+            if (shift == null) {
+                continue;
+            }
+            String shiftName = String.valueOf(shift.get("name"));
+            if (!isSessionMatched(shiftName, sessionValue)) {
+                continue;
+            }
+            if (requiredKind != null) {
+                WorkShiftKind k = WorkShiftKind.resolve(shiftName);
+                if (k != requiredKind) {
+                    continue;
+                }
+            }
+            LocalTime sStart = LocalTime.parse(String.valueOf(shift.get("startTime")));
+            LocalTime sEnd = LocalTime.parse(String.valueOf(shift.get("endTime")));
+            if (sStart.isBefore(sEnd)) {
+                return new LocalTime[]{sStart, sEnd};
+            }
+        }
         return null;
     }
 
@@ -432,15 +503,28 @@ public class SchoolConfigUtil {
     }
 
     private static boolean isSessionMatched(String shiftName, String sessionValue) {
-        // Nếu ca tên là "Sáng" hoặc "Morning" thì khớp với MORNING
-        if (sessionValue.equals("morning")) {
-            return shiftName.contains("sáng") || shiftName.contains("morning");
+        WorkShiftKind kind = WorkShiftKind.resolve(shiftName);
+        if (kind != null) {
+            if ("morning".equals(sessionValue)) {
+                return kind == WorkShiftKind.MORNING;
+            }
+            if ("afternoon".equals(sessionValue)) {
+                return kind == WorkShiftKind.AFTERNOON || kind == WorkShiftKind.NOON;
+            }
+            if ("evening".equals(sessionValue)) {
+                return kind == WorkShiftKind.EVENING;
+            }
+            return false;
         }
-        if (sessionValue.equals("afternoon")) {
-            return shiftName.contains("chiều") || shiftName.contains("afternoon");
+        String n = shiftName.toLowerCase();
+        if ("morning".equals(sessionValue)) {
+            return n.contains("sáng") || n.contains("morning");
         }
-        if (sessionValue.equals("evening")) {
-            return shiftName.contains("tối") || shiftName.contains("evening");
+        if ("afternoon".equals(sessionValue)) {
+            return n.contains("chiều") || n.contains("afternoon") || n.contains("trưa") || n.contains("noon");
+        }
+        if ("evening".equals(sessionValue)) {
+            return n.contains("tối") || n.contains("evening");
         }
         return false;
     }

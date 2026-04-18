@@ -20,10 +20,6 @@ public class CampusScheduleTemplateRequest {
 
     List<String> dayOfWeek;
 
-    String startTime;
-
-    String endTime;
-
     String sessionType;
 
     Boolean expandToPolicySlots;
