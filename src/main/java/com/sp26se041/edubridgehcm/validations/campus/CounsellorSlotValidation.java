@@ -64,9 +64,10 @@ public class CounsellorSlotValidation {
                         maxCap, minRequired);
             }
 
-            // Lấy danh sách chuyên viên ĐÃ CÓ trong ca này (cùng mẫu lịch, cùng ngày)
+            // Lấy danh sách chuyên viên ĐÃ CÓ trong ca này (cùng mẫu lịch, cùng ngày); bỏ qua SLOT_UNASSIGNED (đã gỡ khỏi lịch)
             List<Integer> existingCounsellorIds = allCurrentSlots.stream()
-                    .filter(s -> s.getCampusScheduleTemplate().getId().equals(template.getId())
+                    .filter(s -> s.getStatus() != Status.SLOT_UNASSIGNED
+                            && s.getCampusScheduleTemplate().getId().equals(template.getId())
                             && s.getStartDate().equals(request.getStartDate())
                             && s.getEndDate().equals(request.getEndDate()))
                     .map(s -> s.getCounsellor().getId())
@@ -101,7 +102,7 @@ public class CounsellorSlotValidation {
 
     public static String normalizeCounsellorSlotSyncAction(String action) {
         if (action == null || action.isBlank()) {
-            return "ASSIGN";
+            return null;
         }
         String u = action.trim().toUpperCase();
         if ("ASSIGN".equals(u) || "UNASSIGN".equals(u)) {

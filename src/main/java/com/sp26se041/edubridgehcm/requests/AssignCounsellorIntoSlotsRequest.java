@@ -21,6 +21,8 @@ public class AssignCounsellorIntoSlotsRequest {
 
     List<Integer> counsellorIds;
 
+    List<Integer> slotIds;
+
     LocalDate startDate;
 
     LocalDate endDate;

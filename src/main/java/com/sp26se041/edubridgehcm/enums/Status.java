@@ -93,7 +93,8 @@ public enum Status {
     BOOKED("booked"),
     CANCELLED("cancelled"),
     AVAILABLE("available"),
-    DISABLED("disabled");
+    DISABLED("disabled"),
+    SLOT_UNASSIGNED("slot_unassigned");
 
     private final String value;
 
