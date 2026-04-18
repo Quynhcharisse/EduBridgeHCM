@@ -48,7 +48,7 @@ public class CreateConfigDataRequest {
         // Dung lượng (Size)
         int maxImgSize;
         int maxVideoSize;
-        int maxDocSize; // Thêm dung lượng tối đa cho file tài liệu (PDF, DOCX)
+        int maxDocSize;
 
         List<MediaFormat> imgFormats;   // Cho Avatar, Logo
         List<MediaFormat> videoFormats; // Cho Video giới thiệu trường
