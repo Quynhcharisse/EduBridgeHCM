@@ -9,17 +9,12 @@ import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Major;
 import com.sp26se041.edubridgehcm.models.PersonalityType;
 import com.sp26se041.edubridgehcm.models.PlatformConfig;
-import com.sp26se041.edubridgehcm.models.School;
-import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.Subject;
 import com.sp26se041.edubridgehcm.models.TemplateDocx;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
-import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.MajorRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
 import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
-import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
-import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
 import com.sp26se041.edubridgehcm.repositories.TemplateDocxRepo;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
@@ -31,10 +26,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,7 +60,6 @@ public class EduBridgeHcmApplication {
     @Bean
     public CommandLineRunner initData() {
         return args -> {
-
             initTemplateDocx();
             initAdmin();
             initConfigSystem();
@@ -103,19 +95,16 @@ public class EduBridgeHcmApplication {
         Map<String, Object> businessData = new HashMap<>();
         businessData.put("taxRate", 0.05);
         businessData.put("serviceRate", 0.05);
-        businessData.put("minPay", 10000);
+        businessData.put("minPay", 100000);
         businessData.put("maxPay", 200000000);
 
         Map<String, Object> mediaData = new HashMap<>();
         mediaData.put("maxImgSize", 10);
         mediaData.put("maxVideoSize", 50);
-        mediaData.put("maxDesignRefImg", 4);
-        mediaData.put("maxFeedbackImg", 4);
-        mediaData.put("maxFeedbackVideo", 1);
-        mediaData.put("maxReportImg", 4);
-        mediaData.put("maxReportVideo", 1);
+        mediaData.put("maxDocSize", 100);
         mediaData.put("imgFormat", List.of(Map.of("format", ".jpg"), Map.of("format", ".jpeg"), Map.of("format", ".png"), Map.of("format", ".gif"), Map.of("format", ".webp")));
         mediaData.put("videoFormat", List.of(Map.of("format", ".mp4"), Map.of("format", ".avi"), Map.of("format", ".mov"), Map.of("format", ".wmv"), Map.of("format", ".webm")));
+        mediaData.put("docFormat", List.of(Map.of("format", ".pdf"), Map.of("format", ".doc"), Map.of("format", ".docx"), Map.of("format", ".txt"), Map.of("format", ".xls")));
 
         Map<String, Object> quotaData = new HashMap<>();
         Map<String, Object> year2025 = new HashMap<>();
@@ -123,12 +112,6 @@ public class EduBridgeHcmApplication {
         year2025.put("quotas", new HashMap<String, Integer>()); // Để trống để Admin tự điền sau
 
         quotaData.put("2025-2026", year2025);
-
-        // --- 4. Subscription Policy (Phần này bạn có dùng trong Request nên nên init luôn) ---
-        Map<String, Object> subscriptionData = new HashMap<>();
-        subscriptionData.put("trialDays", 30);
-        subscriptionData.put("gracePeriod", 7);
-        subscriptionData.put("minSubscriptionMonth", 3);
 
         LocalDateTime today = LocalDateTime.now();
 
@@ -149,271 +132,8 @@ public class EduBridgeHcmApplication {
                         .key("admissionQuota")
                         .value(quotaData)
                         .creationDate(today)
-                        .modifiedDate(today).build(),
-                PlatformConfig.builder()
-                        .key("subscriptionPolicy")
-                        .value(subscriptionData)
-                        .creationDate(today)
                         .modifiedDate(today).build()));
     }
-
-//    private void initSchoolConfig() {
-//
-//        if (schoolConfigRepo.count() > 0) {
-//            return;
-//        }
-//
-//        Map<String, Object> admissionSettingsData = new HashMap<>();
-//
-//        List<Map<String, Object>> allowedMethods = new ArrayList<>(List.of(
-//                new HashMap<>(Map.of(
-//                        "code", "ACADEMIC_RECORD",
-//                        "displayName", "Xét học bạ",
-//                        "description", "Dựa trên kết quả học tập THCS"
-//                )),
-//
-//                new HashMap<>(Map.of(
-//                        "code", "ENTRANCE_EXAM",
-//                        "displayName", "Thi tuyển",
-//                        "description", "Kỳ thi đánh giá năng lực của trường"
-//                )),
-//
-//                new HashMap<>(Map.of(
-//                        "code", "INTERNATIONAL_CERT",
-//                        "displayName", "Chứng chỉ quốc tế",
-//                        "description", "Xét tuyển thẳng bằng IELTS/SAT"
-//                )),
-//
-//                new HashMap<>(Map.of(
-//                        "code", "DIRECT_ADMISSION",
-//                        "displayName", "Tuyển thẳng",
-//                        "description", "Dành cho học sinh đạt giải quốc gia/thành phố"))
-//        ));
-//
-//        admissionSettingsData.put("allowedMethods", allowedMethods);
-//        admissionSettingsData.put("quotaAlertThresholdPercent", 90);
-//        admissionSettingsData.put("autoCloseOnFull", true);
-//
-//
-//        Map<String, Object> documentRequirementsData = new HashMap<>();
-//
-//        List<Map<String, Object>> mandatoryAll = new ArrayList<>(List.of(
-//                new HashMap<>(Map.of(
-//                        "code", "BIRTH_CERT",
-//                        "name", "Giấy khai sinh (Bản sao)",
-//                        "required", true
-//                )),
-//
-//                new HashMap<>(Map.of(
-//                        "code", "PHOTO_4X6",
-//                        "name", "Ảnh chân dung 4x6",
-//                        "required", true
-//                ))
-//        ));
-//
-//        List<Map<String, Object>> byMethod = new ArrayList<>(List.of(
-//                new HashMap<>(Map.of(
-//                        "methodCode", "ACADEMIC_RECORD",
-//                        "documents", List.of(Map.of(
-//                                "code", "TRANSCRIPT",
-//                                "name", "Học bạ THCS",
-//                                "required", true
-//                        )))),
-//
-//                new HashMap<>(Map.of(
-//                        "methodCode", "INTERNATIONAL_CERT",
-//                        "documents", List.of(Map.of(
-//                                "code", "IELTS_CERT",
-//                                "name", "Chứng chỉ IELTS/TOEFL",
-//                                "required", true
-//                        ))))
-//        ));
-//        documentRequirementsData.put("mandatoryAll", mandatoryAll);
-//        documentRequirementsData.put("byMethod", byMethod);
-//        Map<String, Object> financePolicyData = new HashMap<>();
-//
-//        List<Map<String, Object>> feeItems = new ArrayList<>(List.of(
-//                new HashMap<>(Map.of(
-//                        "feeCode", "RESERVATION_FEE",
-//                        "feeName", "Phí giữ chỗ",
-//                        "amount", 2000000,
-//                        "currency", "VND",
-//                        "display", "2.000.000 VNĐ",
-//                        "isReservationFee", true,
-//                        "isMandatory", true
-//                )),
-//                new HashMap<>(Map.of(
-//                        "feeCode", "ADMISSION_SERVICE_FEE",
-//                        "feeName", "Phí hồ sơ & nhập học",
-//                        "amount", 500000,
-//                        "currency", "VND",
-//                        "display", "500.000 VNĐ",
-//                        "isReservationFee", false,
-//                        "isMandatory", true
-//                ))
-//        ));
-//
-//        financePolicyData.put("feeItems", feeItems);
-//        financePolicyData.put("priceAdjustment", Map.of("minPercent", 5.0, "maxPercent", 15.0));
-//        financePolicyData.put("paymentNotes", "Phí giữ chỗ không hoàn lại...");
-//
-//        Map<String, Object> operationSettingsData = new HashMap<>();
-//
-//        Map<String, Object> workingConfig = new HashMap<>();
-//
-//        List<String> regularDays = new ArrayList<>(List.of(
-//                "MON",
-//                "TUE",
-//                "WED",
-//                "THU",
-//                "FRI"
-//        ));
-//
-//        List<String> weekendDays = new ArrayList<>(List.of(
-//                "SAT"
-//        ));
-//
-//        List<Map<String, Object>> workShifts = new ArrayList<>(List.of(
-//                new HashMap<>(Map.of(
-//                        "name", "Sáng",
-//                        "startTime", "07:30",
-//                        "endTime", "11:30"
-//                )),
-//                new HashMap<>(Map.of(
-//                        "name", "Chiều",
-//                        "startTime", "13:30",
-//                        "endTime", "17:00"
-//                ))
-//        ));
-//
-//        workingConfig.put("regularDays", regularDays);
-//        workingConfig.put("weekendDays", weekendDays);
-//        workingConfig.put("workShifts", workShifts);
-//        workingConfig.put("isOpenSunday", false);
-//        workingConfig.put("note", "Nghỉ các ngày lễ Tết theo quy định.");
-//
-//        List<Map<String, Object>> admissionProcesses = new ArrayList<>(List.of(
-//                new HashMap<>(Map.of("methodCode", "ACADEMIC_RECORD", "steps", List.of(
-//                        Map.of("stepOrder", 1, "stepName", "Đăng ký trực tuyến", "description", "Điền form và upload học bạ"),
-//                        Map.of("stepOrder", 2, "stepName", "Xét duyệt hồ sơ", "description", "Hội đồng kiểm tra điểm số"),
-//                        Map.of("stepOrder", 3, "stepName", "Đóng phí giữ chỗ", "description", "Xác nhận nhập học trực tuyến")))),
-//                new HashMap<>(Map.of("methodCode", "ENTRANCE_EXAM", "steps", List.of(
-//                        Map.of("stepOrder", 1, "stepName", "Đăng ký dự thi", "description", "Chọn ngày thi và cơ sở"),
-//                        Map.of("stepOrder", 2, "stepName", "Tham gia thi tuyển", "description", "Thi Toán và Tiếng Anh"),
-//                        Map.of("stepOrder", 3, "stepName", "Phỏng vấn trực tiếp", "description", "Gặp mặt ban tuyển sinh")))),
-//                new HashMap<>(Map.of("methodCode", "INTERNATIONAL_CERT", "steps", List.of(
-//                        Map.of("stepOrder", 1, "stepName", "Nộp chứng chỉ", "description", "Xác thực chứng chỉ quốc tế"),
-//                        Map.of("stepOrder", 2, "stepName", "Phỏng vấn tiếng Anh", "description", "Kiểm tra kỹ năng giao tiếp")))),
-//                new HashMap<>(Map.of("methodCode", "DIRECT_ADMISSION", "steps", List.of(
-//                        Map.of("stepOrder", 1, "stepName", "Nộp bằng chứng thành tích", "description", "Giải quốc gia/Thành phố"),
-//                        Map.of("stepOrder", 2, "stepName", "Xét duyệt đặc cách", "description", "Ban giám hiệu phê duyệt"))))
-//        ));
-//
-//        operationSettingsData.put("hotline", "1900 1234");
-//        operationSettingsData.put("emailSupport", "tuyensinh@edubridge.edu.vn");
-//        operationSettingsData.put("minCounsellorPerSlot", 1);
-//        operationSettingsData.put("slotDurationInMinutes", 30);    // Mỗi ca tư vấn mặc định 30 phút
-//        operationSettingsData.put("maxBookingPerSlot", 1);         // Mỗi ca 1 khách (Tư vấn 1 kèm 1)
-//        operationSettingsData.put("allowBookingBeforeHours", 24);  // Phải đặt trước 24h
-//        operationSettingsData.put("workingConfig", workingConfig);
-//        operationSettingsData.put("admissionProcesses", admissionProcesses);
-//
-//
-//        Map<String, Object> facilityData = new HashMap<>();
-//
-//        List<Map<String, Object>> imageList = new ArrayList<>(List.of(
-//                new HashMap<>(Map.of(
-//                        "name", "Thư viện",
-//                        "url", "https://cdn.school.com/lib.jpg",
-//                        "altName", "Library",
-//                        "isUsage", true
-//                ))
-//        ));
-//
-//        Map<String, Object> imageData = new HashMap<>();
-//
-//        imageData.put("coverUrl", "https://cdn.school.com/cover.jpg");
-//        imageData.put("imageList", imageList);
-//
-//        List<Map<String, Object>> itemList = new ArrayList<>(List.of(
-//                new HashMap<>(Map.of(
-//                        "facilityCode", "LAB_01",
-//                        "name", "Phòng máy tính",
-//                        "value", 5,
-//                        "unit", "Phòng",
-//                        "category", "Học tập"
-//                ))
-//        ));
-//
-//        facilityData.put("overview", "Cơ sở vật chất hiện đại chuẩn quốc tế.");
-//        facilityData.put("imageData", imageData);
-//        facilityData.put("itemList", itemList);
-//
-//        Map<String, Object> quotaConfigData = new HashMap<>();
-//
-//        List<Map<String, Object>> campusAssignments = new ArrayList<>(List.of(
-//                new HashMap<>(Map.of(
-//                        "campusId", 1,
-//                        "campusName", "Cơ sở Quận 1",
-//                        "allocatedQuota", 600
-//                )),
-//                new HashMap<>(Map.of(
-//                        "campusId", 2,
-//                        "campusName", "Cơ sở Quận 7",
-//                        "allocatedQuota", 400
-//                ))
-//        ));
-//
-//        quotaConfigData.put("academicYear", "2026-2027");
-//        quotaConfigData.put("totalSystemQuota", 1000);
-//        quotaConfigData.put("campusAssignments", campusAssignments);
-//
-//        schoolConfigRepo.saveAll(
-//                List.of(
-//                        SchoolConfig.builder()
-//                                .schoolId(1)
-//                                .key("admissionSettingsData")
-//                                .value(admissionSettingsData)
-//                                .updatedAt(LocalDateTime.now())
-//                                .build(),
-//
-//                        SchoolConfig.builder()
-//                                .schoolId(1)
-//                                .key("documentRequirementsData")
-//                                .value(documentRequirementsData)
-//                                .updatedAt(LocalDateTime.now())
-//                                .build(),
-//
-//                        SchoolConfig.builder()
-//                                .schoolId(1)
-//                                .key("financePolicyData")
-//                                .value(financePolicyData)
-//                                .updatedAt(LocalDateTime.now())
-//                                .build(),
-//
-//                        SchoolConfig.builder()
-//                                .schoolId(1)
-//                                .key("operationSettingsData")
-//                                .value(operationSettingsData)
-//                                .updatedAt(LocalDateTime.now())
-//                                .build(),
-//
-//                        SchoolConfig.builder()
-//                                .schoolId(1)
-//                                .key("facilityData")
-//                                .value(facilityData)
-//                                .updatedAt(LocalDateTime.now())
-//                                .build(),
-//
-//                        SchoolConfig.builder()
-//                                .schoolId(1)
-//                                .key("quotaConfigData")
-//                                .value(quotaConfigData)
-//                                .updatedAt(LocalDateTime.now())
-//                                .build()
-//                )
-//        );
-//    }
 
     //Init Subject
     private void initSubjects() {
