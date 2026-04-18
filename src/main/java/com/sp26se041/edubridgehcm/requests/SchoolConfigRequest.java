@@ -132,6 +132,7 @@ public class SchoolConfigRequest {
         String hotline;
         String emailSupport;
         int minCounsellorPerSlot;
+        int maxCounsellorsPerSlot;   // Tối đa TV gán cùng một khung + khoảng ngày; 0 = không giới hạn trên (chỉ còn min và rule khác)
         int slotDurationInMinutes;   // Thời lượng 1 ca (ví dụ: 30, 45, 60)
         int bufferBetweenSlotsMinutes; // Nghỉ giữa hai tiết tư vấn (phút), 0 = liền mạch
         int maxBookingPerSlot;       // Số học sinh tối đa trong 1 ca

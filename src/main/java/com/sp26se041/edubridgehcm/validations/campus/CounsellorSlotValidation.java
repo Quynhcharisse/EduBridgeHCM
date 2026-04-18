@@ -49,7 +49,12 @@ public class CounsellorSlotValidation {
 
             // Check số lượng tối thiểu/tối đa (ưu tiên số trong cấu hình hiệu lực HQ + campus)
             int minRequired = policy.getOrDefault("minCounsellorPerSlot", 1);
-            int maxAllowed = 5;
+            Integer maxCap = SchoolConfigUtil.resolveMaxCounsellorsPerSlot(policy);
+            if (maxCap != null && maxCap < minRequired) {
+                return String.format(
+                        "Cấu hình vận hành không hợp lệ: tối đa tư vấn viên mỗi khung (%d) không được nhỏ hơn tối thiểu (%d). Hãy chỉnh maxCounsellorsPerSlot / minCounsellorPerSlot.",
+                        maxCap, minRequired);
+            }
 
             // Lấy danh sách chuyên viên ĐÃ CÓ trong ca này (cùng mẫu lịch, cùng ngày)
             List<Integer> existingCounsellorIds = allCurrentSlots.stream()
@@ -69,9 +74,10 @@ public class CounsellorSlotValidation {
             if (totalAfterAssign < minRequired) {
                 return String.format("Số lượng chuyên viên chưa đủ. Ca này yêu cầu tối thiểu %d người.", minRequired);
             }
-            if (totalAfterAssign > maxAllowed) {
-                return String.format("Ca này đã đầy. Tối đa chỉ cho phép %d người (Hiện tại: %d, Mới thêm: %d).",
-                        maxAllowed, existingCounsellorIds.size(), newUniqueAssignees);
+            if (maxCap != null && totalAfterAssign > maxCap) {
+                return String.format(
+                        "Ca này đã đầy. Theo cấu hình (maxCounsellorsPerSlot) tối đa %d người cùng khung (Hiện có: %d, đang thêm: %d).",
+                        maxCap, existingCounsellorIds.size(), newUniqueAssignees);
             }
         }
 

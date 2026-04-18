@@ -22,6 +22,8 @@ public class UpdateCampusConfigRequest {
 
     Integer minCounsellorPerSlot;
 
+    Integer maxCounsellorsPerSlot;   // Tối đa TV / khung (override campus)
+
     Integer slotDurationInMinutes;   // Thời lượng mỗi ca tư vấn (ví dụ: 30, 45, 60)
 
     Integer bufferBetweenSlotsMinutes; // Nghỉ giữa hai tiết (phút), override campus

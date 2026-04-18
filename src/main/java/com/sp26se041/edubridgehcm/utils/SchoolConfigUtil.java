@@ -83,6 +83,10 @@ public class SchoolConfigUtil {
             merged.put("minCounsellorPerSlot", request.getMinCounsellorPerSlot());
         }
 
+        if (request.getMaxCounsellorsPerSlot() != null) {
+            merged.put("maxCounsellorsPerSlot", request.getMaxCounsellorsPerSlot());
+        }
+
         if (request.getSlotDurationInMinutes() != null) {
             merged.put("slotDurationInMinutes", request.getSlotDurationInMinutes());
         }
@@ -140,6 +144,14 @@ public class SchoolConfigUtil {
             sb.append("👥 Số tư vấn viên tối thiểu mỗi ca: ")
                     .append(operationData.get("minCounsellorPerSlot"))
                     .append(" người\n");
+        }
+
+        if (operationData.get("maxCounsellorsPerSlot") != null) {
+            Object mx = operationData.get("maxCounsellorsPerSlot");
+            int m = mx instanceof Number ? ((Number) mx).intValue() : Integer.parseInt(String.valueOf(mx));
+            if (m > 0) {
+                sb.append("👥 Số tư vấn viên tối đa gán cùng khung: ").append(m).append(" người\n");
+            }
         }
 
         if (operationData.get("slotDurationInMinutes") != null) {
@@ -551,6 +563,7 @@ public class SchoolConfigUtil {
         // Danh sách các key cần trích xuất
         String[] keys = {
                 "minCounsellorPerSlot",
+                "maxCounsellorsPerSlot",
                 "slotDurationInMinutes",
                 "bufferBetweenSlotsMinutes",
                 "maxBookingPerSlot",
@@ -583,6 +596,7 @@ public class SchoolConfigUtil {
         Map<String, Object> policy = (Map<String, Object>) pd;
         String[] numericKeys = {
                 "minCounsellorPerSlot",
+                "maxCounsellorsPerSlot",
                 "slotDurationInMinutes",
                 "bufferBetweenSlotsMinutes",
                 "maxBookingPerSlot",
@@ -666,6 +680,7 @@ public class SchoolConfigUtil {
         }
         String[] keys = {
                 "minCounsellorPerSlot",
+                "maxCounsellorsPerSlot",
                 "slotDurationInMinutes",
                 "bufferBetweenSlotsMinutes",
                 "maxBookingPerSlot",
@@ -682,6 +697,17 @@ public class SchoolConfigUtil {
             }
         }
         return constraints;
+    }
+
+    public static Integer resolveMaxCounsellorsPerSlot(Map<String, Integer> policy) {
+        if (policy == null) {
+            return null;
+        }
+        Integer v = policy.get("maxCounsellorsPerSlot");
+        if (v == null || v <= 0) {
+            return null;
+        }
+        return v;
     }
 
     public static String validateAssignmentRangeAgainstBlockingHolidays(

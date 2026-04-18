@@ -24,6 +24,8 @@ public class CreateConfigDataRequest {
 
     AdmissionQuotaData admissionQuotaData;
 
+    AdmissionSettingsData admissionSettingsData;
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -85,5 +87,27 @@ public class CreateConfigDataRequest {
         String year;
         String sourceUrl;
         Map<Integer, Integer> quotas;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class AdmissionSettingsData {
+        List<AdmissionMethodDetail> allowedMethods;
+        int quotaAlertThresholdPercent;
+        boolean autoCloseOnFull;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class AdmissionMethodDetail {
+        String code;
+        String displayName;
+        String description;
     }
 }

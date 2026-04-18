@@ -659,6 +659,7 @@ public class CampusServiceImpl implements CampusService {
 
             Map<String, Object> policyJsonb = new HashMap<>();
             policyJsonb.put("minCounsellorPerSlot", mergedOp.get("minCounsellorPerSlot"));
+            policyJsonb.put("maxCounsellorsPerSlot", mergedOp.get("maxCounsellorsPerSlot"));
             policyJsonb.put("slotDurationInMinutes", mergedOp.get("slotDurationInMinutes"));
             policyJsonb.put("bufferBetweenSlotsMinutes", mergedOp.get("bufferBetweenSlotsMinutes"));
             policyJsonb.put("maxBookingPerSlot", mergedOp.get("maxBookingPerSlot"));
@@ -811,6 +812,7 @@ public class CampusServiceImpl implements CampusService {
             filteredOp.put("admissionProcesses", fullOp.get("admissionProcesses"));
             filteredOp.put("maxBookingPerSlot", fullOp.get("maxBookingPerSlot"));
             filteredOp.put("minCounsellorPerSlot", fullOp.get("minCounsellorPerSlot"));
+            filteredOp.put("maxCounsellorsPerSlot", fullOp.get("maxCounsellorsPerSlot"));
             filteredOp.put("slotDurationInMinutes", fullOp.get("slotDurationInMinutes"));
             filteredOp.put("bufferBetweenSlotsMinutes", fullOp.get("bufferBetweenSlotsMinutes"));
             filteredOp.put("allowBookingBeforeHours", fullOp.get("allowBookingBeforeHours"));
@@ -834,6 +836,7 @@ public class CampusServiceImpl implements CampusService {
         Map<String, Object> campusPolicyDb = (Map<String, Object>) actorCampus.getPolicyDetail();
         if (campusPolicyDb != null) {
             campusUpdateInfo.put("minCounsellorPerSlot", campusPolicyDb.get("minCounsellorPerSlot"));
+            campusUpdateInfo.put("maxCounsellorsPerSlot", campusPolicyDb.get("maxCounsellorsPerSlot"));
             campusUpdateInfo.put("slotDurationInMinutes", campusPolicyDb.get("slotDurationInMinutes"));
             campusUpdateInfo.put("bufferBetweenSlotsMinutes", campusPolicyDb.get("bufferBetweenSlotsMinutes"));
             campusUpdateInfo.put("maxBookingPerSlot", campusPolicyDb.get("maxBookingPerSlot"));
