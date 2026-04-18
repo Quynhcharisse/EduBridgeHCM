@@ -75,7 +75,6 @@ public class SystemServiceImpl implements SystemService {
 
         if (request.getBusinessData() == null
                 && request.getMediaData() == null
-                && request.getSubscriptionData() == null
                 && request.getAdmissionQuotaData() == null
                 && request.getAdmissionSettingsData() == null
         ) {
@@ -127,7 +126,6 @@ public class SystemServiceImpl implements SystemService {
         if (request.getBusinessData() != null) updateBusiness(request);
         if (request.getMediaData() != null) updateMedia(request);
         if (request.getAdmissionQuotaData() != null) updateAdmissionQuota(request);
-        if (request.getSubscriptionData() != null) updateSubscriptionPolicy(request);
         if (request.getAdmissionSettingsData() != null) updateAdmissionSettingsTemplate(request);
     }
 
@@ -193,27 +191,6 @@ public class SystemServiceImpl implements SystemService {
                     return map;
                 })
                 .toList();
-    }
-
-    @Transactional
-    public void updateSubscriptionPolicy(CreateConfigDataRequest request) {
-        CreateConfigDataRequest.SubscriptionData subData = request.getSubscriptionData();
-
-        Map<String, Object> subJson = new HashMap<>();
-        subJson.put("trialDays", subData.getTrialDays());
-        subJson.put("gracePeriod", subData.getGracePeriod());
-        subJson.put("minSubscriptionMonth", subData.getMinSubscriptionMonth());
-
-        PlatformConfig config = platformConfigRepo.findByKey("subscriptionPolicy").orElse(
-                PlatformConfig.builder()
-                        .key("subscriptionPolicy")
-                        .creationDate(LocalDateTime.now())
-                        .build()
-        );
-
-        config.setValue(subJson);
-        config.setModifiedDate(LocalDateTime.now());
-        platformConfigRepo.save(config);
     }
 
     @Transactional
