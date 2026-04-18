@@ -1069,31 +1069,58 @@ public class CampusServiceImpl implements CampusService {
 
         Map<String, Object> effectiveOperationSettings = SchoolConfigUtil.getEffectiveOperationSettingsMap(operatingSystemsConfig, actorCampus);
 
-        CampusScheduleTemplate template = campusScheduleTemplateRepo.findById(request.getTemplateId()).orElse(null);
-        if (template == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy khung lịch (template).", null);
+        String actionInput = CounsellorSlotValidation.normalizeCounsellorSlotSyncAction(request.getAction());
+        if (actionInput == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tham số action phải là GÁN (ASSIGN) hoặc HỦY GÁN (UNASSIGN).", null);
         }
-        if (template.getCampus() == null || !template.getCampus().getId().equals(actorCampus.getId())) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Khung lịch không thuộc cơ sở này.", null);
+        boolean isAssign = "ASSIGN".equals(actionInput);
+
+        if (isAssign) {
+            if (request.getStartDate() == null && request.getEndDate() == null) {
+                Optional<SchoolConfigUtil.AcademicAssignmentDateRange> semesterRange =
+                        SchoolConfigUtil.resolveAssignmentDateRangeFromAcademicCalendar(effectiveOperationSettings);
+                if (semesterRange.isEmpty()) {
+                    return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                            "Vui lòng nhập Từ ngày và Đến ngày, hoặc cấu hình đủ phạm vi học kỳ (academicCalendar.term1/term2).", null);
+                }
+                SchoolConfigUtil.AcademicAssignmentDateRange r = semesterRange.get();
+                request.setStartDate(r.start());
+                request.setEndDate(r.end());
+            } else if (request.getStartDate() == null || request.getEndDate() == null) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Ngày bắt đầu và ngày kết thúc phải cùng điền hoặc cùng để trống khi gán.", null);
+            }
+        } else {
+            if (request.getStartDate() == null || request.getEndDate() == null) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Ngày bắt đầu và ngày kết thúc không được để trống.", null);
+            }
+        }
+
+        List<Integer> templateIdList = resolveAssignTemplateIds(request);
+        if (templateIdList.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cần chỉ định templateIds (danh sách không rỗng).", null);
         }
 
         List<CounsellorSlot> allCurrentSlots = counsellorSlotRepo.findByCampusScheduleTemplate_Campus_Id(actorCampus.getId());
 
         List<Counsellor> counsellors = counsellorRepo.findAllById(request.getCounsellorIds());
 
-        String error = CounsellorSlotValidation.validateAssignRequest(effectiveOperationSettings, request, actorCampus, template, counsellors, allCurrentSlots);
+        for (Integer tid : templateIdList) {
+            CampusScheduleTemplate template = campusScheduleTemplateRepo.findById(tid).orElse(null);
+            if (template == null) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy khung lịch (template) với mã: " + tid + ".", null);
+            }
+            if (template.getCampus() == null || !template.getCampus().getId().equals(actorCampus.getId())) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Khung lịch không thuộc cơ sở này (templateId=" + tid + ").", null);
+            }
 
-        if (error != null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+            String error = CounsellorSlotValidation.validateAssignRequest(effectiveOperationSettings, request, actorCampus, template, counsellors, allCurrentSlots);
+            if (error != null) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+            }
         }
 
         List<SchoolHoliday> holidayList = mergeSchoolHolidaysForCampus(actorCampus.getSchool().getId(), actorCampus.getId());
-
-        String actionInput = CounsellorSlotValidation.normalizeCounsellorSlotSyncAction(request.getAction());
-        if (actionInput == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tham số action phải là GÁN (ASSIGN) hoặc HỦY GÁN (UNASSIGN).", null);
-        }
-        boolean isAssign = "ASSIGN".equals(actionInput);
 
         if (isAssign && request.getStartDate() != null && request.getEndDate() != null) {
             String holidayBlock = SchoolConfigUtil.validateAssignmentRangeAgainstBlockingHolidays(
@@ -1104,23 +1131,37 @@ public class CampusServiceImpl implements CampusService {
         }
 
         try {
-            for (Counsellor counsellor : counsellors) {
+            for (Integer tid : templateIdList) {
+                CampusScheduleTemplate template = campusScheduleTemplateRepo.findById(tid).orElseThrow();
 
-                List<CounsellorSlot> counsellorSlots = allCurrentSlots.stream()
-                        .filter(s -> s.getCounsellor().getId().equals(counsellor.getId()))
-                        .toList();
+                for (Counsellor counsellor : counsellors) {
 
-                if (isAssign) {
-                    handleAssignAction(counsellor, template, request, counsellorSlots);
-                } else {
-                    handleUnassignAction(template, request, counsellorSlots, counsellor);
+                    List<CounsellorSlot> counsellorSlots = allCurrentSlots.stream()
+                            .filter(s -> s.getCounsellor().getId().equals(counsellor.getId()))
+                            .toList();
+
+                    if (isAssign) {
+                        handleAssignAction(counsellor, template, request, counsellorSlots);
+                    } else {
+                        handleUnassignAction(template, request, counsellorSlots, counsellor);
+                    }
                 }
+                counsellorSlotRepo.flush();
+                allCurrentSlots = counsellorSlotRepo.findByCampusScheduleTemplate_Campus_Id(actorCampus.getId());
             }
         } catch (IllegalArgumentException e) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
         }
 
         return ResponseBuilder.build(HttpStatus.OK, (isAssign ? "Gán" : "Hủy gán") + " chuyên viên tư vấn thành công.", null);
+    }
+
+    /** Danh sách id khung lịch (bỏ trùng, bỏ null). */
+    private static List<Integer> resolveAssignTemplateIds(AssignCounsellorIntoSlotsRequest request) {
+        if (request.getTemplateIds() == null || request.getTemplateIds().isEmpty()) {
+            return List.of();
+        }
+        return request.getTemplateIds().stream().filter(id -> id != null).distinct().toList();
     }
 
     private void handleAssignAction(Counsellor counsellor, CampusScheduleTemplate template, AssignCounsellorIntoSlotsRequest request, List<CounsellorSlot> existingSlots) {
