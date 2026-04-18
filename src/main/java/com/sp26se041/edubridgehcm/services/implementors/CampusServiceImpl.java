@@ -1073,6 +1073,9 @@ public class CampusServiceImpl implements CampusService {
         if (template == null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy khung lịch (template).", null);
         }
+        if (template.getCampus() == null || !template.getCampus().getId().equals(actorCampus.getId())) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Khung lịch không thuộc cơ sở này.", null);
+        }
 
         List<CounsellorSlot> allCurrentSlots = counsellorSlotRepo.findByCampusScheduleTemplate_Campus_Id(actorCampus.getId());
 
@@ -1086,10 +1089,8 @@ public class CampusServiceImpl implements CampusService {
 
         List<SchoolHoliday> holidayList = mergeSchoolHolidaysForCampus(actorCampus.getSchool().getId(), actorCampus.getId());
 
-        String actionInput = (request.getAction() != null && !request.getAction().isBlank())
-                ? request.getAction().trim().toUpperCase()
-                : "ASSIGN";
-        if (!"ASSIGN".equals(actionInput) && !"UNASSIGN".equals(actionInput)) {
+        String actionInput = CounsellorSlotValidation.normalizeCounsellorSlotSyncAction(request.getAction());
+        if (actionInput == null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tham số action phải là GÁN (ASSIGN) hoặc HỦY GÁN (UNASSIGN).", null);
         }
         boolean isAssign = "ASSIGN".equals(actionInput);

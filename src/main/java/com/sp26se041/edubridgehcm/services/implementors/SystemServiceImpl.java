@@ -245,10 +245,6 @@ public class SystemServiceImpl implements SystemService {
         platformConfigRepo.save(config);
     }
 
-    /**
-     * Mẫu chung admission (phương thức tuyển sinh) cho toàn nền tảng — cùng cấu trúc JSON với {@code school_config.admissionSettingsData}.
-     * Campus chính có thể GET {@code /api/v1/system/config/key?k=admissionSettingsData} để prefill trước khi lưu riêng cho trường.
-     */
     @Transactional
     public void updateAdmissionSettingsTemplate(CreateConfigDataRequest request) {
         CreateConfigDataRequest.AdmissionSettingsData admissionSettingsData = request.getAdmissionSettingsData();
@@ -268,8 +264,6 @@ public class SystemServiceImpl implements SystemService {
 
         Map<String, Object> admissionJson = new HashMap<>();
         admissionJson.put("allowedMethods", allowedMethodsJson);
-        admissionJson.put("quotaAlertThresholdPercent", admissionSettingsData.getQuotaAlertThresholdPercent());
-        admissionJson.put("autoCloseOnFull", admissionSettingsData.isAutoCloseOnFull());
 
         PlatformConfig config = platformConfigRepo.findByKey("admissionSettingsData").orElse(
                 PlatformConfig.builder()

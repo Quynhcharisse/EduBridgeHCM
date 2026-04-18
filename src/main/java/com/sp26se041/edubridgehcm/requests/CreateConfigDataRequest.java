@@ -96,8 +96,6 @@ public class CreateConfigDataRequest {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class AdmissionSettingsData {
         List<AdmissionMethodDetail> allowedMethods;
-        int quotaAlertThresholdPercent;
-        boolean autoCloseOnFull;
     }
 
     @Data

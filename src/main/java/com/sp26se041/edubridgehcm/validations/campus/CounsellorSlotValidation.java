@@ -35,17 +35,25 @@ public class CounsellorSlotValidation {
             return "Một hoặc nhiều chuyên viên tư vấn không tồn tại trong hệ thống.";
         }
 
-        if (!SchoolConfigUtil.isWithinAcademicTerms(request.getStartDate(), operatingSettings)) {
-            return "Ngày bắt đầu gán lịch (" + request.getStartDate() + ") nằm ngoài phạm vi học kỳ.";
+        String normalizedAction = normalizeCounsellorSlotSyncAction(request.getAction());
+        if (normalizedAction == null) {
+            return "Tham số action phải là GÁN (ASSIGN) hoặc HỦY GÁN (UNASSIGN).";
         }
+        boolean isAssign = "ASSIGN".equals(normalizedAction);
 
-        if (!SchoolConfigUtil.isWithinAcademicTerms(request.getEndDate(), operatingSettings)) {
-            return "Ngày kết thúc gán lịch (" + request.getEndDate() + ") nằm ngoài phạm vi học kỳ.";
+        if (isAssign) {
+            if (!SchoolConfigUtil.isWithinAcademicTerms(request.getStartDate(), operatingSettings)) {
+                return "Ngày bắt đầu gán lịch (" + request.getStartDate() + ") nằm ngoài phạm vi học kỳ.";
+            }
+
+            if (!SchoolConfigUtil.isWithinAcademicTerms(request.getEndDate(), operatingSettings)) {
+                return "Ngày kết thúc gán lịch (" + request.getEndDate() + ") nằm ngoài phạm vi học kỳ.";
+            }
         }
 
         Map<String, Integer> policy = SchoolConfigUtil.getNumericPolicyFromOperationMap(operatingSettings);
 
-        if ("ASSIGN".equalsIgnoreCase(request.getAction())) {
+        if (isAssign) {
 
             // Check số lượng tối thiểu/tối đa (ưu tiên số trong cấu hình hiệu lực HQ + campus)
             int minRequired = policy.getOrDefault("minCounsellorPerSlot", 1);
@@ -88,6 +96,17 @@ public class CounsellorSlotValidation {
             }
         }
 
+        return null;
+    }
+
+    public static String normalizeCounsellorSlotSyncAction(String action) {
+        if (action == null || action.isBlank()) {
+            return "ASSIGN";
+        }
+        String u = action.trim().toUpperCase();
+        if ("ASSIGN".equals(u) || "UNASSIGN".equals(u)) {
+            return u;
+        }
         return null;
     }
 

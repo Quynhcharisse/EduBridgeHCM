@@ -386,20 +386,32 @@ public class SchoolConfigUtil {
         return effectivePolicy;
     }
 
-    //check nhanh "Ngày này có đi học không?
+    // Học kỳ tùy chọn: chỉ siết khi ít nhất một term có đủ start+end; thiếu thì không chặn.
     public static boolean isWithinAcademicTerms(LocalDate targetDate, Map<String, Object> operationSettingsData) {
         if (operationSettingsData == null) return true;
 
         Object calendarObj = operationSettingsData.get("academicCalendar");
-        if (!(calendarObj instanceof Map)) return true; // Nếu không config lịch thì mặc định cho phép
+        if (!(calendarObj instanceof Map)) return true; // Không có lịch → không bắt buộc kiểm tra học kỳ
 
         Map<String, Object> calendar = (Map<String, Object>) calendarObj;
 
-        // Tận dụng hàm isDateInTerm bạn đã viết ở dòng 282
-        boolean inTerm1 = isDateInTerm(targetDate, (Map<String, Object>) calendar.get("term1"));
-        boolean inTerm2 = isDateInTerm(targetDate, (Map<String, Object>) calendar.get("term2"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> term1 = (Map<String, Object>) calendar.get("term1");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> term2 = (Map<String, Object>) calendar.get("term2");
+
+        if (!isTermWindowConfigured(term1) && !isTermWindowConfigured(term2)) {
+            return true; // Chưa bật phạm vi học kỳ (thiếu start/end) → không chặn gán lịch
+        }
+
+        boolean inTerm1 = isDateInTerm(targetDate, term1);
+        boolean inTerm2 = isDateInTerm(targetDate, term2);
 
         return inTerm1 || inTerm2;
+    }
+
+    private static boolean isTermWindowConfigured(Map<String, Object> term) {
+        return term != null && term.get("start") != null && term.get("end") != null;
     }
 
     public static String validateWithWorkingConfig(String dayOfWeek, LocalTime start, LocalTime end, String sessionTypeReq, Map<String, Object> workingConfig) {
@@ -510,17 +522,51 @@ public class SchoolConfigUtil {
     }
 
     private static LocalDate parseDate(Object dateObj) {
-        if (dateObj == null) return null;
-        if (dateObj instanceof LocalDate) return (LocalDate) dateObj;
-        return LocalDate.parse(String.valueOf(dateObj));
+        if (dateObj == null) {
+            return null;
+        }
+        if (dateObj instanceof LocalDate ld) {
+            return ld;
+        }
+        if (dateObj instanceof List<?> list && list.size() >= 3) {
+            return LocalDate.of(toInt(list.get(0)), toInt(list.get(1)), toInt(list.get(2)));
+        }
+        if (dateObj instanceof int[] arr && arr.length >= 3) {
+            return LocalDate.of(arr[0], arr[1], arr[2]);
+        }
+        if (dateObj instanceof long[] arr && arr.length >= 3) {
+            return LocalDate.of((int) arr[0], (int) arr[1], (int) arr[2]);
+        }
+        String s = String.valueOf(dateObj).trim();
+        if (s.startsWith("[") && s.endsWith("]")) {
+            String inner = s.substring(1, s.length() - 1).trim();
+            String[] parts = inner.split(",");
+            if (parts.length >= 3) {
+                return LocalDate.of(
+                        Integer.parseInt(parts[0].trim()),
+                        Integer.parseInt(parts[1].trim()),
+                        Integer.parseInt(parts[2].trim()));
+            }
+        }
+        return LocalDate.parse(s);
+    }
+
+    private static int toInt(Object o) {
+        if (o instanceof Number n) {
+            return n.intValue();
+        }
+        return Integer.parseInt(String.valueOf(o).trim());
     }
 
     // check date in this semester
     private static boolean isDateInTerm(LocalDate date, Map<String, Object> term) {
         if (term == null || term.get("start") == null || term.get("end") == null) return false;
 
-        LocalDate start = LocalDate.parse(String.valueOf(term.get("start")));
-        LocalDate end = LocalDate.parse(String.valueOf(term.get("end")));
+        LocalDate start = parseDate(term.get("start"));
+        LocalDate end = parseDate(term.get("end"));
+        if (start == null || end == null) {
+            return false;
+        }
 
         return !date.isBefore(start) && !date.isAfter(end);
     }
