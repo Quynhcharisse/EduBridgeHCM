@@ -6,8 +6,10 @@ import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.SchoolHoliday;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -17,6 +19,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class SchoolConfigUtil {
+
+    private static final DateTimeFormatter SLOT_WINDOW_TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
+
     public static List<Map<String, Object>> mergeFacilityItems(
             List<Map<String, Object>> templateItems,
             List<Map<String, Object>> currentCampusItems,
@@ -86,13 +91,6 @@ public class SchoolConfigUtil {
             merged.put("allowBookingBeforeHours", request.getAllowBookingBeforeHours());
         }
 
-        if (request.getWorkingOverride() != null) {
-            merged.put("workingConfig", mergeWorkingConfig(
-                    (Map<String, Object>) hqData.get("workingConfig"),
-                    request.getWorkingOverride()
-            ));
-        }
-
         if (request.getAdmissionStepsOverride() != null) {
             merged.put("admissionSteps", mergeAdmissionSteps(
                     (List<Map<String, Object>>) hqData.get("admissionSteps"),
@@ -100,30 +98,6 @@ public class SchoolConfigUtil {
             ));
         }
         return merged;
-    }
-
-    private static Map<String, Object> mergeWorkingConfig(Map<String, Object> hqWorking,
-                                                          UpdateCampusConfigRequest.CampusWorkingOverride override) {
-
-        Map<String, Object> mergedWorking = (hqWorking != null) ? new HashMap<>(hqWorking) : new HashMap<>();
-
-        if (override.getNote() != null) mergedWorking.put("note", override.getNote());
-        if (override.getIsOpenSunday() != null) mergedWorking.put("isOpenSunday", override.getIsOpenSunday());
-
-        // Nếu Campus gửi danh sách ca làm việc mới, dùng cái đó
-        if (override.getWorkShifts() != null && !override.getWorkShifts().isEmpty()) {
-            List<Map<String, Object>> shiftMaps = override.getWorkShifts().stream().map(shift -> {
-                Map<String, Object> m = new HashMap<>();
-                m.put("name", shift.getName());
-                m.put("startTime", shift.getStartTime());
-                m.put("endTime", shift.getEndTime());
-                return m;
-            }).collect(Collectors.toList());
-
-            mergedWorking.put("workShifts", shiftMaps);
-        }
-
-        return mergedWorking;
     }
 
     private static List<Map<String, Object>> mergeAdmissionSteps(List<Map<String, Object>> hqSteps,
@@ -501,10 +475,6 @@ public class SchoolConfigUtil {
         return constraints;
     }
 
-    /**
-     * Gộp cấu hình vận hành HQ ({@code operationSettingsData}) với phần campus đã lưu trong {@code campus.policyDetail}
-     * (số phút/ca, max booking, và đặc biệt {@code workingConfig} sau override).
-     */
     public static Map<String, Object> getEffectiveOperationSettingsMap(SchoolConfig hqOperationConfig, Campus campus) {
         Map<String, Object> base = new HashMap<>();
         if (hqOperationConfig != null && hqOperationConfig.getValue() instanceof Map) {
@@ -526,15 +496,39 @@ public class SchoolConfigUtil {
                 base.put(key, policy.get(key));
             }
         }
-        if (policy.get("workingConfig") != null) {
-            base.put("workingConfig", policy.get("workingConfig"));
-        }
+        
         return base;
     }
 
-    /**
-     * Lấy các số từ map cấu hình hiệu lực (HQ + override campus), dùng cho validate gán slot / đặt lịch.
-     */
+    public static List<String[]> splitRangeIntoPolicySlotWindows(LocalTime start, LocalTime end, int slotDurationMinutes) {
+        if (slotDurationMinutes <= 0) {
+            throw new IllegalArgumentException("Thời lượng mỗi slot trong cấu hình phải > 0 để tách slot.");
+        }
+        long totalMinutes = Duration.between(start, end).toMinutes();
+        if (totalMinutes <= 0) {
+            throw new IllegalArgumentException("Thời gian bắt đầu phải trước thời gian kết thúc.");
+        }
+        if (totalMinutes % slotDurationMinutes != 0) {
+            int usable = (int) (totalMinutes / slotDurationMinutes) * slotDurationMinutes;
+            throw new IllegalArgumentException(
+                    "Độ dài ca " + totalMinutes + " phút phải chia hết cho " + slotDurationMinutes
+                            + " phút/slot (theo cấu hình vận hành). Gợi ý: rút endTime còn " + usable + " phút ("
+                            + (usable / slotDurationMinutes) + " slot) hoặc chỉnh policy/slot phút.");
+        }
+        int n = (int) (totalMinutes / slotDurationMinutes);
+        List<String[]> windows = new ArrayList<>(n);
+        LocalTime cur = start;
+        for (int i = 0; i < n; i++) {
+            LocalTime next = cur.plusMinutes(slotDurationMinutes);
+            windows.add(new String[]{cur.format(SLOT_WINDOW_TIME_FMT), next.format(SLOT_WINDOW_TIME_FMT)});
+            cur = next;
+        }
+        if (!cur.equals(end)) {
+            throw new IllegalStateException("Lệch biên khi tách slot.");
+        }
+        return windows;
+    }
+
     public static Map<String, Integer> getNumericPolicyFromOperationMap(Map<String, Object> effectiveOperationSettings) {
         Map<String, Integer> constraints = new HashMap<>();
         if (effectiveOperationSettings == null) {
@@ -559,11 +553,6 @@ public class SchoolConfigUtil {
         return constraints;
     }
 
-    /**
-     * Rule gán tư vấn viên: chỉ các mức {@link HolidayImpactLevel#ALL_SHUTDOWN} và {@link HolidayImpactLevel#STAFF_ONLY}
-     * chặn làm việc tại cơ sở (không gán lịch onsite trong khoảng trùng ngày nghỉ đó).
-     * {@code STUDENT_ONLY} và {@code ONLINE_ONLY} không chặn gán (nhân sự vẫn có thể làm việc / tư vấn theo quy định trường).
-     */
     public static String validateAssignmentRangeAgainstBlockingHolidays(
             LocalDate startDate,
             LocalDate endDate,

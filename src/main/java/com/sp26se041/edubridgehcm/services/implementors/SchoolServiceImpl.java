@@ -179,7 +179,7 @@ public class SchoolServiceImpl implements SchoolService {
         Campus campus = campusRepo.save(Campus.builder().school(actorCampus.getSchool()).account(acc).name(generateCampusName(actorCampus.getSchool().getId())).address(normalize(request.getAddress())).phoneNumber(normalize(request.getPhone())).city(normalize(request.getCity())).district(normalize(request.getDistrict())).ward(normalize(request.getWard())).boardingType(boardingType).latitude(request.getLatitude()).longitude(request.getLongitude()).status(Status.ACTIVE).isPrimaryBranch(false).build());
 
         Map<String, Object> data = new HashMap<>();
-        data.put("campus",  buildCampusData(campus));
+        data.put("campus", buildCampusData(campus));
         data.put("account", buildAccountData(acc));
 
         return ResponseBuilder.build(HttpStatus.OK, "Create campus successfully", data);
@@ -555,7 +555,6 @@ public class SchoolServiceImpl implements SchoolService {
 
         Curriculum targetCurriculum;
 
-
         boolean isNew = request.getCurriculumId() == null || request.getCurriculumId() <= 0;
 
         if (isNew) {
@@ -651,7 +650,16 @@ public class SchoolServiceImpl implements SchoolService {
     private Curriculum buildNewCurriculum(CurriculumRequest request, School school) {
         // tạo mới thì draft
         CurriculumType type = CurriculumValidation.parseCurriculumType(request.getCurriculumType());
-        return Curriculum.builder().name(CurriculumNamingUtil.generateName(request)).groupCode(CurriculumNamingUtil.generateGroupCode(request)).curriculumType(type).learningMethodList(request.getMethodLearningList().stream().map(LearningMethod::valueOf).collect(Collectors.toList())).applicationYear(request.getApplicationYear()).description(request.getDescription()).subjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions())).school(school).curriculumStatus(Status.CUR_DRAFT).build();
+        return Curriculum.builder()
+                .name(CurriculumNamingUtil.generateName(request))
+                .groupCode(CurriculumNamingUtil.generateGroupCode(request))
+                .curriculumType(type)
+                .learningMethodList(request.getMethodLearningList().stream().map(LearningMethod::valueOf).collect(Collectors.toList()))
+                .applicationYear(request.getApplicationYear())
+                .description(request.getDescription())
+                .subjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()))
+                .school(school)
+                .curriculumStatus(Status.CUR_DRAFT).build();
     }
 
     // bảng update đối vs draft
@@ -695,7 +703,9 @@ public class SchoolServiceImpl implements SchoolService {
         if (request == null) return Collections.emptyList();
 
         return request.stream().map(opt -> {
-            return Map.<String, Object>of("name", Objects.requireNonNullElse(opt.getName(), ""), "description", Objects.requireNonNullElse(opt.getDescription(), ""), "isMandatory", Boolean.TRUE.equals(opt.getIsMandatory()));
+            return Map.<String, Object>of("name", Objects.requireNonNullElse(opt.getName(), ""),
+                    "description", Objects.requireNonNullElse(opt.getDescription(), ""),
+                    "isMandatory", true); // đối vs môn bắt buộc là true
         }).collect(Collectors.toList());
     }
 
