@@ -659,7 +659,9 @@ public class CampusServiceImpl implements CampusService {
 
             Map<String, Object> policyJsonb = new HashMap<>();
             policyJsonb.put("minCounsellorPerSlot", mergedOp.get("minCounsellorPerSlot"));
+            policyJsonb.put("maxCounsellorsPerSlot", mergedOp.get("maxCounsellorsPerSlot"));
             policyJsonb.put("slotDurationInMinutes", mergedOp.get("slotDurationInMinutes"));
+            policyJsonb.put("bufferBetweenSlotsMinutes", mergedOp.get("bufferBetweenSlotsMinutes"));
             policyJsonb.put("maxBookingPerSlot", mergedOp.get("maxBookingPerSlot"));
             policyJsonb.put("allowBookingBeforeHours", mergedOp.get("allowBookingBeforeHours"));
             policyJsonb.put("fullTextRendered", finalPolicyStr);
@@ -810,7 +812,9 @@ public class CampusServiceImpl implements CampusService {
             filteredOp.put("admissionProcesses", fullOp.get("admissionProcesses"));
             filteredOp.put("maxBookingPerSlot", fullOp.get("maxBookingPerSlot"));
             filteredOp.put("minCounsellorPerSlot", fullOp.get("minCounsellorPerSlot"));
+            filteredOp.put("maxCounsellorsPerSlot", fullOp.get("maxCounsellorsPerSlot"));
             filteredOp.put("slotDurationInMinutes", fullOp.get("slotDurationInMinutes"));
+            filteredOp.put("bufferBetweenSlotsMinutes", fullOp.get("bufferBetweenSlotsMinutes"));
             filteredOp.put("allowBookingBeforeHours", fullOp.get("allowBookingBeforeHours"));
 
             hqSection.put("operation", filteredOp);
@@ -832,7 +836,9 @@ public class CampusServiceImpl implements CampusService {
         Map<String, Object> campusPolicyDb = (Map<String, Object>) actorCampus.getPolicyDetail();
         if (campusPolicyDb != null) {
             campusUpdateInfo.put("minCounsellorPerSlot", campusPolicyDb.get("minCounsellorPerSlot"));
+            campusUpdateInfo.put("maxCounsellorsPerSlot", campusPolicyDb.get("maxCounsellorsPerSlot"));
             campusUpdateInfo.put("slotDurationInMinutes", campusPolicyDb.get("slotDurationInMinutes"));
+            campusUpdateInfo.put("bufferBetweenSlotsMinutes", campusPolicyDb.get("bufferBetweenSlotsMinutes"));
             campusUpdateInfo.put("maxBookingPerSlot", campusPolicyDb.get("maxBookingPerSlot"));
             campusUpdateInfo.put("allowBookingBeforeHours", campusPolicyDb.get("allowBookingBeforeHours"));
             campusUpdateInfo.put("fullPolicyRendered", campusPolicyDb.get("fullTextRendered"));
@@ -905,6 +911,7 @@ public class CampusServiceImpl implements CampusService {
         }
         Map<String, Integer> numericPolicy = SchoolConfigUtil.getNumericPolicyFromOperationMap(effectiveOperation);
         Integer slotDurationMinutes = numericPolicy.get("slotDurationInMinutes");
+        int bufferBetweenSlotsMinutes = numericPolicy.getOrDefault("bufferBetweenSlotsMinutes", 0);
 
         LocalTime[] window = SchoolConfigUtil.resolveShiftTimeWindowForSessionType(workingConfig, request.getSessionType());
         if (window == null) {
@@ -929,7 +936,8 @@ public class CampusServiceImpl implements CampusService {
                 try {
                     LocalTime rangeStart = LocalTime.parse(startStr);
                     LocalTime rangeEnd = LocalTime.parse(endStr);
-                    windows = SchoolConfigUtil.splitRangeIntoPolicySlotWindows(rangeStart, rangeEnd, slotDurationMinutes);
+                    windows = SchoolConfigUtil.splitRangeIntoPolicySlotWindows(
+                            rangeStart, rangeEnd, slotDurationMinutes, bufferBetweenSlotsMinutes);
                 } catch (IllegalArgumentException | java.time.format.DateTimeParseException | IllegalStateException e) {
                     return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
                 }
@@ -944,7 +952,8 @@ public class CampusServiceImpl implements CampusService {
                             workingConfig,
                             campusScheduleTemplateRepo,
                             actorCampus,
-                            slotDurationMinutes);
+                            slotDurationMinutes,
+                            bufferBetweenSlotsMinutes);
                     if (error != null) {
                         return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
                     }
@@ -962,7 +971,8 @@ public class CampusServiceImpl implements CampusService {
                         workingConfig,
                         campusScheduleTemplateRepo,
                         actorCampus,
-                        slotDurationMinutes);
+                        slotDurationMinutes,
+                        bufferBetweenSlotsMinutes);
 
                 if (error != null) {
                     return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
@@ -1063,6 +1073,9 @@ public class CampusServiceImpl implements CampusService {
         if (template == null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy khung lịch (template).", null);
         }
+        if (template.getCampus() == null || !template.getCampus().getId().equals(actorCampus.getId())) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Khung lịch không thuộc cơ sở này.", null);
+        }
 
         List<CounsellorSlot> allCurrentSlots = counsellorSlotRepo.findByCampusScheduleTemplate_Campus_Id(actorCampus.getId());
 
@@ -1076,10 +1089,8 @@ public class CampusServiceImpl implements CampusService {
 
         List<SchoolHoliday> holidayList = mergeSchoolHolidaysForCampus(actorCampus.getSchool().getId(), actorCampus.getId());
 
-        String actionInput = (request.getAction() != null && !request.getAction().isBlank())
-                ? request.getAction().trim().toUpperCase()
-                : "ASSIGN";
-        if (!"ASSIGN".equals(actionInput) && !"UNASSIGN".equals(actionInput)) {
+        String actionInput = CounsellorSlotValidation.normalizeCounsellorSlotSyncAction(request.getAction());
+        if (actionInput == null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tham số action phải là GÁN (ASSIGN) hoặc HỦY GÁN (UNASSIGN).", null);
         }
         boolean isAssign = "ASSIGN".equals(actionInput);

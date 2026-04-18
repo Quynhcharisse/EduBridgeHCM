@@ -83,8 +83,15 @@ public class SchoolConfigUtil {
             merged.put("minCounsellorPerSlot", request.getMinCounsellorPerSlot());
         }
 
+        if (request.getMaxCounsellorsPerSlot() != null) {
+            merged.put("maxCounsellorsPerSlot", request.getMaxCounsellorsPerSlot());
+        }
+
         if (request.getSlotDurationInMinutes() != null) {
             merged.put("slotDurationInMinutes", request.getSlotDurationInMinutes());
+        }
+        if (request.getBufferBetweenSlotsMinutes() != null) {
+            merged.put("bufferBetweenSlotsMinutes", request.getBufferBetweenSlotsMinutes());
         }
         if (request.getMaxBookingPerSlot() != null) {
             merged.put("maxBookingPerSlot", request.getMaxBookingPerSlot());
@@ -139,8 +146,24 @@ public class SchoolConfigUtil {
                     .append(" người\n");
         }
 
+        if (operationData.get("maxCounsellorsPerSlot") != null) {
+            Object mx = operationData.get("maxCounsellorsPerSlot");
+            int m = mx instanceof Number ? ((Number) mx).intValue() : Integer.parseInt(String.valueOf(mx));
+            if (m > 0) {
+                sb.append("👥 Số tư vấn viên tối đa gán cùng khung: ").append(m).append(" người\n");
+            }
+        }
+
         if (operationData.get("slotDurationInMinutes") != null) {
             sb.append("⏱️ Thời lượng mỗi ca tư vấn: ").append(operationData.get("slotDurationInMinutes")).append(" phút\n");
+        }
+
+        if (operationData.get("bufferBetweenSlotsMinutes") != null) {
+            Object buf = operationData.get("bufferBetweenSlotsMinutes");
+            int b = buf instanceof Number ? ((Number) buf).intValue() : Integer.parseInt(String.valueOf(buf));
+            if (b > 0) {
+                sb.append("☕ Nghỉ giữa các tiết tư vấn: ").append(b).append(" phút\n");
+            }
         }
 
         if (operationData.get("maxBookingPerSlot") != null) {
@@ -363,20 +386,32 @@ public class SchoolConfigUtil {
         return effectivePolicy;
     }
 
-    //check nhanh "Ngày này có đi học không?
+    // Học kỳ tùy chọn: chỉ siết khi ít nhất một term có đủ start+end; thiếu thì không chặn.
     public static boolean isWithinAcademicTerms(LocalDate targetDate, Map<String, Object> operationSettingsData) {
         if (operationSettingsData == null) return true;
 
         Object calendarObj = operationSettingsData.get("academicCalendar");
-        if (!(calendarObj instanceof Map)) return true; // Nếu không config lịch thì mặc định cho phép
+        if (!(calendarObj instanceof Map)) return true; // Không có lịch → không bắt buộc kiểm tra học kỳ
 
         Map<String, Object> calendar = (Map<String, Object>) calendarObj;
 
-        // Tận dụng hàm isDateInTerm bạn đã viết ở dòng 282
-        boolean inTerm1 = isDateInTerm(targetDate, (Map<String, Object>) calendar.get("term1"));
-        boolean inTerm2 = isDateInTerm(targetDate, (Map<String, Object>) calendar.get("term2"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> term1 = (Map<String, Object>) calendar.get("term1");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> term2 = (Map<String, Object>) calendar.get("term2");
+
+        if (!isTermWindowConfigured(term1) && !isTermWindowConfigured(term2)) {
+            return true; // Chưa bật phạm vi học kỳ (thiếu start/end) → không chặn gán lịch
+        }
+
+        boolean inTerm1 = isDateInTerm(targetDate, term1);
+        boolean inTerm2 = isDateInTerm(targetDate, term2);
 
         return inTerm1 || inTerm2;
+    }
+
+    private static boolean isTermWindowConfigured(Map<String, Object> term) {
+        return term != null && term.get("start") != null && term.get("end") != null;
     }
 
     public static String validateWithWorkingConfig(String dayOfWeek, LocalTime start, LocalTime end, String sessionTypeReq, Map<String, Object> workingConfig) {
@@ -487,17 +522,51 @@ public class SchoolConfigUtil {
     }
 
     private static LocalDate parseDate(Object dateObj) {
-        if (dateObj == null) return null;
-        if (dateObj instanceof LocalDate) return (LocalDate) dateObj;
-        return LocalDate.parse(String.valueOf(dateObj));
+        if (dateObj == null) {
+            return null;
+        }
+        if (dateObj instanceof LocalDate ld) {
+            return ld;
+        }
+        if (dateObj instanceof List<?> list && list.size() >= 3) {
+            return LocalDate.of(toInt(list.get(0)), toInt(list.get(1)), toInt(list.get(2)));
+        }
+        if (dateObj instanceof int[] arr && arr.length >= 3) {
+            return LocalDate.of(arr[0], arr[1], arr[2]);
+        }
+        if (dateObj instanceof long[] arr && arr.length >= 3) {
+            return LocalDate.of((int) arr[0], (int) arr[1], (int) arr[2]);
+        }
+        String s = String.valueOf(dateObj).trim();
+        if (s.startsWith("[") && s.endsWith("]")) {
+            String inner = s.substring(1, s.length() - 1).trim();
+            String[] parts = inner.split(",");
+            if (parts.length >= 3) {
+                return LocalDate.of(
+                        Integer.parseInt(parts[0].trim()),
+                        Integer.parseInt(parts[1].trim()),
+                        Integer.parseInt(parts[2].trim()));
+            }
+        }
+        return LocalDate.parse(s);
+    }
+
+    private static int toInt(Object o) {
+        if (o instanceof Number n) {
+            return n.intValue();
+        }
+        return Integer.parseInt(String.valueOf(o).trim());
     }
 
     // check date in this semester
     private static boolean isDateInTerm(LocalDate date, Map<String, Object> term) {
         if (term == null || term.get("start") == null || term.get("end") == null) return false;
 
-        LocalDate start = LocalDate.parse(String.valueOf(term.get("start")));
-        LocalDate end = LocalDate.parse(String.valueOf(term.get("end")));
+        LocalDate start = parseDate(term.get("start"));
+        LocalDate end = parseDate(term.get("end"));
+        if (start == null || end == null) {
+            return false;
+        }
 
         return !date.isBefore(start) && !date.isAfter(end);
     }
@@ -540,7 +609,9 @@ public class SchoolConfigUtil {
         // Danh sách các key cần trích xuất
         String[] keys = {
                 "minCounsellorPerSlot",
+                "maxCounsellorsPerSlot",
                 "slotDurationInMinutes",
+                "bufferBetweenSlotsMinutes",
                 "maxBookingPerSlot",
                 "allowBookingBeforeHours"
         };
@@ -571,7 +642,9 @@ public class SchoolConfigUtil {
         Map<String, Object> policy = (Map<String, Object>) pd;
         String[] numericKeys = {
                 "minCounsellorPerSlot",
+                "maxCounsellorsPerSlot",
                 "slotDurationInMinutes",
+                "bufferBetweenSlotsMinutes",
                 "maxBookingPerSlot",
                 "allowBookingBeforeHours"
         };
@@ -584,30 +657,63 @@ public class SchoolConfigUtil {
         return base;
     }
 
+    /**
+     * Tách [start, end) thành các khung [t, t+slotDuration), khung tiếp theo bắt đầu sau slotDuration+buffer.
+     * Điều kiện: tổng phút ca = n×slotDuration + (n−1)×buffer (buffer chỉ nằm giữa các tiết).
+     * Tương đương: (totalMinutes + buffer) chia hết cho (slotDuration + buffer) khi buffer ≥ 0.
+     */
     public static List<String[]> splitRangeIntoPolicySlotWindows(LocalTime start, LocalTime end, int slotDurationMinutes) {
+        return splitRangeIntoPolicySlotWindows(start, end, slotDurationMinutes, 0);
+    }
+
+    public static List<String[]> splitRangeIntoPolicySlotWindows(
+            LocalTime start, LocalTime end, int slotDurationMinutes, int bufferBetweenSlotsMinutes) {
         if (slotDurationMinutes <= 0) {
             throw new IllegalArgumentException("Thời lượng mỗi slot trong cấu hình phải > 0 để tách slot.");
+        }
+        if (bufferBetweenSlotsMinutes < 0) {
+            throw new IllegalArgumentException("Khoảng nghỉ giữa các tiết (buffer) không được âm.");
         }
         long totalMinutes = Duration.between(start, end).toMinutes();
         if (totalMinutes <= 0) {
             throw new IllegalArgumentException("Thời gian bắt đầu phải trước thời gian kết thúc.");
         }
-        if (totalMinutes % slotDurationMinutes != 0) {
-            int usable = (int) (totalMinutes / slotDurationMinutes) * slotDurationMinutes;
-            throw new IllegalArgumentException(
-                    "Độ dài ca " + totalMinutes + " phút phải chia hết cho " + slotDurationMinutes
-                            + " phút/slot (theo cấu hình vận hành). Gợi ý: rút endTime còn " + usable + " phút ("
-                            + (usable / slotDurationMinutes) + " slot) hoặc chỉnh policy/slot phút.");
+
+        int step = slotDurationMinutes + bufferBetweenSlotsMinutes;
+        int n;
+        if (bufferBetweenSlotsMinutes == 0) {
+            if (totalMinutes % slotDurationMinutes != 0) {
+                int usable = (int) (totalMinutes / slotDurationMinutes) * slotDurationMinutes;
+                throw new IllegalArgumentException(
+                        "Độ dài ca " + totalMinutes + " phút phải chia hết cho " + slotDurationMinutes
+                                + " phút/tiết (theo cấu hình vận hành). Gợi ý: rút endTime còn " + usable + " phút ("
+                                + (usable / slotDurationMinutes) + " tiết) hoặc chỉnh policy/slot phút.");
+            }
+            n = (int) (totalMinutes / slotDurationMinutes);
+        } else {
+            long sumPlusBuf = totalMinutes + bufferBetweenSlotsMinutes;
+            if (sumPlusBuf % step != 0) {
+                throw new IllegalArgumentException(
+                        "Độ dài ca " + totalMinutes + " phút không khớp mô hình tiết " + slotDurationMinutes
+                                + " phút + nghỉ " + bufferBetweenSlotsMinutes + " phút giữa các tiết. "
+                                + "Quy tắc: (độ dài ca + " + bufferBetweenSlotsMinutes + " phút) phải chia hết cho "
+                                + step + " phút (mỗi bước = tiết + nghỉ). "
+                                + "Ví dụ: 3 tiết 30' + 2 lần nghỉ 10' = 110 phút ca.");
+            }
+            n = (int) (sumPlusBuf / step);
+            if (n < 1) {
+                throw new IllegalArgumentException("Ca quá ngắn so với một tiết tư vấn.");
+            }
         }
-        int n = (int) (totalMinutes / slotDurationMinutes);
+
         List<String[]> windows = new ArrayList<>(n);
-        LocalTime cur = start;
         for (int i = 0; i < n; i++) {
-            LocalTime next = cur.plusMinutes(slotDurationMinutes);
-            windows.add(new String[]{cur.format(SLOT_WINDOW_TIME_FMT), next.format(SLOT_WINDOW_TIME_FMT)});
-            cur = next;
+            LocalTime windowStart = start.plusMinutes((long) i * step);
+            LocalTime windowEnd = windowStart.plusMinutes(slotDurationMinutes);
+            windows.add(new String[]{windowStart.format(SLOT_WINDOW_TIME_FMT), windowEnd.format(SLOT_WINDOW_TIME_FMT)});
         }
-        if (!cur.equals(end)) {
+        LocalTime expectedEnd = start.plusMinutes((long) n * slotDurationMinutes + (long) (n - 1) * bufferBetweenSlotsMinutes);
+        if (!expectedEnd.equals(end)) {
             throw new IllegalStateException("Lệch biên khi tách slot.");
         }
         return windows;
@@ -620,7 +726,9 @@ public class SchoolConfigUtil {
         }
         String[] keys = {
                 "minCounsellorPerSlot",
+                "maxCounsellorsPerSlot",
                 "slotDurationInMinutes",
+                "bufferBetweenSlotsMinutes",
                 "maxBookingPerSlot",
                 "allowBookingBeforeHours"
         };
@@ -635,6 +743,17 @@ public class SchoolConfigUtil {
             }
         }
         return constraints;
+    }
+
+    public static Integer resolveMaxCounsellorsPerSlot(Map<String, Integer> policy) {
+        if (policy == null) {
+            return null;
+        }
+        Integer v = policy.get("maxCounsellorsPerSlot");
+        if (v == null || v <= 0) {
+            return null;
+        }
+        return v;
     }
 
     public static String validateAssignmentRangeAgainstBlockingHolidays(
