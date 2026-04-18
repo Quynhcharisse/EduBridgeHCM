@@ -69,6 +69,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -90,6 +91,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -132,6 +134,8 @@ public class CampusServiceImpl implements CampusService {
     private final SchoolHolidayRepo schoolHolidayRepo;
 
     private final TemplateDocxRepo templateDocxRepo;
+
+    private final EntityManager entityManager;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -1071,9 +1075,11 @@ public class CampusServiceImpl implements CampusService {
 
         String actionInput = CounsellorSlotValidation.normalizeCounsellorSlotSyncAction(request.getAction());
         if (actionInput == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tham số action phải là GÁN (ASSIGN) hoặc HỦY GÁN (UNASSIGN).", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Tham số action là bắt buộc và phải là ASSIGN (gán) hoặc UNASSIGN (hủy gán).", null);
         }
         boolean isAssign = "ASSIGN".equals(actionInput);
+        List<Integer> unassignSlotIds = resolveUnassignSlotIds(request);
 
         if (isAssign) {
             if (request.getStartDate() == null && request.getEndDate() == null) {
@@ -1091,9 +1097,26 @@ public class CampusServiceImpl implements CampusService {
                         "Ngày bắt đầu và ngày kết thúc phải cùng điền hoặc cùng để trống khi gán.", null);
             }
         } else {
-            if (request.getStartDate() == null || request.getEndDate() == null) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Ngày bắt đầu và ngày kết thúc không được để trống.", null);
+            if (unassignSlotIds.isEmpty() && (request.getStartDate() == null || request.getEndDate() == null)) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Hủy gán: gửi slotIds (id lịch gán), hoặc điền đủ startDate và endDate khi không dùng slotIds.", null);
             }
+        }
+
+        if (!isAssign && !unassignSlotIds.isEmpty()) {
+            try {
+                unassignCounsellorSlotsByIds(request, actorCampus, unassignSlotIds);
+            } catch (IllegalArgumentException e) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+            }
+            counsellorSlotRepo.flush();
+            clearPersistenceContextBeforeSnapshot();
+            List<Map<String, Object>> snapshotById = loadAssignedSlotsSnapshot(actorCampus.getId());
+            Map<String, Object> bodyById = new LinkedHashMap<>();
+            bodyById.put("action", actionInput);
+            bodyById.put("removedSlotIds", List.copyOf(unassignSlotIds));
+            bodyById.put("slots", snapshotById);
+            return ResponseBuilder.build(HttpStatus.OK, "Hủy gán chuyên viên tư vấn thành công.", bodyById);
         }
 
         List<Integer> templateIdList = resolveAssignTemplateIds(request);
@@ -1110,7 +1133,7 @@ public class CampusServiceImpl implements CampusService {
             if (template == null) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy khung lịch (template) với mã: " + tid + ".", null);
             }
-            if (template.getCampus() == null || !template.getCampus().getId().equals(actorCampus.getId())) {
+            if (!template.getCampus().getId().equals(actorCampus.getId())) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Khung lịch không thuộc cơ sở này (templateId=" + tid + ").", null);
             }
 
@@ -1153,7 +1176,29 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
         }
 
-        return ResponseBuilder.build(HttpStatus.OK, (isAssign ? "Gán" : "Hủy gán") + " chuyên viên tư vấn thành công.", null);
+        counsellorSlotRepo.flush();
+        clearPersistenceContextBeforeSnapshot();
+        List<Map<String, Object>> slotsSnapshot = loadAssignedSlotsSnapshot(actorCampus.getId());
+        Map<String, Object> resultBody = new LinkedHashMap<>();
+        resultBody.put("action", actionInput);
+        resultBody.put("slots", slotsSnapshot);
+
+        return ResponseBuilder.build(HttpStatus.OK, (isAssign ? "Gán" : "Hủy gán") + " chuyên viên tư vấn thành công.", resultBody);
+    }
+
+    /** Tránh snapshot sau DELETE vẫn đọc entity cũ trong persistence context (first-level cache). */
+    private void clearPersistenceContextBeforeSnapshot() {
+        entityManager.flush();
+        entityManager.clear();
+    }
+
+    /** Danh sách gán hiện tại của campus — cùng cấu trúc phần tử với GET /counsellor/slots/assigned. */
+    private List<Map<String, Object>> loadAssignedSlotsSnapshot(Integer campusId) {
+        List<CounsellorSlot> slots = counsellorSlotRepo.findByCampusScheduleTemplate_Campus_Id(campusId);
+        return slots.stream()
+                .filter(s -> s.getStatus() != Status.SLOT_UNASSIGNED)
+                .map(this::buildManagementSlotData)
+                .toList();
     }
 
     /** Danh sách id khung lịch (bỏ trùng, bỏ null). */
@@ -1164,8 +1209,59 @@ public class CampusServiceImpl implements CampusService {
         return request.getTemplateIds().stream().filter(id -> id != null).distinct().toList();
     }
 
+    /** Id bản ghi counsellor_slot khi UNASSIGN theo slotId (bỏ trùng, bỏ null). */
+    private static List<Integer> resolveUnassignSlotIds(AssignCounsellorIntoSlotsRequest request) {
+        if (request.getSlotIds() == null || request.getSlotIds().isEmpty()) {
+            return List.of();
+        }
+        return request.getSlotIds().stream().filter(Objects::nonNull).distinct().toList();
+    }
+
+    /** Hủy gán: xóa từng bản ghi theo khóa chính (khớp GET assigned → slotId). */
+    private void unassignCounsellorSlotsByIds(AssignCounsellorIntoSlotsRequest request, Campus actorCampus, List<Integer> slotIds) {
+
+        List<Integer> allowedCounsellorIds = (request.getCounsellorIds() != null)
+                ? request.getCounsellorIds().stream().filter(Objects::nonNull).distinct().toList()
+                : List.of();
+
+        for (Integer sid : slotIds) {
+            CounsellorSlot slot = counsellorSlotRepo.findById(sid).orElseThrow(() -> new IllegalArgumentException(
+                    "Không tìm thấy lịch gán với slotId=" + sid + "."
+            ));
+
+            if (!slot.getCampusScheduleTemplate().getCampus().getId().equals(actorCampus.getId())) {
+                throw new IllegalArgumentException("slotId=" + sid + " không thuộc cơ sở của tài khoản hiện tại.");
+            }
+            if (!allowedCounsellorIds.isEmpty() && !allowedCounsellorIds.contains(slot.getCounsellor().getId())) {
+                throw new IllegalArgumentException("slotId=" + sid + " không khớp danh sách counsellorIds.");
+            }
+            CounsellorSlotValidation.validateNoActiveConsultation(slot);
+            slot.setStatus(Status.SLOT_UNASSIGNED);
+            counsellorSlotRepo.save(slot);
+            counsellorSlotRepo.flush();
+        }
+    }
+
     private void handleAssignAction(Counsellor counsellor, CampusScheduleTemplate template, AssignCounsellorIntoSlotsRequest request, List<CounsellorSlot> existingSlots) {
+
         for (CounsellorSlot slot : existingSlots) {
+            boolean sameWindow = slot.getCampusScheduleTemplate().getId().equals(template.getId())
+                    && slot.getStartDate().equals(request.getStartDate())
+                    && slot.getEndDate().equals(request.getEndDate());
+            if (sameWindow) {
+                if (slot.getStatus() == Status.SLOT_UNASSIGNED) {
+                    slot.setStatus(Status.AVAILABLE);
+                    counsellorSlotRepo.save(slot);
+                    return;
+                }
+                return;
+            }
+        }
+
+        for (CounsellorSlot slot : existingSlots) {
+            if (slot.getStatus() == Status.SLOT_UNASSIGNED) {
+                continue;
+            }
             boolean isDateOverlap = request.getStartDate().isBefore(slot.getEndDate().plusDays(1)) && request.getEndDate().isAfter(slot.getStartDate().minusDays(1));
 
             boolean isDayOfWeekSame = slot.getCampusScheduleTemplate().getDayOfWeek().equalsIgnoreCase(template.getDayOfWeek());
@@ -1173,12 +1269,6 @@ public class CampusServiceImpl implements CampusService {
             boolean isTimeOverlap = template.getStartTime().isBefore(slot.getCampusScheduleTemplate().getEndTime()) && template.getEndTime().isAfter(slot.getCampusScheduleTemplate().getStartTime());
 
             if (isDateOverlap && isDayOfWeekSame && isTimeOverlap) {
-                if (slot.getCampusScheduleTemplate().getId().equals(template.getId())
-                        && slot.getStartDate().equals(request.getStartDate())
-                        && slot.getEndDate().equals(request.getEndDate())) {
-                    return;
-                }
-
                 throw new IllegalArgumentException("Chuyên viên " + counsellor.getName() + " đã có lịch trùng khoảng thời gian hoặc khung giờ này.");
             }
         }
@@ -1194,6 +1284,7 @@ public class CampusServiceImpl implements CampusService {
     private void handleUnassignAction(CampusScheduleTemplate template, AssignCounsellorIntoSlotsRequest request, List<CounsellorSlot> existingSlots, Counsellor counsellor) {
 
         CounsellorSlot targetSlot = existingSlots.stream()
+                .filter(s -> s.getStatus() != Status.SLOT_UNASSIGNED)
                 .filter(s -> s.getCampusScheduleTemplate().getId().equals(template.getId())
                         && s.getStartDate().equals(request.getStartDate())
                         && s.getEndDate().equals(request.getEndDate()))
@@ -1205,7 +1296,9 @@ public class CampusServiceImpl implements CampusService {
                     "Không tìm thấy lịch gán của " + counsellor.getName() + " cho khung lịch này trong khoảng ngày đã chọn.");
         }
         CounsellorSlotValidation.validateNoActiveConsultation(targetSlot);
-        counsellorSlotRepo.delete(targetSlot);
+        targetSlot.setStatus(Status.SLOT_UNASSIGNED);
+        counsellorSlotRepo.save(targetSlot);
+        counsellorSlotRepo.flush();
     }
 
     //phần gộp nghỉ toàn trường + nghỉ theo cơ sở xử lý ở đây.
@@ -1307,7 +1400,10 @@ public class CampusServiceImpl implements CampusService {
 
         List<CounsellorSlot> slots = (counsellorId != null) ? counsellorSlotRepo.findByCampusScheduleTemplate_Campus_IdAndCounsellor_Id(actorCampus.getId(), counsellorId) : counsellorSlotRepo.findByCampusScheduleTemplate_Campus_Id(actorCampus.getId());
 
-        List<Map<String, Object>> responseList = slots.stream().map(this::buildManagementSlotData).toList();
+        List<Map<String, Object>> responseList = slots.stream()
+                .filter(s -> s.getStatus() != Status.SLOT_UNASSIGNED)
+                .map(this::buildManagementSlotData)
+                .toList();
 
         return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách lịch gán tư vấn thành công.", responseList);
     }
