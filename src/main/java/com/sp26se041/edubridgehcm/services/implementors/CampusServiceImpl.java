@@ -867,6 +867,10 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Danh sách thứ trong tuần (dayOfWeek) không được để trống.", null);
         }
 
+        if (request.getSessionType() == null || request.getSessionType().isBlank()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Loại buổi (sessionType) không được để trống.", null);
+        }
+
         if (request.getTemplateId() != null && request.getTemplateId() > 0) {
 
             CampusScheduleTemplate existing = campusScheduleTemplateRepo.findById(request.getTemplateId()).orElse(null);
@@ -902,6 +906,16 @@ public class CampusServiceImpl implements CampusService {
         Map<String, Integer> numericPolicy = SchoolConfigUtil.getNumericPolicyFromOperationMap(effectiveOperation);
         Integer slotDurationMinutes = numericPolicy.get("slotDurationInMinutes");
 
+        LocalTime[] window = SchoolConfigUtil.resolveShiftTimeWindowForSessionType(workingConfig, request.getSessionType());
+        if (window == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Không tìm thấy ca làm việc trong cấu hình vận hành trường khớp với buổi " + request.getSessionType()
+                            + ". Hãy cấu hình workShifts trong operationSettingsData (campus chính / HQ).", null);
+        }
+        DateTimeFormatter hm = DateTimeFormatter.ofPattern("HH:mm");
+        String startStr = window[0].format(hm);
+        String endStr = window[1].format(hm);
+
         boolean expandToPolicySlots = Boolean.TRUE.equals(request.getExpandToPolicySlots());
 
         for (String day : request.getDayOfWeek()) {
@@ -913,18 +927,19 @@ public class CampusServiceImpl implements CampusService {
                 }
                 List<String[]> windows;
                 try {
-                    LocalTime rangeStart = LocalTime.parse(request.getStartTime());
-                    LocalTime rangeEnd = LocalTime.parse(request.getEndTime());
+                    LocalTime rangeStart = LocalTime.parse(startStr);
+                    LocalTime rangeEnd = LocalTime.parse(endStr);
                     windows = SchoolConfigUtil.splitRangeIntoPolicySlotWindows(rangeStart, rangeEnd, slotDurationMinutes);
                 } catch (IllegalArgumentException | java.time.format.DateTimeParseException | IllegalStateException e) {
                     return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
                 }
 
                 for (String[] w : windows) {
-                    CampusScheduleTemplateRequest slice = sliceScheduleTemplateRequest(request, w[0], w[1]);
                     String error = CampusScheduleTemplateValidation.validateCampusScheduleTemplate(
                             null,
-                            slice,
+                            w[0],
+                            w[1],
+                            request.getSessionType(),
                             day,
                             workingConfig,
                             campusScheduleTemplateRepo,
@@ -933,14 +948,16 @@ public class CampusServiceImpl implements CampusService {
                     if (error != null) {
                         return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
                     }
-                    saveSingleTemplate(slice, day, actorCampus);
+                    saveSingleTemplate(null, day, actorCampus, w[0], w[1], request.getSessionType());
                     campusScheduleTemplateRepo.flush();
                 }
             } else {
 
                 String error = CampusScheduleTemplateValidation.validateCampusScheduleTemplate(
                         request.getTemplateId(),
-                        request,
+                        startStr,
+                        endStr,
+                        request.getSessionType(),
                         day,
                         workingConfig,
                         campusScheduleTemplateRepo,
@@ -951,31 +968,20 @@ public class CampusServiceImpl implements CampusService {
                     return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
                 }
 
-                saveSingleTemplate(request, day, actorCampus);
+                saveSingleTemplate(request.getTemplateId(), day, actorCampus, startStr, endStr, request.getSessionType());
             }
         }
 
         return ResponseBuilder.build(HttpStatus.OK, "Xử lý khung lịch (template) thành công.", null);
     }
 
-    private CampusScheduleTemplateRequest sliceScheduleTemplateRequest(CampusScheduleTemplateRequest base, String start, String end) {
-        return CampusScheduleTemplateRequest.builder()
-                .templateId(null)
-                .dayOfWeek(base.getDayOfWeek())
-                .startTime(start)
-                .endTime(end)
-                .sessionType(base.getSessionType())
-                .expandToPolicySlots(false)
-                .build();
-    }
-
-    private void saveSingleTemplate(CampusScheduleTemplateRequest request, String day, Campus campus) {
+    private void saveSingleTemplate(Integer templateId, String day, Campus campus, String startTime, String endTime, String sessionType) {
         CampusScheduleTemplate template;
 
-        boolean isUpdate = request.getTemplateId() != null && request.getTemplateId() > 0;
+        boolean isUpdate = templateId != null && templateId > 0;
 
         if (isUpdate) {
-            template = campusScheduleTemplateRepo.findById(request.getTemplateId()).get();
+            template = campusScheduleTemplateRepo.findById(templateId).get();
         } else {
 
             template = new CampusScheduleTemplate();
@@ -984,9 +990,9 @@ public class CampusServiceImpl implements CampusService {
         }
 
         template.setDayOfWeek(day.toUpperCase());
-        template.setStartTime(LocalTime.parse(request.getStartTime()));
-        template.setEndTime(LocalTime.parse(request.getEndTime()));
-        template.setSessionType(SessionType.valueOf(request.getSessionType()));
+        template.setStartTime(LocalTime.parse(startTime));
+        template.setEndTime(LocalTime.parse(endTime));
+        template.setSessionType(SessionType.valueOf(sessionType));
         template.setUpdatedDate(LocalDate.now());
         template.setActive(true);
 
