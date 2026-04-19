@@ -101,8 +101,7 @@ public class SystemServiceImpl implements SystemService {
 
     @Override
     public ResponseEntity<ResponseObject> getQuotaByYear(String year) {
-
-        PlatformConfig config = platformConfigRepo.findByKey("admission_quota").orElse(null);
+        PlatformConfig config = platformConfigRepo.findByKey("admissionQuota").orElse(null);
 
         if (config == null || config.getValue() == null)
             return ResponseBuilder.build(
@@ -154,14 +153,13 @@ public class SystemServiceImpl implements SystemService {
 
     @Transactional
     public void updateBusiness(CreateConfigDataRequest request) {
-
-        CreateConfigDataRequest.BusinessData businessData = request.getBusinessData();
+        CreateConfigDataRequest.BusinessData business = request.getBusinessData();
         Map<String, Object> businessJson = new HashMap<>();
 
-        businessJson.put("taxRate", businessData.getTaxRate());
-        businessJson.put("serviceRate", businessData.getServiceRate());
-        businessJson.put("minPay", businessData.getMinPay());
-        businessJson.put("maxPay", businessData.getMaxPay());
+        businessJson.put("taxRate", business.getTaxRate());
+        businessJson.put("serviceRate", business.getServiceRate());
+        businessJson.put("minPay", business.getMinPay());
+        businessJson.put("maxPay", business.getMaxPay());
 
         PlatformConfig config = platformConfigRepo.findByKey("business").orElse(
                 PlatformConfig.builder()
@@ -177,17 +175,16 @@ public class SystemServiceImpl implements SystemService {
 
     @Transactional
     public void updateMedia(CreateConfigDataRequest request) {
-
-        CreateConfigDataRequest.MediaData mediaData = request.getMediaData();
+        CreateConfigDataRequest.MediaData media = request.getMediaData();
         Map<String, Object> mediaJson = new HashMap<>();
 
-        mediaJson.put("maxImgSize", mediaData.getMaxImgSize());
-        mediaJson.put("maxVideoSize", mediaData.getMaxVideoSize());
-        mediaJson.put("maxDocSize", mediaData.getMaxDocSize());
+        mediaJson.put("maxImgSize", media.getMaxImgSize());
+        mediaJson.put("maxVideoSize", media.getMaxVideoSize());
+        mediaJson.put("maxDocSize", media.getMaxDocSize());
 
-        mediaJson.put("imgFormat", mapFormats(mediaData.getImgFormats()));
-        mediaJson.put("videoFormat", mapFormats(mediaData.getVideoFormats()));
-        mediaJson.put("docFormat", mapFormats(mediaData.getDocFormats()));
+        mediaJson.put("imgFormat", mapFormats(media.getImgFormats()));
+        mediaJson.put("videoFormat", mapFormats(media.getVideoFormats()));
+        mediaJson.put("docFormat", mapFormats(media.getDocFormats()));
 
         PlatformConfig config = platformConfigRepo.findByKey("media").orElse(
                 PlatformConfig.builder()
@@ -220,13 +217,13 @@ public class SystemServiceImpl implements SystemService {
 
     @Transactional
     public void updateAdmissionQuota(CreateConfigDataRequest request) {
-        CreateConfigDataRequest.AdmissionQuotaData admissData = request.getAdmissionQuotaData();
+        CreateConfigDataRequest.AdmissionQuotaData admissionQuota = request.getAdmissionQuotaData();
 
         Map<String, Object> currentYearInfo = new HashMap<>();
-        currentYearInfo.put("sourceUrl", admissData.getSourceUrl());
+        currentYearInfo.put("sourceUrl", admissionQuota.getSourceUrl());
 
         Map<String, Integer> formattedQuotas = new HashMap<>();
-        admissData.getQuotas().forEach((id, val) -> formattedQuotas.put(id.toString(), val));
+        admissionQuota.getQuotas().forEach((id, val) -> formattedQuotas.put(id.toString(), val));
         currentYearInfo.put("quotas", formattedQuotas);
 
         PlatformConfig config = platformConfigRepo.findByKey("admissionQuota")
@@ -239,7 +236,7 @@ public class SystemServiceImpl implements SystemService {
                 ? (Map<String, Object>) config.getValue()
                 : new HashMap<>();
 
-        allYearsData.put(admissData.getYear(), currentYearInfo);
+        allYearsData.put(admissionQuota.getYear(), currentYearInfo);
 
         assert config != null;
         config.setValue(allYearsData);

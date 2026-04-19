@@ -1,5 +1,4 @@
 package com.sp26se041.edubridgehcm.requests;
-
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
