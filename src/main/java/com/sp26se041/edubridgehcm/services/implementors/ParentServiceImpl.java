@@ -617,6 +617,7 @@ public class ParentServiceImpl implements ParentService {
         studentInfoRepo.save(studentProfile);
 
         return ResponseBuilder.build(HttpStatus.OK, "Cập nhật thông tin học sinh thành công", null);
+
     }
 
 
@@ -825,60 +826,71 @@ public class ParentServiceImpl implements ParentService {
             return "Giới tính không hợp lệ";
         }
 
-        Optional<PersonalityType> personalityType = personalityTypeRepo.findByCode(request.getPersonalityTypeCode());
 
-        if(personalityType.isEmpty()){
-            return "Loại tính cách không hợp lệ";
+        if (!isBlank(request.getPersonalityTypeCode())) {
+
+            Optional<PersonalityType> personalityType = personalityTypeRepo.findByCode(request.getPersonalityTypeCode());
+
+            if (personalityType.isEmpty()){
+                return "Loại tính cách không hợp lệ";
+            }
+
+        }
+        if (!isBlank(request.getFavouriteJob())) {
+
+            Optional<Major> major = majorRepo.findByName(request.getFavouriteJob());
+
+            if(major.isEmpty()){
+                return "Ngành nghề yêu thích không hợp lệ";
+            }
+
         }
 
-        Optional<Major> major = majorRepo.findByName(request.getFavouriteJob());
 
-        if(major.isEmpty()){
-            return "Ngành nghề yêu thích không hợp lệ";
-        }
+        if (request.getAcademicInfos() != null) {
+            if (!request.getAcademicInfos().isEmpty()) {
+               Set<String> gradeLevels = new HashSet<>();
 
-        if (request.getAcademicInfos() == null || request.getAcademicInfos().isEmpty()) {
-            return "";
-        }
+               for (int i = 0; i < request.getAcademicInfos().size(); i++) {
 
-        Set<String> gradeLevels = new HashSet<>();
+                   AddStudentInfoRequest.AcademicInfo academicInfo = request.getAcademicInfos().get(i);
 
-        for (int i = 0; i < request.getAcademicInfos().size(); i++) {
-            AddStudentInfoRequest.AcademicInfo academicInfo = request.getAcademicInfos().get(i);
+                   // academicInfo null -> bỏ qua
+                   if (academicInfo == null) {
+                       continue;
+                   }
 
-            // academicInfo null -> bỏ qua
-            if (academicInfo == null) {
-                continue;
-            }
+                   String gradeLevel = academicInfo.getGradeLevel();
+                   List<AddStudentInfoRequest.SubjectResult> subjectResults = academicInfo.getSubjectResults();
 
-            String gradeLevel = academicInfo.getGradeLevel();
-            List<AddStudentInfoRequest.SubjectResult> subjectResults = academicInfo.getSubjectResults();
+                   boolean blankGradeLevel = isBlank(gradeLevel);
+                   boolean emptySubjectResults = subjectResults == null || subjectResults.isEmpty();
 
-            boolean blankGradeLevel = isBlank(gradeLevel);
-            boolean emptySubjectResults = subjectResults == null || subjectResults.isEmpty();
+                   // Dòng rỗng hoàn toàn -> bỏ qua
+                   if (blankGradeLevel && emptySubjectResults) {
+                       continue;
+                   }
 
-            // Dòng rỗng hoàn toàn -> bỏ qua
-            if (blankGradeLevel && emptySubjectResults) {
-                continue;
-            }
+                   // Có dữ liệu môn học nhưng chưa nhập khối lớp -> lỗi
+                   if (blankGradeLevel) {
+                       return "Khối lớp là bắt buộc khi đã nhập danh sách môn học tại vị trí " + i;
+                   }
 
-            // Có dữ liệu môn học nhưng chưa nhập khối lớp -> lỗi
-            if (blankGradeLevel) {
-                return "Khối lớp là bắt buộc khi đã nhập danh sách môn học tại vị trí " + i;
-            }
+                   if (parseGrade(gradeLevel) == null) {
+                       return "Khối lớp không hợp lệ: " + gradeLevel;
+                   }
 
-            if (parseGrade(gradeLevel) == null) {
-                return "Khối lớp không hợp lệ: " + gradeLevel;
-            }
+                   String normalizedGradeLevel = gradeLevel.trim().toLowerCase();
+                   if (!gradeLevels.add(normalizedGradeLevel)) {
+                       return "Khối lớp bị trùng: " + gradeLevel;
+                   }
 
-            String normalizedGradeLevel = gradeLevel.trim().toLowerCase();
-            if (!gradeLevels.add(normalizedGradeLevel)) {
-                return "Khối lớp bị trùng: " + gradeLevel;
-            }
+                   String error = validateAcademicSubjectsForCreate(subjectResults, gradeLevel);
 
-            String error = validateAcademicSubjectsForCreate(subjectResults, gradeLevel);
-            if (!error.isEmpty()) {
-                return error;
+                   if (!error.isEmpty()) {
+                       return error;
+                   }
+               }
             }
         }
 
