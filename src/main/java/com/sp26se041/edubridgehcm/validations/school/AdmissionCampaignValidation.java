@@ -38,19 +38,19 @@ public class AdmissionCampaignValidation {
             return "Năm học không được để trống";
         }
 
-        // Cho phép tạo chiến dịch cho năm hiện tại hoặc các năm tương lai
-        if (request.getYear() < LocalDate.now().getYear()) {
-            return "Không thể tạo chiến dịch cho một năm học trong quá khứ";
-        }
-
-        // 3. Kiểm tra Ngày tháng (Dates)
-        if (request.getStartDate() == null) {
-            return "Ngày bắt đầu không được để trống";
-        }
-
-        if (request.getEndDate() == null) {
-            return "Ngày kết thúc không được để trống";
-        }
+//        // Cho phép tạo chiến dịch cho năm hiện tại hoặc các năm tương lai
+//        if (request.getYear() < LocalDate.now().getYear()) {
+//            return "Không thể tạo chiến dịch cho một năm học trong quá khứ";
+//        }
+//
+//        // 3. Kiểm tra Ngày tháng (Dates)
+//        if (request.getStartDate() == null) {
+//            return "Ngày bắt đầu không được để trống";
+//        }
+//
+//        if (request.getEndDate() == null) {
+//            return "Ngày kết thúc không được để trống";
+//        }
 
 //        // Check quá khứ cho StartDate (cho phép lùi 1 ngày)
 //        if (request.getStartDate().isBefore(LocalDate.now().minusDays(1))) {
