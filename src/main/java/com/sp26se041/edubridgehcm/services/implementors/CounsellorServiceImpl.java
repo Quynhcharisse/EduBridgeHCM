@@ -88,7 +88,7 @@ public class CounsellorServiceImpl implements CounsellorService {
 
                 return ResponseBuilder.build(
                         HttpStatus.OK,
-                        "Get conversations with status " + status + " successfully",
+                        "",
                         result
                 );
             } else if (status.equalsIgnoreCase("pending")) {
@@ -117,16 +117,16 @@ public class CounsellorServiceImpl implements CounsellorService {
 
                 return ResponseBuilder.build(
                         HttpStatus.OK,
-                        "Get conversations with status " + status + " successfully",
+                        "",
                         result
                 );
             }
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid status", null);
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Trạng thái gửi đi không hợp lệ", null);
 
         } catch (Exception e) {
             return ResponseBuilder.build(
                     HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Failed: " + e.getMessage(),
+                    "Thất bại: " + e.getMessage(),
                     null
             );
         }
@@ -164,24 +164,20 @@ public class CounsellorServiceImpl implements CounsellorService {
                                 );
                     }
 
-                    Map<String, Object> map = new HashMap<>();
-                    map.put("conversationId", conversation.getId());
-
-                    map.put("lastMessage", lastMessage != null ? lastMessage.getMessage() : null);
-                    map.put("updatedAt", conversation.getUpdatedDate());
-                    map.put("unreadCount", unreadCount != null ? unreadCount : 0L);
-
                     String otherUser = conversation.getParentEmail().equals(email)
                             ? conversation.getCounsellorEmail()
                             : conversation.getParentEmail();
-
-                    map.put("otherUser", otherUser);
-
                     String avatarUrl = accountRepo.findByEmail(otherUser)
                             .map(Account::getParent)
                             .map(Parent::getAvatar)
                             .orElse("N/A");
 
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("conversationId", conversation.getId());
+                    map.put("lastMessage", lastMessage != null ? lastMessage.getMessage() : null);
+                    map.put("updatedAt", conversation.getUpdatedDate());
+                    map.put("unreadCount", unreadCount != null ? unreadCount : 0L);
+                    map.put("otherUser", otherUser);
                     map.put("avatarUrl", avatarUrl);
                     map.put("studentProfileId", conversation.getStudentProfile().getId());
                     map.put("studentName", conversation.getStudentProfile().getStudentName());
@@ -195,25 +191,25 @@ public class CounsellorServiceImpl implements CounsellorService {
     public ResponseEntity<ResponseObject> getChatHistory(String parentEmail, String counsellorEmail, int studentProfileId, Long cursorId) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị vô hiệu", null);
         }
 
         Optional<Account> accParent = accountRepo.findByEmail(parentEmail);
 
         if (accParent.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Parent not found or be deleted", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản của phụ huynh không tìm thấy", null);
         }
 
         Optional<Account> accCounsellor = accountRepo.findByEmail(counsellorEmail);
 
         if (accCounsellor.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Counsellor not found or be deleted", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản tư vấn viên không tìm thấy", null);
         }
 
         Optional<StudentProfile> studentProfile = studentInfoRepo.findById(studentProfileId);
 
         if(studentProfile.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Student profile not found or be deleted", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Thông tin trẻ không tồn tại trong hệ thống", null);
         }
 
         Counsellor counsellor = counsellorRepo.findByAccountId(accCounsellor.get().getId());
@@ -247,32 +243,26 @@ public class CounsellorServiceImpl implements CounsellorService {
             hasMore = messages.size() == 20;
             nextCursorId = messages.isEmpty() ? null : messages.get(messages.size() - 1).getId();
         } else {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Conversation not found or be deleted or not active", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy cuộc hội thoại", null);
         }
-        return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(conversation, studentProfile.get(), messages, hasMore, nextCursorId));
+        return ResponseBuilder.build(HttpStatus.OK, "", buildHistoryMessages(conversation, studentProfile.get(), messages, hasMore, nextCursorId));
     }
     private Map<String, Object> buildHistoryMessages(Conversation conversation, StudentProfile childProfile, List<ChatMessage> messages, boolean hasMore, Long nextCursorId) {
+
+        Optional<PersonalityType> personalityType =
+                personalityTypeRepo.findByCode(childProfile.getPersonalityTypeName());
 
         Map<String, Object> response = new HashMap<>();
 
         response.put("conversationId", conversation.getId());
         response.put("campusId", conversation.getCampusId());
-
         response.put("studentProfileId", conversation.getStudentProfile().getId());
-
-
         response.put("childName", childProfile.getStudentName());
         response.put("gender", childProfile.getGender());
-
-        Optional<PersonalityType> personalityType =
-                personalityTypeRepo.findByCode(childProfile.getPersonalityTypeName());
-
         response.put("personalityCode",
                 personalityType.map(PersonalityType::getCode).orElse("N/A"));
-
         response.put("traits",
                 personalityType.map(PersonalityType::getTraits).orElse(List.of()));
-
         response.put("favouriteJob", childProfile.getFavouriteJob());
         response.put("academicProfileMetadata", buildAcademicProfileMetadata(childProfile));
         response.put("subjectsInSystem", getSubjects());
