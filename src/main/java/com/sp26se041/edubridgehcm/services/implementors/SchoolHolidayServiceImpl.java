@@ -45,13 +45,13 @@ public class SchoolHolidayServiceImpl implements SchoolHolidayService {
     public ResponseEntity<ResponseObject> createHoliday(CreateHolidayRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị vô hiệu", null);
         }
 
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản campus đã bị vô hiệu", null);
         }
 
         String error = HolidayValidation.createHolidayValidation(request, actorCampus);
@@ -132,13 +132,13 @@ public class SchoolHolidayServiceImpl implements SchoolHolidayService {
     public ResponseEntity<ResponseObject> updateHoliday(UpdateHolidayRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị vô hiệu", null);
         }
 
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản campus đã bị vô hiệu", null);
         }
 
         String error = HolidayValidation.updateHolidayValidation(request, actorCampus);

@@ -170,17 +170,17 @@ public class SchoolServiceImpl implements SchoolService {
     public ResponseEntity<ResponseObject> createCampus(CreateCampusRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị vô hiệu", null);
         }
 
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản campus đã bị vô hiệu", null);
         }
 
         if (!actorCampus.getIsPrimaryBranch()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can add new campus", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản campus chính mới có quyền tạo cơ sở", null);
         }
 
         String error = CampusValidation.validateCreateCampus(request, accountRepo, campusRepo, actorCampus.getSchool().getId());
@@ -191,7 +191,7 @@ public class SchoolServiceImpl implements SchoolService {
         BoardingType boardingType = parseBoardingType(request.getBoardingType());
 
         if (boardingType == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Boarding type is invalid. Accepted values: NONE, FULL_BOARDING, SEMI_BOARDING, BOTH", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Dịch vụ nội trú không hợp lệ. Giá trị hợp lệ bao gồm: FULL_BOARDING, SEMI_BOARDING, BOTH.", null);
         }
 
         Account acc = accountRepo.save(Account.builder().email(normalize(request.getEmail())).role(Role.SCHOOL).status(Status.ACCOUNT_ACTIVE).registerDate(LocalDate.now()).firstLogin(true).isRestricted(false).build());
@@ -215,7 +215,7 @@ public class SchoolServiceImpl implements SchoolService {
             Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
 
             if (campusTemplateDocx.isEmpty()) {
-                throw  new Exception("Campus document template is not available.");
+                throw  new Exception("Mẫu tài liệu thông tin cơ sở không có sẵn.");
             }
 
             String templatePath = campusTemplateDocx.get().getFolderName() + "/" + campusTemplateDocx.get().getFileName();
@@ -279,7 +279,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("campus", buildCampusData(campus));
         data.put("account", buildAccountData(acc));
 
-        return ResponseBuilder.build(HttpStatus.OK, "Create campus successfully", data);
+        return ResponseBuilder.build(HttpStatus.OK, "Tạo cơ sở thành công", data);
     }
 
     private String toSafeObjectKey(String input) {
@@ -352,7 +352,7 @@ public class SchoolServiceImpl implements SchoolService {
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản cơ sở của bạn không tồn tại trong hệ thống", null);
         }
 
         Pageable pageable;
@@ -371,7 +371,7 @@ public class SchoolServiceImpl implements SchoolService {
             pageResponse = PageResponse.<Map<String, Object>>builder().items(selfCampus.stream().map(this::buildCampusData).toList()).currentPage(0).pageSize(selfCampus.size()).totalItems(selfCampus.size()).totalPages(1).hasNext(false).hasPrevious(false).build();
         }
 
-        return ResponseBuilder.build(HttpStatus.OK, "View campus list successfully", pageResponse);
+        return ResponseBuilder.build(HttpStatus.OK, "Hiển thị danh sách cơ sở thành công", pageResponse);
     }
 
     private Map<String, Object> buildCampusData(Campus campus) {
@@ -415,18 +415,18 @@ public class SchoolServiceImpl implements SchoolService {
     public ResponseEntity<ResponseObject> createAdmissionCampaignTemplate(CreateAdmissionCampaignTemplateRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị vô hiệu", null);
         }
 
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản cơ sở của bạn không tồn tại trong hệ thống.", null);
         }
 
         // actor campus co phai la primary campus ko
         if (!actorCampus.getIsPrimaryBranch()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản cơ sở chính mới được phép tạo", null);
         }
 
         String error = AdmissionCampaignValidation.validationCreateAdmissionCampaignTemplate(request, actorCampus, admissionCampaignRepo);
@@ -438,34 +438,34 @@ public class SchoolServiceImpl implements SchoolService {
         AdmissionCampaign admissionCampaign = AdmissionCampaign.builder().school(actorCampus.getSchool()).name(normalize(request.getName())).description(normalize(request.getDescription())).year(request.getYear()).startDate(request.getStartDate()).endDate(request.getEndDate()).status(Status.DRAFT_ADMISSION_CAMPAIGN).build();
         admissionCampaignRepo.save(admissionCampaign);
 
-        return ResponseBuilder.build(HttpStatus.CREATED, "Create campaign template successfully", null);
+        return ResponseBuilder.build(HttpStatus.CREATED, "Tạo chiến dịch tuyển sinh thành công", null);
     }
 
     @Override
     public ResponseEntity<ResponseObject> cloneAdmissionCampaign(int id) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị vô hiệu", null);
         }
 
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản cơ sở của bạn không tồn tại trong hệ thống", null);
         }
 
         // actor campus co phai la primary campus ko
         if (!actorCampus.getIsPrimaryBranch()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản cơ sở chính mới được phép nhân bản chiến dịch tuyển sing", null);
         }
 
         AdmissionCampaign oldCampaign = admissionCampaignRepo.findById(id).orElse(null);
         if (oldCampaign == null)
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Original campaign not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy chiến dịch tuyển sinh trong hệ thống", null);
 
         // 1. Tạo một Request giả từ dữ liệu cũ
         CreateAdmissionCampaignTemplateRequest request = new CreateAdmissionCampaignTemplateRequest();
-        request.setName(oldCampaign.getName() + " (Revised)");
+        request.setName(oldCampaign.getName() + " (Bản chỉnh sửa)");
         request.setDescription(oldCampaign.getDescription());
         request.setYear(oldCampaign.getYear());
         request.setStartDate(oldCampaign.getStartDate());
@@ -481,7 +481,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         admissionCampaignRepo.save(newCampaign);
 
-        return ResponseBuilder.build(HttpStatus.CREATED, "Cloned successfully!", buildCampaignData(newCampaign));
+        return ResponseBuilder.build(HttpStatus.CREATED, "Nhân bản chiến dịch tuyển sinh thành công!", buildCampaignData(newCampaign));
     }
 
     @Override
@@ -489,43 +489,34 @@ public class SchoolServiceImpl implements SchoolService {
     public ResponseEntity<ResponseObject> updateAdmissionCampaignTemplate(UpdateAdmissionCampaignTemplateRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị vô hiệu", null);
         }
 
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản campus đã bị vô hiệu", null);
         }
 
         // actor campus co phai la primary campus ko
         if (!actorCampus.getIsPrimaryBranch()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
-        }
-
-        if (request == null || request.getAdmissionCampaignTemplateId() <= 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campaign template id is required", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản cơ sở chính mới được phép cập nhật", null);
         }
 
         AdmissionCampaign admissionCampaign = admissionCampaignRepo.findById(request.getAdmissionCampaignTemplateId()).orElse(null);
 
         if (admissionCampaign == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campaign template not found", null);
-        }
-
-        //Check Scope (Đảm bảo không sửa nhầm trường khác)
-        if (!admissionCampaign.getSchool().getId().equals(actorCampus.getSchool().getId())) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campaign template is out of your school scope", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy chiến dịch tuyển sinh", null);
         }
 
         //Chỉ cho sửa khi trạng thái là DRAFT ==> đang sửa sao cho update
         if (!admissionCampaign.getStatus().equals(Status.DRAFT_ADMISSION_CAMPAIGN)) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only DRAFT campaigns can be updated. This campaign is already " + admissionCampaign.getStatus(), null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Chỉ các chiến dịch ở trạng thái nháp mới được phép cập nhật. Trạng thái hiện tại: " + admissionCampaign.getStatus(), null);
         }
 
         //Chỉ cho sửa năm hiện tại
         if (admissionCampaign.getYear() < LocalDate.now().getYear()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot update past campaigns", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không thể cập nhật chiến dịch tuyển sinh của các năm trước", null);
         }
 
         String error = AdmissionCampaignValidation.validationUpdateAdmissionCampaignTemplate(request, admissionCampaignRepo);
@@ -541,7 +532,7 @@ public class SchoolServiceImpl implements SchoolService {
         admissionCampaign.setEndDate(request.getEndDate());
         admissionCampaignRepo.save(admissionCampaign);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Update campaign template successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Cập nhật chiến dịch tuyển sinh thành công", null);
     }
 
     @Override
@@ -549,37 +540,57 @@ public class SchoolServiceImpl implements SchoolService {
     public ResponseEntity<ResponseObject> publishAdmissionCampaignStatus(int id) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị vô hiệu", null);
         }
 
         //kiểm tra Actor & Quyền (Tương tự Create/Update)
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null || !actorCampus.getIsPrimaryBranch()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can change status", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Cơ sở chính mới được phép cập nhật trạng thái chiến dịch tuyển sinh", null);
         }
 
         //Tìm Campaign
         AdmissionCampaign campaign = admissionCampaignRepo.findById(id).filter(c -> c.getSchool().getId().equals(actorCampus.getSchool().getId())).orElse(null);
 
-        if (campaign == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campaign not found", null);
+        if (campaign == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Cơ sở không tồn tại trong hệ thống", null);
 
         if (!campaign.getStatus().equals(Status.DRAFT_ADMISSION_CAMPAIGN)) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Only DRAFT campaigns can be published", null);
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Chỉ các chiến dịch ở trạng thái nháp mới được phép công bố",
+                    null
+            );
         }
 
-        if (admissionCampaignRepo.existsBySchoolIdAndYearAndStatus(actorCampus.getSchool().getId(), campaign.getYear(), Status.OPEN_ADMISSION_CAMPAIGN)) {
-            return ResponseBuilder.build(HttpStatus.CONFLICT, "Academic year " + campaign.getYear() + " already has an OPEN campaign. Please close it before publishing a new one.", null);
+        if (admissionCampaignRepo.existsBySchoolIdAndYearAndStatus(
+                actorCampus.getSchool().getId(),
+                campaign.getYear(),
+                Status.OPEN_ADMISSION_CAMPAIGN
+        )) {
+            return ResponseBuilder.build(
+                    HttpStatus.CONFLICT,
+                    "Năm học " + campaign.getYear() + " đã tồn tại chiến dịch đang mở. Vui lòng đóng chiến dịch hiện tại trước khi công bố chiến dịch mới",
+                    null
+            );
         }
 
-        // Kiểm tra tính hợp lệ của ngày kết thúc trước khi Publish
+// Kiểm tra tính hợp lệ của ngày kết thúc trước khi Publish
         if (LocalDate.now().isAfter(campaign.getEndDate())) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot publish an expired campaign. Update End Date first.", null);
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Không thể công bố chiến dịch đã hết hạn. Vui lòng cập nhật ngày kết thúc",
+                    null
+            );
         }
 
         campaign.setStatus(Status.OPEN_ADMISSION_CAMPAIGN);
         admissionCampaignRepo.save(campaign);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Campaign published! Now Campuses can register offerings.", null);
+        return ResponseBuilder.build(
+                HttpStatus.OK,
+                "Công bố chiến dịch tuyển sinh thành công. Các cơ sở hiện có thể đăng ký chương trình tuyển sinh",
+                null
+        );
     }
 
     @Override
@@ -587,23 +598,23 @@ public class SchoolServiceImpl implements SchoolService {
     public ResponseEntity<ResponseObject> cancelAdmissionCampaign(int id, String reason) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị vô hiệu", null);
         }
 
         //kiểm tra Actor & Quyền (Tương tự Create/Update)
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null || !actorCampus.getIsPrimaryBranch()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can change status", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Cơ sở chính mới được phép cập nhật trạng thái chiến dịch tuyển sinh", null);
         }
 
         //Tìm Campaign
         AdmissionCampaign campaign = admissionCampaignRepo.findById(id).filter(c -> c.getSchool().getId().equals(actorCampus.getSchool().getId())).orElse(null);
 
-        if (campaign == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campaign not found", null);
+        if (campaign == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Cơ sở không tồn tại trong hệ thống", null);
 
         // 2. Chỉ cho hủy nếu đang OPEN
         if (campaign.getStatus() == Status.CANCELLED_ADMISSION_CAMPAIGN) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campaign already inactive", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cơ sở hiện tại không hoạt động", null);
         }
 
         // 3. Kiểm tra xem có hồ sơ nào đang bám vào các Offering của Campaign này không
@@ -611,7 +622,15 @@ public class SchoolServiceImpl implements SchoolService {
         long activeProfilesCount = admissionReservationFormRepo.countByCampusProgramOffering_AdmissionCampaign_Id(id);
 
         if (activeProfilesCount > 0) {
-            return ResponseBuilder.build(HttpStatus.PRECONDITION_FAILED, String.format("Cannot cancel campaign. There are %d active registration profiles linked to this campaign. " + "Please Reject or Process all profiles before cancelling to ensure student data integrity.", activeProfilesCount), null);
+            return ResponseBuilder.build(
+                    HttpStatus.PRECONDITION_FAILED,
+                    String.format(
+                            "Không thể hủy chiến dịch. Hiện có %d hồ sơ đăng ký đang hoạt động thuộc chiến dịch này. " +
+                                    "Vui lòng từ chối hoặc xử lý tất cả hồ sơ trước khi hủy để đảm bảo tính toàn vẹn dữ liệu",
+                            activeProfilesCount
+                    ),
+                    null
+            );
         }
 
         campaign.setStatus(Status.CANCELLED_ADMISSION_CAMPAIGN);
@@ -628,7 +647,7 @@ public class SchoolServiceImpl implements SchoolService {
             campusProgramOfferingRepo.saveAll(offerings);
         }
 
-        return ResponseBuilder.build(HttpStatus.OK, "Cancelled successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Hủy chiến dịch tuyển sinh thành công", null);
     }
 
     @Override
@@ -637,7 +656,7 @@ public class SchoolServiceImpl implements SchoolService {
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản cơ sở của bạn không tồn tại trong hệ thống", null);
         }
 
         int schoolId = actorCampus.getSchool().getId();
@@ -646,19 +665,19 @@ public class SchoolServiceImpl implements SchoolService {
             List<AdmissionCampaign> campaigns = admissionCampaignRepo.findBySchoolIdAndYearOrderByStatusAsc(schoolId, year);
 
             if (campaigns == null) {
-                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campaign template not found", null);
+                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy danh sách chiến dịch dịch tuyển sinh năm "+ year, null);
             }
 
             List<Map<String, Object>> data = campaigns.stream().map(this::buildCampaignData).toList();
 
-            return ResponseBuilder.build(HttpStatus.OK, "View campaigns for year " + year + " successfully", data);
+            return ResponseBuilder.build(HttpStatus.OK, "Hiển thị danh sách chiến dịch tuyển sinh năm " + year + " thành công", data);
         }
 
         List<AdmissionCampaign> campaignList = admissionCampaignRepo.findBySchoolIdOrderByYearDesc(schoolId);
 
         List<Map<String, Object>> data = campaignList.stream().map(this::buildCampaignData).toList();
 
-        return ResponseBuilder.build(HttpStatus.OK, "View campaign template list successfully", data);
+        return ResponseBuilder.build(HttpStatus.OK, "Hiển thị danh sách chiến dịch tuyển sinh", data);
     }
 
     private Status autoCheckAndExpireStatus(AdmissionCampaign admissionCampaign) {
@@ -687,18 +706,18 @@ public class SchoolServiceImpl implements SchoolService {
     public ResponseEntity<ResponseObject> upsertCurriculum(CurriculumRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị vô hiệu", null);
         }
 
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở", null);
         }
 
         // actor campus co phai la primary campus ko
         if (!actorCampus.getIsPrimaryBranch()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản cơ sở chính mới được cập nhật chương trình giảng dạy", null);
         }
 
         String error = CurriculumValidation.validationUpsertCurriculum(request, curriculumRepo, programRepo);
@@ -717,7 +736,7 @@ public class SchoolServiceImpl implements SchoolService {
             Curriculum existingCurriculum = curriculumRepo.findById(request.getCurriculumId()).orElse(null);
 
             if (existingCurriculum == null) {
-                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Curriculum not found", null);
+                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy khung chương trình của trường trong hệ thống", null);
             }
 
             if (Status.CUR_DRAFT.equals(existingCurriculum.getCurriculumStatus())) {
@@ -733,7 +752,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         targetCurriculum.setCurriculumStatus(Status.CUR_DRAFT);
         curriculumRepo.save(targetCurriculum);
-        return ResponseBuilder.build(isNew ? HttpStatus.CREATED : HttpStatus.OK, isNew ? "Created draft successfully" : "Updated draft successfully", null);
+        return ResponseBuilder.build(isNew ? HttpStatus.CREATED : HttpStatus.OK, isNew ? "Tạo khung chương trình (nháp) thành công" : "Cập nhật khung chương trình thành công", null);
     }
 
     @Override
@@ -741,24 +760,24 @@ public class SchoolServiceImpl implements SchoolService {
     public ResponseEntity<ResponseObject> handleCurriculumAction(int id, String action) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị vô hiệu", null);
         }
 
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản cơ sở không tồn tại trong hệ thống", null);
         }
 
         // actor campus co phai la primary campus ko
         if (!actorCampus.getIsPrimaryBranch()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Chỉ có cơ sở chính mới được phép cập nhật trạng thái khung chương trình", null);
         }
 
         // 2. Tìm bản ghi muốn kích hoạt
         Curriculum target = curriculumRepo.findById(id).orElse(null);
         if (target == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Curriculum not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Khung chương trình không tồn tại trong hệ thống", null);
         }
 
         switch (action.toUpperCase()) {
@@ -766,7 +785,7 @@ public class SchoolServiceImpl implements SchoolService {
             case "PUBLISH":
                 //Chỉ cho phép Publish nếu đang là DRAFT
                 if (!Status.CUR_DRAFT.equals(target.getCurriculumStatus())) {
-                    return ResponseBuilder.build(HttpStatus.OK, "Only Draft can be published", null);
+                    return ResponseBuilder.build(HttpStatus.OK, "Chỉ có khung chương trình nháp mới được công bố", null);
                 }
 
                 //Nếu bạn đang chuẩn bị PUBLISH một bản nháp mới cho "Khối Tự Nhiên - 2024",
@@ -782,22 +801,26 @@ public class SchoolServiceImpl implements SchoolService {
 
                 target.setCurriculumStatus(Status.CUR_ACTIVE);
                 curriculumRepo.save(target);
-                return ResponseBuilder.build(HttpStatus.OK, "Published successfully", target.getId());
+                return ResponseBuilder.build(HttpStatus.OK, "Công bố khung chương trình thành công", target.getId());
 
             case "REVISE":
-                //Chỉnh sửa, cập nhật dựa trên bản cũ để tạo bản mới.
+                // Chỉnh sửa, cập nhật dựa trên bản cũ để tạo bản mới
                 // Chỉ cho phép REVISE nếu đang là ACTIVE
                 if (!Status.CUR_ACTIVE.equals(target.getCurriculumStatus())) {
-                    return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Only Active curriculum can be revised", null);
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Chỉ khung chương trình đang hoạt động mới được phép chỉnh sửa",
+                            null
+                    );
                 }
 
                 //GIỮ NGUYÊN bản cũ là ACTIVE, chỉ đơn giản là CLONE ra bản DRAFT mới để sửa
                 Curriculum newDraft = evolveFromExisting(target, null);
 
-                return ResponseBuilder.build(HttpStatus.OK, "New draft created. Please update your changes.", curriculumRepo.save(newDraft).getId());
+                return ResponseBuilder.build(HttpStatus.OK, "Đã tạo bản nháp mới. Vui lòng cập nhật các thay đổi", curriculumRepo.save(newDraft).getId());
 
             default:
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid action: " + action, null);
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Hành động cập nhật không hợp lệ: " + action, null);
         }
     }
 
@@ -869,7 +892,7 @@ public class SchoolServiceImpl implements SchoolService {
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "User session invalid or school not found", null);
+            return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "Tài khoản cơ sở không tồn tại trong hệ thống", null);
         }
 
         autoArchiveOldCurriculums(actorCampus.getSchool().getId());
@@ -885,7 +908,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         PageResponse<Map<String, Object>> pageResponse = PaginationUtil.buildPageResponse(curriculumPage, this::buildCurriculumData);
 
-        return ResponseBuilder.build(HttpStatus.OK, "View Curriculum list successfully", pageResponse);
+        return ResponseBuilder.build(HttpStatus.OK, "Hiển thị danh sách khung chương trình thành công", pageResponse);
     }
 
     private Map<String, Object> buildCurriculumData(Curriculum curriculum) {
@@ -960,18 +983,18 @@ public class SchoolServiceImpl implements SchoolService {
     public ResponseEntity<ResponseObject> upsertProgram(ProgramRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị vô hiệu", null);
         }
 
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản cơ sở không tồn tại trong hệ thống", null);
         }
 
         // actor campus co phai la primary campus ko
         if (!actorCampus.getIsPrimaryBranch()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Chỉ có tài khoản cơ sở chính mới được phép tạo/ cập nhật chương trình", null);
         }
 
         String error = ProgramValidation.validationUpsertProgram(request, actorCampus, curriculumRepo, programRepo);
@@ -984,16 +1007,25 @@ public class SchoolServiceImpl implements SchoolService {
         Program program = isNew ? new Program() : programRepo.findByIdAndCurriculum_School_Id(request.getProgramId(), actorCampus.getSchool().getId());
 
         if (!isNew && program == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Program not found in your school scope", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Chương trình của trường không tồn tại trong hệ thống", null);
         }
 
         Curriculum curriculum = curriculumRepo.findById(request.getCurriculumId()).orElse(null);
+
         if (curriculum == null || !curriculum.getSchool().getId().equals(actorCampus.getSchool().getId())) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Curriculum is invalid", null);
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Khung chương trình không tồn tại hoặc không thuộc trường của bạn",
+                    null
+            );
         }
 
         if (curriculum.getCurriculumStatus() == Status.CUR_ARCHIVED) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot use an archived curriculum. Please use the latest active version.", null);
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Không thể sử dụng khung chương trình đã lưu trữ. Vui lòng sử dụng phiên bản đang hoạt động mới nhất",
+                    null
+            );
         }
 
         program.setCurriculum(curriculum);
@@ -1023,10 +1055,18 @@ public class SchoolServiceImpl implements SchoolService {
         try {
             programRepo.save(program);
         } catch (DataIntegrityViolationException e) {
-            return ResponseBuilder.build(HttpStatus.CONFLICT, "Graduation standard already exists in this curriculum", null);
+            return ResponseBuilder.build(
+                    HttpStatus.CONFLICT,
+                    "Chuẩn đầu ra đã tồn tại trong khung chương trình này",
+                    null
+            );
         }
 
-        return ResponseBuilder.build(isNew ? HttpStatus.CREATED : HttpStatus.OK, isNew ? "Create Program success" : "Update Program success", null);
+        return ResponseBuilder.build(
+                isNew ? HttpStatus.CREATED : HttpStatus.OK,
+                isNew ? "Tạo chương trình thành công" : "Cập nhật chương trình thành công",
+                null
+        );
     }
 
     @Override
@@ -1034,30 +1074,33 @@ public class SchoolServiceImpl implements SchoolService {
     public ResponseEntity<ResponseObject> cloneProgram(int id) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị vô hiệu", null);
         }
 
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản cơ sở không tồn tại trong hệ thống", null);
         }
 
         // actor campus co phai la primary campus ko
         if (!actorCampus.getIsPrimaryBranch()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Chỉ cơ sở chính mới được phép thực hiện thao tác này", null);
         }
 
         Program oldProgram = programRepo.findById(id).orElse(null);
 
         if (oldProgram == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "The original program does not exist.", null);
+            return ResponseBuilder.build(
+                    HttpStatus.NOT_FOUND,
+                    "Không tìm thấy chương trình gốc trong hệ thống",
+                    null
+            );
         }
 
         Program newProgram = new Program();
-        newProgram.setName(oldProgram.getName() + " - Cloned (" + LocalDateTime.now().getYear() + ")");
+        newProgram.setName(oldProgram.getName() + " - Bản sao (" + LocalDateTime.now().getYear() + ")");
         newProgram.setCurriculum(oldProgram.getCurriculum());
-
         //copy danh sách môn học bổ sung
         if (oldProgram.getExtraSubjectsJsonb() != null) {
             // Ép kiểu về List và bọc trong new ArrayList để tách biệt vùng nhớ

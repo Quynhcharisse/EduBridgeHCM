@@ -213,69 +213,6 @@ public class PostServiceImpl implements PostService {
         }
     }
 
-    private String toSafeObjectKey(String input) {
-        if (input == null || input.trim().isEmpty()) {
-            return "";
-        }
-
-        // 1. normalize Unicode (tách dấu ra)
-        String normalized = Normalizer.normalize(input.trim(), Normalizer.Form.NFD);
-
-        // 2. remove dấu (accent)
-        String noAccent = normalized.replaceAll("\\p{M}", "");
-
-        // 3. xử lý riêng đ/Đ
-        noAccent = noAccent.replace("đ", "d").replace("Đ", "d");
-
-        // 4. lowercase
-        String lower = noAccent.toLowerCase(Locale.ROOT);
-
-        // 5. replace ký tự không hợp lệ -> _
-        String safe = lower.replaceAll("[^a-z0-9]+", "_");
-
-        // 6. cleanup: nhiều _ -> 1
-        safe = safe.replaceAll("_+", "_");
-
-        // 7. remove _ đầu/cuối
-        safe = safe.replaceAll("^_+|_+$", "");
-
-        return safe;
-    }
-
-    private Map<String, Object> buildContentJson(CreatePostRequest.Content content) {
-        Map<String, Object> data = new HashMap<>();
-        data.put("type", content.getType());
-        data.put("shortDescription", content.getShortDescription());
-        data.put("contentDataList", content.getContentDataList().stream().map(c -> {
-            Map<String, Object> contentData = new HashMap<>();
-            contentData.put("text", c.getText());
-            contentData.put("position", c.getPosition());
-            return contentData;
-        }).toList());
-
-        return data;
-    }
-
-    private Map<String, Object> buildImageJson(CreatePostRequest.Image image) {
-        Map<String, Object> data = new HashMap<>();
-        data.put("imageItemList", image.getImageItemList().stream().map(item -> {
-            Map<String, Object> itemDate = new HashMap<>();
-            itemDate.put("url", item.getUrl());
-            itemDate.put("position", item.getPosition());
-            return itemDate;
-        }).toList());
-        return data;
-    }
-
-    private boolean isCampusCategory(CategoryPost category) {
-        return category == CategoryPost.CAMPUS_EVENTS || category == CategoryPost.CAMPUS_ADMISSION || category == CategoryPost.CAMPUS_SCHOLARSHIP;
-    }
-
-    private boolean isAdminCategory(CategoryPost category) {
-        return List.of(CategoryPost.SYSTEM_NOTIFICATIONS, CategoryPost.GENERAL_EDUCATION_NEWS)
-                .contains(category);
-    }
-
     @Override
     public ResponseEntity<ResponseObject> disablePost(DisablePostRequest request, HttpServletRequest httpRequest) {
 
@@ -358,5 +295,68 @@ public class PostServiceImpl implements PostService {
         authorInfo.put("name", (author.getRole() == Role.ADMIN) ? "Hệ thống Edubridge" : (author.getRole() == Role.SCHOOL && author.getCampus() != null) ? author.getCampus().getSchool().getName() : author.getEmail());
         data.put("author", authorInfo);
         return data;
+    }
+
+    private String toSafeObjectKey(String input) {
+        if (input == null || input.trim().isEmpty()) {
+            return "";
+        }
+
+        // 1. normalize Unicode (tách dấu ra)
+        String normalized = Normalizer.normalize(input.trim(), Normalizer.Form.NFD);
+
+        // 2. remove dấu (accent)
+        String noAccent = normalized.replaceAll("\\p{M}", "");
+
+        // 3. xử lý riêng đ/Đ
+        noAccent = noAccent.replace("đ", "d").replace("Đ", "d");
+
+        // 4. lowercase
+        String lower = noAccent.toLowerCase(Locale.ROOT);
+
+        // 5. replace ký tự không hợp lệ -> _
+        String safe = lower.replaceAll("[^a-z0-9]+", "_");
+
+        // 6. cleanup: nhiều _ -> 1
+        safe = safe.replaceAll("_+", "_");
+
+        // 7. remove _ đầu/cuối
+        safe = safe.replaceAll("^_+|_+$", "");
+
+        return safe;
+    }
+
+    private Map<String, Object> buildContentJson(CreatePostRequest.Content content) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("type", content.getType());
+        data.put("shortDescription", content.getShortDescription());
+        data.put("contentDataList", content.getContentDataList().stream().map(c -> {
+            Map<String, Object> contentData = new HashMap<>();
+            contentData.put("text", c.getText());
+            contentData.put("position", c.getPosition());
+            return contentData;
+        }).toList());
+
+        return data;
+    }
+
+    private Map<String, Object> buildImageJson(CreatePostRequest.Image image) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("imageItemList", image.getImageItemList().stream().map(item -> {
+            Map<String, Object> itemDate = new HashMap<>();
+            itemDate.put("url", item.getUrl());
+            itemDate.put("position", item.getPosition());
+            return itemDate;
+        }).toList());
+        return data;
+    }
+
+    private boolean isCampusCategory(CategoryPost category) {
+        return category == CategoryPost.CAMPUS_EVENTS || category == CategoryPost.CAMPUS_ADMISSION || category == CategoryPost.CAMPUS_SCHOLARSHIP;
+    }
+
+    private boolean isAdminCategory(CategoryPost category) {
+        return List.of(CategoryPost.SYSTEM_NOTIFICATIONS, CategoryPost.GENERAL_EDUCATION_NEWS)
+                .contains(category);
     }
 }

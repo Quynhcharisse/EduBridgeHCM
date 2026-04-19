@@ -88,6 +88,7 @@ public class ParentServiceImpl implements ParentService {
     private final FavouriteSchoolRepo favouriteSchoolRepo;
 
     private final CampusRepo campusRepo;
+
     private final CounsellorRepo counsellorRepo;
 
 
@@ -123,13 +124,13 @@ public class ParentServiceImpl implements ParentService {
 
             return ResponseBuilder.build(
                     HttpStatus.OK,
-                    "Get conversations successfully",
+                    "",
                     result
             );
         } catch (Exception e) {
             return ResponseBuilder.build(
                     HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Failed: " + e.getMessage(),
+                    "Thất bại: " + e.getMessage(),
                     null
             );
         }
@@ -139,25 +140,25 @@ public class ParentServiceImpl implements ParentService {
     public ResponseEntity<ResponseObject> getChatHistory(String parentEmail, int campusId, int studentProfileId, Long cursorId) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn bị cấm", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị vô hiệu", null);
         }
 
         Optional<Account> accParent = accountRepo.findByEmail(parentEmail);
 
         if (accParent.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Parent not found or be deleted", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản phụ huynh không tìm thấy", null);
         }
 
         Optional<Campus> campus = campusRepo.findById(campusId);
 
         if (campus.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campus not found or be deleted", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Cơ sở không tìm thấy", null);
         }
 
         Optional<StudentProfile> studentProfile = studentInfoRepo.findById(studentProfileId);
 
         if(studentProfile.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Student profile not found or be deleted", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Thông tin trẻ không tồn tại trong hệ thống", null);
         }
 
         Optional<Conversation> existingConversation =
@@ -177,7 +178,7 @@ public class ParentServiceImpl implements ParentService {
             }
             hasMore = messages.size() == 20;
             nextCursorId = messages.isEmpty() ? null : messages.get(messages.size() - 1).getId();
-            return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(existingConversation.get(), studentProfile.get(), messages, hasMore, nextCursorId));
+            return ResponseBuilder.build(HttpStatus.OK, "", buildHistoryMessages(existingConversation.get(), studentProfile.get(), messages, hasMore, nextCursorId));
 
         }
              Conversation conservation = Conversation.builder()
@@ -185,11 +186,9 @@ public class ParentServiceImpl implements ParentService {
                     .counsellorEmail("N/A")
                     .campusId(campusId)
                     .studentProfile(studentProfile.get())
-//                    .status(Status.CONVERSATION_PENDING)
-                    .build();
-//            conversationRepo.save(conservation);
+                     .build();
 
-            return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(conservation, studentProfile.get(), messages, hasMore, cursorId));
+            return ResponseBuilder.build(HttpStatus.OK, "", buildHistoryMessages(conservation, studentProfile.get(), messages, hasMore, cursorId));
 
     }
 
@@ -199,137 +198,13 @@ public class ParentServiceImpl implements ParentService {
 
         response.put("conversationId", conversation.getId());
         response.put("campusId", conversation.getCampusId());
-
         response.put("studentProfileId", conversation.getStudentProfile().getId());
         response.put("childName", childProfile.getStudentName());
-//        response.put("gender", childProfile.getGender());
-//
-//        Optional<PersonalityType> personalityType =
-//                personalityTypeRepo.findByCode(childProfile.getPersonalityTypeName());
-//        response.put("personalityCode",
-//                personalityType.map(PersonalityType::getCode).orElse("N/A"));
-//        response.put("traits",
-//                personalityType.map(PersonalityType::getTraits).orElse(List.of()));
-//
-//        response.put("favouriteJob", childProfile.getFavouriteJob());
-//        response.put("academicProfileMetadata", buildAcademicProfileMetadata(childProfile));
-//        response.put("subjectsInSystem", getSubjects());
-
         response.put("messages", buildMessages(messages));
         response.put("hasMore", hasMore);
         response.put("nextCursorId", nextCursorId);
 
         return response;
-    }
-
-    private List<Map<String, Object>> getSubjects() {
-        List<Subject> subjects = subjectRepo.findAll();
-
-        return subjects.stream()
-                .collect(Collectors.groupingBy(Subject::getType))
-                .entrySet()
-                .stream()
-                .map(entry -> {
-                    Map<String, Object> groupMap = new HashMap<>();
-
-                    // 🔥 dùng value thay vì name()
-                    groupMap.put("type", entry.getKey().getValue());
-
-                    // label cho FE
-                    String label = switch (entry.getKey()) {
-                        case REGULAR_SUBJECT -> "Môn học chính";
-                        case FOREIGN_LANGUAGE_SUBJECT -> "Ngoại ngữ";
-                    };
-                    groupMap.put("label", label);
-
-                    List<Map<String, Object>> subjectList = entry.getValue().stream()
-                            .map(s -> {
-                                Map<String, Object> item = new HashMap<>();
-                                item.put("id", s.getId());
-                                item.put("name", s.getName());
-                                return item;
-                            })
-                            .toList();
-
-                    groupMap.put("subjects", subjectList);
-
-                    return groupMap;
-                })
-                .toList();
-    }
-
-    private List<Map<String, Object>> buildMessages(List<ChatMessage> messages) {
-
-        if (messages == null || messages.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        return messages.stream()
-                .sorted(Comparator.comparing(ChatMessage::getTimestamp))
-                .map(this::buildMessage)
-                .toList();
-    }
-
-    private Map<String, Object> buildMessage(ChatMessage message) {
-        Map<String, Object> msg = new HashMap<>();
-        msg.put("id", message.getId());
-        msg.put("senderName", message.getSenderName());
-        msg.put("receiverName", message.getReceiverName());
-        msg.put("message", message.getMessage());
-        msg.put("timestamp", message.getTimestamp());
-        msg.put("status", message.getStatus());
-        return msg;
-    }
-
-    private List<Map<String, Object>> buildConversationList(
-            List<Conversation> conversations,
-            String email
-    ) {
-
-        // 👉 tránh null pointer
-        if (conversations == null || conversations.isEmpty()) {
-            return List.of(); // hoặc return new ArrayList<>();
-        }
-
-        return conversations.stream()
-                .map(conversation -> {
-
-                    ChatMessage lastMessage = chatMessageRepo
-                            .findTopByConversationIdOrderByTimestampDesc(conversation.getId());
-
-                    Long unreadCount = chatMessageRepo
-                            .countByConversationIdAndReceiverNameAndStatusNot(
-                                    conversation.getId(),
-                                    email,
-                                    Status.MESSAGE_READ
-                            );
-
-                    Map<String, Object> map = new HashMap<>();
-
-                    Optional<Campus> campus = campusRepo.findById(conversation.getCampusId());
-
-                    if (campus.isEmpty()) {
-                        return map;
-                    }
-
-                    map.put("conversationId", conversation.getId());
-                    map.put("campusId", campus.get().getId());
-                    map.put("lastMessage", lastMessage != null ? lastMessage.getMessage() : null);
-                    map.put("updatedAt", conversation.getUpdatedDate());
-                    map.put("unreadCount", unreadCount != null ? unreadCount : 0L);
-                    map.put("otherUser", conversation.getCounsellorEmail());
-                    map.put("campusName",  campus.get().getName());
-                    map.put("schoolId", campus.get().getSchool().getId());
-                    map.put("schoolName", campus.get().getSchool().getName());
-                    map.put("schoolLogoUrl", campus.get().getSchool().getLogoUrl());
-                    map.put("studentId", conversation.getStudentProfile().getId());
-                    map.put("studentName", conversation.getStudentProfile().getStudentName());
-                    map.put("status", conversation.getStatus());
-
-                    return map;
-
-                })
-                .toList();
     }
 
     @Override
@@ -343,7 +218,7 @@ public class ParentServiceImpl implements ParentService {
 
         return ResponseBuilder.build(
                 HttpStatus.OK,
-                "Get student infos successfully",
+                "",
                 result
         );
     }
@@ -354,10 +229,10 @@ public class ParentServiceImpl implements ParentService {
         Optional<StudentProfile> studentProfile = studentInfoRepo.findById(studentProfileId);
 
         if(studentProfile.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Student profile not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Thông tin trẻ không tồn tại trong hệ thốngd", null);
         }
 
-        return ResponseBuilder.build(HttpStatus.OK, "Get student info successfully", buildStudentProfile(studentProfile.get()));
+        return ResponseBuilder.build(HttpStatus.OK, "", buildStudentProfile(studentProfile.get()));
     }
 
     // FAVOURITE SCHOOLS
@@ -366,7 +241,7 @@ public class ParentServiceImpl implements ParentService {
     public ResponseEntity<ResponseObject> addFavouriteSchool(AddFavouriteSchoolRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "", null);
         }
 
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -375,13 +250,13 @@ public class ParentServiceImpl implements ParentService {
                 .orElse(null);
 
         if (parent == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Parent not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản phụ huynh không tìm thấy", null);
         }
 
         School school = schoolRepo.findById(request.getSchoolId())
                 .orElse(null);
         if (school == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "School not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Trường không tồn tại trong hệ thống", null);
         }
 
         boolean exists = favouriteSchoolRepo.existsByParentAndSchool(parent, school);
@@ -397,7 +272,7 @@ public class ParentServiceImpl implements ParentService {
 
         favouriteSchoolRepo.save(favouriteSchool);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Thêm trường yêu thích thành công", null);
+        return ResponseBuilder.build(HttpStatus.OK, "", null);
     }
 
 
@@ -411,7 +286,7 @@ public class ParentServiceImpl implements ParentService {
                 .orElse(null);
 
         if (parent == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Parent not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản phụ huynh không tìm thấy", null);
         }
 
         Pageable pageable;
@@ -426,7 +301,7 @@ public class ParentServiceImpl implements ParentService {
 
         PageResponse<Map<String, Object>> result = PaginationUtil.buildPageResponse(favouriteSchoolPage, this::buildFavouriteSchool);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Get favourite school successfully", result);
+        return ResponseBuilder.build(HttpStatus.OK, "", result);
     }
 
     @Transactional
@@ -434,44 +309,44 @@ public class ParentServiceImpl implements ParentService {
     public ResponseEntity<ResponseObject> removeFavouriteSchool(long favouriteSchoolId) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị vô hiệu", null);
         }
 
         boolean exists = favouriteSchoolRepo.existsById(favouriteSchoolId);
 
         if (!exists) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Favourite school not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Lỗi: Không tìm thấy dữ liệu", null);
         }
 
         favouriteSchoolRepo.deleteAllByIdInBatch(List.of(favouriteSchoolId));
         favouriteSchoolRepo.flush();
 
-        return ResponseBuilder.build(HttpStatus.OK, "Remove favourite school successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "", null);
     }
 
     @Override
     public ResponseEntity<ResponseObject> createConversation(CreateConversationRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn bị vô hiệu", null);
         }
 
         Optional<Account> accParent = accountRepo.findByEmail(request.getParentEmail().trim());
 
         if (accParent.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Parent not found or be deleted", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản phụ huynh không tìm thấy", null);
         }
 
         Optional<Campus> campus = campusRepo.findById(request.getCampusId());
 
         if (campus.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campus not found or be deleted", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Cơ sở không tồn tại trong hệ thống. Vui lòng làm mới trang", null);
         }
 
         Optional<StudentProfile> studentProfile = studentInfoRepo.findById(request.getStudentProfileId());
 
         if(studentProfile.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Student profile not found or be deleted", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Thông tin trẻ không tồn tại trong hệ thống", null);
         }
 
 
@@ -485,7 +360,7 @@ public class ParentServiceImpl implements ParentService {
 
             conversationRepo.save(conservation);
 
-        return ResponseBuilder.build(HttpStatus.CREATED, "Conversation successfully created", conservation.getId());
+        return ResponseBuilder.build(HttpStatus.CREATED, "", conservation.getId());
     }
 
     @Override
@@ -521,10 +396,15 @@ public class ParentServiceImpl implements ParentService {
         map.put("hotline", school.getHotline());
         map.put("averageRating", school.getAverageRating());
         map.put("foundingDate", school.getFoundingDate());
+
         return map;
     }
 
     private Map<String, Object> buildStudentProfile(StudentProfile studentProfile) {
+
+        Optional<PersonalityType> personalityType =
+                personalityTypeRepo.findByCode(studentProfile.getPersonalityTypeName());
+
         Map<String, Object> result = new HashMap<>();
         result.put("id", studentProfile.getId());
         result.put("studentName", studentProfile.getStudentName());
@@ -532,9 +412,6 @@ public class ParentServiceImpl implements ParentService {
         result.put("personalityTypeCode", studentProfile.getPersonalityTypeName());
         result.put("favouriteJob", studentProfile.getFavouriteJob());
         result.put("academicProfileMetadata", mergeAcademicProfileMetadata(studentProfile));
-
-        Optional<PersonalityType> personalityType =
-                personalityTypeRepo.findByCode(studentProfile.getPersonalityTypeName());
         result.put("personalityCode",
                 personalityType.map(PersonalityType::getCode).orElse("N/A"));
         result.put("traits",
@@ -547,204 +424,6 @@ public class ParentServiceImpl implements ParentService {
         return result;
     }
 
-    private List<Map<String, Object>> mergeAcademicProfileMetadata(StudentProfile studentProfile) {
-
-        List<Subject> allSubjects = subjectRepo.findAll();
-
-        List<Map<String, Object>> storedAcademicProfiles =
-                (List<Map<String, Object>>) studentProfile.getAcademicProfileMetadata();
-
-        if (storedAcademicProfiles == null || storedAcademicProfiles.isEmpty()) {
-            return new ArrayList<>();
-        }
-
-        List<Map<String, Object>> mergedAcademicProfiles = new ArrayList<>();
-
-        for (Map<String, Object> academicItem : storedAcademicProfiles) {
-            if (academicItem == null) {
-                continue;
-            }
-
-            String gradeLevel = academicItem.get("gradeLevel") == null
-                    ? null
-                    : academicItem.get("gradeLevel").toString();
-
-            List<Map<String, Object>> storedSubjectResults =
-                    (List<Map<String, Object>>) academicItem.get("subjectResults");
-
-            Map<String, Object> storedSubjectMap = new LinkedHashMap<>();
-
-            // Giữ subject cũ đã lưu
-            if (storedSubjectResults != null) {
-                for (Map<String, Object> subjectItem : storedSubjectResults) {
-                    if (subjectItem == null) {
-                        continue;
-                    }
-
-                    Object subjectNameObj = subjectItem.get("subjectName");
-                    if (subjectNameObj == null) {
-                        continue;
-                    }
-
-                    String subjectName = subjectNameObj.toString().trim();
-                    if (subjectName.isEmpty()) {
-                        continue;
-                    }
-
-                    String normalizedName = subjectName.toLowerCase();
-
-                    Map<String, Object> oldSubject = new HashMap<>();
-                    oldSubject.put("id", subjectItem.get("id"));
-                    oldSubject.put("name", subjectName);
-                    oldSubject.put("type", subjectItem.get("type"));
-                    oldSubject.put("score", subjectItem.get("score"));
-                    oldSubject.put("isAvailable", false); // mặc định coi là môn cũ không còn trong hệ thống
-
-                    storedSubjectMap.put(normalizedName, oldSubject);
-                }
-            }
-
-            for (Subject subject : allSubjects) {
-                String normalizedName = subject.getName().trim().toLowerCase();
-
-                boolean existedInProfile = storedSubjectMap.containsKey(normalizedName);
-
-                // Môn ngoại ngữ: chỉ hiện nếu đã có dữ liệu
-                if (subject.getType() == SubjectType.FOREIGN_LANGUAGE_SUBJECT && !existedInProfile) {
-                    continue;
-                }
-
-                Map<String, Object> mergedSubject = new HashMap<>();
-                mergedSubject.put("id", subject.getId());
-                mergedSubject.put("name", subject.getName());
-                mergedSubject.put("type", subject.getType().getValue());
-                mergedSubject.put("isAvailable", true);
-
-                if (existedInProfile) {
-                    Map<String, Object> oldSubject = (Map<String, Object>) storedSubjectMap.get(normalizedName);
-                    mergedSubject.put("score", oldSubject.get("score"));
-                } else {
-                    mergedSubject.put("score", null);
-                }
-
-                storedSubjectMap.put(normalizedName, mergedSubject);
-            }
-
-            Map<String, Object> mergedAcademicItem = new HashMap<>();
-            mergedAcademicItem.put("gradeLevel", gradeLevel);
-            mergedAcademicItem.put("subjectResults", new ArrayList<>(storedSubjectMap.values()));
-
-            mergedAcademicProfiles.add(mergedAcademicItem);
-        }
-
-        return mergedAcademicProfiles;
-    }
-
-    private List<Map<String, Object>> buildAcademicProfileMetadata(StudentProfile studentProfile) {
-
-        List<Map<String, Object>> storedAcademicProfiles =
-                (List<Map<String, Object>>) studentProfile.getAcademicProfileMetadata();
-
-        if (storedAcademicProfiles == null || storedAcademicProfiles.isEmpty()) {
-            return new ArrayList<>();
-        }
-
-        List<Map<String, Object>> result = new ArrayList<>();
-
-        for (Map<String, Object> academicItem : storedAcademicProfiles) {
-            if (academicItem == null) {
-                continue;
-            }
-
-            String gradeLevel = academicItem.get("gradeLevel") == null
-                    ? null
-                    : academicItem.get("gradeLevel").toString();
-
-            List<Map<String, Object>> storedSubjectResults =
-                    (List<Map<String, Object>>) academicItem.get("subjectResults");
-
-            List<Map<String, Object>> subjectResults = new ArrayList<>();
-
-            if (storedSubjectResults != null) {
-                for (Map<String, Object> subjectItem : storedSubjectResults) {
-                    if (subjectItem == null) {
-                        continue;
-                    }
-
-                    Object subjectNameObj = subjectItem.get("subjectName");
-                    if (subjectNameObj == null) {
-                        continue;
-                    }
-
-                    String subjectName = subjectNameObj.toString().trim();
-                    if (subjectName.isEmpty()) {
-                        continue;
-                    }
-
-                    Optional<Subject> subjectOpt = subjectRepo.findByName(subjectName);
-
-                    Map<String, Object> subjectMap = new HashMap<>();
-                    subjectMap.put("id", subjectItem.get("id"));
-                    subjectMap.put("subjectName", subjectName);
-                    subjectMap.put("type", subjectItem.get("type"));
-                    subjectMap.put("score", subjectItem.get("score"));
-                    subjectMap.put("isAvailable", subjectOpt.isPresent());
-
-                    // Nếu subject còn trong hệ thống thì cập nhật lại thông tin mới nhất
-                    if (subjectOpt.isPresent()) {
-                        Subject subject = subjectOpt.get();
-                        subjectMap.put("id", subject.getId());
-                        subjectMap.put("subjectName", subject.getName());
-                        subjectMap.put("type", subject.getType().getValue());
-                    }
-
-                    subjectResults.add(subjectMap);
-                }
-            }
-
-            Map<String, Object> academicMap = new HashMap<>();
-            academicMap.put("gradeLevel", gradeLevel);
-            academicMap.put("subjectResults", subjectResults);
-
-            result.add(academicMap);
-        }
-
-        return result;
-    }
-
-    private Gender parseGender(String value) {
-        String normalizedValue = normalize(value);
-        if (normalizedValue == null) {
-            return null;
-        }
-
-        return Arrays.stream(Gender.values())
-                .filter(g -> g.getValue().equalsIgnoreCase(normalizedValue) || g.name().equalsIgnoreCase(normalizedValue))
-                .findFirst()
-                .orElse(null);
-    }
-
-    private GradeLevel parseGrade(String value) {
-        String normalizedValue = normalize(value);
-        if (normalizedValue == null) {
-            return null;
-        }
-
-        return Arrays.stream(GradeLevel.values())
-                .filter(g -> g.getValue().equalsIgnoreCase(normalizedValue) || g.name().equalsIgnoreCase(normalizedValue))
-                .findFirst()
-                .orElse(null);
-    }
-
-    private String normalize(String value) {
-        if (value == null) {
-            return null;
-        }
-
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
-    }
-
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
     }
@@ -755,7 +434,7 @@ public class ParentServiceImpl implements ParentService {
     public ResponseEntity<ResponseObject> addStudentInfo(AddStudentInfoRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị vô hiệu", null);
         }
 
         Account account = AuthRequestUtil.extractAuthenticatedAccount();
@@ -1297,6 +976,314 @@ public class ParentServiceImpl implements ParentService {
         }
 
         return "";
+    }
+
+    private GradeLevel parseGrade(String value) {
+        String normalizedValue = normalize(value);
+        if (normalizedValue == null) {
+            return null;
+        }
+
+        return Arrays.stream(GradeLevel.values())
+                .filter(g -> g.getValue().equalsIgnoreCase(normalizedValue) || g.name().equalsIgnoreCase(normalizedValue))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private List<Map<String, Object>> getSubjects() {
+        List<Subject> subjects = subjectRepo.findAll();
+
+        return subjects.stream()
+                .collect(Collectors.groupingBy(Subject::getType))
+                .entrySet()
+                .stream()
+                .map(entry -> {
+                    Map<String, Object> groupMap = new HashMap<>();
+
+                    // 🔥 dùng value thay vì name()
+                    groupMap.put("type", entry.getKey().getValue());
+
+                    // label cho FE
+                    String label = switch (entry.getKey()) {
+                        case REGULAR_SUBJECT -> "Môn học chính";
+                        case FOREIGN_LANGUAGE_SUBJECT -> "Ngoại ngữ";
+                    };
+                    groupMap.put("label", label);
+
+                    List<Map<String, Object>> subjectList = entry.getValue().stream()
+                            .map(s -> {
+                                Map<String, Object> item = new HashMap<>();
+                                item.put("id", s.getId());
+                                item.put("name", s.getName());
+                                return item;
+                            })
+                            .toList();
+
+                    groupMap.put("subjects", subjectList);
+
+                    return groupMap;
+                })
+                .toList();
+    }
+
+    private List<Map<String, Object>> buildMessages(List<ChatMessage> messages) {
+
+        if (messages == null || messages.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return messages.stream()
+                .sorted(Comparator.comparing(ChatMessage::getTimestamp))
+                .map(this::buildMessage)
+                .toList();
+    }
+
+    private Map<String, Object> buildMessage(ChatMessage message) {
+        Map<String, Object> msg = new HashMap<>();
+        msg.put("id", message.getId());
+        msg.put("senderName", message.getSenderName());
+        msg.put("receiverName", message.getReceiverName());
+        msg.put("message", message.getMessage());
+        msg.put("timestamp", message.getTimestamp());
+        msg.put("status", message.getStatus());
+        return msg;
+    }
+
+    private List<Map<String, Object>> buildConversationList(
+            List<Conversation> conversations,
+            String email
+    ) {
+
+        // 👉 tránh null pointer
+        if (conversations == null || conversations.isEmpty()) {
+            return List.of(); // hoặc return new ArrayList<>();
+        }
+
+        return conversations.stream()
+                .map(conversation -> {
+
+                    ChatMessage lastMessage = chatMessageRepo
+                            .findTopByConversationIdOrderByTimestampDesc(conversation.getId());
+
+                    Long unreadCount = chatMessageRepo
+                            .countByConversationIdAndReceiverNameAndStatusNot(
+                                    conversation.getId(),
+                                    email,
+                                    Status.MESSAGE_READ
+                            );
+
+                    Map<String, Object> map = new HashMap<>();
+
+                    Optional<Campus> campus = campusRepo.findById(conversation.getCampusId());
+
+                    if (campus.isEmpty()) {
+                        return map;
+                    }
+
+                    map.put("conversationId", conversation.getId());
+                    map.put("campusId", campus.get().getId());
+                    map.put("lastMessage", lastMessage != null ? lastMessage.getMessage() : null);
+                    map.put("updatedAt", conversation.getUpdatedDate());
+                    map.put("unreadCount", unreadCount != null ? unreadCount : 0L);
+                    map.put("otherUser", conversation.getCounsellorEmail());
+                    map.put("campusName",  campus.get().getName());
+                    map.put("schoolId", campus.get().getSchool().getId());
+                    map.put("schoolName", campus.get().getSchool().getName());
+                    map.put("schoolLogoUrl", campus.get().getSchool().getLogoUrl());
+                    map.put("studentId", conversation.getStudentProfile().getId());
+                    map.put("studentName", conversation.getStudentProfile().getStudentName());
+                    map.put("status", conversation.getStatus());
+
+                    return map;
+
+                })
+                .toList();
+    }
+
+    private List<Map<String, Object>> mergeAcademicProfileMetadata(StudentProfile studentProfile) {
+
+        List<Subject> allSubjects = subjectRepo.findAll();
+
+        List<Map<String, Object>> storedAcademicProfiles =
+                (List<Map<String, Object>>) studentProfile.getAcademicProfileMetadata();
+
+        if (storedAcademicProfiles == null || storedAcademicProfiles.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Map<String, Object>> mergedAcademicProfiles = new ArrayList<>();
+
+        for (Map<String, Object> academicItem : storedAcademicProfiles) {
+            if (academicItem == null) {
+                continue;
+            }
+
+            String gradeLevel = academicItem.get("gradeLevel") == null
+                    ? null
+                    : academicItem.get("gradeLevel").toString();
+
+            List<Map<String, Object>> storedSubjectResults =
+                    (List<Map<String, Object>>) academicItem.get("subjectResults");
+
+            Map<String, Object> storedSubjectMap = new LinkedHashMap<>();
+
+            // Giữ subject cũ đã lưu
+            if (storedSubjectResults != null) {
+                for (Map<String, Object> subjectItem : storedSubjectResults) {
+                    if (subjectItem == null) {
+                        continue;
+                    }
+
+                    Object subjectNameObj = subjectItem.get("subjectName");
+                    if (subjectNameObj == null) {
+                        continue;
+                    }
+
+                    String subjectName = subjectNameObj.toString().trim();
+                    if (subjectName.isEmpty()) {
+                        continue;
+                    }
+
+                    String normalizedName = subjectName.toLowerCase();
+
+                    Map<String, Object> oldSubject = new HashMap<>();
+                    oldSubject.put("id", subjectItem.get("id"));
+                    oldSubject.put("name", subjectName);
+                    oldSubject.put("type", subjectItem.get("type"));
+                    oldSubject.put("score", subjectItem.get("score"));
+                    oldSubject.put("isAvailable", false); // mặc định coi là môn cũ không còn trong hệ thống
+
+                    storedSubjectMap.put(normalizedName, oldSubject);
+                }
+            }
+
+            for (Subject subject : allSubjects) {
+                String normalizedName = subject.getName().trim().toLowerCase();
+
+                boolean existedInProfile = storedSubjectMap.containsKey(normalizedName);
+
+                // Môn ngoại ngữ: chỉ hiện nếu đã có dữ liệu
+                if (subject.getType() == SubjectType.FOREIGN_LANGUAGE_SUBJECT && !existedInProfile) {
+                    continue;
+                }
+
+                Map<String, Object> mergedSubject = new HashMap<>();
+                mergedSubject.put("id", subject.getId());
+                mergedSubject.put("name", subject.getName());
+                mergedSubject.put("type", subject.getType().getValue());
+                mergedSubject.put("isAvailable", true);
+
+                if (existedInProfile) {
+                    Map<String, Object> oldSubject = (Map<String, Object>) storedSubjectMap.get(normalizedName);
+                    mergedSubject.put("score", oldSubject.get("score"));
+                } else {
+                    mergedSubject.put("score", null);
+                }
+
+                storedSubjectMap.put(normalizedName, mergedSubject);
+            }
+
+            Map<String, Object> mergedAcademicItem = new HashMap<>();
+            mergedAcademicItem.put("gradeLevel", gradeLevel);
+            mergedAcademicItem.put("subjectResults", new ArrayList<>(storedSubjectMap.values()));
+
+            mergedAcademicProfiles.add(mergedAcademicItem);
+        }
+
+        return mergedAcademicProfiles;
+    }
+
+    private List<Map<String, Object>> buildAcademicProfileMetadata(StudentProfile studentProfile) {
+
+        List<Map<String, Object>> storedAcademicProfiles =
+                (List<Map<String, Object>>) studentProfile.getAcademicProfileMetadata();
+
+        if (storedAcademicProfiles == null || storedAcademicProfiles.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        for (Map<String, Object> academicItem : storedAcademicProfiles) {
+            if (academicItem == null) {
+                continue;
+            }
+
+            String gradeLevel = academicItem.get("gradeLevel") == null
+                    ? null
+                    : academicItem.get("gradeLevel").toString();
+
+            List<Map<String, Object>> storedSubjectResults =
+                    (List<Map<String, Object>>) academicItem.get("subjectResults");
+
+            List<Map<String, Object>> subjectResults = new ArrayList<>();
+
+            if (storedSubjectResults != null) {
+                for (Map<String, Object> subjectItem : storedSubjectResults) {
+                    if (subjectItem == null) {
+                        continue;
+                    }
+
+                    Object subjectNameObj = subjectItem.get("subjectName");
+                    if (subjectNameObj == null) {
+                        continue;
+                    }
+
+                    String subjectName = subjectNameObj.toString().trim();
+                    if (subjectName.isEmpty()) {
+                        continue;
+                    }
+
+                    Optional<Subject> subjectOpt = subjectRepo.findByName(subjectName);
+
+                    Map<String, Object> subjectMap = new HashMap<>();
+                    subjectMap.put("id", subjectItem.get("id"));
+                    subjectMap.put("subjectName", subjectName);
+                    subjectMap.put("type", subjectItem.get("type"));
+                    subjectMap.put("score", subjectItem.get("score"));
+                    subjectMap.put("isAvailable", subjectOpt.isPresent());
+
+                    // Nếu subject còn trong hệ thống thì cập nhật lại thông tin mới nhất
+                    if (subjectOpt.isPresent()) {
+                        Subject subject = subjectOpt.get();
+                        subjectMap.put("id", subject.getId());
+                        subjectMap.put("subjectName", subject.getName());
+                        subjectMap.put("type", subject.getType().getValue());
+                    }
+
+                    subjectResults.add(subjectMap);
+                }
+            }
+
+            Map<String, Object> academicMap = new HashMap<>();
+            academicMap.put("gradeLevel", gradeLevel);
+            academicMap.put("subjectResults", subjectResults);
+
+            result.add(academicMap);
+        }
+
+        return result;
+    }
+
+    private Gender parseGender(String value) {
+        String normalizedValue = normalize(value);
+        if (normalizedValue == null) {
+            return null;
+        }
+
+        return Arrays.stream(Gender.values())
+                .filter(g -> g.getValue().equalsIgnoreCase(normalizedValue) || g.name().equalsIgnoreCase(normalizedValue))
+                .findFirst()
+                .orElse(null);
     }
 
 }

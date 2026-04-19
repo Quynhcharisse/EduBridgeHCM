@@ -414,13 +414,13 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
             Optional<School> school = schoolRepo.findById(schoolId);
 
             if (school.isEmpty()) {
-                throw new Exception("Trường ko tìm thấy hoặc đã bị xóa");
+                throw new Exception("Trường không tồn tại trong hệ thống");
             }
 
             Optional<TemplateDocx> schoolTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.SCHOOL_INFO_TEMPLATE);
 
             if (schoolTemplateDocx.isEmpty()) {
-                throw new Exception("Mẫu trường học docx không được tìm thấy hoặc đã bị xóa");
+                throw new Exception("Tài liệu mẫu thông tin trường không được tìm thấy hoặc đã bị xóa");
             }
 
             supabaseStorageService.removeFile(school.get().getFolderPath(), school.get().getFileName());
@@ -520,7 +520,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
 
         if (campusTemplateDocx.isEmpty()) {
-            System.out.println("Mẫu tài liệu của trường không có sẵn.");
+            System.out.println("Mẫu tài liệu thông tin cơ sở không có sẵn.");
             return;
         }
 
@@ -581,42 +581,9 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                 campusRepo.save(campus);
 
             } catch (Exception e) {
-                System.out.println("Không tạo được docx của trường" + e.getMessage());
+                System.out.println("Lỗi khi tạo tài liệu trường" + e.getMessage());
             }
         }
-    }
-
-    private Map<String, Object> buildCampusDocxData(Campus campus, List<Map<String, Object>> facilityItems) {
-        Map<String, Object> data = new LinkedHashMap<>();
-
-        data.put("name", campus.getName());
-        data.put("schoolName", campus.getSchool() != null ? campus.getSchool().getName() : "");
-        data.put("phoneNumber", campus.getPhoneNumber());
-        data.put("address", campus.getAddress());
-        data.put("boardingType", campus.getBoardingType());
-        data.put("boardingDescription", mapBoardingDescription(campus.getBoardingType()));
-        data.put("facilityItems", facilityItems);
-
-        return data;
-    }
-
-    private String mapBoardingDescription(BoardingType type) {
-
-        if (type == null) {
-            return "Hiện tại cơ sở chưa cập nhật thông tin về dịch vụ nội trú.";
-        }
-
-        return switch (type) {
-
-            case FULL_BOARDING ->
-                    "Cơ sở cung cấp dịch vụ nội trú toàn phần, nơi học sinh sinh hoạt tại trường với chỗ ở, bữa ăn và sự chăm sóc toàn diện hằng ngày.";
-
-            case SEMI_BOARDING ->
-                    "Cơ sở cung cấp dịch vụ bán trú, cho phép học sinh ở lại trường vào ban ngày để dùng bữa, được hỗ trợ học tập và tham gia các hoạt động ngoại khóa mà không lưu trú qua đêm.";
-
-            case BOTH ->
-                    "Cơ sở cung cấp cả dịch vụ nội trú toàn phần và bán trú, mang đến lựa chọn linh hoạt về lưu trú và chăm sóc ban ngày để đáp ứng nhu cầu đa dạng của học sinh.";
-        };
     }
 
     @Transactional
@@ -795,8 +762,9 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
     public ResponseEntity<ResponseObject> getSchoolConfigByKey(String k) {
 
         Campus actorCampus = extractActorCampus();
+
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "không có phép", null);
+            return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "không có phép", null);
         }
 
         SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), k).orElse(null);
@@ -861,6 +829,39 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
             return null;
         }
         return account.getCampus();
+    }
+
+    private Map<String, Object> buildCampusDocxData(Campus campus, List<Map<String, Object>> facilityItems) {
+        Map<String, Object> data = new LinkedHashMap<>();
+
+        data.put("name", campus.getName());
+        data.put("schoolName", campus.getSchool() != null ? campus.getSchool().getName() : "");
+        data.put("phoneNumber", campus.getPhoneNumber());
+        data.put("address", campus.getAddress());
+        data.put("boardingType", campus.getBoardingType());
+        data.put("boardingDescription", mapBoardingDescription(campus.getBoardingType()));
+        data.put("facilityItems", facilityItems);
+
+        return data;
+    }
+
+    private String mapBoardingDescription(BoardingType type) {
+
+        if (type == null) {
+            return "Hiện tại cơ sở chưa cập nhật thông tin về dịch vụ nội trú.";
+        }
+
+        return switch (type) {
+
+            case FULL_BOARDING ->
+                    "Cơ sở cung cấp dịch vụ nội trú toàn phần, nơi học sinh sinh hoạt tại trường với chỗ ở, bữa ăn và sự chăm sóc toàn diện hằng ngày.";
+
+            case SEMI_BOARDING ->
+                    "Cơ sở cung cấp dịch vụ bán trú, cho phép học sinh ở lại trường vào ban ngày để dùng bữa, được hỗ trợ học tập và tham gia các hoạt động ngoại khóa mà không lưu trú qua đêm.";
+
+            case BOTH ->
+                    "Cơ sở cung cấp cả dịch vụ nội trú toàn phần và bán trú, mang đến lựa chọn linh hoạt về lưu trú và chăm sóc ban ngày để đáp ứng nhu cầu đa dạng của học sinh.";
+        };
     }
 }
 
