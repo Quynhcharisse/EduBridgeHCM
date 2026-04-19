@@ -2,6 +2,7 @@ package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.configurations.VNPayConfig;
 import com.sp26se041.edubridgehcm.enums.BoardingType;
+import com.sp26se041.edubridgehcm.enums.CategoryTemplate;
 import com.sp26se041.edubridgehcm.enums.CurriculumType;
 import com.sp26se041.edubridgehcm.enums.FeeUnit;
 import com.sp26se041.edubridgehcm.enums.LanguageInstruction;
@@ -22,8 +23,10 @@ import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.PaymentTransaction;
 import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.models.School;
+import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.SchoolSubscription;
 import com.sp26se041.edubridgehcm.models.Subscription;
+import com.sp26se041.edubridgehcm.models.TemplateDocx;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionReservationFormRepo;
@@ -41,6 +44,7 @@ import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolSubscriptionRepo;
 import com.sp26se041.edubridgehcm.repositories.SubscriptionRepo;
+import com.sp26se041.edubridgehcm.repositories.TemplateDocxRepo;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
 import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
@@ -51,6 +55,7 @@ import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateReques
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
+import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.CurriculumNamingUtil;
@@ -65,12 +70,14 @@ import com.sp26se041.edubridgehcm.validations.school.ProgramValidation;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -78,6 +85,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -86,6 +94,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.Normalizer;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -105,12 +114,16 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class SchoolServiceImpl implements SchoolService {
+
+    @Value("${AI_SERVICE_N8N}")
+    private String n8nUrl;
 
     private final CampusRepo campusRepo;
 
@@ -143,7 +156,14 @@ public class SchoolServiceImpl implements SchoolService {
     private final PaymentTransactionRepo paymentTransactionRepo;
 
     private final SchoolConfigRepo schoolConfigRepo;
+
     private final CampusResourceQuotaRepo campusResourceQuotaRepo;
+
+    private final TemplateDocxRepo templateDocxRepo;
+
+    private final SupabaseStorageService supabaseStorageService;
+
+    private final RestTemplate restTemplate = new RestTemplate();
 
     @Override
     @Transactional
@@ -178,11 +198,145 @@ public class SchoolServiceImpl implements SchoolService {
 
         Campus campus = campusRepo.save(Campus.builder().school(actorCampus.getSchool()).account(acc).name(generateCampusName(actorCampus.getSchool().getId())).address(normalize(request.getAddress())).phoneNumber(normalize(request.getPhone())).city(normalize(request.getCity())).district(normalize(request.getDistrict())).ward(normalize(request.getWard())).boardingType(boardingType).latitude(request.getLatitude()).longitude(request.getLongitude()).status(Status.ACTIVE).isPrimaryBranch(false).build());
 
+        String fileName = "";
+        String folderName = "";
+
+        try {
+
+            SchoolConfig facilityData = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "facilityData").orElse(null);
+
+            List<Map<String, Object>> itemList = new ArrayList<>();
+
+            if (facilityData != null && facilityData.getValue() instanceof Map) {
+                Map<String, Object> val = (Map<String, Object>) facilityData.getValue();
+                itemList = (List<Map<String, Object>>) val.get("itemList");
+            }
+
+            Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
+
+            if (campusTemplateDocx.isEmpty()) {
+                throw  new Exception("Campus document template is not available.");
+            }
+
+            String templatePath = campusTemplateDocx.get().getFolderName() + "/" + campusTemplateDocx.get().getFileName();
+
+            String uuid = UUID.randomUUID().toString();
+
+            List<Map<String, Object>> facilityItems = itemList.stream()
+                    .map(item -> {
+                        Map<String, Object> row = new HashMap<>();
+                        row.put("code", item.get("facilityCode"));
+                        row.put("facilityName", item.get("name"));
+                        row.put("category", item.get("category"));
+                        row.put("quantity", item.get("value"));
+                        row.put("unit", item.get("unit"));
+                        return row;
+                    })
+                    .toList();
+
+            Map<String, Object> campusData = buildCampusDocxData(campus, facilityItems);
+
+            String campusName = toSafeObjectKey(campus.getName());
+
+            folderName = actorCampus.getSchool().getFolderPath() + "/" + campusName;
+            fileName = "campus_info_" + uuid + ".docx";
+
+
+            String campusFileUrl = supabaseStorageService.generateDocFileFromTemplate(
+                    campusData,
+                    templatePath,
+                    folderName,
+                    fileName
+            );
+
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("type", "campus_info");
+            payload.put("schoolId", campus.getSchool().getId());
+            payload.put("schoolName", campus.getSchool().getName());
+            payload.put("campusId", campus.getId());
+            payload.put("campusInfoFileUrl", campusFileUrl);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+
+            restTemplate.postForEntity(
+                    n8nUrl,
+                    entity,
+                    String.class
+            );
+
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+
+        campus.setFileName(fileName);
+        campus.setFolderPath(folderName);
+        campusRepo.save(campus);
+
         Map<String, Object> data = new HashMap<>();
         data.put("campus",  buildCampusData(campus));
         data.put("account", buildAccountData(acc));
 
         return ResponseBuilder.build(HttpStatus.OK, "Create campus successfully", data);
+    }
+
+    private String toSafeObjectKey(String input) {
+        if (input == null || input.trim().isEmpty()) {
+            return "";
+        }
+
+        // 1. normalize Unicode (tách dấu ra)
+        String normalized = Normalizer.normalize(input.trim(), Normalizer.Form.NFD);
+
+        // 2. remove dấu (accent)
+        String noAccent = normalized.replaceAll("\\p{M}", "");
+
+        // 3. xử lý riêng đ/Đ
+        noAccent = noAccent.replace("đ", "d").replace("Đ", "d");
+
+        // 4. lowercase
+        String lower = noAccent.toLowerCase(Locale.ROOT);
+
+        // 5. replace ký tự không hợp lệ -> _
+        String safe = lower.replaceAll("[^a-z0-9]+", "_");
+
+        // 6. cleanup: nhiều _ -> 1
+        safe = safe.replaceAll("_+", "_");
+
+        // 7. remove _ đầu/cuối
+        safe = safe.replaceAll("^_+|_+$", "");
+
+        return safe;
+    }
+
+    private Map<String, Object> buildCampusDocxData(Campus campus, List<Map<String, Object>> facilityItems) {
+        Map<String, Object> data = new LinkedHashMap<>();
+
+        data.put("name", campus.getName());
+        data.put("schoolName", campus.getSchool() != null ? campus.getSchool().getName() : "");
+        data.put("phoneNumber", campus.getPhoneNumber());
+        data.put("address", campus.getAddress());
+        data.put("boardingType", campus.getBoardingType());
+        data.put("boardingDescription", mapBoardingDescription(campus.getBoardingType()));
+        data.put("facilityItems", facilityItems);
+
+        return data;
+    }
+
+    private String mapBoardingDescription(BoardingType type) {
+        return switch (type) {
+
+            case FULL_BOARDING ->
+                    "Cơ sở này cung cấp dịch vụ nội trú toàn phần, nơi học sinh sinh hoạt tại trường với chỗ ở, bữa ăn và sự chăm sóc toàn diện hằng ngày.";
+
+            case SEMI_BOARDING ->
+                    "Cơ sở này cung cấp dịch vụ bán trú, cho phép học sinh ở lại trường vào ban ngày để dùng bữa, được hỗ trợ học tập và tham gia các hoạt động ngoại khóa mà không lưu trú qua đêm.";
+
+            case BOTH ->
+                    "Cơ sở này cung cấp cả dịch vụ nội trú toàn phần và bán trú, mang đến lựa chọn linh hoạt về lưu trú và chăm sóc ban ngày để đáp ứng nhu cầu đa dạng của học sinh.";
+        };
     }
 
     private String generateCampusName(Integer schoolId) {

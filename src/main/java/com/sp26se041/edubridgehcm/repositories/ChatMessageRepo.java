@@ -14,13 +14,15 @@ public interface ChatMessageRepo extends JpaRepository<ChatMessage, Long> {
 
     List<ChatMessage> findTop20ByConversationIdAndIdLessThanOrderByIdDesc(Long conversationId, Long cursorId);
 
-    // Lấy last message của 1 conversation
     ChatMessage findTopByConversationIdOrderByTimestampDesc(Long conversationId);
 
-    // Đếm unread message
     Long countByConversationIdAndReceiverNameAndStatusNot(
             Long conversationId,
             String receiverName,
             Status status
     );
+
+    Long countByConversationIdAndStatusNot(Long conversationId, Status status);
+
+    List<ChatMessage> findAllByConversationId(Long conversationId);
 }

@@ -11,7 +11,6 @@ import java.util.Optional;
 
 public interface CounsellorRepo extends JpaRepository<Counsellor, Integer> {
 
-    Optional<Counsellor> findByAccountIdAndCampusId(Integer accountId, Integer campusId);
 
     Page<Counsellor> findByCampusId(Integer campusId, Pageable pageable);
 

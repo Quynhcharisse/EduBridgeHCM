@@ -18,6 +18,7 @@ import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -35,6 +36,8 @@ public class WebSocketServiceImpl implements WebSocketService {
     private final ConversationRepo conversationRepo;
     private final ChatMessageRepo chatMessageRepo;
 
+    private final SimpMessagingTemplate simpMessagingTemplate;
+
     @Override
     public String createChatMessage(ChatMessage chatMessage) {
         Optional<Conversation> conversation = conversationRepo.findById(chatMessage.getConversationId());
@@ -50,10 +53,30 @@ public class WebSocketServiceImpl implements WebSocketService {
 
     @Override
     public ResponseEntity<ResponseObject> markConversationAsRead(Long conversationId, String receiverEmail) {
-        List<ChatMessage> unreadMessages = chatMessageRepo.findByConversationIdAndReceiverNameAndStatus(conversationId, receiverEmail, Status.MESSAGE_SENT);
-        unreadMessages.forEach(msg -> msg.setStatus(Status.MESSAGE_READ));
-        chatMessageRepo.saveAll(unreadMessages);
-        return ResponseBuilder.build(HttpStatus.OK, "Marked as read", unreadMessages);
+
+        List<ChatMessage> unreadMessages;
+
+        Map<String, Object> payload = Map.of(
+                "type", "CONVERSATION_READ",
+                "conversationId", conversationId,
+                "timestamp", LocalDateTime.now().toString()
+        );
+
+        simpMessagingTemplate.convertAndSendToUser(receiverEmail, "/queue/conversation-read", payload);
+
+        try {
+
+            unreadMessages = chatMessageRepo.findByConversationIdAndReceiverNameAndStatus(conversationId, receiverEmail, Status.MESSAGE_SENT);
+            unreadMessages.forEach(msg -> msg.setStatus(Status.MESSAGE_READ));
+
+            chatMessageRepo.saveAll(unreadMessages);
+
+        } catch (Exception ex) {
+            System.out.println(ex.getMessage());
+        }
+
+            return ResponseBuilder.build(HttpStatus.OK, "", null);
+
     }
 
 }

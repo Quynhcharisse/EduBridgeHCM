@@ -43,8 +43,6 @@ public class ChatMessage {
 
     private Long conversationId;
 
-    private Long studentProfileId;
-
     @Column(nullable = false)
     private LocalDateTime timestamp;
 

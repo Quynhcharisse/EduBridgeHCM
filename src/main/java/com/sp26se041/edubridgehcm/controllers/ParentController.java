@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/parent")
@@ -43,7 +44,6 @@ public class ParentController {
     @MessageMapping("/private-message")
     public void privateMessage(ChatMessage message) {
         String error = webSocketService.createChatMessage(message);
-
         if (error != null && !error.isBlank()) {
             ChatMessage systemMessage = ChatMessage.builder()
                     .senderName("System")
@@ -51,7 +51,6 @@ public class ParentController {
                     .message(error)
                     .timestamp(LocalDateTime.now())
                     .build();
-
             simpMessagingTemplate.convertAndSendToUser(
                     message.getSenderName(),
                     "/queue/private",
@@ -60,24 +59,38 @@ public class ParentController {
             return;
         }
 
-        simpMessagingTemplate.convertAndSendToUser(
-                message.getReceiverName(),
-                "/queue/private",
-                message
-        );
-        simpMessagingTemplate.convertAndSendToUser(
-                message.getSenderName(),
-                "/queue/private",
-                message
-        );
+        String receiver = message.getReceiverName() != null ? message.getReceiverName().trim() : "";
+        if (!receiver.isEmpty()) {
+            simpMessagingTemplate.convertAndSendToUser(
+                    receiver,
+                    "/queue/private",
+                    message
+            );
+            return;
+        }
+        // receiver rỗng: fan-out tới tất cả TVV của campus (principal = email đăng nhập STOMP)
+        Integer campusId = message.getCampusId();
+        if (campusId != null && campusId > 0) {
+            List<String> counsellorEmails = parentService.findCounsellorEmailsByCampusId(campusId);
+            for (String email : counsellorEmails) {
+                if (email == null || email.isBlank()) continue;
+                simpMessagingTemplate.convertAndSendToUser(
+                        email.trim(),
+                        "/queue/private",
+                        message
+                );
+            }
+        }
     }
       
     @GetMapping("/messages/history/{parentEmail}/{campusId}/{studentProfileId}")
+    @PreAuthorize("hasRole('PARENT')")
     public ResponseEntity<ResponseObject> getChatHistory(@PathVariable String parentEmail, @PathVariable int campusId, @PathVariable int studentProfileId, @RequestParam (required = false) Long cursorId) {
         return parentService.getChatHistory(parentEmail, campusId, studentProfileId, cursorId);
     }
 
     @PutMapping("/messages/read/{conversationId}/{username}")
+    @PreAuthorize("hasRole('PARENT')")
     public ResponseEntity<ResponseObject> readMessages(@PathVariable Long conversationId, @PathVariable String username) {
         return webSocketService.markConversationAsRead(conversationId, username);
     }
@@ -150,6 +163,12 @@ public class ParentController {
     @PreAuthorize("hasRole('PARENT')")
     public ResponseEntity<ResponseObject> getStudentInfos() {
         return parentService.getStudents();
+    }
+
+    @GetMapping("/student/{id}")
+    @PreAuthorize("hasAnyRole('PARENT')")
+    public ResponseEntity<ResponseObject> getStudentInfoById(@PathVariable int id) {
+        return parentService.getStudentInfo(id);
     }
 
 

@@ -8,12 +8,14 @@ import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.PersonalityType;
 import com.sp26se041.edubridgehcm.models.StudentProfile;
+import com.sp26se041.edubridgehcm.models.Subject;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
 import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
 import com.sp26se041.edubridgehcm.repositories.StudentInfoRepo;
+import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.CounsellorService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
@@ -24,12 +26,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -46,6 +50,8 @@ public class CounsellorServiceImpl implements CounsellorService {
     private final PersonalityTypeRepo personalityTypeRepo;
 
     private final CounsellorRepo counsellorRepo;
+
+    private final SubjectRepo subjectRepo;
 
     @Override
     public ResponseEntity<ResponseObject> getConversations(String status, Long cursorId) {
@@ -142,12 +148,21 @@ public class CounsellorServiceImpl implements CounsellorService {
                     ChatMessage lastMessage = chatMessageRepo
                             .findTopByConversationIdOrderByTimestampDesc(conversation.getId());
 
-                    Long unreadCount = chatMessageRepo
-                            .countByConversationIdAndReceiverNameAndStatusNot(
-                                    conversation.getId(),
-                                    email,
-                                    Status.MESSAGE_READ
-                            );
+                    Long unreadCount;
+
+                    if (conversation.getStatus().getValue().equals(Status.CONVERSATION_PENDING.getValue())) {
+
+                        unreadCount = chatMessageRepo.countByConversationIdAndStatusNot(conversation.getId(), Status.MESSAGE_READ);
+
+                    } else {
+
+                         unreadCount = chatMessageRepo
+                                .countByConversationIdAndReceiverNameAndStatusNot(
+                                        conversation.getId(),
+                                        email,
+                                        Status.MESSAGE_READ
+                                );
+                    }
 
                     Map<String, Object> map = new HashMap<>();
                     map.put("conversationId", conversation.getId());
@@ -217,9 +232,11 @@ public class CounsellorServiceImpl implements CounsellorService {
             conversation = existingConversation.get();
 
             if(conversation.getCounsellorEmail().equals("N/A")) {
+
                 conversation.setStatus(Status.CONVERSATION_ACTIVE);
                 conversation.setCounsellorEmail(counsellorEmail);
                 conversationRepo.save(conversation);
+
             }
 
             if (cursorId == null) {
@@ -239,6 +256,10 @@ public class CounsellorServiceImpl implements CounsellorService {
         Map<String, Object> response = new HashMap<>();
 
         response.put("conversationId", conversation.getId());
+        response.put("campusId", conversation.getCampusId());
+
+        response.put("studentProfileId", conversation.getStudentProfile().getId());
+
 
         response.put("childName", childProfile.getStudentName());
         response.put("gender", childProfile.getGender());
@@ -253,13 +274,123 @@ public class CounsellorServiceImpl implements CounsellorService {
                 personalityType.map(PersonalityType::getTraits).orElse(List.of()));
 
         response.put("favouriteJob", childProfile.getFavouriteJob());
-        response.put("academicProfileMetadata", childProfile.getAcademicProfileMetadata());
+        response.put("academicProfileMetadata", buildAcademicProfileMetadata(childProfile));
+        response.put("subjectsInSystem", getSubjects());
         response.put("messages", buildMessages(messages));
         response.put("hasMore", hasMore);
         response.put("nextCursorId", nextCursorId);
 
         return response;
     }
+
+    private List<Map<String, Object>> getSubjects() {
+        List<Subject> subjects = subjectRepo.findAll();
+
+        return subjects.stream()
+                .collect(Collectors.groupingBy(Subject::getType))
+                .entrySet()
+                .stream()
+                .map(entry -> {
+                    Map<String, Object> groupMap = new HashMap<>();
+
+                    // 🔥 dùng value thay vì name()
+                    groupMap.put("type", entry.getKey().getValue());
+
+                    // label cho FE
+                    String label = switch (entry.getKey()) {
+                        case REGULAR_SUBJECT -> "Môn học chính";
+                        case FOREIGN_LANGUAGE_SUBJECT -> "Ngoại ngữ";
+                    };
+                    groupMap.put("label", label);
+
+                    List<Map<String, Object>> subjectList = entry.getValue().stream()
+                            .map(s -> {
+                                Map<String, Object> item = new HashMap<>();
+                                item.put("id", s.getId());
+                                item.put("name", s.getName());
+                                return item;
+                            })
+                            .toList();
+
+                    groupMap.put("subjects", subjectList);
+
+                    return groupMap;
+                })
+                .toList();
+    }
+
+    private List<Map<String, Object>> buildAcademicProfileMetadata(StudentProfile studentProfile) {
+
+        List<Map<String, Object>> storedAcademicProfiles =
+                (List<Map<String, Object>>) studentProfile.getAcademicProfileMetadata();
+
+        if (storedAcademicProfiles == null || storedAcademicProfiles.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        for (Map<String, Object> academicItem : storedAcademicProfiles) {
+            if (academicItem == null) {
+                continue;
+            }
+
+            String gradeLevel = academicItem.get("gradeLevel") == null
+                    ? null
+                    : academicItem.get("gradeLevel").toString();
+
+            List<Map<String, Object>> storedSubjectResults =
+                    (List<Map<String, Object>>) academicItem.get("subjectResults");
+
+            List<Map<String, Object>> subjectResults = new ArrayList<>();
+
+            if (storedSubjectResults != null) {
+                for (Map<String, Object> subjectItem : storedSubjectResults) {
+                    if (subjectItem == null) {
+                        continue;
+                    }
+
+                    Object subjectNameObj = subjectItem.get("subjectName");
+                    if (subjectNameObj == null) {
+                        continue;
+                    }
+
+                    String subjectName = subjectNameObj.toString().trim();
+                    if (subjectName.isEmpty()) {
+                        continue;
+                    }
+
+                    Optional<Subject> subjectOpt = subjectRepo.findByName(subjectName);
+
+                    Map<String, Object> subjectMap = new HashMap<>();
+                    subjectMap.put("id", subjectItem.get("id"));
+                    subjectMap.put("subjectName", subjectName);
+                    subjectMap.put("type", subjectItem.get("type"));
+                    subjectMap.put("score", subjectItem.get("score"));
+                    subjectMap.put("isAvailable", subjectOpt.isPresent());
+
+                    // Nếu subject còn trong hệ thống thì cập nhật lại thông tin mới nhất
+                    if (subjectOpt.isPresent()) {
+                        Subject subject = subjectOpt.get();
+                        subjectMap.put("id", subject.getId());
+                        subjectMap.put("subjectName", subject.getName());
+                        subjectMap.put("type", subject.getType().getValue());
+                    }
+
+                    subjectResults.add(subjectMap);
+                }
+            }
+
+            Map<String, Object> academicMap = new HashMap<>();
+            academicMap.put("gradeLevel", gradeLevel);
+            academicMap.put("subjectResults", subjectResults);
+
+            result.add(academicMap);
+        }
+
+        return result;
+    }
+
     private List<Map<String, Object>> buildMessages(List<ChatMessage> messages) {
 
         if (messages == null || messages.isEmpty()) {
