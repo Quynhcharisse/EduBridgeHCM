@@ -1123,7 +1123,11 @@ public class SchoolServiceImpl implements SchoolService {
 
         Program savedProgram = programRepo.save(newProgram);
 
-        return ResponseBuilder.build(HttpStatus.CREATED, "A copy has been successfully created. Please update your information.", buildProgramData(savedProgram));
+        return ResponseBuilder.build(
+                HttpStatus.CREATED,
+                "Đã tạo bản sao thành công. Vui lòng cập nhật thông tin",
+                buildProgramData(savedProgram)
+        );
     }
 
     @Override
@@ -1131,54 +1135,88 @@ public class SchoolServiceImpl implements SchoolService {
     public ResponseEntity<ResponseObject> handleProgramAction(int id, String action) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị vô hiệu", null);
         }
 
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản cơ sở không tồn tại trong hệ thống", null);
         }
 
-        // actor campus co phai la primary campus ko
         if (!actorCampus.getIsPrimaryBranch()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
+            return ResponseBuilder.build(
+                    HttpStatus.FORBIDDEN,
+                    "Chỉ cơ sở chính mới được phép thực hiện thao tác này",
+                    null
+            );
         }
 
         Program program = programRepo.findById(id).orElse(null);
 
-        if (program == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Program not found", null);
+        if (program == null) {
+            return ResponseBuilder.build(
+                    HttpStatus.NOT_FOUND,
+                    "Không tìm thấy chương trình",
+                    null
+            );
+        }
 
         switch (action.toUpperCase()) {
+
             case "ACTIVATE":
 
                 if (Status.PRO_ACTIVE.equals(program.getStatus())) {
-                    return ResponseBuilder.build(HttpStatus.OK, "Program is already Active", null);
+                    return ResponseBuilder.build(
+                            HttpStatus.OK,
+                            "Chương trình đã ở trạng thái hoạt động",
+                            null
+                    );
                 }
 
                 program.setStatus(Status.PRO_ACTIVE);
                 programRepo.save(program);
-                return ResponseBuilder.build(HttpStatus.OK, "Program activated successfully", null);
+                return ResponseBuilder.build(
+                        HttpStatus.OK,
+                        "Kích hoạt chương trình thành công",
+                        null
+                );
+
             case "DEACTIVATE":
 
                 if (Status.PRO_INACTIVE.equals(program.getStatus())) {
-                    return ResponseBuilder.build(HttpStatus.OK, "Program is already Inactive", null);
+                    return ResponseBuilder.build(
+                            HttpStatus.OK,
+                            "Chương trình đã ở trạng thái ngừng hoạt động",
+                            null
+                    );
                 }
 
                 program.setStatus(Status.PRO_INACTIVE);
 
-                List<CampusProgramOffering> activeOfferings = campusProgramOfferingRepo.findByProgramIdAndStatus(id, Status.OPEN);
+                List<CampusProgramOffering> activeOfferings =
+                        campusProgramOfferingRepo.findByProgramIdAndStatus(id, Status.OPEN);
+
                 for (CampusProgramOffering off : activeOfferings) {
                     off.setStatus(Status.CLOSED); // Chặn người mới nộp vào
                     campusProgramOfferingRepo.save(off);
                 }
 
                 programRepo.save(program);
-                return ResponseBuilder.build(HttpStatus.OK, "Program deactivated successfully", null);
+                return ResponseBuilder.build(
+                        HttpStatus.OK,
+                        "Ngừng hoạt động chương trình thành công",
+                        null
+                );
 
             default:
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid action", null);
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_REQUEST,
+                        "Hành động không hợp lệ",
+                        null
+                );
         }
+
     }
 
     @Override
@@ -1187,7 +1225,7 @@ public class SchoolServiceImpl implements SchoolService {
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản cơ sở không tồn tại trong hệ thống", null);
         }
 
         Pageable pageable;
@@ -1201,7 +1239,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         PageResponse<Map<String, Object>> pageResponse = PaginationUtil.buildPageResponse(programs, this::buildProgramData);
 
-        return ResponseBuilder.build(HttpStatus.OK, "View program list successfully", pageResponse);
+        return ResponseBuilder.build(HttpStatus.OK, "Hiển thị danh sách chương trình thành công", pageResponse);
     }
 
     private Campus extractActorCampus() {
@@ -1323,7 +1361,7 @@ public class SchoolServiceImpl implements SchoolService {
             return buildPublicSchoolData(school, favouriteSchoolIds, operationConfig);
         }).toList();
 
-        return ResponseBuilder.build(HttpStatus.OK, "View school list successfully", schoolList);
+        return ResponseBuilder.build(HttpStatus.OK, "Hiển thị danh sách trường thành công", schoolList);
     }
 
     @Override
@@ -1332,7 +1370,7 @@ public class SchoolServiceImpl implements SchoolService {
         School school = schoolRepo.findById(schoolId).orElse(null);
 
         if (school == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "School not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy trường trong hệ thống", null);
         }
 
         Set<Integer> favouriteSchoolIds = getFavouriteSchoolIds();
@@ -1346,7 +1384,8 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("curriculumList", school.getCurriculumList().stream().filter(curriculum -> Status.CUR_ACTIVE.equals(curriculum.getCurriculumStatus())).map(this::buildPublicCurriculumData).toList());
 
 
-        return ResponseBuilder.build(HttpStatus.OK, "View school detail successfully", data);
+        return ResponseBuilder.build(HttpStatus.OK, "Hiển thị chi tiết trường thành công", data);
+
     }
 
     private Set<Integer> getFavouriteSchoolIds() {
@@ -1462,102 +1501,117 @@ public class SchoolServiceImpl implements SchoolService {
     public ResponseEntity<ResponseObject> createOpenDayEvent(CreateOpenDayEventRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn bị vô hiệu", null);
         }
 
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
-        }
-
-        if (request == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Request body is required", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoàn cơ sở không tồn tại trong hệ thống", null);
         }
 
         if (request.getTitle() == null || request.getTitle().isBlank()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Title is required", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Yêu cầu tiêu đề", null);
         }
 
         String title = request.getTitle().trim();
         if (title.length() < 5 || title.length() > 255) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Title must be between 5 and 255 characters", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tiêu đề phải có từ 5 đến 255 ký tự", null);
         }
 
         if (request.getDescription() == null || request.getDescription().isBlank()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Description is required", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Mô tả là bắt buộc", null);
         }
 
         String description = request.getDescription().trim();
         if (description.length() < 20 || description.length() > 2000) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Description must be between 20 and 2000 characters", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Mô tả phải có từ 20 đến 2000 ký tự", null);
         }
 
         if (request.getBannerUrl() == null || request.getBannerUrl().isBlank()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Banner URL is required", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Ảnh banner là bắt buộc", null);
         }
 
         String bannerUrl = request.getBannerUrl().trim();
         if (bannerUrl.length() > 1000) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Banner URL must not exceed 1000 characters", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Đường dẫn ảnh banner không được vượt quá 1000 ký tự", null);
         }
 
         if (!(bannerUrl.startsWith("http://") || bannerUrl.startsWith("https://"))) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Banner URL must be a valid URL", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Đường dẫn ảnh banner không hợp lệ", null);
         }
 
         if (request.getEventDate() == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Event date is required", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Ngày tổ chức sự kiện là bắt buộc", null);
         }
 
         if (request.getEventDate().isBefore(LocalDate.now())) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Event date must be today or in the future", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Ngày tổ chức sự kiện phải là hôm nay hoặc trong tương lai", null);
         }
 
         if (request.getStartTime() == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Start time is required", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Thời gian bắt đầu là bắt buộc", null);
         }
 
         if (request.getEndTime() == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "End time is required", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Thời gian kết thúc là bắt buộc", null);
         }
 
         if (request.getCampusId() <= 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campus ID must be greater than 0", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Mã cơ sở phải lớn hơn 0", null);
         }
 
         if (!request.getStartTime().isBefore(request.getEndTime())) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Start time must be earlier than end time", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Thời gian bắt đầu phải sớm hơn thời gian kết thúc", null);
         }
 
         if (request.getEventDate().isEqual(LocalDate.now()) && request.getStartTime().isBefore(LocalTime.now())) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Start time must be later than current time for today's event", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Thời gian bắt đầu phải muộn hơn thời điểm hiện tại nếu sự kiện diễn ra trong ngày hôm nay", null);
         }
 
         if (Duration.between(request.getStartTime(), request.getEndTime()).toMinutes() < 30) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Event duration must be at least 30 minutes", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Thời lượng sự kiện phải tối thiểu 30 phút", null);
         }
-        boolean isConflict = openDayEventRepo.existsByCampusIdAndEventDateAndStartTimeLessThanAndEndTimeGreaterThan(actorCampus.getId(), request.getEventDate(), request.getEndTime(), request.getStartTime());
+
+        boolean isConflict = openDayEventRepo.existsByCampusIdAndEventDateAndStartTimeLessThanAndEndTimeGreaterThan(
+                actorCampus.getId(),
+                request.getEventDate(),
+                request.getEndTime(),
+                request.getStartTime()
+        );
 
         if (isConflict) {
-            return ResponseBuilder.build(HttpStatus.CONFLICT, "Open day event time conflicts with another event in this campus", null);
+            return ResponseBuilder.build(HttpStatus.CONFLICT, "Thời gian tổ chức sự kiện bị trùng với một sự kiện khác tại cơ sở này", null);
         }
-        OpenDayEvent openDayEvent = openDayEventRepo.save(
 
-                OpenDayEvent.builder().title(request.getTitle()).description(request.getDescription()).bannerUrl(request.getBannerUrl()).eventDate(request.getEventDate()).startTime(request.getStartTime()).endTime(request.getEndTime()).status(Status.EVENT_UPCOMING).createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).campus(actorCampus).build());
-        return ResponseBuilder.build(HttpStatus.OK, "Create open day event successfully", buildOpenDayEvent(openDayEvent));
+        OpenDayEvent openDayEvent = openDayEventRepo.save(
+                OpenDayEvent.builder()
+                        .title(request.getTitle())
+                        .description(request.getDescription())
+                        .bannerUrl(request.getBannerUrl())
+                        .eventDate(request.getEventDate())
+                        .startTime(request.getStartTime())
+                        .endTime(request.getEndTime())
+                        .status(Status.EVENT_UPCOMING)
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .campus(actorCampus)
+                        .build()
+        );
+
+        return ResponseBuilder.build(HttpStatus.OK, "Tạo sự kiện Open Day thành công", buildOpenDayEvent(openDayEvent));
     }
 
     @Override
     public ResponseEntity<ResponseObject> viewOpenDayEventList(int currentPage, int pageSize) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn bị vô hiệu", null);
         }
 
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoàn cơ sở không tồn tại trong hệ thống", null);
         }
 
         Pageable pageable;
@@ -1571,7 +1625,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         PageResponse<Map<String, Object>> pageResponse = PaginationUtil.buildPageResponse(openDayEventPage, this::buildOpenDayEvent);
 
-        return ResponseBuilder.build(HttpStatus.OK, "View open day event list successfully", pageResponse);
+        return ResponseBuilder.build(HttpStatus.OK, "Hiển thị danh sách sự kiện ", pageResponse);
     }
 
     private Map<String, Object> buildOpenDayEvent(OpenDayEvent openDayEvent) {
@@ -1600,12 +1654,12 @@ public class SchoolServiceImpl implements SchoolService {
 
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoàn cơ sở không tồn tại trong hệ thống", null);
         }
 
         // actor campus co phai la primary campus ko
         if (!actorCampus.getIsPrimaryBranch()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Campus account is invalid", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Chỉ cơ sở chính mới được phép thực hiện thao tác này", null);
         }
 
         Pageable pageable = PageRequest.of(page, pageSize);
@@ -1715,62 +1769,89 @@ public class SchoolServiceImpl implements SchoolService {
         // step 1 : xác thực school - campus chính
         Campus actorCampus = extractActorCampus();
 
-        if (actorCampus == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "School account not found", null);
+        if (actorCampus == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoàn cơ sở không tồn tại trong hệ thống", null);
 
         if (!actorCampus.getIsPrimaryBranch()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can add new campus", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Chỉ cơ sở chính mới được phép thực hiện thao tác này", null);
         }
 
         School school = actorCampus.getSchool();
 
         if (request == null || request.getPackageId() <= 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Package id is required", null);
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Vui lòng cung cấp mã gói dịch vụ hợp lệ",
+                    null
+            );
         }
 
         // step 2: lấy thông tin của gói cước
-        Subscription subscription = subscriptionRepo.findById(request.getPackageId()).orElseThrow(() -> new RuntimeException("Service package not found"));
+        Subscription subscription = subscriptionRepo.findById(request.getPackageId())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy gói dịch vụ trong hệ thống"));
 
         if (subscription.getPrice() == null || subscription.getPrice() <= 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Package price must be greater than 0", null);
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Giá gói dịch vụ phải lớn hơn 0",
+                    null
+            );
         }
 
         //ktra upgrade vs renew
-        List<SchoolSubscription> currentActiveSub = schoolSubscriptionRepo.findBySchoolIdAndIsSelected(school.getId(), true);
+        // ktra upgrade vs renew
+        List<SchoolSubscription> currentActiveSub =
+                schoolSubscriptionRepo.findBySchoolIdAndIsSelected(school.getId(), true);
 
         LocalDate calculatedStartDate = LocalDate.now();
-        String orderNote = "Payment package " + normalize(subscription.getName());
+        String orderNote = "Thanh toán gói " + normalize(subscription.getName());
 
         if (!currentActiveSub.isEmpty()) {
             // Lấy gói có ngày kết thúc xa nhất trong đám đang active để tính nối đuôi
-            SchoolSubscription current = currentActiveSub.stream().max(Comparator.comparing(SchoolSubscription::getEndDate)).get();
+            SchoolSubscription current = currentActiveSub.stream()
+                    .max(Comparator.comparing(SchoolSubscription::getEndDate))
+                    .get();
 
             if (current.getSubscription().getId().equals(request.getPackageId())) {
                 // Nếu GIA HẠN (Renew) - Cùng loại gói
                 if (current.getEndDate().isAfter(LocalDate.now())) {
                     calculatedStartDate = current.getEndDate().plusDays(1);
-                    orderNote = "Renew package " + normalize(subscription.getName()) + " from " + calculatedStartDate;
+                    orderNote = "Gia hạn gói " + normalize(subscription.getName()) + " từ ngày " + calculatedStartDate;
                 }
             } else {
                 // Nếu NÂNG CẤP (Upgrade) - Khác loại gói
-                orderNote = "Upgrade package " + normalize(subscription.getName());
+                orderNote = "Nâng cấp lên gói " + normalize(subscription.getName());
             }
         }
 
         orderNote = sanitizeOrderInfo(orderNote);
 
-        // step 3 : tạo SchoolSubscription (trạng thái chờ - isSelected = false)
-        // giúp định danh loại chuỗi này là License ==> đóng vai trò là Số báo danh cho gói đăng kí đó
+// step 3 : tạo SchoolSubscription (trạng thái chờ - isSelected = false)
+// giúp định danh loại chuỗi này là License ==> đóng vai trò là Số báo danh cho gói đăng kí đó
         String licenseKey = "LIC-" + VNPayConfig.getRandomNumber(8).toUpperCase();
-        SchoolSubscription schoolSubscription = SchoolSubscription.builder().school(school).subscription(subscription).startDate(calculatedStartDate).endDate(calculatedStartDate.plusDays(subscription.getDurationDays())).isSelected(false) // chưa kích hoạt cho đến khi thanh toán xong
-                .licenseKey(licenseKey).build();
+        SchoolSubscription schoolSubscription = SchoolSubscription.builder()
+                .school(school)
+                .subscription(subscription)
+                .startDate(calculatedStartDate)
+                .endDate(calculatedStartDate.plusDays(subscription.getDurationDays()))
+                .isSelected(false) // chưa kích hoạt cho đến khi thanh toán xong
+                .licenseKey(licenseKey)
+                .build();
 
         schoolSubscription = schoolSubscriptionRepo.save(schoolSubscription);
 
-        // step 4 : cấu hinh vnpay
+// step 4 : cấu hình vnpay
         String vnp_TxnRef = VNPayConfig.getRandomNumber(8); // mã đơn hàng
-        long amount = BigDecimal.valueOf(subscription.getPrice()).multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.HALF_UP).longValue();
+        long amount = BigDecimal.valueOf(subscription.getPrice())
+                .multiply(BigDecimal.valueOf(100))
+                .setScale(0, RoundingMode.HALF_UP)
+                .longValue();
+
         if (amount <= 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid payment amount", null);
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Số tiền thanh toán không hợp lệ",
+                    null
+            );
         }
 
         Map<String, String> vnp_Params = new TreeMap<>();
@@ -1803,7 +1884,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         paymentTransactionRepo.save(PaymentTransaction.builder().school(school).schoolSubscription(schoolSubscription).vnpTxnRef(vnp_TxnRef).vnpAmount(amount).vnpOrderInfo(orderNote).status(Status.PAYMENT_PENDING).createdAt(LocalDateTime.now()).ipAddress(VNPayConfig.getIpAddress(httpRequest)).build());
 
-        return ResponseBuilder.build(HttpStatus.OK, "Payment URL generated", paymentUrl);
+        return ResponseBuilder.build(HttpStatus.OK, "Payment URL tạo thành công", paymentUrl);
     }
 
     @Override
@@ -1819,7 +1900,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         String vnp_SecureHash = vnp_Params.get("vnp_SecureHash");
         if (vnp_SecureHash == null || vnp_SecureHash.isBlank()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Missing vnp_SecureHash", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Thiếu vnp_SecureHash", null);
         }
 
         vnp_Params.remove("vnp_SecureHash");
@@ -1838,19 +1919,32 @@ public class SchoolServiceImpl implements SchoolService {
             String vnp_TxnRef = vnp_Params.get("vnp_TxnRef");
 
             if (vnp_TxnRef == null || vnp_TxnRef.isBlank()) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Missing transaction reference", null);
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_REQUEST,
+                        "Thiếu mã tham chiếu giao dịch",
+                        null
+                );
             }
 
             // 4. Tìm giao dịch trong hệ thống
-            PaymentTransaction transaction = paymentTransactionRepo.findByVnpTxnRef(vnp_TxnRef).orElse(null);
+            PaymentTransaction transaction =
+                    paymentTransactionRepo.findByVnpTxnRef(vnp_TxnRef).orElse(null);
 
             if (transaction == null) {
-                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Transaction not found", null);
+                return ResponseBuilder.build(
+                        HttpStatus.NOT_FOUND,
+                        "Không tìm thấy giao dịch",
+                        null
+                );
             }
 
             // Kiểm tra xem giao dịch này đã được xử lý trước đó chưa (tránh IPN gọi trùng)
             if (transaction.getStatus() != Status.PAYMENT_PENDING) {
-                return ResponseBuilder.build(HttpStatus.OK, "Transaction already processed", null);
+                return ResponseBuilder.build(
+                        HttpStatus.OK,
+                        "Giao dịch đã được xử lý trước đó",
+                        null
+                );
             }
 
             if ("00".equals(vnp_ResponseCode)) {
@@ -1866,17 +1960,29 @@ public class SchoolServiceImpl implements SchoolService {
                 activateSchoolSubscription(schoolSub);
 
                 log.info("Payment success for txnRef: {}", vnp_TxnRef);
-                return ResponseBuilder.build(HttpStatus.OK, "Subscription activated successfully", null);
+                return ResponseBuilder.build(
+                        HttpStatus.OK,
+                        "Kích hoạt gói dịch vụ thành công",
+                        null
+                );
             } else {
                 // thanh toán thất bại (Người dùng hủy hoặc lỗi thẻ)
                 transaction.setStatus(Status.PAYMENT_FAILED);
                 paymentTransactionRepo.save(transaction);
 
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Payment failed with code: " + vnp_ResponseCode, null);
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_REQUEST,
+                        "Thanh toán thất bại. Mã lỗi: " + vnp_ResponseCode,
+                        null
+                );
             }
         } else {
             log.warn("VNPay signature mismatch for txnRef={}, expected={}, actual={}, hashData={}", vnp_Params.get("vnp_TxnRef"), checkSum, vnp_SecureHash, hashData);
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Invalid Signature", null);
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Chữ ký không hợp lệ",
+                    null
+            );
         }
     }
 
@@ -2096,11 +2202,11 @@ public class SchoolServiceImpl implements SchoolService {
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "School account not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản cơ sở không tồn tại trong hệ thống", null);
         }
 
         if (!actorCampus.getIsPrimaryBranch()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Only primary campus can add new campus", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Chỉ cơ sở chính mới được phép thực hiện thao tác này", null);
         }
 
         School school = actorCampus.getSchool();
@@ -2108,12 +2214,20 @@ public class SchoolServiceImpl implements SchoolService {
         Optional<SchoolSubscription> activeSubOpt = schoolSubscriptionRepo.findBySchoolIdAndIsSelected(school.getId(), true).stream().findFirst(); // tại 1 thời điểm chỉ có 1 gói đc active
 
         if (activeSubOpt.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.OK, "No active subscription found", null);
+            return ResponseBuilder.build(
+                    HttpStatus.OK,
+                    "Không có gói dịch vụ đang hoạt động",
+                    null
+            );
         }
 
         Map<String, Object> data = buildCurrentSubscription(activeSubOpt.get());
 
-        return ResponseBuilder.build(HttpStatus.OK, "Fetched current subscription status", data);
+        return ResponseBuilder.build(
+                HttpStatus.OK,
+                "Lấy thông tin gói dịch vụ hiện tại thành công",
+                data
+        );
     }
 
     private Map<String, Object> buildCurrentSubscription(SchoolSubscription schoolSub) {
@@ -2149,8 +2263,20 @@ public class SchoolServiceImpl implements SchoolService {
 
         data.put("dasRemaining", Math.max(0, daysRemaining));
         data.put("isExpired", isExpired);
-        data.put("statusMessage", isExpired ? "Expired" : "Active (Remaining " + daysRemaining + " days)");
-        data.put("suggestion", isExpired ? "Your package has expired. Please purchase new package to continue the service." : "If you purchase the same package '" + schoolSub.getSubscription().getName() + "', time will be accumulated continuously from day to day" + schoolSub.getEndDate() + ".");
+        data.put(
+                "statusMessage",
+                isExpired
+                        ? "Đã hết hạn"
+                        : "Đang hoạt động (còn " + daysRemaining + " ngày)"
+        );
+
+        data.put(
+                "suggestion",
+                isExpired
+                        ? "Gói dịch vụ của bạn đã hết hạn. Vui lòng mua gói mới để tiếp tục sử dụng dịch vụ"
+                        : "Nếu bạn mua lại cùng gói '" + schoolSub.getSubscription().getName() +
+                        "', thời gian sẽ được cộng dồn liên tục đến ngày " + schoolSub.getEndDate()
+        );
         return data;
     }
 }
