@@ -92,26 +92,25 @@ public class EduBridgeHcmApplication {
             return;
         }
 
-        Map<String, Object> businessData = new HashMap<>();
-        businessData.put("taxRate", 0.05);
-        businessData.put("serviceRate", 0.05);
-        businessData.put("minPay", 100000);
-        businessData.put("maxPay", 200000000);
+        Map<String, Object> business = new HashMap<>();
+        business.put("taxRate", 0.05);
+        business.put("serviceRate", 0.05);
+        business.put("minPay", 100000);
+        business.put("maxPay", 200000000);
 
-        Map<String, Object> mediaData = new HashMap<>();
-        mediaData.put("maxImgSize", 10);
-        mediaData.put("maxVideoSize", 50);
-        mediaData.put("maxDocSize", 100);
-        mediaData.put("imgFormat", List.of(Map.of("format", ".jpg"), Map.of("format", ".jpeg"), Map.of("format", ".png"), Map.of("format", ".gif"), Map.of("format", ".webp")));
-        mediaData.put("videoFormat", List.of(Map.of("format", ".mp4"), Map.of("format", ".avi"), Map.of("format", ".mov"), Map.of("format", ".wmv"), Map.of("format", ".webm")));
-        mediaData.put("docFormat", List.of(Map.of("format", ".pdf"), Map.of("format", ".doc"), Map.of("format", ".docx"), Map.of("format", ".txt"), Map.of("format", ".xls")));
+        Map<String, Object> media = new HashMap<>();
+        media.put("maxImgSize", 10);
+        media.put("maxVideoSize", 50);
+        media.put("maxDocSize", 100);
+        media.put("imgFormat", List.of(Map.of("format", ".jpg"), Map.of("format", ".jpeg"), Map.of("format", ".png"), Map.of("format", ".gif"), Map.of("format", ".webp")));
+        media.put("videoFormat", List.of(Map.of("format", ".mp4"), Map.of("format", ".avi"), Map.of("format", ".mov"), Map.of("format", ".wmv"), Map.of("format", ".webm")));
+        media.put("docFormat", List.of(Map.of("format", ".pdf"), Map.of("format", ".doc"), Map.of("format", ".docx"), Map.of("format", ".txt"), Map.of("format", ".xls")));
 
-        Map<String, Object> quotaData = new HashMap<>();
+        Map<String, Object> admissionQuota = new HashMap<>();
         Map<String, Object> year2025 = new HashMap<>();
         year2025.put("sourceUrl", "https://hcm.edu.vn/"); // Link mặc định của Sở
         year2025.put("quotas", new HashMap<String, Integer>()); // Để trống để Admin tự điền sau
-
-        quotaData.put("2025-2026", year2025);
+        admissionQuota.put("2025-2026", year2025);
 
         Map<String, Object> admissionSettingsData = new HashMap<>();
         List<Map<String, Object>> allowedMethods = List.of(
@@ -166,19 +165,19 @@ public class EduBridgeHcmApplication {
         platformConfigRepo.saveAll(List.of(
                 PlatformConfig.builder()
                         .key("business")
-                        .value(businessData)
+                        .value(business)
                         .creationDate(today)
                         .modifiedDate(today)
                         .build(),
                 PlatformConfig.builder()
                         .key("media")
-                        .value(mediaData)
+                        .value(media)
                         .creationDate(today)
                         .modifiedDate(today)
                         .build(),
                 PlatformConfig.builder()
                         .key("admissionQuota")
-                        .value(quotaData)
+                        .value(admissionQuota)
                         .creationDate(today)
                         .modifiedDate(today).build(),
                 PlatformConfig.builder()
