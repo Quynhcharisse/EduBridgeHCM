@@ -33,7 +33,7 @@ public class HolidayValidation {
         try {
             HolidayImpactLevel.valueOf(request.getHolidayImpactLevel());
         } catch (Exception e) {
-            return "Mức độ ảnh hưởng (Impact Level) không hợp lệ. Các giá trị cho phép: " +
+            return "Mức độ ảnh hưởng không hợp lệ. Các giá trị cho phép: " +
                     Arrays.toString(HolidayImpactLevel.values());
         }
 

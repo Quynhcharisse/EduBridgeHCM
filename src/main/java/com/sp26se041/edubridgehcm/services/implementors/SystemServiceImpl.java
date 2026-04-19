@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -76,6 +77,7 @@ public class SystemServiceImpl implements SystemService {
                 && request.getMediaData() == null
                 && request.getSubscriptionData() == null
                 && request.getAdmissionQuotaData() == null
+                && request.getAdmissionSettingsData() == null
         ) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Data missing", null);
         }
@@ -126,6 +128,7 @@ public class SystemServiceImpl implements SystemService {
         if (request.getMediaData() != null) updateMedia(request);
         if (request.getAdmissionQuotaData() != null) updateAdmissionQuota(request);
         if (request.getSubscriptionData() != null) updateSubscriptionPolicy(request);
+        if (request.getAdmissionSettingsData() != null) updateAdmissionSettingsTemplate(request);
     }
 
     @Transactional
@@ -238,6 +241,38 @@ public class SystemServiceImpl implements SystemService {
 
         assert config != null;
         config.setValue(allYearsData);
+        config.setModifiedDate(LocalDateTime.now());
+        platformConfigRepo.save(config);
+    }
+
+    @Transactional
+    public void updateAdmissionSettingsTemplate(CreateConfigDataRequest request) {
+        CreateConfigDataRequest.AdmissionSettingsData admissionSettingsData = request.getAdmissionSettingsData();
+
+        List<Map<String, Object>> allowedMethodsJson = new ArrayList<>();
+        if (admissionSettingsData.getAllowedMethods() != null) {
+            allowedMethodsJson = admissionSettingsData.getAllowedMethods().stream()
+                    .map(method -> {
+                        Map<String, Object> row = new HashMap<>();
+                        row.put("code", method.getCode());
+                        row.put("displayName", method.getDisplayName());
+                        row.put("description", method.getDescription());
+                        return row;
+                    })
+                    .collect(Collectors.toList());
+        }
+
+        Map<String, Object> admissionJson = new HashMap<>();
+        admissionJson.put("allowedMethods", allowedMethodsJson);
+
+        PlatformConfig config = platformConfigRepo.findByKey("admissionSettingsData").orElse(
+                PlatformConfig.builder()
+                        .key("admissionSettingsData")
+                        .creationDate(LocalDateTime.now())
+                        .build()
+        );
+
+        config.setValue(admissionJson);
         config.setModifiedDate(LocalDateTime.now());
         platformConfigRepo.save(config);
     }

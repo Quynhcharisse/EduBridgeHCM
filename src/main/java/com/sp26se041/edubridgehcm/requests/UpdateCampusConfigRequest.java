@@ -6,7 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
-
 import java.util.List;
 import java.util.Map;
 
@@ -23,28 +22,19 @@ public class UpdateCampusConfigRequest {
 
     Integer minCounsellorPerSlot;
 
+    Integer maxCounsellorsPerSlot;   // Tối đa TV / khung (override campus)
+
     Integer slotDurationInMinutes;   // Thời lượng mỗi ca tư vấn (ví dụ: 30, 45, 60)
+
+    Integer bufferBetweenSlotsMinutes; // Nghỉ giữa hai tiết (phút), override campus
 
     Integer maxBookingPerSlot;        // Số khách tối đa trong 1 ca (Tư vấn 1:1 hay 1:n)
 
     Integer allowBookingBeforeHours;  // Thời gian phải đặt trước (ví dụ: 24 tiếng)
 
-    CampusWorkingOverride workingOverride;
-
     List<AdmissionStepOverride> admissionStepsOverride;
 
     String policyDetail;
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class CampusWorkingOverride {
-        String note;
-        Boolean isOpenSunday;
-        List<WorkShiftRequest> workShifts;
-    }
 
     @Data
     @NoArgsConstructor
@@ -61,17 +51,6 @@ public class UpdateCampusConfigRequest {
     @AllArgsConstructor
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class WorkShiftRequest {
-        String name;
-        String startTime;
-        String endTime;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class FacilityItemRequest {
         String facilityCode;
         String name;
@@ -80,4 +59,3 @@ public class UpdateCampusConfigRequest {
         String category;
     }
 }
-

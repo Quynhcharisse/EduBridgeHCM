@@ -5,7 +5,6 @@ import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -126,9 +125,7 @@ public class CampusController {
 
     @GetMapping("/counsellor/slots/assigned")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> getAssignedSlots(
-            @RequestParam Integer campusId,
-            @RequestParam(required = false) Integer counsellorId) {
+    public ResponseEntity<ResponseObject> getAssignedSlots(@RequestParam(required = false) Integer counsellorId) {
         return campusService.getAssignedSlots(counsellorId);
     }
 
@@ -152,13 +149,13 @@ public class CampusController {
 
     @GetMapping("/document")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> getDocuments(){
+    public ResponseEntity<ResponseObject> getDocuments() {
         return campusService.getDocuments();
     }
 
     @GetMapping("/message/history/admin")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> getHistoryChatWithAdmin(@RequestParam(required = false) Long cursorId){
+    public ResponseEntity<ResponseObject> getHistoryChatWithAdmin(@RequestParam(required = false) Long cursorId) {
         return campusService.getChatHistoryWithAdmin(cursorId);
     }
 

@@ -17,9 +17,11 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AssignCounsellorIntoSlotsRequest {
 
-    Integer templateId;
+    List<Integer> templateIds;
 
-    List<Integer> counsellorIds; // Danh sách ID các counsellor muốn có trong slot này
+    List<Integer> counsellorIds;
+
+    List<Integer> slotIds;
 
     LocalDate startDate;
 

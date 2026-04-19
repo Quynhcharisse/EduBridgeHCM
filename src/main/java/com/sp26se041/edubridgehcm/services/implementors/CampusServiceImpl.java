@@ -69,6 +69,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -90,6 +91,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -133,6 +135,8 @@ public class CampusServiceImpl implements CampusService {
 
     private final TemplateDocxRepo templateDocxRepo;
 
+    private final EntityManager entityManager;
+
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Override
@@ -140,23 +144,23 @@ public class CampusServiceImpl implements CampusService {
     public ResponseEntity<ResponseObject> createCampusProgramOffering(CreateCampusProgramOfferingRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế, không thể thực hiện thao tác này.", null);
         }
 
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
         }
 
         if (request.getCampusId() != null && !request.getCampusId().equals(actorCampus.getId())) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "You do not have permission to create a program offering for another campus.", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền tạo chương trình tuyển sinh cho cơ sở khác.", null);
         }
 
         String error = CampusProgramOfferingValidation.validateCreateCampusProgramOffering(request, actorCampus, admissionCampaignRepo, programRepo, campusProgramOfferingRepo, campusRepo);
 
         if (error != null) {
 
-            if (error.contains("already has the same program offering")) {
+            if (error.contains("đã tồn tại suất tuyển sinh")) {
                 return ResponseBuilder.build(HttpStatus.CONFLICT, error, null);
             }
 
@@ -167,13 +171,13 @@ public class CampusServiceImpl implements CampusService {
         AdmissionCampaign campaign = admissionCampaignRepo.findById(request.getAdmissionCampaignId()).orElse(null);
 
         if (campaign == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campaign not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy chiến dịch tuyển sinh.", null);
         }
 
         Program program = programRepo.findByIdAndCurriculum_School_Id(request.getProgramId(), actorCampus.getSchool().getId());
 
         if (program == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Program not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy chương trình đào tạo.", null);
         }
 
         BigDecimal basePrice = program.getBaseTuitionFee();
@@ -187,19 +191,19 @@ public class CampusServiceImpl implements CampusService {
 
         campusProgramOfferingRepo.save(CampusProgramOffering.builder().campus(actorCampus).admissionCampaign(campaign).program(program).quota(request.getQuota()).remainingQuota(request.getQuota()).learningMode(request.getLearningMode()).priceAdjustmentPercentage(adjustmentPercent).finalTuitionFee(finalTuition).applicationStatus(Status.OPEN).openDate((request.getOpenDate() != null) ? request.getOpenDate() : campaign.getStartDate()).closeDate((request.getCloseDate() != null) ? request.getCloseDate() : campaign.getEndDate()).status(Status.OPEN_ADMISSION_CAMPAIGN).build());
 
-        return ResponseBuilder.build(HttpStatus.OK, "Create campus offering successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Tạo chương trình tuyển sinh tại cơ sở thành công.", null);
     }
 
     @Override
     public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(Integer campusId, int page, int pageSize) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế, không thể thực hiện thao tác này.", null);
         }
 
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
         }
 
         Pageable pageable;
@@ -220,20 +224,20 @@ public class CampusServiceImpl implements CampusService {
                 Optional<Campus> targetCampus = campusRepo.findByIdAndSchoolId(campusId, actorCampus.getSchool().getId());
 
                 if (targetCampus.isEmpty()) {
-                    return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Target campus is out of your school scope", null);
+                    return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Cơ sở được chọn không thuộc phạm vi trường của bạn.", null);
                 }
                 offeringPage = campusProgramOfferingRepo.findByCampusIdOrderByIdDesc(campusId, pageable);
             }
         } else {
             if (campusId != null && !campusId.equals(actorCampus.getId())) {
-                return ResponseBuilder.build(HttpStatus.FORBIDDEN, "You are only authorized to view your own campus data.", null);
+                return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn chỉ được xem dữ liệu của cơ sở mình.", null);
             }
             offeringPage = campusProgramOfferingRepo.findByCampusIdOrderByIdDesc(actorCampus.getId(), pageable);
         }
 
         PageResponse<Map<String, Object>> pageResponse = PaginationUtil.buildPageResponse(offeringPage, this::buildOfferingData);
 
-        return ResponseBuilder.build(HttpStatus.OK, "View campus offering list successfully", pageResponse);
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách chương trình tuyển sinh theo cơ sở thành công.", pageResponse);
     }
 
     @Override
@@ -241,22 +245,22 @@ public class CampusServiceImpl implements CampusService {
     public ResponseEntity<ResponseObject> updateCampusProgramOffering(UpdateCampusProgramOfferingRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế, không thể thực hiện thao tác này.", null);
         }
 
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
         }
 
         if (request.getCampusId() != null && !request.getCampusId().equals(actorCampus.getId())) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "You do not have permission to update a program offering for another campus.", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền cập nhật chương trình tuyển sinh của cơ sở khác.", null);
         }
 
         CampusProgramOffering offering = campusProgramOfferingRepo.findById(request.getId()).orElse(null);
 
         if (offering == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Offering not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy chương trình tuyển sinh cơ sở (offering).", null);
         }
 
         int usedQuota = Math.max(0, offering.getQuota() - offering.getRemainingQuota());
@@ -283,7 +287,7 @@ public class CampusServiceImpl implements CampusService {
 
         // Only allow update if status is PAUSED
         if (offering.getApplicationStatus() != Status.PAUSED) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Updates are only allowed when the program is paused.", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ được cập nhật khi chương trình đang ở trạng thái tạm dừng (PAUSED).", null);
         }
 
         int targetRemainingQuota = request.getQuota() != null ? request.getQuota() : offering.getQuota() - usedQuota;
@@ -302,7 +306,7 @@ public class CampusServiceImpl implements CampusService {
 
         campusProgramOfferingRepo.save(offering);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Update campus offering successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Cập nhật chương trình tuyển sinh tại cơ sở thành công.", null);
     }
 
     @Override
@@ -310,26 +314,26 @@ public class CampusServiceImpl implements CampusService {
     public ResponseEntity<ResponseObject> closeCampusProgramOffering(Integer offeringId) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế, không thể thực hiện thao tác này.", null);
         }
 
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
         }
 
         CampusProgramOffering offering = campusProgramOfferingRepo.findById(offeringId).orElse(null);
 
         if (offering == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Offering not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy chương trình tuyển sinh cơ sở (offering).", null);
         }
 
         if (!offering.getCampus().getId().equals(actorCampus.getId())) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "You do not have the right to close programs at other institutions.", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền đóng chương trình tuyển sinh của cơ sở khác.", null);
         }
 
         if (offering.getStatus() == Status.CLOSED) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "This program was previously closed.", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chương trình này đã được đóng trước đó.", null);
         }
 
         int formCount = admissionReservationFormRepo.countByCampusProgramOfferingId(offeringId);
@@ -346,7 +350,7 @@ public class CampusServiceImpl implements CampusService {
         offering.setRemainingQuota(0);
         campusProgramOfferingRepo.save(offering);
 
-        return ResponseBuilder.build(HttpStatus.OK, (formCount >= offering.getQuota()) ? "Chương trình đã đạt chỉ tiêu và được đóng tự động." : "Chương trình đã được Admin chủ động đóng thành công.", null);
+        return ResponseBuilder.build(HttpStatus.OK, (formCount >= offering.getQuota()) ? "Chương trình đã đạt chỉ tiêu và được đóng tự động." : "Chương trình đã được quản trị viên đóng thành công.", null);
     }
 
     @Override
@@ -354,32 +358,32 @@ public class CampusServiceImpl implements CampusService {
     public ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(int offeringId, Status targetStatus) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế, không thể thực hiện thao tác này.", null);
         }
 
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
         }
 
         CampusProgramOffering offering = campusProgramOfferingRepo.findById(offeringId).orElse(null);
 
         if (offering == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Offering not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy chương trình tuyển sinh cơ sở (offering).", null);
         }
 
         if (!offering.getCampus().getId().equals(actorCampus.getId())) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền cập nhật trạng thái chương trình của cơ sở khác", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền cập nhật trạng thái chương trình của cơ sở khác.", null);
         }
 
         if (offering.getStatus().equals(Status.CLOSED) || offering.getApplicationStatus().equals(Status.FULL)) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "The program has closed or reached its quota; it cannot change its status.", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chương trình đã đóng hoặc đã đủ chỉ tiêu, không thể đổi trạng thái.", null);
         }
 
         if (targetStatus.equals(Status.PAUSED)) {
 
             if (offering.getApplicationStatus().equals(Status.PAUSED)) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "The program is in PAUSED", null);
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chương trình đã ở trạng thái tạm dừng, không thể tạm dừng lại.", null);
             }
 
             offering.setApplicationStatus(Status.PAUSED);
@@ -387,24 +391,24 @@ public class CampusServiceImpl implements CampusService {
         } else if (targetStatus == Status.OPEN) {
 
             if (offering.getApplicationStatus() != Status.PAUSED) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ có thể mở lại chương trình từ trạng thái PAUSED", null);
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ có thể mở lại chương trình khi đang ở trạng thái tạm dừng (PAUSED).", null);
             }
 
             int formCount = admissionReservationFormRepo.countByCampusProgramOfferingId(offeringId);
 
             if (formCount >= offering.getQuota()) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không thể mở lại vì đã đủ chỉ tiêu", null);
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không thể mở lại vì đã đủ chỉ tiêu.", null);
             }
 
             offering.setApplicationStatus(Status.OPEN);
 
         } else {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ hỗ trợ chuyển trạng thái OPEN/PAUSED", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ hỗ trợ chuyển sang trạng thái mở (OPEN) hoặc tạm dừng (PAUSED).", null);
         }
 
         campusProgramOfferingRepo.save(offering);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Paused is successful.", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Cập nhật trạng thái chương trình thành công.", null);
     }
 
     private Map<String, Object> buildOfferingData(CampusProgramOffering offering) {
@@ -444,12 +448,12 @@ public class CampusServiceImpl implements CampusService {
     public ResponseEntity<ResponseObject> createAccountCounsellor(CreateAccountCounsellorRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế, không thể thực hiện thao tác này.", null);
         }
 
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
         }
 
         String validationError = CounsellorValidation.validateCreateCounsellor(request, accountRepo, campusResourceQuotaRepo, counsellorRepo, actorCampus.getId());
@@ -462,7 +466,7 @@ public class CampusServiceImpl implements CampusService {
 
         Counsellor counsellor = counsellorRepo.save(Counsellor.builder().account(account).campus(actorCampus).avatar(request.getAvatar()).employeeCode(UUID.randomUUID()).build());
 
-        return ResponseBuilder.build(HttpStatus.OK, "Create counsellor successfully", buildCounsellorData(counsellor));
+        return ResponseBuilder.build(HttpStatus.OK, "Tạo tài khoản chuyên viên tư vấn thành công.", buildCounsellorData(counsellor));
     }
 
     @Override
@@ -471,7 +475,7 @@ public class CampusServiceImpl implements CampusService {
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
         }
 
         //lấy thông tin Quota và Usage
@@ -508,7 +512,7 @@ public class CampusServiceImpl implements CampusService {
         data.put("currentUsage", currentUsage);
         data.put("maxQuota", maxQuota);
 
-        return ResponseBuilder.build(HttpStatus.OK, "View counsellor list successfully", data);
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách chuyên viên tư vấn thành công.", data);
     }
 
     @Override
@@ -516,7 +520,7 @@ public class CampusServiceImpl implements CampusService {
 
         Campus actorCampus = extractActorCampus();
 
-        if (actorCampus == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campus not found", null);
+        if (actorCampus == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy cơ sở trường học.", null);
 
         // 1. Lấy thông tin Quota hiện tại của Campus phụ
         var quotaOpt = campusResourceQuotaRepo.findByCampusIdAndResourceType(actorCampus.getId(), ResourceType.COUNSELLOR);
@@ -537,7 +541,7 @@ public class CampusServiceImpl implements CampusService {
         summary.put("primaryBranchEmail", primaryCampus != null ? primaryCampus.getAccount().getEmail() : "admin@school.com");
         summary.put("schoolName", actorCampus.getSchool().getName());
 
-        return ResponseBuilder.build(HttpStatus.OK, "Summary fetched", summary);
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy tóm tắt hạn mức chuyên viên thành công.", summary);
     }
 
     public String generateProfessionalEmployeeCode(Campus campus, UUID uuid) {
@@ -603,13 +607,13 @@ public class CampusServiceImpl implements CampusService {
     public ResponseEntity<ResponseObject> updateCampusConfig(UpdateCampusConfigRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế, không thể thực hiện thao tác này.", null);
         }
 
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
         }
 
         // campus xử lý facility
@@ -659,7 +663,9 @@ public class CampusServiceImpl implements CampusService {
 
             Map<String, Object> policyJsonb = new HashMap<>();
             policyJsonb.put("minCounsellorPerSlot", mergedOp.get("minCounsellorPerSlot"));
+            policyJsonb.put("maxCounsellorsPerSlot", mergedOp.get("maxCounsellorsPerSlot"));
             policyJsonb.put("slotDurationInMinutes", mergedOp.get("slotDurationInMinutes"));
+            policyJsonb.put("bufferBetweenSlotsMinutes", mergedOp.get("bufferBetweenSlotsMinutes"));
             policyJsonb.put("maxBookingPerSlot", mergedOp.get("maxBookingPerSlot"));
             policyJsonb.put("allowBookingBeforeHours", mergedOp.get("allowBookingBeforeHours"));
             policyJsonb.put("fullTextRendered", finalPolicyStr);
@@ -733,7 +739,7 @@ public class CampusServiceImpl implements CampusService {
 
         campusRepo.save(actorCampus);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Campus config updated successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Cập nhật cấu hình cơ sở thành công.", null);
     }
 
     private Map<String, Object> buildCampusDocxData(Campus campus, List<Map<String, Object>> facilityItems) {
@@ -775,7 +781,7 @@ public class CampusServiceImpl implements CampusService {
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
         }
 
         SchoolConfig hqFacility = schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), "facilityData").orElse(null);
@@ -799,16 +805,20 @@ public class CampusServiceImpl implements CampusService {
             hqSection.put("facility", null);
         }
 
+        Object hqWorkingConfig = null;
         if (hqOperation != null && hqOperation.getValue() instanceof Map) {
             Map<String, Object> fullOp = (Map<String, Object>) hqOperation.getValue();
+            hqWorkingConfig = fullOp.get("workingConfig");
             Map<String, Object> filteredOp = new HashMap<>();
 
-            filteredOp.put("workingConfig", fullOp.get("workingConfig"));
+            filteredOp.put("workingConfig", hqWorkingConfig);
             filteredOp.put("academicCalendar", fullOp.get("academicCalendar"));
             filteredOp.put("admissionProcesses", fullOp.get("admissionProcesses"));
             filteredOp.put("maxBookingPerSlot", fullOp.get("maxBookingPerSlot"));
             filteredOp.put("minCounsellorPerSlot", fullOp.get("minCounsellorPerSlot"));
+            filteredOp.put("maxCounsellorsPerSlot", fullOp.get("maxCounsellorsPerSlot"));
             filteredOp.put("slotDurationInMinutes", fullOp.get("slotDurationInMinutes"));
+            filteredOp.put("bufferBetweenSlotsMinutes", fullOp.get("bufferBetweenSlotsMinutes"));
             filteredOp.put("allowBookingBeforeHours", fullOp.get("allowBookingBeforeHours"));
 
             hqSection.put("operation", filteredOp);
@@ -830,16 +840,23 @@ public class CampusServiceImpl implements CampusService {
         Map<String, Object> campusPolicyDb = (Map<String, Object>) actorCampus.getPolicyDetail();
         if (campusPolicyDb != null) {
             campusUpdateInfo.put("minCounsellorPerSlot", campusPolicyDb.get("minCounsellorPerSlot"));
+            campusUpdateInfo.put("maxCounsellorsPerSlot", campusPolicyDb.get("maxCounsellorsPerSlot"));
             campusUpdateInfo.put("slotDurationInMinutes", campusPolicyDb.get("slotDurationInMinutes"));
+            campusUpdateInfo.put("bufferBetweenSlotsMinutes", campusPolicyDb.get("bufferBetweenSlotsMinutes"));
             campusUpdateInfo.put("maxBookingPerSlot", campusPolicyDb.get("maxBookingPerSlot"));
             campusUpdateInfo.put("allowBookingBeforeHours", campusPolicyDb.get("allowBookingBeforeHours"));
             campusUpdateInfo.put("fullPolicyRendered", campusPolicyDb.get("fullTextRendered"));
             campusUpdateInfo.put("policyDetail", campusPolicyDb.get("rawCustomNote")); // Note riêng của campus
         }
+        if (hqWorkingConfig != null) {
+            campusUpdateInfo.put("workingConfig", hqWorkingConfig);
+        } else if (campusPolicyDb != null) {
+            campusUpdateInfo.put("workingConfig", campusPolicyDb.get("workingConfig"));
+        }
 
         result.put("campusCurrent", campusUpdateInfo);
 
-        return ResponseBuilder.build(HttpStatus.OK, "", result);
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy cấu hình cơ sở và chuẩn HQ thành công.", result);
     }
 
     @Override
@@ -847,13 +864,21 @@ public class CampusServiceImpl implements CampusService {
     public ResponseEntity<ResponseObject> upsertCampusScheduleTemplate(CampusScheduleTemplateRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế, không thể thực hiện thao tác này.", null);
         }
 
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
+        }
+
+        if (request.getDayOfWeek() == null || request.getDayOfWeek().isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Danh sách thứ trong tuần (dayOfWeek) không được để trống.", null);
+        }
+
+        if (request.getSessionType() == null || request.getSessionType().isBlank()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Loại buổi (sessionType) không được để trống.", null);
         }
 
         if (request.getTemplateId() != null && request.getTemplateId() > 0) {
@@ -861,37 +886,116 @@ public class CampusServiceImpl implements CampusService {
             CampusScheduleTemplate existing = campusScheduleTemplateRepo.findById(request.getTemplateId()).orElse(null);
 
             if (existing == null) {
-                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Template does not exist.", null);
+                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy khung lịch (template).", null);
             }
 
             if (!existing.getCampus().getId().equals(actorCampus.getId())) {
-                return ResponseBuilder.build(HttpStatus.FORBIDDEN, "You do not edit another campus template", null);
+                return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không được phép sửa khung lịch của cơ sở khác.", null);
+            }
+
+            if (request.getDayOfWeek().size() != 1) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Khi cập nhật khung lịch, chỉ được gửi đúng một thứ trong dayOfWeek. "
+                                + "Để thêm khung cho nhiều ngày, hãy tạo khung mới (không gửi templateId) hoặc gọi API lần lượt cho từng ngày.",
+                        null);
             }
         }
 
-        Map<String, Object> workingConfig = SchoolConfigUtil.getWorkingConfig(schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), "operationSettingsData").orElse(null));
+        if (Boolean.TRUE.equals(request.getExpandToPolicySlots())
+                && request.getTemplateId() != null && request.getTemplateId() > 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Tách khung theo độ dài một slot chỉ áp dụng khi tạo mới: không được gửi kèm templateId.", null);
+        }
+
+        SchoolConfig hqSchoolConfig = schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), "operationSettingsData").orElse(null);
+        Map<String, Object> effectiveOperation = SchoolConfigUtil.getEffectiveOperationSettingsMap(hqSchoolConfig, actorCampus);
+        Map<String, Object> workingConfig = (Map<String, Object>) effectiveOperation.get("workingConfig");
+        if (workingConfig == null) {
+            workingConfig = SchoolConfigUtil.getWorkingConfig(hqSchoolConfig);
+        }
+        Map<String, Integer> numericPolicy = SchoolConfigUtil.getNumericPolicyFromOperationMap(effectiveOperation);
+        Integer slotDurationMinutes = numericPolicy.get("slotDurationInMinutes");
+        int bufferBetweenSlotsMinutes = numericPolicy.getOrDefault("bufferBetweenSlotsMinutes", 0);
+
+        LocalTime[] window = SchoolConfigUtil.resolveShiftTimeWindowForSessionType(workingConfig, request.getSessionType());
+        if (window == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Không tìm thấy ca làm việc trong cấu hình vận hành trường khớp với buổi " + request.getSessionType()
+                            + ". Hãy cấu hình workShifts trong operationSettingsData (campus chính / HQ).", null);
+        }
+        DateTimeFormatter hm = DateTimeFormatter.ofPattern("HH:mm");
+        String startStr = window[0].format(hm);
+        String endStr = window[1].format(hm);
+
+        boolean expandToPolicySlots = Boolean.TRUE.equals(request.getExpandToPolicySlots());
 
         for (String day : request.getDayOfWeek()) {
 
-            String error = CampusScheduleTemplateValidation.validateCampusScheduleTemplate(request.getTemplateId(), request, day, workingConfig, campusScheduleTemplateRepo, actorCampus);
+            if (expandToPolicySlots) {
+                if (slotDurationMinutes == null || slotDurationMinutes <= 0) {
+                    return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                            "Cần cấu hình slotDurationInMinutes lớn hơn 0 trong vận hành (HQ hoặc campus) để tách khung theo độ dài một slot.", null);
+                }
+                List<String[]> windows;
+                try {
+                    LocalTime rangeStart = LocalTime.parse(startStr);
+                    LocalTime rangeEnd = LocalTime.parse(endStr);
+                    windows = SchoolConfigUtil.splitRangeIntoPolicySlotWindows(
+                            rangeStart, rangeEnd, slotDurationMinutes, bufferBetweenSlotsMinutes);
+                } catch (IllegalArgumentException | java.time.format.DateTimeParseException | IllegalStateException e) {
+                    return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+                }
 
-            if (error != null) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+                for (String[] w : windows) {
+                    String error = CampusScheduleTemplateValidation.validateCampusScheduleTemplate(
+                            null,
+                            w[0],
+                            w[1],
+                            request.getSessionType(),
+                            day,
+                            workingConfig,
+                            campusScheduleTemplateRepo,
+                            actorCampus,
+                            slotDurationMinutes,
+                            bufferBetweenSlotsMinutes);
+                    if (error != null) {
+                        return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+                    }
+                    saveSingleTemplate(null, day, actorCampus, w[0], w[1], request.getSessionType());
+                    campusScheduleTemplateRepo.flush();
+                }
+            } else {
+
+                String error = CampusScheduleTemplateValidation.validateCampusScheduleTemplate(
+                        request.getTemplateId(),
+                        startStr,
+                        endStr,
+                        request.getSessionType(),
+                        day,
+                        workingConfig,
+                        campusScheduleTemplateRepo,
+                        actorCampus,
+                        slotDurationMinutes,
+                        bufferBetweenSlotsMinutes);
+
+                if (error != null) {
+                    return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
+                }
+
+                saveSingleTemplate(request.getTemplateId(), day, actorCampus, startStr, endStr, request.getSessionType());
             }
-
-            saveSingleTemplate(request, day, actorCampus);
         }
 
-        return ResponseBuilder.build(HttpStatus.OK, "Templates processed successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Xử lý khung lịch (template) thành công.", null);
     }
 
-    private void saveSingleTemplate(CampusScheduleTemplateRequest request, String day, Campus campus) {
+    private void saveSingleTemplate(Integer templateId, String day, Campus campus, String startTime, String endTime, String sessionType) {
         CampusScheduleTemplate template;
 
-        boolean isUpdate = request.getTemplateId() != null && request.getTemplateId() > 0 && request.getDayOfWeek().size() == 1;
+        boolean isUpdate = templateId != null && templateId > 0;
 
         if (isUpdate) {
-            template = campusScheduleTemplateRepo.findById(request.getTemplateId()).get();
+            template = campusScheduleTemplateRepo.findById(templateId).get();
         } else {
 
             template = new CampusScheduleTemplate();
@@ -900,9 +1004,9 @@ public class CampusServiceImpl implements CampusService {
         }
 
         template.setDayOfWeek(day.toUpperCase());
-        template.setStartTime(LocalTime.parse(request.getStartTime()));
-        template.setEndTime(LocalTime.parse(request.getEndTime()));
-        template.setSessionType(SessionType.valueOf(request.getSessionType()));
+        template.setStartTime(LocalTime.parse(startTime));
+        template.setEndTime(LocalTime.parse(endTime));
+        template.setSessionType(SessionType.valueOf(sessionType));
         template.setUpdatedDate(LocalDate.now());
         template.setActive(true);
 
@@ -915,7 +1019,7 @@ public class CampusServiceImpl implements CampusService {
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
         }
 
         List<CampusScheduleTemplate> templates = campusScheduleTemplateRepo.findByCampusIdAndActiveTrueOrderByStartTimeAsc(actorCampus.getId());
@@ -936,7 +1040,7 @@ public class CampusServiceImpl implements CampusService {
             }
         }
 
-        return ResponseBuilder.build(HttpStatus.OK, "View campus schedule templates successfully", groupedTemplates);
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách khung lịch tư vấn theo cơ sở thành công.", groupedTemplates);
     }
 
     private Map<String, Object> buildTemplateData(CampusScheduleTemplate template) {
@@ -956,64 +1060,208 @@ public class CampusServiceImpl implements CampusService {
     public ResponseEntity<ResponseObject> syncCounsellorIntoSlots(AssignCounsellorIntoSlotsRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế, không thể thực hiện thao tác này.", null);
         }
 
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
         }
-
-        List<SchoolHoliday> holidayList = schoolHolidayRepo.findAllBySchoolIdAndCampusIdIn(actorCampus.getSchool().getId(), List.of(actorCampus.getId()));
-
-        // 1. Xác định các ngày lễ bị ảnh hưởng trong khoảng gán lịch
-        List<String> affectedHolidays = holidayList.stream()
-                .filter(h -> !(request.getEndDate().isBefore(h.getStartDate()) || request.getStartDate().isAfter(h.getEndDate())))
-              // thiếu Chỉ lọc những ngày nghỉ có áp dụng cho tư vấn
-                .map(SchoolHoliday::getTitle)
-                .distinct()
-                .toList();
 
         SchoolConfig operatingSystemsConfig = schoolConfigRepo.findBySchoolIdAndKey(
                 actorCampus.getSchool().getId(), "operationSettingsData").orElse(null);
 
-        CampusScheduleTemplate template = campusScheduleTemplateRepo.findById(request.getTemplateId()).orElse(null);
-        if (template == null) return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Template not found", null);
+        Map<String, Object> effectiveOperationSettings = SchoolConfigUtil.getEffectiveOperationSettingsMap(operatingSystemsConfig, actorCampus);
+
+        String actionInput = CounsellorSlotValidation.normalizeCounsellorSlotSyncAction(request.getAction());
+        if (actionInput == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Tham số action là bắt buộc và phải là ASSIGN (gán) hoặc UNASSIGN (hủy gán).", null);
+        }
+        boolean isAssign = "ASSIGN".equals(actionInput);
+        List<Integer> unassignSlotIds = resolveUnassignSlotIds(request);
+
+        if (isAssign) {
+            if (request.getStartDate() == null && request.getEndDate() == null) {
+                Optional<SchoolConfigUtil.AcademicAssignmentDateRange> semesterRange =
+                        SchoolConfigUtil.resolveAssignmentDateRangeFromAcademicCalendar(effectiveOperationSettings);
+                if (semesterRange.isEmpty()) {
+                    return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                            "Vui lòng nhập Từ ngày và Đến ngày, hoặc cấu hình đủ phạm vi học kỳ (academicCalendar.term1/term2).", null);
+                }
+                SchoolConfigUtil.AcademicAssignmentDateRange r = semesterRange.get();
+                request.setStartDate(r.start());
+                request.setEndDate(r.end());
+            } else if (request.getStartDate() == null || request.getEndDate() == null) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Ngày bắt đầu và ngày kết thúc phải cùng điền hoặc cùng để trống khi gán.", null);
+            }
+        } else {
+            if (unassignSlotIds.isEmpty() && (request.getStartDate() == null || request.getEndDate() == null)) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Hủy gán: gửi slotIds (id lịch gán), hoặc điền đủ startDate và endDate khi không dùng slotIds.", null);
+            }
+        }
+
+        if (!isAssign && !unassignSlotIds.isEmpty()) {
+            try {
+                unassignCounsellorSlotsByIds(request, actorCampus, unassignSlotIds);
+            } catch (IllegalArgumentException e) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+            }
+            counsellorSlotRepo.flush();
+            clearPersistenceContextBeforeSnapshot();
+            List<Map<String, Object>> snapshotById = loadAssignedSlotsSnapshot(actorCampus.getId());
+            Map<String, Object> bodyById = new LinkedHashMap<>();
+            bodyById.put("action", actionInput);
+            bodyById.put("removedSlotIds", List.copyOf(unassignSlotIds));
+            bodyById.put("slots", snapshotById);
+            return ResponseBuilder.build(HttpStatus.OK, "Hủy gán chuyên viên tư vấn thành công.", bodyById);
+        }
+
+        List<Integer> templateIdList = resolveAssignTemplateIds(request);
+        if (templateIdList.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cần chỉ định templateIds (danh sách không rỗng).", null);
+        }
 
         List<CounsellorSlot> allCurrentSlots = counsellorSlotRepo.findByCampusScheduleTemplate_Campus_Id(actorCampus.getId());
 
         List<Counsellor> counsellors = counsellorRepo.findAllById(request.getCounsellorIds());
 
-        Map<String, Object> operatingSettings = (operatingSystemsConfig != null)
-                ? (Map<String, Object>) operatingSystemsConfig.getValue()
-                : new HashMap<>();
+        for (Integer tid : templateIdList) {
+            CampusScheduleTemplate template = campusScheduleTemplateRepo.findById(tid).orElse(null);
+            if (template == null) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy khung lịch (template) với mã: " + tid + ".", null);
+            }
+            if (!template.getCampus().getId().equals(actorCampus.getId())) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Khung lịch không thuộc cơ sở này (templateId=" + tid + ").", null);
+            }
 
-        String error = CounsellorSlotValidation.validateAssignRequest(operatingSettings, request, actorCampus, template, counsellors, allCurrentSlots);
-
-        if (error != null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
-        }
-
-        // 4. Xác định Action
-        String actionInput = (request.getAction() != null) ? request.getAction().toUpperCase() : "ASSIGN";
-
-        for (Counsellor counsellor : counsellors) {
-
-            // Lọc ra các slot của riêng counsellor này từ list tổng
-            List<CounsellorSlot> counsellorSlots = allCurrentSlots.stream().filter(s -> s.getCounsellor().getId().equals(counsellor.getId())).toList();
-
-            if ("ASSIGN".equals(actionInput)) {
-                handleAssignAction(counsellor, template, request, counsellorSlots);
-            } else {
-                handleUnassignAction(template, request, counsellorSlots);
+            String error = CounsellorSlotValidation.validateAssignRequest(effectiveOperationSettings, request, actorCampus, template, counsellors, allCurrentSlots);
+            if (error != null) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
             }
         }
 
-        return ResponseBuilder.build(HttpStatus.OK, actionInput + " counsellors successful", null);
+        List<SchoolHoliday> holidayList = mergeSchoolHolidaysForCampus(actorCampus.getSchool().getId(), actorCampus.getId());
+
+        if (isAssign && request.getStartDate() != null && request.getEndDate() != null) {
+            String holidayBlock = SchoolConfigUtil.validateAssignmentRangeAgainstBlockingHolidays(
+                    request.getStartDate(), request.getEndDate(), holidayList, actorCampus.getId());
+            if (holidayBlock != null) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, holidayBlock, null);
+            }
+        }
+
+        try {
+            for (Integer tid : templateIdList) {
+                CampusScheduleTemplate template = campusScheduleTemplateRepo.findById(tid).orElseThrow();
+
+                for (Counsellor counsellor : counsellors) {
+
+                    List<CounsellorSlot> counsellorSlots = allCurrentSlots.stream()
+                            .filter(s -> s.getCounsellor().getId().equals(counsellor.getId()))
+                            .toList();
+
+                    if (isAssign) {
+                        handleAssignAction(counsellor, template, request, counsellorSlots);
+                    } else {
+                        handleUnassignAction(template, request, counsellorSlots, counsellor);
+                    }
+                }
+                counsellorSlotRepo.flush();
+                allCurrentSlots = counsellorSlotRepo.findByCampusScheduleTemplate_Campus_Id(actorCampus.getId());
+            }
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
+
+        counsellorSlotRepo.flush();
+        clearPersistenceContextBeforeSnapshot();
+        List<Map<String, Object>> slotsSnapshot = loadAssignedSlotsSnapshot(actorCampus.getId());
+        Map<String, Object> resultBody = new LinkedHashMap<>();
+        resultBody.put("action", actionInput);
+        resultBody.put("slots", slotsSnapshot);
+
+        return ResponseBuilder.build(HttpStatus.OK, (isAssign ? "Gán" : "Hủy gán") + " chuyên viên tư vấn thành công.", resultBody);
+    }
+
+    /** Tránh snapshot sau DELETE vẫn đọc entity cũ trong persistence context (first-level cache). */
+    private void clearPersistenceContextBeforeSnapshot() {
+        entityManager.flush();
+        entityManager.clear();
+    }
+
+    /** Danh sách gán hiện tại của campus — cùng cấu trúc phần tử với GET /counsellor/slots/assigned. */
+    private List<Map<String, Object>> loadAssignedSlotsSnapshot(Integer campusId) {
+        List<CounsellorSlot> slots = counsellorSlotRepo.findByCampusScheduleTemplate_Campus_Id(campusId);
+        return slots.stream()
+                .filter(s -> s.getStatus() != Status.SLOT_UNASSIGNED)
+                .map(this::buildManagementSlotData)
+                .toList();
+    }
+
+    /** Danh sách id khung lịch (bỏ trùng, bỏ null). */
+    private static List<Integer> resolveAssignTemplateIds(AssignCounsellorIntoSlotsRequest request) {
+        if (request.getTemplateIds() == null || request.getTemplateIds().isEmpty()) {
+            return List.of();
+        }
+        return request.getTemplateIds().stream().filter(id -> id != null).distinct().toList();
+    }
+
+    /** Id bản ghi counsellor_slot khi UNASSIGN theo slotId (bỏ trùng, bỏ null). */
+    private static List<Integer> resolveUnassignSlotIds(AssignCounsellorIntoSlotsRequest request) {
+        if (request.getSlotIds() == null || request.getSlotIds().isEmpty()) {
+            return List.of();
+        }
+        return request.getSlotIds().stream().filter(Objects::nonNull).distinct().toList();
+    }
+
+    /** Hủy gán: xóa từng bản ghi theo khóa chính (khớp GET assigned → slotId). */
+    private void unassignCounsellorSlotsByIds(AssignCounsellorIntoSlotsRequest request, Campus actorCampus, List<Integer> slotIds) {
+
+        List<Integer> allowedCounsellorIds = (request.getCounsellorIds() != null)
+                ? request.getCounsellorIds().stream().filter(Objects::nonNull).distinct().toList()
+                : List.of();
+
+        for (Integer sid : slotIds) {
+            CounsellorSlot slot = counsellorSlotRepo.findById(sid).orElseThrow(() -> new IllegalArgumentException(
+                    "Không tìm thấy lịch gán với slotId=" + sid + "."
+            ));
+
+            if (!slot.getCampusScheduleTemplate().getCampus().getId().equals(actorCampus.getId())) {
+                throw new IllegalArgumentException("slotId=" + sid + " không thuộc cơ sở của tài khoản hiện tại.");
+            }
+            if (!allowedCounsellorIds.isEmpty() && !allowedCounsellorIds.contains(slot.getCounsellor().getId())) {
+                throw new IllegalArgumentException("slotId=" + sid + " không khớp danh sách counsellorIds.");
+            }
+            CounsellorSlotValidation.validateNoActiveConsultation(slot);
+            slot.setStatus(Status.SLOT_UNASSIGNED);
+            counsellorSlotRepo.save(slot);
+            counsellorSlotRepo.flush();
+        }
     }
 
     private void handleAssignAction(Counsellor counsellor, CampusScheduleTemplate template, AssignCounsellorIntoSlotsRequest request, List<CounsellorSlot> existingSlots) {
+
         for (CounsellorSlot slot : existingSlots) {
+            boolean sameWindow = slot.getCampusScheduleTemplate().getId().equals(template.getId())
+                    && slot.getStartDate().equals(request.getStartDate())
+                    && slot.getEndDate().equals(request.getEndDate());
+            if (sameWindow) {
+                if (slot.getStatus() == Status.SLOT_UNASSIGNED) {
+                    slot.setStatus(Status.AVAILABLE);
+                    counsellorSlotRepo.save(slot);
+                    return;
+                }
+                return;
+            }
+        }
+
+        for (CounsellorSlot slot : existingSlots) {
+            if (slot.getStatus() == Status.SLOT_UNASSIGNED) {
+                continue;
+            }
             boolean isDateOverlap = request.getStartDate().isBefore(slot.getEndDate().plusDays(1)) && request.getEndDate().isAfter(slot.getStartDate().minusDays(1));
 
             boolean isDayOfWeekSame = slot.getCampusScheduleTemplate().getDayOfWeek().equalsIgnoreCase(template.getDayOfWeek());
@@ -1021,25 +1269,50 @@ public class CampusServiceImpl implements CampusService {
             boolean isTimeOverlap = template.getStartTime().isBefore(slot.getCampusScheduleTemplate().getEndTime()) && template.getEndTime().isAfter(slot.getCampusScheduleTemplate().getStartTime());
 
             if (isDateOverlap && isDayOfWeekSame && isTimeOverlap) {
-                // Nếu trùng chính xác tuyệt đối (trùng cả template id, start/end date) thì bỏ qua (Idempotent)
-                if (slot.getCampusScheduleTemplate().getId().equals(template.getId()) && slot.getStartDate().equals(request.getStartDate()))
-                    return;
-
-                throw new IllegalArgumentException("Counsellor " + counsellor.getName() + " is busy during this period.");
+                throw new IllegalArgumentException("Chuyên viên " + counsellor.getName() + " đã có lịch trùng khoảng thời gian hoặc khung giờ này.");
             }
         }
-        counsellorSlotRepo.save(CounsellorSlot.builder().campusScheduleTemplate(template).counsellor(counsellor).startDate(request.getStartDate()).endDate(request.getEndDate()).build());
+        counsellorSlotRepo.save(CounsellorSlot.builder()
+                .campusScheduleTemplate(template)
+                .counsellor(counsellor)
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate())
+                .status(Status.AVAILABLE)
+                .build());
     }
 
-    private void handleUnassignAction(CampusScheduleTemplate template, AssignCounsellorIntoSlotsRequest request, List<CounsellorSlot> existingSlots) {
+    private void handleUnassignAction(CampusScheduleTemplate template, AssignCounsellorIntoSlotsRequest request, List<CounsellorSlot> existingSlots, Counsellor counsellor) {
 
-        CounsellorSlot targetSlot = existingSlots.stream().filter(s -> s.getCampusScheduleTemplate().getId().equals(template.getId()) && s.getStartDate().equals(request.getStartDate()) && s.getEndDate().equals(request.getEndDate())).findFirst().orElse(null);
+        CounsellorSlot targetSlot = existingSlots.stream()
+                .filter(s -> s.getStatus() != Status.SLOT_UNASSIGNED)
+                .filter(s -> s.getCampusScheduleTemplate().getId().equals(template.getId())
+                        && s.getStartDate().equals(request.getStartDate())
+                        && s.getEndDate().equals(request.getEndDate()))
+                .findFirst()
+                .orElse(null);
 
-        if (targetSlot != null) {
-            // Logic kiểm tra Consultation (giữ nguyên của bạn)
-            CounsellorSlotValidation.validateNoActiveConsultation(targetSlot);
-            counsellorSlotRepo.delete(targetSlot);
+        if (targetSlot == null) {
+            throw new IllegalArgumentException(
+                    "Không tìm thấy lịch gán của " + counsellor.getName() + " cho khung lịch này trong khoảng ngày đã chọn.");
         }
+        CounsellorSlotValidation.validateNoActiveConsultation(targetSlot);
+        targetSlot.setStatus(Status.SLOT_UNASSIGNED);
+        counsellorSlotRepo.save(targetSlot);
+        counsellorSlotRepo.flush();
+    }
+
+    //phần gộp nghỉ toàn trường + nghỉ theo cơ sở xử lý ở đây.
+    private List<SchoolHoliday> mergeSchoolHolidaysForCampus(Integer schoolId, Integer campusId) {
+        List<SchoolHoliday> global = schoolHolidayRepo.findBySchoolIdAndCampusIsNull(schoolId);
+        List<SchoolHoliday> local = schoolHolidayRepo.findBySchoolIdAndCampusId(schoolId, campusId);
+        Map<Integer, SchoolHoliday> merged = new LinkedHashMap<>();
+        for (SchoolHoliday h : global) {
+            merged.put(h.getId(), h);
+        }
+        for (SchoolHoliday h : local) {
+            merged.put(h.getId(), h);
+        }
+        return new ArrayList<>(merged.values());
     }
 
     @Override
@@ -1047,10 +1320,14 @@ public class CampusServiceImpl implements CampusService {
 
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
         }
 
-        String dayOfWeek = targetDate.getDayOfWeek().name();
+        String dayOfWeek = targetDate.getDayOfWeek().name().substring(0, 3);
+
+        SchoolConfig hqOp = schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), "operationSettingsData").orElse(null);
+        Map<String, Object> effectiveOperation = SchoolConfigUtil.getEffectiveOperationSettingsMap(hqOp, actorCampus);
+        List<SchoolHoliday> holidays = mergeSchoolHolidaysForCampus(actorCampus.getSchool().getId(), actorCampus.getId());
 
         List<CounsellorSlot> assignedSlots = counsellorSlotRepo.findByStartDateLessThanEqualAndEndDateGreaterThanEqualAndCampusScheduleTemplate_DayOfWeekAndCampusScheduleTemplate_Campus_IdAndCampusScheduleTemplate_ActiveTrue(targetDate, // khớp với StartDateLessThanEqual
                 targetDate, dayOfWeek, actorCampus.getId());
@@ -1058,18 +1335,33 @@ public class CampusServiceImpl implements CampusService {
         Map<String, List<Map<String, Object>>> groupedByTime = new LinkedHashMap<>();
 
         for (CounsellorSlot slot : assignedSlots) {
-            if (isSlotAvailable(slot, targetDate)) {
-
-                String startTimeKey = slot.getCampusScheduleTemplate().getStartTime().toString();
-
-                groupedByTime.putIfAbsent(startTimeKey, new ArrayList<>());
-
-                Map<String, Object> slotData = buildCounsellorSlotData(slot);
-                groupedByTime.get(startTimeKey).add(slotData);
+            if (slot.getStatus() != null && slot.getStatus() != Status.AVAILABLE) {
+                continue;
             }
+            if (!isSlotAvailable(slot, targetDate)) {
+                continue;
+            }
+            CampusScheduleTemplate t = slot.getCampusScheduleTemplate();
+            String policyError = SchoolConfigUtil.validateSlotAvailability(
+                    targetDate,
+                    t.getStartTime(),
+                    t.getEndTime(),
+                    t.getSessionType().getValue(),
+                    effectiveOperation,
+                    holidays);
+            if (policyError != null) {
+                continue;
+            }
+
+            String startTimeKey = t.getStartTime().toString();
+
+            groupedByTime.putIfAbsent(startTimeKey, new ArrayList<>());
+
+            Map<String, Object> slotData = buildCounsellorSlotData(slot);
+            groupedByTime.get(startTimeKey).add(slotData);
         }
 
-        return ResponseBuilder.build(HttpStatus.OK, "Get slots grouped by time", groupedByTime);
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy các khung giờ có chuyên viên rảnh theo ngày thành công.", groupedByTime);
     }
 
     private Map<String, Object> buildCounsellorSlotData(CounsellorSlot slot) {
@@ -1103,14 +1395,17 @@ public class CampusServiceImpl implements CampusService {
 
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
         }
 
         List<CounsellorSlot> slots = (counsellorId != null) ? counsellorSlotRepo.findByCampusScheduleTemplate_Campus_IdAndCounsellor_Id(actorCampus.getId(), counsellorId) : counsellorSlotRepo.findByCampusScheduleTemplate_Campus_Id(actorCampus.getId());
 
-        List<Map<String, Object>> responseList = slots.stream().map(this::buildManagementSlotData).toList();
+        List<Map<String, Object>> responseList = slots.stream()
+                .filter(s -> s.getStatus() != Status.SLOT_UNASSIGNED)
+                .map(this::buildManagementSlotData)
+                .toList();
 
-        return ResponseBuilder.build(HttpStatus.OK, "Get assigned slots successful", responseList);
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách lịch gán tư vấn thành công.", responseList);
     }
 
     private Map<String, Object> buildManagementSlotData(CounsellorSlot slot) {
@@ -1142,21 +1437,21 @@ public class CampusServiceImpl implements CampusService {
 
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No school campus account found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
         }
 
         List<Counsellor> counsellorList = counsellorRepo.findByCampus_IdAndAccount_Status(actorCampus.getId(), Status.ACCOUNT_ACTIVE);
 
         List<Map<String, Object>> responseList = counsellorList.stream().map(this::buildCounsellor).toList();
 
-        return ResponseBuilder.build(HttpStatus.OK, "Get assigned slots successful", responseList);
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách chuyên viên tư vấn khả dụng thành công.", responseList);
     }
 
     private Map<String, Object> buildCounsellor(Counsellor counsellor) {
         Map<String, Object> data = new HashMap<>();
         data.put("id", counsellor.getId());
         data.put("name", counsellor.getName());
-        data.put("email", (counsellor.getAccount() != null) ? counsellor.getAccount().getEmail() : "No Account");
+        data.put("email", (counsellor.getAccount() != null) ? counsellor.getAccount().getEmail() : "Chưa có tài khoản");
         return data;
     }
 
@@ -1189,8 +1484,8 @@ public class CampusServiceImpl implements CampusService {
             row.createCell(0).setCellValue(counsellor.getId());
             row.createCell(1).setCellValue(String.valueOf(counsellor.getEmployeeCode()));
             row.createCell(2).setCellValue(counsellor.getName());
-            row.createCell(3).setCellValue(acc != null ? acc.getEmail() : "N/A");
-            row.createCell(4).setCellValue(acc != null ? acc.getStatus().toString() : "N/A");
+            row.createCell(3).setCellValue(acc != null ? acc.getEmail() : "Không có");
+            row.createCell(4).setCellValue(acc != null ? acc.getStatus().toString() : "Không có");
 
             row.createCell(5).setCellValue(school != null ? school.getName() : "Không xác định");
             row.createCell(6).setCellValue(campus != null ? campus.getName() : "Không xác định");
@@ -1256,7 +1551,7 @@ public class CampusServiceImpl implements CampusService {
 
         try {
             StorageTreeNode result = supabaseStorageService.getStorageTree(folderPath);
-            return ResponseBuilder.build(HttpStatus.OK, "View documents successfully", result);
+            return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách tài liệu thành công.", result);
         } catch (Exception ex) {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
         }
@@ -1266,7 +1561,7 @@ public class CampusServiceImpl implements CampusService {
     public ResponseEntity<ResponseObject> getChatHistoryWithAdmin(Long cursorId) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế, không thể thực hiện thao tác này.", null);
         }
 
         Campus campus = extractActorCampus();
@@ -1274,7 +1569,7 @@ public class CampusServiceImpl implements CampusService {
         Account accAdmin = accountRepo.findByRole(Role.ADMIN).get(0);
 
         if (accAdmin == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account admin not found or be deleted", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy tài khoản quản trị viên hoặc tài khoản đã bị xóa.", null);
         }
 
         Optional<Conversation> existingConversation = conversationRepo.findByCampusIdAndAccAdminId(campus.getId(), accAdmin.getId());
@@ -1295,7 +1590,7 @@ public class CampusServiceImpl implements CampusService {
             hasMore = messages.size() == 20;
             nextCursorId = messages.isEmpty() ? null : messages.get(messages.size() - 1).getId();
 
-            return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(existingConversation.get(), accAdmin.getEmail(), campus.getAccount().getEmail(), messages, hasMore, nextCursorId));
+            return ResponseBuilder.build(HttpStatus.OK, "Lấy lịch sử trò chuyện thành công.", buildHistoryMessages(existingConversation.get(), accAdmin.getEmail(), campus.getAccount().getEmail(), messages, hasMore, nextCursorId));
 
         }
 
@@ -1309,26 +1604,26 @@ public class CampusServiceImpl implements CampusService {
 
 //        conversationRepo.save(conversation);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(conversation, accAdmin.getEmail(), campus.getAccount().getEmail(), messages, hasMore, nextCursorId));
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy lịch sử trò chuyện thành công.", buildHistoryMessages(conversation, accAdmin.getEmail(), campus.getAccount().getEmail(), messages, hasMore, nextCursorId));
     }
 
     @Override
     public ResponseEntity<ResponseObject> createConversationWithAdmin() {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế, không thể thực hiện thao tác này.", null);
         }
 
         Campus campus = extractActorCampus();
 
         if (campus == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campus account not found or be deleted", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy tài khoản cơ sở hoặc tài khoản đã bị xóa.", null);
         }
 
         Account accAdmin = accountRepo.findByRole(Role.ADMIN).get(0);
 
         if (accAdmin == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Account admin not found or be deleted", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy tài khoản quản trị viên hoặc tài khoản đã bị xóa.", null);
         }
 
         Conversation conversation = Conversation.builder()
@@ -1341,7 +1636,7 @@ public class CampusServiceImpl implements CampusService {
 
         conversationRepo.save(conversation);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Create conversation successfully", conversation.getId());
+        return ResponseBuilder.build(HttpStatus.OK, "Tạo cuộc trò chuyện với quản trị viên thành công.", conversation.getId());
     }
 
     @Override
@@ -1351,13 +1646,13 @@ public class CampusServiceImpl implements CampusService {
 
         if (campus == null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Campus account not found or be deleted", null);
+                    "Không tìm thấy tài khoản cơ sở hoặc tài khoản đã bị xóa.", null);
         }
 
         List<Account> admins = accountRepo.findByRole(Role.ADMIN);
         if (admins == null || admins.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Account admin not found or be deleted", null);
+                    "Không tìm thấy tài khoản quản trị viên hoặc tài khoản đã bị xóa.", null);
         }
 
         Account accAdmin = admins.get(0);
@@ -1370,7 +1665,7 @@ public class CampusServiceImpl implements CampusService {
             data.put("conversationId", null);
             data.put("hasNewMessage", false);
             data.put("unreadCount", 0);
-            return ResponseBuilder.build(HttpStatus.OK, "Get conversation success", data);
+            return ResponseBuilder.build(HttpStatus.OK, "Lấy thông tin cuộc trò chuyện thành công.", data);
         }
 
         Conversation conversation = conversationOpt.get();
@@ -1387,7 +1682,7 @@ public class CampusServiceImpl implements CampusService {
         data.put("hasNewMessage", unreadCount > 0);
         data.put("unreadCount", unreadCount);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Get conversation success", data);
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy thông tin cuộc trò chuyện thành công.", data);
     }
 
     private Map<String, Object> buildHistoryMessages(Conversation conversation, String emailAdmin, String campusEmail, List<ChatMessage> messages, boolean hasMore, Long nextCursorId) {

@@ -4,7 +4,6 @@ import com.sp26se041.edubridgehcm.enums.SessionType;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
 import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
-import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.utils.SchoolConfigUtil;
 
 import java.time.Duration;
@@ -17,15 +16,25 @@ public class CampusScheduleTemplateValidation {
     // regex to validate HH:mm format (00:00 to 23:59)
     private static final String TIME_REGEX = "^([01]?[0-9]|2[0-3]):[0-5][0-9]$";
 
-    public static String validateCampusScheduleTemplate(Integer templateId, CampusScheduleTemplateRequest request, String currentDay, Map<String, Object> workingConfig, CampusScheduleTemplateRepo campusScheduleTemplateRepo, Campus campus) {
+    public static String validateCampusScheduleTemplate(
+            Integer templateId,
+            String startTime,
+            String endTime,
+            String sessionType,
+            String currentDay,
+            Map<String, Object> workingConfig,
+            CampusScheduleTemplateRepo campusScheduleTemplateRepo,
+            Campus campus,
+            Integer slotDurationMinutesFromPolicy,
+            Integer bufferBetweenSlotsMinutesFromPolicy) {
 
-        if (request.getStartTime() == null || !request.getStartTime().matches(TIME_REGEX) ||
-                request.getEndTime() == null || !request.getEndTime().matches(TIME_REGEX)) {
+        if (startTime == null || !startTime.matches(TIME_REGEX) ||
+                endTime == null || !endTime.matches(TIME_REGEX)) {
             return "Định dạng thời gian không hợp lệ (Yêu cầu HH:mm).";
         }
 
-        LocalTime start = LocalTime.parse(request.getStartTime());
-        LocalTime end = LocalTime.parse(request.getEndTime());
+        LocalTime start = LocalTime.parse(startTime);
+        LocalTime end = LocalTime.parse(endTime);
 
         if (!start.isBefore(end)) {
             return "Thời gian bắt đầu phải trước thời gian kết thúc.";
@@ -36,11 +45,28 @@ public class CampusScheduleTemplateValidation {
             return "Một tiết học/phiên làm việc phải kéo dài ít nhất 30 phút.";
         }
 
-        if (!isValidSessionType(request.getSessionType())) {
+        if (slotDurationMinutesFromPolicy != null && slotDurationMinutesFromPolicy > 0) {
+            int buffer = bufferBetweenSlotsMinutesFromPolicy != null ? Math.max(0, bufferBetweenSlotsMinutesFromPolicy) : 0;
+            if (buffer == 0) {
+                if (durationInMinutes % slotDurationMinutesFromPolicy != 0) {
+                    return "Độ dài khung giờ (" + durationInMinutes + " phút) phải là bội số của thời lượng mỗi ca tư vấn ("
+                            + slotDurationMinutesFromPolicy + " phút) theo cấu hình vận hành.";
+                }
+            } else {
+                int step = slotDurationMinutesFromPolicy + buffer;
+                if ((durationInMinutes + buffer) % step != 0) {
+                    return "Độ dài khung giờ (" + durationInMinutes + " phút) không khớp mô hình tiết "
+                            + slotDurationMinutesFromPolicy + " phút + nghỉ " + buffer + " phút giữa các tiết. "
+                            + "(Độ dài ca + " + buffer + ") phải chia hết cho " + step + " phút (bước = tiết + nghỉ).";
+                }
+            }
+        }
+
+        if (!isValidSessionType(sessionType)) {
             return "Loại buổi học không hợp lệ.";
         }
 
-        String configError = SchoolConfigUtil.validateWithWorkingConfig(currentDay, start, end, request.getSessionType(), workingConfig);
+        String configError = SchoolConfigUtil.validateWithWorkingConfig(currentDay, start, end, sessionType, workingConfig);
         if (configError != null) {
             return configError;
         }

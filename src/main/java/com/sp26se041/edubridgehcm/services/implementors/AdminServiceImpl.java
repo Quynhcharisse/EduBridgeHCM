@@ -151,7 +151,7 @@ public class AdminServiceImpl implements AdminService {
 
 
         if (campus.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campus not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy cơ sở.", null);
         }
 
         Optional<Conversation> existingConversation = conversationRepo.findByCampusIdAndAccAdminId(campus.get().getId(), accAdmin.get().getId());
@@ -170,7 +170,7 @@ public class AdminServiceImpl implements AdminService {
             }
             hasMore = messages.size() == 20;
             nextCursorId = messages.isEmpty() ? null : messages.get(messages.size() - 1).getId();
-            return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(existingConversation.get(), accAdmin.get().getEmail(), campus.get().getAccount().getEmail(), messages, hasMore, nextCursorId));
+            return ResponseBuilder.build(HttpStatus.OK, "Lấy lịch sử trò chuyện thành công", buildHistoryMessages(existingConversation.get(), accAdmin.get().getEmail(), campus.get().getAccount().getEmail(), messages, hasMore, nextCursorId));
         }
         Conversation conversation = Conversation.builder()
                 .campusId(campus.get().getId())
@@ -181,7 +181,7 @@ public class AdminServiceImpl implements AdminService {
                 .build();
 //        conversationRepo.save(conversation);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Success", buildHistoryMessages(conversation, accAdmin.get().getEmail(), campus.get().getAccount().getEmail(), messages, hasMore, nextCursorId));
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy lịch sử trò chuyện thành công", buildHistoryMessages(conversation, accAdmin.get().getEmail(), campus.get().getAccount().getEmail(), messages, hasMore, nextCursorId));
     }
 
     private Map<String, Object> buildHistoryMessages(Conversation conversation, String adminEmail, String campusEmail, List<ChatMessage> messages, boolean hasMore, Long nextCursorId) {
@@ -277,13 +277,13 @@ public class AdminServiceImpl implements AdminService {
     public ResponseEntity<ResponseObject> verifyRegistration(int requestId) {
 
         if (requestId <= 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "requestId must be greater than 0", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Mã yêu cầu (requestId) phải lớn hơn 0.", null);
         }
 
         SchoolRegistrationRequest request = schoolRegistrationRequestRepo.findById(requestId).orElse(null);
 
         if (request == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "No registration request with ID found: " + requestId, null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy yêu cầu đăng ký với mã: " + requestId, null);
 
         }
 
@@ -301,13 +301,13 @@ public class AdminServiceImpl implements AdminService {
         Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
 
         if (campusTemplateDocx.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campus document template is not available. Verification cannot be completed.", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Mẫu tài liệu cơ sở không khả dụng, không thể hoàn tất xác minh.", null);
         }
 
         Optional<TemplateDocx> schoolTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.SCHOOL_INFO_TEMPLATE);
 
         if (schoolTemplateDocx.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "School info document template is not available. Verification cannot be completed.", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Mẫu tài liệu thông tin trường không khả dụng, không thể hoàn tất xác minh.", null);
         }
 
         String uuid = UUID.randomUUID().toString();
@@ -472,7 +472,7 @@ public class AdminServiceImpl implements AdminService {
         Map<String, Object> response = new HashMap<>();
         response.put("email", account.getEmail());
 
-        return ResponseBuilder.build(HttpStatus.OK, "Verified successfully", response);
+        return ResponseBuilder.build(HttpStatus.OK, "Xác minh thành công", response);
     }
 
     private String toSafeObjectKey(String input) {
@@ -511,7 +511,7 @@ public class AdminServiceImpl implements AdminService {
 
         List<Map<String, Object>> data = schoolRegistrationRequestList.stream().map(this::buildRegistrationData).toList();
 
-        return ResponseBuilder.build(HttpStatus.OK, "View school registration list successfully", data);
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách đăng ký trường thành công", data);
     }
 
     private Map<String, Object> buildRegistrationData(SchoolRegistrationRequest request) {
@@ -538,7 +538,7 @@ public class AdminServiceImpl implements AdminService {
     public ResponseEntity<ResponseObject> upsertServicePackageFee(UpsertServicePackageFeeRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế.", null);
         }
 
         Subscription subscription;
@@ -555,11 +555,11 @@ public class AdminServiceImpl implements AdminService {
             subscription = subscriptionRepo.findById(request.getPackageId()).orElse(null);
 
             if (subscription == null) {
-                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Package not found", null);
+                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy gói dịch vụ.", null);
             }
 
             if (subscription.getPackageStatus() != Status.PACKAGE_DRAFT) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot edit. Only DRAFT packages can be modified.", null);
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ có thể chỉnh sửa gói ở trạng thái nháp (DRAFT).", null);
             }
         } else {
             subscription = new Subscription();
@@ -577,7 +577,7 @@ public class AdminServiceImpl implements AdminService {
 
         subscriptionRepo.save(subscription);
 
-        return ResponseBuilder.build(isCreate ? HttpStatus.CREATED : HttpStatus.OK, isCreate ? "Create draft package successfully" : "Update draft package successfully", null);
+        return ResponseBuilder.build(isCreate ? HttpStatus.CREATED : HttpStatus.OK, isCreate ? "Tạo gói nháp thành công" : "Cập nhật gói nháp thành công", null);
     }
 
     private Map<String, Object> buildFeatureJson(UpsertServicePackageFeeRequest.FeatureData request) {
@@ -605,14 +605,14 @@ public class AdminServiceImpl implements AdminService {
         }
 
         if (subscriptions.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.OK, "No service packages found", Collections.emptyList());
+            return ResponseBuilder.build(HttpStatus.OK, "Không có gói dịch vụ nào", Collections.emptyList());
         }
 
         List<Map<String, Object>> data = subscriptions.stream()
                 .map(this::buildSubscriptionData)
                 .collect(Collectors.toList());
 
-        return ResponseBuilder.build(HttpStatus.OK, "Get package fee list successfully", data);
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách phí gói thành công", data);
     }
 
     private Map<String, Object> buildSubscriptionData(Subscription subscription) {
@@ -631,51 +631,51 @@ public class AdminServiceImpl implements AdminService {
     public ResponseEntity<ResponseObject> publishServicePackageFee(Integer packageId) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế.", null);
         }
 
         Subscription subscription = subscriptionRepo.findById(packageId).orElse(null);
 
         if (subscription == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Subscription is not found", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy gói đăng ký (subscription).", null);
         }
 
         if (!subscription.getPackageStatus().equals(Status.PACKAGE_DRAFT)) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Only DRAFT packages can be published. Current status: " + subscription.getPackageStatus(), null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ có thể phát hành gói ở trạng thái nháp (DRAFT). Trạng thái hiện tại: " + subscription.getPackageStatus(), null);
         }
 
         if (subscription.getPrice() <= 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot be published: The price must be greater than 0", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không thể phát hành: giá phải lớn hơn 0.", null);
         }
 
         if (subscription.getDurationDays() <= 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cannot publish: Package duration must be greater than 0 days.", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không thể phát hành: thời hạn gói phải lớn hơn 0 ngày.", null);
         }
 
         if (subscription.getFeatures() == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Unable to publish: The plan must have a list of features", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không thể phát hành: gói phải có danh sách tính năng.", null);
         }
 
         subscription.setPackageStatus(Status.PACKAGE_ACTIVE);
         subscriptionRepo.save(subscription);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Subscription published successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Phát hành gói đăng ký thành công", null);
     }
 
     @Override
     public ResponseEntity<ResponseObject> deActiveServicePackageFee(Integer packageId) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Your account is restricted", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế.", null);
         }
 
         Subscription subscription = subscriptionRepo.findById(packageId).orElse(null);
         if (subscription == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Package not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy gói dịch vụ.", null);
         }
 
         if (subscription.getPackageStatus() == Status.PACKAGE_DEACTIVATED) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Package is already deactivated", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Gói đã được hủy kích hoạt trước đó.", null);
         }
 
         boolean hasActiveSchools = schoolSubscriptionRepo.existsBySubscriptionAndEndDateAfter(
@@ -691,7 +691,7 @@ public class AdminServiceImpl implements AdminService {
 
         subscriptionRepo.save(subscription);
 
-        return ResponseBuilder.build(HttpStatus.OK, hasActiveSchools ? "Package is in use. It has been set to PENDING DEACTIVE and hidden from new subscribers." : "Package deactivated successfully.", null);
+        return ResponseBuilder.build(HttpStatus.OK, hasActiveSchools ? "Gói đang được sử dụng; đã chuyển sang trạng thái chờ hủy và ẩn với người đăng ký mới." : "Hủy kích hoạt gói thành công.", null);
     }
 
     @Override
@@ -704,7 +704,7 @@ public class AdminServiceImpl implements AdminService {
         }
 
         if (personalityTypeRepo.existsByCode(request.getCode())) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Personality type code already exists in the system", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Mã loại tính cách đã tồn tại trong hệ thống.", null);
         }
 
         PersonalityTypeGroup group;
@@ -730,7 +730,7 @@ public class AdminServiceImpl implements AdminService {
 
         personalityTypeRepo.save(personalityType);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Create personality type successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Tạo loại tính cách thành công", null);
     }
 
     @Override
@@ -747,7 +747,7 @@ public class AdminServiceImpl implements AdminService {
                     .add(p);
         }
 
-        return ResponseBuilder.build(HttpStatus.OK, "Get personality types successfully", result);
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách loại tính cách thành công", result);
     }
 
     @Override
@@ -768,7 +768,7 @@ public class AdminServiceImpl implements AdminService {
         }
 
         if (subjectRepo.existsByName((normalize(request.getName())))) {
-            return ResponseBuilder.build(HttpStatus.CONFLICT, "Subject already exists in the system", null);
+            return ResponseBuilder.build(HttpStatus.CONFLICT, "Môn học đã tồn tại trong hệ thống.", null);
         }
 
         Subject subject = Subject.builder()
@@ -778,7 +778,7 @@ public class AdminServiceImpl implements AdminService {
 
         subjectRepo.save(subject);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Create subject successfully", subject);
+        return ResponseBuilder.build(HttpStatus.OK, "Tạo môn học thành công", subject);
     }
 
     @Override
@@ -820,7 +820,7 @@ public class AdminServiceImpl implements AdminService {
 
         return ResponseBuilder.build(
                 HttpStatus.OK,
-                "Get all subjects successfully",
+                "Lấy danh sách môn học thành công",
                 result
         );
     }
@@ -874,7 +874,7 @@ public class AdminServiceImpl implements AdminService {
         result.put("fileName", docx.getFileName());
 
 
-        return ResponseBuilder.build(HttpStatus.OK, "Upload successfully", result);
+        return ResponseBuilder.build(HttpStatus.OK, "Tải lên thành công", result);
 
     }
 
@@ -887,7 +887,7 @@ public class AdminServiceImpl implements AdminService {
         if (totalTemplates == 1) {
             return ResponseBuilder.build(
                     HttpStatus.BAD_REQUEST,
-                    "Cannot delete the last template docx in the system",
+                    "Không thể xóa mẫu docx cuối cùng trong hệ thống.",
                     null
             );
         }
@@ -895,7 +895,7 @@ public class AdminServiceImpl implements AdminService {
         Optional<TemplateDocx> templateDocx = templateDocxRepo.findById(templateDocxId);
 
         if (templateDocx.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Template docx not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy mẫu docx.", null);
         }
 
         try {
@@ -907,7 +907,7 @@ public class AdminServiceImpl implements AdminService {
         templateDocxRepo.deleteAllByIdInBatch(List.of(templateDocxId));
         templateDocxRepo.flush();
 
-        return ResponseBuilder.build(HttpStatus.OK, "Delete template docx successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Xóa mẫu docx thành công", null);
 
     }
 
@@ -928,7 +928,7 @@ public class AdminServiceImpl implements AdminService {
                 .map(this::buildTemplateDocx)
                 .toList();
 
-        return ResponseBuilder.build(HttpStatus.OK, "Get all template docs", result);
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách mẫu tài liệu thành công", result);
     }
 
     private Map<String, Object> buildTemplateDocx(TemplateDocx templateDocx) {
@@ -942,10 +942,10 @@ public class AdminServiceImpl implements AdminService {
     private String validateAddSubjectInfo(AddSubjectRequest request) {
 
         if (isBlank(request.getName())) {
-            return "Subject name must not be blank";
+            return "Tên môn học không được để trống.";
         }
         if (request.getSubjectType() == null || request.getSubjectType().isBlank()) {
-            return "Subject type must not be blank";
+            return "Loại môn không được để trống.";
         }
         return "";
     }
@@ -955,7 +955,7 @@ public class AdminServiceImpl implements AdminService {
             return SubjectType.valueOf(subjectType.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(
-                    "Invalid subject type. Allowed values: REGULAR_SUBJECT, FOREIGN_LANGUAGE_SUBJECT"
+                    "Loại môn không hợp lệ. Giá trị cho phép: REGULAR_SUBJECT, FOREIGN_LANGUAGE_SUBJECT."
             );
         }
     }
@@ -963,28 +963,28 @@ public class AdminServiceImpl implements AdminService {
     private CategoryTemplate parseCategoryTemplate(String categoryTemplate) {
 
         if (categoryTemplate == null || categoryTemplate.isEmpty()) {
-            throw new IllegalArgumentException("Category template must not be empty");
+            throw new IllegalArgumentException("Danh mục mẫu không được để trống.");
         }
 
         try {
             return CategoryTemplate.valueOf(categoryTemplate.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(
-                    "Invalid category template. Allowed values: CAMPUS_INF0_TEMPLATE, SCHOOL_INFO_TEMPLATE"
+                    "Danh mục mẫu không hợp lệ. Giá trị cho phép: CAMPUS_INF0_TEMPLATE, SCHOOL_INFO_TEMPLATE."
             );
         }
     }
 
     private PersonalityTypeGroup parsePersonalityTypeGroup(String group) {
         if (group == null || group.isBlank()) {
-            throw new IllegalArgumentException("Personality type group must not be blank");
+            throw new IllegalArgumentException("Nhóm loại tính cách không được để trống.");
         }
 
         try {
             return PersonalityTypeGroup.valueOf(group.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(
-                    "Invalid personality type group. Allowed values: ANALYST, DIPLOMAT, SENTINEL, EXPLORER"
+                    "Nhóm loại tính cách không hợp lệ. Giá trị cho phép: ANALYST, DIPLOMAT, SENTINEL, EXPLORER."
             );
         }
     }
@@ -1002,82 +1002,82 @@ public class AdminServiceImpl implements AdminService {
     private String validateCreatePersonalityType(CreatePersonalityTypeRequest request) {
 
         if (request == null) {
-            return "Request must not be null";
+            return "Yêu cầu không được để trống.";
         }
 
         if (isBlank(request.getCode())) {
-            return "Code must not be blank";
+            return "Mã loại tính cách không được để trống.";
         }
 
         if (isBlank(request.getName())) {
-            return "Name must not be blank";
+            return "Tên loại tính cách không được để trống.";
         }
 
         if (isBlank(request.getDescription())) {
-            return "Description must not be blank";
+            return "Mô tả không được để trống.";
         }
 
         if (request.getQuoteInfo() == null) {
-            return "QuoteInfo must not be null";
+            return "Thông tin trích dẫn (QuoteInfo) không được để trống.";
         }
 
         if (isBlank(request.getQuoteInfo().getAuthor())) {
-            return "Author must not be blank";
+            return "Tác giả trích dẫn không được để trống.";
         }
 
         if (isBlank(request.getQuoteInfo().getContent())) {
-            return "Content must not be blank";
+            return "Nội dung trích dẫn không được để trống.";
         }
 
         if (request.getTraits().size() != 4) {
             return
-                    "Traits must contain exactly 4 items";
+                    "Danh sách đặc điểm (traits) phải đúng 4 phần tử.";
         }
 
         for (int i = 0; i < request.getTraits().size(); i++) {
             if (isBlank(request.getTraits().get(i).getName())) {
-                return "Trait name at index [" + i + "] must not be blank";
+                return "Tên đặc điểm tại vị trí [" + i + "] không được để trống.";
             }
             if (isBlank(request.getTraits().get(i).getDescription())) {
-                return "Trait description at index [" + i + "] must not be blank";
+                return "Mô tả đặc điểm tại vị trí [" + i + "] không được để trống.";
             }
         }
 
         if (request.getStrengths().isEmpty()) {
-            return "Strengths must not be empty";
+            return "Danh sách điểm mạnh không được để trống.";
         }
 
         for (int j = 0; j < request.getStrengths().size(); j++) {
             if (isBlank(request.getStrengths().get(j))) {
-                return "Strength at index [" + j + "] must not be blank";
+                return "Điểm mạnh tại vị trí [" + j + "] không được để trống.";
             }
         }
 
         for (int i = 0; i < request.getWeaknesses().size(); i++) {
             if (isBlank(request.getWeaknesses().get(i))) {
-                return "Weakness at index [" + i + "] must not be blank";
+                return "Điểm yếu tại vị trí [" + i + "] không được để trống.";
             }
         }
 
         for (int i = 0; i < request.getSources().size(); i++) {
             if (isBlank(request.getSources().get(i).getTitle())) {
-                return "Display name source at index [" + i + "] must not be blank";
+                return "Tên hiển thị nguồn tại vị trí [" + i + "] không được để trống.";
             }
             if (isBlank(request.getSources().get(i).getUrl())) {
-                return "Url source at index [" + i + "] must not be blank";
+                return "URL nguồn tại vị trí [" + i + "] không được để trống.";
             }
         }
 
         if (request.getRecommendedCareers().isEmpty()) {
-            return "Recommended careers must not be empty";
+            return "Danh sách nghề nghiệp gợi ý không được để trống.";
         }
 
         for (int j = 0; j < request.getRecommendedCareers().size(); j++) {
             if (isBlank(request.getRecommendedCareers().get(j).getName())) {
-                return "Recommended career name at index [" + j + "] must not be blank";
+                return "Tên nghề nghiệp gợi ý tại vị trí [" + j + "] không được để trống.";
             }
             if (isBlank(request.getRecommendedCareers().get(j).getExplainText())) {
-                return "Explain text for recommended career at index [" + j + "] must not be blank";
+                return "Giải thích nghề nghiệp gợi ý tại vị trí [" + j + "] không được để trống.";
             }
         }
 

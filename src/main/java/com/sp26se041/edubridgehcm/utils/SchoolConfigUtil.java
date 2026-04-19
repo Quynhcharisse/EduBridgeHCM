@@ -1,21 +1,33 @@
 package com.sp26se041.edubridgehcm.utils;
 
 import com.sp26se041.edubridgehcm.enums.HolidayImpactLevel;
+import com.sp26se041.edubridgehcm.enums.SessionType;
+import com.sp26se041.edubridgehcm.enums.WorkShiftKind;
+import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.SchoolHoliday;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class SchoolConfigUtil {
+
+    /** Khoảng ngày gán mặc định suy ra từ academicCalendar (gộp các học kỳ đã cấu hình đủ start/end). */
+    public record AcademicAssignmentDateRange(LocalDate start, LocalDate end) {}
+
+    private static final DateTimeFormatter SLOT_WINDOW_TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
+
     public static List<Map<String, Object>> mergeFacilityItems(
             List<Map<String, Object>> templateItems,
             List<Map<String, Object>> currentCampusItems,
@@ -75,21 +87,21 @@ public class SchoolConfigUtil {
             merged.put("minCounsellorPerSlot", request.getMinCounsellorPerSlot());
         }
 
+        if (request.getMaxCounsellorsPerSlot() != null) {
+            merged.put("maxCounsellorsPerSlot", request.getMaxCounsellorsPerSlot());
+        }
+
         if (request.getSlotDurationInMinutes() != null) {
             merged.put("slotDurationInMinutes", request.getSlotDurationInMinutes());
+        }
+        if (request.getBufferBetweenSlotsMinutes() != null) {
+            merged.put("bufferBetweenSlotsMinutes", request.getBufferBetweenSlotsMinutes());
         }
         if (request.getMaxBookingPerSlot() != null) {
             merged.put("maxBookingPerSlot", request.getMaxBookingPerSlot());
         }
         if (request.getAllowBookingBeforeHours() != null) {
             merged.put("allowBookingBeforeHours", request.getAllowBookingBeforeHours());
-        }
-
-        if (request.getWorkingOverride() != null) {
-            merged.put("workingConfig", mergeWorkingConfig(
-                    (Map<String, Object>) hqData.get("workingConfig"),
-                    request.getWorkingOverride()
-            ));
         }
 
         if (request.getAdmissionStepsOverride() != null) {
@@ -99,30 +111,6 @@ public class SchoolConfigUtil {
             ));
         }
         return merged;
-    }
-
-    private static Map<String, Object> mergeWorkingConfig(Map<String, Object> hqWorking,
-                                                          UpdateCampusConfigRequest.CampusWorkingOverride override) {
-
-        Map<String, Object> mergedWorking = (hqWorking != null) ? new HashMap<>(hqWorking) : new HashMap<>();
-
-        if (override.getNote() != null) mergedWorking.put("note", override.getNote());
-        if (override.getIsOpenSunday() != null) mergedWorking.put("isOpenSunday", override.getIsOpenSunday());
-
-        // Nếu Campus gửi danh sách ca làm việc mới, dùng cái đó
-        if (override.getWorkShifts() != null && !override.getWorkShifts().isEmpty()) {
-            List<Map<String, Object>> shiftMaps = override.getWorkShifts().stream().map(shift -> {
-                Map<String, Object> m = new HashMap<>();
-                m.put("name", shift.getName());
-                m.put("startTime", shift.getStartTime());
-                m.put("endTime", shift.getEndTime());
-                return m;
-            }).collect(Collectors.toList());
-
-            mergedWorking.put("workShifts", shiftMaps);
-        }
-
-        return mergedWorking;
     }
 
     private static List<Map<String, Object>> mergeAdmissionSteps(List<Map<String, Object>> hqSteps,
@@ -162,8 +150,24 @@ public class SchoolConfigUtil {
                     .append(" người\n");
         }
 
+        if (operationData.get("maxCounsellorsPerSlot") != null) {
+            Object mx = operationData.get("maxCounsellorsPerSlot");
+            int m = mx instanceof Number ? ((Number) mx).intValue() : Integer.parseInt(String.valueOf(mx));
+            if (m > 0) {
+                sb.append("👥 Số tư vấn viên tối đa gán cùng khung: ").append(m).append(" người\n");
+            }
+        }
+
         if (operationData.get("slotDurationInMinutes") != null) {
             sb.append("⏱️ Thời lượng mỗi ca tư vấn: ").append(operationData.get("slotDurationInMinutes")).append(" phút\n");
+        }
+
+        if (operationData.get("bufferBetweenSlotsMinutes") != null) {
+            Object buf = operationData.get("bufferBetweenSlotsMinutes");
+            int b = buf instanceof Number ? ((Number) buf).intValue() : Integer.parseInt(String.valueOf(buf));
+            if (b > 0) {
+                sb.append("☕ Nghỉ giữa các tiết tư vấn: ").append(b).append(" phút\n");
+            }
         }
 
         if (operationData.get("maxBookingPerSlot") != null) {
@@ -185,7 +189,8 @@ public class SchoolConfigUtil {
 
         if (shifts != null && !shifts.isEmpty()) {
             for (Map<String, Object> shift : shifts) {
-                sb.append("  • ").append(shift.get("name")).append(": ").append(shift.get("startTime")).append(" - ").append(shift.get("endTime")).append("\n");
+                sb.append("  • ").append(formatWorkShiftLabel(shift.get("name"))).append(": ")
+                        .append(shift.get("startTime")).append(" - ").append(shift.get("endTime")).append("\n");
             }
         }
 
@@ -237,13 +242,25 @@ public class SchoolConfigUtil {
                 if (extraShifts != null && !extraShifts.isEmpty()) {
                     sb.append("  • 🌙 Ca làm việc tăng cường:\n");
                     for (Map<String, Object> shift : extraShifts) {
-                        sb.append("    + ").append(shift.get("name"))
+                        sb.append("    + ").append(formatWorkShiftLabel(shift.get("name")))
                                 .append(": ").append(shift.get("startTime")).append(" - ").append(shift.get("endTime")).append("\n");
                     }
                 }
             }
         }
         return sb.toString();
+    }
+
+    private static String formatWorkShiftLabel(Object nameObj) {
+        if (nameObj == null) {
+            return "—";
+        }
+        String s = String.valueOf(nameObj);
+        WorkShiftKind k = WorkShiftKind.resolve(s);
+        if (k != null) {
+            return k.getDisplayNameVi() + " (" + k.name() + ")";
+        }
+        return s;
     }
 
     public static String mapDayToVietnamese(String day) {
@@ -373,20 +390,85 @@ public class SchoolConfigUtil {
         return effectivePolicy;
     }
 
-    //check nhanh "Ngày này có đi học không?
+    // Học kỳ tùy chọn: chỉ siết khi ít nhất một term có đủ start+end; thiếu thì không chặn.
     public static boolean isWithinAcademicTerms(LocalDate targetDate, Map<String, Object> operationSettingsData) {
         if (operationSettingsData == null) return true;
 
         Object calendarObj = operationSettingsData.get("academicCalendar");
-        if (!(calendarObj instanceof Map)) return true; // Nếu không config lịch thì mặc định cho phép
+        if (!(calendarObj instanceof Map)) return true; // Không có lịch → không bắt buộc kiểm tra học kỳ
 
         Map<String, Object> calendar = (Map<String, Object>) calendarObj;
 
-        // Tận dụng hàm isDateInTerm bạn đã viết ở dòng 282
-        boolean inTerm1 = isDateInTerm(targetDate, (Map<String, Object>) calendar.get("term1"));
-        boolean inTerm2 = isDateInTerm(targetDate, (Map<String, Object>) calendar.get("term2"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> term1 = (Map<String, Object>) calendar.get("term1");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> term2 = (Map<String, Object>) calendar.get("term2");
+
+        if (!isTermWindowConfigured(term1) && !isTermWindowConfigured(term2)) {
+            return true; // Chưa bật phạm vi học kỳ (thiếu start/end) → không chặn gán lịch
+        }
+
+        boolean inTerm1 = isDateInTerm(targetDate, term1);
+        boolean inTerm2 = isDateInTerm(targetDate, term2);
 
         return inTerm1 || inTerm2;
+    }
+
+    private static boolean isTermWindowConfigured(Map<String, Object> term) {
+        return term != null && term.get("start") != null && term.get("end") != null;
+    }
+
+    /**
+     * Khi ít nhất một học kỳ có đủ start/end, trả về khoảng gán mặc định: ngày bắt đầu sớm nhất tới ngày kết thúc muộn nhất
+     * trong các học kỳ đã cấu hình (để ASSIGN không cần nhập tay).
+     */
+    public static Optional<AcademicAssignmentDateRange> resolveAssignmentDateRangeFromAcademicCalendar(
+            Map<String, Object> operationSettingsData) {
+        if (operationSettingsData == null) {
+            return Optional.empty();
+        }
+        Object calendarObj = operationSettingsData.get("academicCalendar");
+        if (!(calendarObj instanceof Map)) {
+            return Optional.empty();
+        }
+        Map<String, Object> calendar = (Map<String, Object>) calendarObj;
+        @SuppressWarnings("unchecked")
+        Map<String, Object> term1 = (Map<String, Object>) calendar.get("term1");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> term2 = (Map<String, Object>) calendar.get("term2");
+
+        if (!isTermWindowConfigured(term1) && !isTermWindowConfigured(term2)) {
+            return Optional.empty();
+        }
+
+        LocalDate minStart = null;
+        LocalDate maxEnd = null;
+        for (Map<String, Object> term : List.of(term1, term2)) {
+            if (!isTermWindowConfigured(term)) {
+                continue;
+            }
+            LocalDate s;
+            LocalDate e;
+            try {
+                s = parseDate(term.get("start"));
+                e = parseDate(term.get("end"));
+            } catch (RuntimeException ex) {
+                continue;
+            }
+            if (s == null || e == null) {
+                continue;
+            }
+            if (minStart == null || s.isBefore(minStart)) {
+                minStart = s;
+            }
+            if (maxEnd == null || e.isAfter(maxEnd)) {
+                maxEnd = e;
+            }
+        }
+        if (minStart == null || maxEnd == null || minStart.isAfter(maxEnd)) {
+            return Optional.empty();
+        }
+        return Optional.of(new AcademicAssignmentDateRange(minStart, maxEnd));
     }
 
     public static String validateWithWorkingConfig(String dayOfWeek, LocalTime start, LocalTime end, String sessionTypeReq, Map<String, Object> workingConfig) {
@@ -404,7 +486,7 @@ public class SchoolConfigUtil {
                 ("SUN".equals(dayReq) && isOpenSunday);
 
         if (!isWorkingDay) {
-            return "The campus is not operational on " + dayReq + ".";
+            return "Cơ sở không làm việc vào " + mapDayToVietnamese(dayReq) + " (mã ngày: " + dayReq + ").";
         }
 
         // 2. Kiểm tra khung giờ (Work Shifts)
@@ -424,48 +506,151 @@ public class SchoolConfigUtil {
             }).findFirst().orElse(null);
 
             if (matchedShift == null) {
-                return "The time slot " + start + " - " + end + " is not covered by any of the campus shifts";
+                return "Khung giờ " + start + " – " + end + " không nằm trọn trong một ca làm việc đã cấu hình cho cơ sở.";
             }
 
-            //verify if the shift name khớp vs session type
-            String shiftName = String.valueOf(matchedShift.get("name")).toLowerCase();
+            String shiftRaw = String.valueOf(matchedShift.get("name"));
+            String shiftName = shiftRaw.toLowerCase();
             String sessionValue = sessionTypeReq.toLowerCase();
 
             if (!isSessionMatched(shiftName, sessionValue)) {
-                return "The time slot " + start + "-" + end + " belongs to the '" + shiftName +
-                        "' shift, which does not match the selected session: '" + sessionTypeReq + "'.";
+                return "Khung giờ " + start + " – " + end + " thuộc ca \"" + shiftRaw
+                        + "\" nhưng không khớp loại buổi đã chọn (" + sessionTypeReq + ").";
             }
         }
 
         return null;
     }
 
+     //Lấy khung giờ từ <strong>một</strong> ca trong {@code workingConfig.workShifts} khớp {@code sessionType} (MORNING / AFTERNOON / EVENING).
+     //Nếu có nhiều ca cùng buổi, lấy <strong>ca đầu tiên</strong> trong danh sách (thứ tự cấu hình HQ). Không gộp nhiều ca —
+     //{@link #validateWithWorkingConfig} yêu cầu cả [start,end] nằm trọn trong một ca.
+    // @return {@code [0] = start, [1] = end} hoặc {@code null} nếu không có ca tương ứng
+    public static LocalTime[] resolveShiftTimeWindowForSessionType(Map<String, Object> workingConfig, String sessionTypeName) {
+        if (workingConfig == null || sessionTypeName == null || sessionTypeName.isBlank()) {
+            return null;
+        }
+        final String sessionValue;
+        try {
+            sessionValue = SessionType.valueOf(sessionTypeName.trim().toUpperCase()).getValue();
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+        List<Map<String, Object>> workShifts = (List<Map<String, Object>>) workingConfig.get("workShifts");
+        if (workShifts == null || workShifts.isEmpty()) {
+            return null;
+        }
+        // Buổi chiều (AFTERNOON) khớp cả NOON và AFTERNOON — ưu tiên ca chiều rồi mới ca trưa
+        if ("afternoon".equals(sessionValue)) {
+            LocalTime[] fromAfternoon = pickFirstShiftWindow(workShifts, sessionValue, WorkShiftKind.AFTERNOON);
+            if (fromAfternoon != null) {
+                return fromAfternoon;
+            }
+            LocalTime[] fromNoon = pickFirstShiftWindow(workShifts, sessionValue, WorkShiftKind.NOON);
+            if (fromNoon != null) {
+                return fromNoon;
+            }
+        }
+        return pickFirstShiftWindow(workShifts, sessionValue, null);
+    }
+
+    private static LocalTime[] pickFirstShiftWindow(List<Map<String, Object>> workShifts, String sessionValue, WorkShiftKind requiredKind) {
+        for (Map<String, Object> shift : workShifts) {
+            if (shift == null) {
+                continue;
+            }
+            String shiftName = String.valueOf(shift.get("name"));
+            if (!isSessionMatched(shiftName, sessionValue)) {
+                continue;
+            }
+            if (requiredKind != null) {
+                WorkShiftKind k = WorkShiftKind.resolve(shiftName);
+                if (k != requiredKind) {
+                    continue;
+                }
+            }
+            LocalTime sStart = LocalTime.parse(String.valueOf(shift.get("startTime")));
+            LocalTime sEnd = LocalTime.parse(String.valueOf(shift.get("endTime")));
+            if (sStart.isBefore(sEnd)) {
+                return new LocalTime[]{sStart, sEnd};
+            }
+        }
+        return null;
+    }
+
     private static LocalDate parseDate(Object dateObj) {
-        if (dateObj == null) return null;
-        if (dateObj instanceof LocalDate) return (LocalDate) dateObj;
-        return LocalDate.parse(String.valueOf(dateObj));
+        if (dateObj == null) {
+            return null;
+        }
+        if (dateObj instanceof LocalDate ld) {
+            return ld;
+        }
+        if (dateObj instanceof List<?> list && list.size() >= 3) {
+            return LocalDate.of(toInt(list.get(0)), toInt(list.get(1)), toInt(list.get(2)));
+        }
+        if (dateObj instanceof int[] arr && arr.length >= 3) {
+            return LocalDate.of(arr[0], arr[1], arr[2]);
+        }
+        if (dateObj instanceof long[] arr && arr.length >= 3) {
+            return LocalDate.of((int) arr[0], (int) arr[1], (int) arr[2]);
+        }
+        String s = String.valueOf(dateObj).trim();
+        if (s.startsWith("[") && s.endsWith("]")) {
+            String inner = s.substring(1, s.length() - 1).trim();
+            String[] parts = inner.split(",");
+            if (parts.length >= 3) {
+                return LocalDate.of(
+                        Integer.parseInt(parts[0].trim()),
+                        Integer.parseInt(parts[1].trim()),
+                        Integer.parseInt(parts[2].trim()));
+            }
+        }
+        return LocalDate.parse(s);
+    }
+
+    private static int toInt(Object o) {
+        if (o instanceof Number n) {
+            return n.intValue();
+        }
+        return Integer.parseInt(String.valueOf(o).trim());
     }
 
     // check date in this semester
     private static boolean isDateInTerm(LocalDate date, Map<String, Object> term) {
         if (term == null || term.get("start") == null || term.get("end") == null) return false;
 
-        LocalDate start = LocalDate.parse(String.valueOf(term.get("start")));
-        LocalDate end = LocalDate.parse(String.valueOf(term.get("end")));
+        LocalDate start = parseDate(term.get("start"));
+        LocalDate end = parseDate(term.get("end"));
+        if (start == null || end == null) {
+            return false;
+        }
 
         return !date.isBefore(start) && !date.isAfter(end);
     }
 
     private static boolean isSessionMatched(String shiftName, String sessionValue) {
-        // Nếu ca tên là "Sáng" hoặc "Morning" thì khớp với MORNING
-        if (sessionValue.equals("morning")) {
-            return shiftName.contains("sáng") || shiftName.contains("morning");
+        WorkShiftKind kind = WorkShiftKind.resolve(shiftName);
+        if (kind != null) {
+            if ("morning".equals(sessionValue)) {
+                return kind == WorkShiftKind.MORNING;
+            }
+            if ("afternoon".equals(sessionValue)) {
+                return kind == WorkShiftKind.AFTERNOON || kind == WorkShiftKind.NOON;
+            }
+            if ("evening".equals(sessionValue)) {
+                return kind == WorkShiftKind.EVENING;
+            }
+            return false;
         }
-        if (sessionValue.equals("afternoon")) {
-            return shiftName.contains("chiều") || shiftName.contains("afternoon");
+        String n = shiftName.toLowerCase();
+        if ("morning".equals(sessionValue)) {
+            return n.contains("sáng") || n.contains("morning");
         }
-        if (sessionValue.equals("evening")) {
-            return shiftName.contains("tối") || shiftName.contains("evening");
+        if ("afternoon".equals(sessionValue)) {
+            return n.contains("chiều") || n.contains("afternoon") || n.contains("trưa") || n.contains("noon");
+        }
+        if ("evening".equals(sessionValue)) {
+            return n.contains("tối") || n.contains("evening");
         }
         return false;
     }
@@ -481,7 +666,9 @@ public class SchoolConfigUtil {
         // Danh sách các key cần trích xuất
         String[] keys = {
                 "minCounsellorPerSlot",
+                "maxCounsellorsPerSlot",
                 "slotDurationInMinutes",
+                "bufferBetweenSlotsMinutes",
                 "maxBookingPerSlot",
                 "allowBookingBeforeHours"
         };
@@ -498,6 +685,167 @@ public class SchoolConfigUtil {
         }
 
         return constraints;
+    }
+
+    public static Map<String, Object> getEffectiveOperationSettingsMap(SchoolConfig hqOperationConfig, Campus campus) {
+        Map<String, Object> base = new HashMap<>();
+        if (hqOperationConfig != null && hqOperationConfig.getValue() instanceof Map) {
+            base.putAll(new HashMap<>((Map<String, Object>) hqOperationConfig.getValue()));
+        }
+        Object pd = campus.getPolicyDetail();
+        if (!(pd instanceof Map)) {
+            return base;
+        }
+        Map<String, Object> policy = (Map<String, Object>) pd;
+        String[] numericKeys = {
+                "minCounsellorPerSlot",
+                "maxCounsellorsPerSlot",
+                "slotDurationInMinutes",
+                "bufferBetweenSlotsMinutes",
+                "maxBookingPerSlot",
+                "allowBookingBeforeHours"
+        };
+        for (String key : numericKeys) {
+            if (policy.get(key) != null) {
+                base.put(key, policy.get(key));
+            }
+        }
+        
+        return base;
+    }
+
+    /**
+     * Tách [start, end) thành các khung [t, t+slotDuration), khung tiếp theo bắt đầu sau slotDuration+buffer.
+     * Điều kiện: tổng phút ca = n×slotDuration + (n−1)×buffer (buffer chỉ nằm giữa các tiết).
+     * Tương đương: (totalMinutes + buffer) chia hết cho (slotDuration + buffer) khi buffer ≥ 0.
+     */
+    public static List<String[]> splitRangeIntoPolicySlotWindows(LocalTime start, LocalTime end, int slotDurationMinutes) {
+        return splitRangeIntoPolicySlotWindows(start, end, slotDurationMinutes, 0);
+    }
+
+    public static List<String[]> splitRangeIntoPolicySlotWindows(
+            LocalTime start, LocalTime end, int slotDurationMinutes, int bufferBetweenSlotsMinutes) {
+        if (slotDurationMinutes <= 0) {
+            throw new IllegalArgumentException("Thời lượng mỗi slot trong cấu hình phải > 0 để tách slot.");
+        }
+        if (bufferBetweenSlotsMinutes < 0) {
+            throw new IllegalArgumentException("Khoảng nghỉ giữa các tiết (buffer) không được âm.");
+        }
+        long totalMinutes = Duration.between(start, end).toMinutes();
+        if (totalMinutes <= 0) {
+            throw new IllegalArgumentException("Thời gian bắt đầu phải trước thời gian kết thúc.");
+        }
+
+        int step = slotDurationMinutes + bufferBetweenSlotsMinutes;
+        int n;
+        if (bufferBetweenSlotsMinutes == 0) {
+            if (totalMinutes % slotDurationMinutes != 0) {
+                int usable = (int) (totalMinutes / slotDurationMinutes) * slotDurationMinutes;
+                throw new IllegalArgumentException(
+                        "Độ dài ca " + totalMinutes + " phút phải chia hết cho " + slotDurationMinutes
+                                + " phút/tiết (theo cấu hình vận hành). Gợi ý: rút endTime còn " + usable + " phút ("
+                                + (usable / slotDurationMinutes) + " tiết) hoặc chỉnh policy/slot phút.");
+            }
+            n = (int) (totalMinutes / slotDurationMinutes);
+        } else {
+            long sumPlusBuf = totalMinutes + bufferBetweenSlotsMinutes;
+            if (sumPlusBuf % step != 0) {
+                throw new IllegalArgumentException(
+                        "Độ dài ca " + totalMinutes + " phút không khớp mô hình tiết " + slotDurationMinutes
+                                + " phút + nghỉ " + bufferBetweenSlotsMinutes + " phút giữa các tiết. "
+                                + "Quy tắc: (độ dài ca + " + bufferBetweenSlotsMinutes + " phút) phải chia hết cho "
+                                + step + " phút (mỗi bước = tiết + nghỉ). "
+                                + "Ví dụ: 3 tiết 30' + 2 lần nghỉ 10' = 110 phút ca.");
+            }
+            n = (int) (sumPlusBuf / step);
+            if (n < 1) {
+                throw new IllegalArgumentException("Ca quá ngắn so với một tiết tư vấn.");
+            }
+        }
+
+        List<String[]> windows = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            LocalTime windowStart = start.plusMinutes((long) i * step);
+            LocalTime windowEnd = windowStart.plusMinutes(slotDurationMinutes);
+            windows.add(new String[]{windowStart.format(SLOT_WINDOW_TIME_FMT), windowEnd.format(SLOT_WINDOW_TIME_FMT)});
+        }
+        LocalTime expectedEnd = start.plusMinutes((long) n * slotDurationMinutes + (long) (n - 1) * bufferBetweenSlotsMinutes);
+        if (!expectedEnd.equals(end)) {
+            throw new IllegalStateException("Lệch biên khi tách slot.");
+        }
+        return windows;
+    }
+
+    public static Map<String, Integer> getNumericPolicyFromOperationMap(Map<String, Object> effectiveOperationSettings) {
+        Map<String, Integer> constraints = new HashMap<>();
+        if (effectiveOperationSettings == null) {
+            return constraints;
+        }
+        String[] keys = {
+                "minCounsellorPerSlot",
+                "maxCounsellorsPerSlot",
+                "slotDurationInMinutes",
+                "bufferBetweenSlotsMinutes",
+                "maxBookingPerSlot",
+                "allowBookingBeforeHours"
+        };
+        for (String key : keys) {
+            Object value = effectiveOperationSettings.get(key);
+            if (value != null) {
+                try {
+                    constraints.put(key, Integer.parseInt(String.valueOf(value)));
+                } catch (NumberFormatException ignored) {
+                    // bỏ qua giá trị lỗi
+                }
+            }
+        }
+        return constraints;
+    }
+
+    public static Integer resolveMaxCounsellorsPerSlot(Map<String, Integer> policy) {
+        if (policy == null) {
+            return null;
+        }
+        Integer v = policy.get("maxCounsellorsPerSlot");
+        if (v == null || v <= 0) {
+            return null;
+        }
+        return v;
+    }
+
+    public static String validateAssignmentRangeAgainstBlockingHolidays(
+            LocalDate startDate,
+            LocalDate endDate,
+            List<SchoolHoliday> holidays,
+            Integer campusId) {
+        if (holidays == null || holidays.isEmpty()) {
+            return null;
+        }
+        for (SchoolHoliday h : holidays) {
+            if (!holidayAppliesToCampus(h, campusId)) {
+                continue;
+            }
+            if (!dateRangesOverlap(startDate, endDate, h.getStartDate(), h.getEndDate())) {
+                continue;
+            }
+            HolidayImpactLevel impact = h.getHolidayImpactLevel();
+            if (impact == HolidayImpactLevel.ALL_SHUTDOWN || impact == HolidayImpactLevel.STAFF_ONLY) {
+                return "Khoảng gán lịch trùng ngày nghỉ \"" + h.getTitle() + "\" (mức " + impact.name()
+                        + "). Không gán tư vấn tại cơ sở khi đóng cửa toàn phần hoặc nhân sự nghỉ.";
+            }
+        }
+        return null;
+    }
+
+    private static boolean holidayAppliesToCampus(SchoolHoliday h, Integer campusId) {
+        if (h.getCampus() == null) {
+            return true;
+        }
+        return campusId != null && h.getCampus().getId().equals(campusId);
+    }
+
+    private static boolean dateRangesOverlap(LocalDate aStart, LocalDate aEnd, LocalDate bStart, LocalDate bEnd) {
+        return !aEnd.isBefore(bStart) && !aStart.isAfter(bEnd);
     }
 }
 

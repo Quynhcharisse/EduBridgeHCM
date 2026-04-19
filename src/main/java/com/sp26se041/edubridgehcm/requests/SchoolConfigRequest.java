@@ -132,7 +132,9 @@ public class SchoolConfigRequest {
         String hotline;
         String emailSupport;
         int minCounsellorPerSlot;
+        int maxCounsellorsPerSlot;   // Tối đa TV gán cùng một khung + khoảng ngày; 0 = không giới hạn trên (chỉ còn min và rule khác)
         int slotDurationInMinutes;   // Thời lượng 1 ca (ví dụ: 30, 45, 60)
+        int bufferBetweenSlotsMinutes; // Nghỉ giữa hai tiết tư vấn (phút), 0 = liền mạch
         int maxBookingPerSlot;       // Số học sinh tối đa trong 1 ca
         int allowBookingBeforeHours; // Chặn đặt lịch sát giờ (ví dụ: phải đặt trước 24h)
         WorkingConfig workingConfig; //Default Policy (Quy tắc nền) ==> áp dụng 365 ngày
@@ -215,9 +217,9 @@ public class SchoolConfigRequest {
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class WorkShift {
-        String name; // MORNING, AFTERNOON, EVENING
-        String startTime; // "07:30"
-        String endTime;   // "11:30"
+        String name;
+        String startTime;
+        String endTime;
     }
 
     @Data

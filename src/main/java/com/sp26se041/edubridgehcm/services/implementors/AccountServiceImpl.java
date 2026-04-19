@@ -10,6 +10,7 @@ import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Parent;
+import com.sp26se041.edubridgehcm.models.PlatformConfig;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.TemplateDocx;
@@ -17,6 +18,7 @@ import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.ParentRepo;
+import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.TemplateDocxRepo;
@@ -94,6 +96,8 @@ public class AccountServiceImpl implements AccountService {
 
     private final SchoolConfigRepo schoolConfigRepo;
 
+    private final PlatformConfigRepo platformConfigRepo;
+
     private final RestTemplate restTemplate = new RestTemplate();
 
 
@@ -103,25 +107,25 @@ public class AccountServiceImpl implements AccountService {
         if (AuthRequestUtil.isMobileRequest(request)) {
 
             if (AuthRequestUtil.extractAuthenticatedAccount() == null) {
-                return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Logout failed", null);
+                return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Đăng xuất thất bại", null);
             }
 
-            return ResponseBuilder.build(HttpStatus.OK, "Logout successfully", null);
+            return ResponseBuilder.build(HttpStatus.OK, "Đăng xuất thành công", null);
         }
 
         String refreshToken = AuthRequestUtil.extractRefreshToken(request, null);
 
         if (refreshToken == null) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Logout failed", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Đăng xuất thất bại", null);
         }
 
         if (!jWTService.checkIfNotExpired(refreshToken)) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Token invalid", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Mã xác thực không hợp lệ", null);
         }
 
         CookieUtil.removeCookie(response);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Logout successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Đăng xuất thành công", null);
     }
 
     @Override
@@ -129,13 +133,13 @@ public class AccountServiceImpl implements AccountService {
         String accessToken = AuthRequestUtil.extractAccessToken(request);
 
         if (accessToken == null) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "No access", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Không có quyền truy cập", null);
         }
 
         Account account = AuthRequestUtil.extractAuthenticatedAccount();
 
         if (account == null) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "No account", null);
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Không tìm thấy tài khoản", null);
         }
 
         Map<String, Object> data = new HashMap<>();
@@ -152,16 +156,16 @@ public class AccountServiceImpl implements AccountService {
         Account account = accountRepo.findById(accountId).orElse(null);
 
         if (account == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Account not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản", null);
         }
 
         if (account.isRestricted() == request.getIsRestricted()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, request.getIsRestricted() ? "Account is already restricted" : "Account is already unrestricted", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, request.getIsRestricted() ? "Tài khoản đã bị hạn chế trước đó." : "Tài khoản hiện không bị hạn chế.", null);
         }
 
         if (request.getIsRestricted()) {
             if (request.getReason() == null || request.getReason().trim().isEmpty()) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Reason is required when restricting an account", null);
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Vui lòng nhập lý do khi hạn chế tài khoản", null);
             }
 
             account.setIsRestricted(true);
@@ -177,7 +181,7 @@ public class AccountServiceImpl implements AccountService {
 
         accountRepo.save(account);
 
-        return ResponseBuilder.build(HttpStatus.OK, request.getIsRestricted() ? "Account restricted successfully" : "Account unrestricted successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, request.getIsRestricted() ? "Hạn chế tài khoản thành công." : "Bỏ hạn chế tài khoản thành công.", null);
     }
 
     @Override
@@ -192,13 +196,13 @@ public class AccountServiceImpl implements AccountService {
 
         Role targetRole = parseSupportedUserListRole(role);
         if (targetRole == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Role must be PARENT or SCHOOL", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Vai trò phải là PARENT hoặc SCHOOL", null);
         }
 
         if (targetRole == Role.PARENT) {
             Page<Account> parentPage = accountRepo.findByRoleOrderByIdDesc(Role.PARENT, pageable);
             PageResponse<Map<String, Object>> response = PaginationUtil.buildPageResponse(parentPage, this::mapParentSummary);
-            return ResponseBuilder.build(HttpStatus.OK, "View parent list successfully", response);
+            return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách phụ huynh thành công", response);
         }
 
         Page<School> schoolPage = schoolRepo.findAllByOrderByIdDesc(pageable);
@@ -216,19 +220,19 @@ public class AccountServiceImpl implements AccountService {
                 school -> mapSchoolSummary(school, campusesBySchoolId.getOrDefault(school.getId(), Collections.emptyList()))
         );
 
-        return ResponseBuilder.build(HttpStatus.OK, "View school list successfully", response);
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách trường thành công", response);
     }
 
     @Override
     public ResponseEntity<ResponseObject> viewSchoolCampusList(int schoolId, int page, int pageSize) {
 
         if (schoolId <= 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "School id must be greater than 0", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Mã trường phải lớn hơn 0", null);
         }
 
         School school = schoolRepo.findById(schoolId).orElse(null);
         if (school == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "School not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy trường", null);
         }
 
         Pageable pageable;
@@ -241,19 +245,19 @@ public class AccountServiceImpl implements AccountService {
         Page<Campus> campusPage = campusRepo.findBySchoolIdOrderByIsPrimaryBranchDescIdDesc(schoolId, pageable);
         PageResponse<Map<String, Object>> response = PaginationUtil.buildPageResponse(campusPage, this::mapCampusSummary);
 
-        return ResponseBuilder.build(HttpStatus.OK, "View school campus list successfully", response);
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách cơ sở của trường thành công", response);
     }
 
     @Override
     public ResponseEntity<ResponseObject> viewCampusCounsellorList(int campusId, int page, int pageSize) {
 
         if (campusId <= 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Campus id must be greater than 0", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Mã cơ sở phải lớn hơn 0", null);
         }
 
         Campus campus = campusRepo.findById(campusId).orElse(null);
         if (campus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Campus not found", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy cơ sở", null);
         }
 
         Pageable pageable;
@@ -266,7 +270,7 @@ public class AccountServiceImpl implements AccountService {
         Page<Counsellor> counsellorPage = counsellorRepo.findByCampusIdOrderByIdDesc(campusId, pageable);
         PageResponse<Map<String, Object>> response = PaginationUtil.buildPageResponse(counsellorPage, this::mapCounsellorItem);
 
-        return ResponseBuilder.build(HttpStatus.OK, "View campus counsellor list successfully", response);
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách tư vấn viên tại cơ sở thành công", response);
     }
 
     private Map<String, Object> mapGeneralInfoUser(Account acc) {
@@ -391,10 +395,14 @@ public class AccountServiceImpl implements AccountService {
         Account account = AuthRequestUtil.extractAuthenticatedAccount();
 
         if (account == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No account", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản", null);
         }
 
-        String error = AccountValidation.updateProfileValidation(request, account);
+        Map<String, Object> mediaConfig = (Map<String, Object>) platformConfigRepo.findByKey("media")
+                .map(PlatformConfig::getValue)
+                .orElse(null);
+
+        String error = AccountValidation.updateProfileValidation(request, account, mediaConfig);
 
         if (!error.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
@@ -415,7 +423,7 @@ public class AccountServiceImpl implements AccountService {
         account.setFirstLogin(false);
         accountRepo.save(account);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Update profile successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Cập nhật hồ sơ thành công", null);
     }
 
     private void updateParentProfile(Parent parent, UpdateProfileRequest.ParentData parentData, boolean isFirstLogin) {
@@ -452,10 +460,10 @@ public class AccountServiceImpl implements AccountService {
                 SchoolConfig hqFacility = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "facilityData").orElse(null);
 
 
-                    Optional<TemplateDocx> schoolTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.SCHOOL_INFO_TEMPLATE);
+                Optional<TemplateDocx> schoolTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.SCHOOL_INFO_TEMPLATE);
 
                 if (schoolTemplateDocx.isEmpty()) {
-                    throw new Exception("School template docx not found or be deleted");
+                    throw new Exception("Không tìm thấy mẫu tài liệu trường (docx) hoặc đã bị xóa.");
                 }
 
                 supabaseStorageService.removeFile(school.getFolderPath(), school.getFileName());
@@ -481,21 +489,21 @@ public class AccountServiceImpl implements AccountService {
                 String schoolFileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
 
                 Map<String, Object> payload = new LinkedHashMap<>();
-                    payload.put("type", "school_info");
-                    payload.put("schoolId", school.getId());
-                    payload.put("schoolName", school.getName());
-                    payload.put("schoolInfoFileUrl", schoolFileUrl);
+                payload.put("type", "school_info");
+                payload.put("schoolId", school.getId());
+                payload.put("schoolName", school.getName());
+                payload.put("schoolInfoFileUrl", schoolFileUrl);
 
-                    HttpHeaders headers = new HttpHeaders();
-                    headers.setContentType(MediaType.APPLICATION_JSON);
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
 
-                    HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
 
-                    restTemplate.postForEntity(
-                            n8nUrl,
-                            entity,
-                            String.class
-                    );
+                restTemplate.postForEntity(
+                        n8nUrl,
+                        entity,
+                        String.class
+                );
 
                 school.setFileName(fileName);
 
@@ -518,48 +526,48 @@ public class AccountServiceImpl implements AccountService {
 
         try {
 
-        Map<String, Object> currentCampusFacility = (Map<String, Object>) campus.getFacility();
+            Map<String, Object> currentCampusFacility = (Map<String, Object>) campus.getFacility();
 
-        List<Map<String, Object>> currentItems = new ArrayList<>();
+            List<Map<String, Object>> currentItems = new ArrayList<>();
 
-        if (currentCampusFacility != null && currentCampusFacility.get("itemList") != null) {
-            currentItems = (List<Map<String, Object>>) currentCampusFacility.get("itemList");
-        }
-
-        // lấy facility từ primary chính đã config cơ sở vật chất chung cho các campus
-        // ==> để biết bên primary campus có thêm / bớt CSVC nào ko?
-        SchoolConfig facilityData = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "facilityData").orElse(null);
-
-        List<Map<String, Object>> itemList = new ArrayList<>();
-
-        if (facilityData != null && facilityData.getValue() instanceof Map) {
-            Map<String, Object> val = (Map<String, Object>) facilityData.getValue();
-            itemList = (List<Map<String, Object>>) val.get("itemList");
-        }
-
-        Map<String, Map<String, Object>> finalResultMap = new LinkedHashMap<>();
-
-        // s1 : đổ dữ liệu làm khung
-        if (itemList != null) {
-            for (Map<String, Object> item : itemList) {
-                Map<String, Object> newItem = new HashMap<>(item);
-                finalResultMap.put((String) item.get("facilityCode"), newItem);
+            if (currentCampusFacility != null && currentCampusFacility.get("itemList") != null) {
+                currentItems = (List<Map<String, Object>>) currentCampusFacility.get("itemList");
             }
-        }
 
-        if (currentItems != null) {
-            for (Map<String, Object> item : currentItems) {
-                finalResultMap.put((String) item.get("facilityCode"), new HashMap<>(item));
+            // lấy facility từ primary chính đã config cơ sở vật chất chung cho các campus
+            // ==> để biết bên primary campus có thêm / bớt CSVC nào ko?
+            SchoolConfig facilityData = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "facilityData").orElse(null);
+
+            List<Map<String, Object>> itemList = new ArrayList<>();
+
+            if (facilityData != null && facilityData.getValue() instanceof Map) {
+                Map<String, Object> val = (Map<String, Object>) facilityData.getValue();
+                itemList = (List<Map<String, Object>>) val.get("itemList");
             }
-        }
 
-        Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
+            Map<String, Map<String, Object>> finalResultMap = new LinkedHashMap<>();
 
-        if (campusTemplateDocx.isEmpty()) {
-            throw  new Exception("Campus document template is not available.");
-        }
+            // s1 : đổ dữ liệu làm khung
+            if (itemList != null) {
+                for (Map<String, Object> item : itemList) {
+                    Map<String, Object> newItem = new HashMap<>(item);
+                    finalResultMap.put((String) item.get("facilityCode"), newItem);
+                }
+            }
 
-        String templatePath = campusTemplateDocx.get().getFolderName() + "/" + campusTemplateDocx.get().getFileName();
+            if (currentItems != null) {
+                for (Map<String, Object> item : currentItems) {
+                    finalResultMap.put((String) item.get("facilityCode"), new HashMap<>(item));
+                }
+            }
+
+            Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
+
+            if (campusTemplateDocx.isEmpty()) {
+                throw new Exception("Mẫu tài liệu cơ sở không khả dụng.");
+            }
+
+            String templatePath = campusTemplateDocx.get().getFolderName() + "/" + campusTemplateDocx.get().getFileName();
 
             supabaseStorageService.removeFile(campus.getFolderPath(), campus.getFileName());
 
@@ -611,7 +619,7 @@ public class AccountServiceImpl implements AccountService {
             campus.setFileName(fileName);
 
         } catch (Exception e) {
-            System.out.println("Failed to generate campus docx" + e.getMessage());
+            System.out.println("Không tạo được tài liệu cơ sở docx: " + e.getMessage());
         }
 
         campusRepo.save(campus);
@@ -665,10 +673,10 @@ public class AccountServiceImpl implements AccountService {
         Account account = AuthRequestUtil.extractAuthenticatedAccount();
 
         if (account == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No account", null);
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản", null);
         }
 
-        return ResponseBuilder.build(HttpStatus.OK, "View profile successfully", buildProfileData(account));
+        return ResponseBuilder.build(HttpStatus.OK, "Xem hồ sơ thành công", buildProfileData(account));
     }
 
     private Map<String, Object> buildProfileData(Account account) {
