@@ -780,6 +780,10 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Khung chương trình không tồn tại trong hệ thống", null);
         }
 
+        if (target.getSchool().getId() != actorCampus.getSchool().getId()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Khung chương trình không thuộc trường của bạn.", null);
+        }
+
         switch (action.toUpperCase()) {
 
             case "PUBLISH":
@@ -818,6 +822,22 @@ public class SchoolServiceImpl implements SchoolService {
                 Curriculum newDraft = evolveFromExisting(target, null);
 
                 return ResponseBuilder.build(HttpStatus.OK, "Đã tạo bản nháp mới. Vui lòng cập nhật các thay đổi", curriculumRepo.save(newDraft).getId());
+
+            case "ARCHIVE":
+                if (Status.CUR_ARCHIVED.equals(target.getCurriculumStatus())) {
+                    return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Khung chương trình đã ở trạng thái lưu trữ.", null);
+                }
+                if (programRepo.existsByCurriculumId(target.getId())) {
+                    return ResponseBuilder.build(
+                            HttpStatus.CONFLICT,
+                            "Không thể lưu trữ khung chương trình vì vẫn còn chương trình đào tạo đang gắn với khung này. "
+                                    + "Vui lòng gỡ hoặc chuyển các chương trình sang khung khác trước, hoặc dùng luồng REVISE/PUBLISH để thay thế phiên bản.",
+                            null
+                    );
+                }
+                target.setCurriculumStatus(Status.CUR_ARCHIVED);
+                curriculumRepo.save(target);
+                return ResponseBuilder.build(HttpStatus.OK, "Đã lưu trữ khung chương trình thành công", target.getId());
 
             default:
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Hành động cập nhật không hợp lệ: " + action, null);
@@ -895,8 +915,6 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "Tài khoản cơ sở không tồn tại trong hệ thống", null);
         }
 
-        autoArchiveOldCurriculums(actorCampus.getSchool().getId());
-
         Pageable pageable;
         try {
             pageable = PaginationUtil.buildPageRequest(page, pageSize);
@@ -964,19 +982,6 @@ public class SchoolServiceImpl implements SchoolService {
             data.put("linkedProgramNames", Collections.emptyList());
         }
         return data;
-    }
-
-    private void autoArchiveOldCurriculums(int schoolId) {
-        int currentYear = LocalDate.now().getYear();
-
-        List<Curriculum> oldCurriculums = curriculumRepo.findAllBySchoolIdAndCurriculumStatusAndApplicationYearLessThan(schoolId, Status.CUR_ACTIVE, currentYear);
-
-        if (oldCurriculums != null && !oldCurriculums.isEmpty()) {
-            for (Curriculum cur : oldCurriculums) {
-                cur.setCurriculumStatus(Status.CUR_ARCHIVED);
-            }
-            curriculumRepo.saveAll(oldCurriculums);
-        }
     }
 
     @Override
