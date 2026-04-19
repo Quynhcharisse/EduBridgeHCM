@@ -2,6 +2,7 @@ package com.sp26se041.edubridgehcm.controllers;
 
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.CounsellorService;
+import com.sp26se041.edubridgehcm.services.ParentService;
 import com.sp26se041.edubridgehcm.services.WebSocketService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ public class CounsellorController {
     private final WebSocketService webSocketService;
 
     private final CounsellorService counsellorService;
+    private final ParentService parentService;
 
 
     @GetMapping("/messages/history/{parentEmail}/{counsellorEmail}/{studentProfileId}")
@@ -40,5 +42,11 @@ public class CounsellorController {
     @PreAuthorize("hasRole('COUNSELLOR')")
     public ResponseEntity<ResponseObject> readMessages(@PathVariable Long conversationId, @PathVariable String username) {
         return webSocketService.markConversationAsRead(conversationId, username);
+    }
+
+    @GetMapping("/student/{id}")
+    @PreAuthorize("hasAnyRole('COUNSELLOR')")
+    public ResponseEntity<ResponseObject> getStudentInfoById(@PathVariable int id) {
+        return parentService.getStudentInfo(id);
     }
 }

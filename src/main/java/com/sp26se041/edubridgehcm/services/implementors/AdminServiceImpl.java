@@ -455,7 +455,7 @@ public class AdminServiceImpl implements AdminService {
                 HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
 
                 restTemplate.postForEntity(
-                        "https://n8n-service-ijbl.onrender.com/webhook/b1960e9f-cd99-4dd0-96a7-c765244651ec",
+                        n8nUrl,
                         entity,
                         String.class
                 );
@@ -473,20 +473,6 @@ public class AdminServiceImpl implements AdminService {
         response.put("email", account.getEmail());
 
         return ResponseBuilder.build(HttpStatus.OK, "Xác minh thành công", response);
-    }
-
-    private String mapBoardingDescription(BoardingType type) {
-        return switch (type) {
-
-            case FULL_BOARDING ->
-                    "Cơ sở này cung cấp dịch vụ nội trú toàn phần, nơi học sinh sinh hoạt tại trường với chỗ ở, bữa ăn và sự chăm sóc toàn diện hằng ngày.";
-
-            case SEMI_BOARDING ->
-                    "Cơ sở này cung cấp dịch vụ bán trú, cho phép học sinh ở lại trường vào ban ngày để dùng bữa, được hỗ trợ học tập và tham gia các hoạt động ngoại khóa mà không lưu trú qua đêm.";
-
-            case BOTH ->
-                    "Cơ sở này cung cấp cả dịch vụ nội trú toàn phần và bán trú, mang đến lựa chọn linh hoạt về lưu trú và chăm sóc ban ngày để đáp ứng nhu cầu đa dạng của học sinh.";
-        };
     }
 
     private String toSafeObjectKey(String input) {

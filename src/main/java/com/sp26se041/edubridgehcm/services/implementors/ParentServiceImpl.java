@@ -3,10 +3,12 @@ package com.sp26se041.edubridgehcm.services.implementors;
 import com.sp26se041.edubridgehcm.enums.Gender;
 import com.sp26se041.edubridgehcm.enums.GradeLevel;
 import com.sp26se041.edubridgehcm.enums.Status;
+import com.sp26se041.edubridgehcm.enums.SubjectType;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.models.Conversation;
+import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.FavouriteSchool;
 import com.sp26se041.edubridgehcm.models.Major;
 import com.sp26se041.edubridgehcm.models.Parent;
@@ -18,6 +20,7 @@ import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
 import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
+import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.FavouriteSchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.MajorRepo;
 import com.sp26se041.edubridgehcm.repositories.ParentRepo;
@@ -85,6 +88,9 @@ public class ParentServiceImpl implements ParentService {
     private final FavouriteSchoolRepo favouriteSchoolRepo;
 
     private final CampusRepo campusRepo;
+    private final CounsellorRepo counsellorRepo;
+
+
 
     @Override
     public  ResponseEntity<ResponseObject> getConversations(Long cursorId) {
@@ -196,23 +202,60 @@ public class ParentServiceImpl implements ParentService {
 
         response.put("studentProfileId", conversation.getStudentProfile().getId());
         response.put("childName", childProfile.getStudentName());
-        response.put("gender", childProfile.getGender());
-
-        Optional<PersonalityType> personalityType =
-                personalityTypeRepo.findByCode(childProfile.getPersonalityTypeName());
-        response.put("personalityCode",
-                personalityType.map(PersonalityType::getCode).orElse("N/A"));
-        response.put("traits",
-                personalityType.map(PersonalityType::getTraits).orElse(List.of()));
-
-        response.put("favouriteJob", childProfile.getFavouriteJob());
-        response.put("academicProfileMetadata", childProfile.getAcademicProfileMetadata());
+//        response.put("gender", childProfile.getGender());
+//
+//        Optional<PersonalityType> personalityType =
+//                personalityTypeRepo.findByCode(childProfile.getPersonalityTypeName());
+//        response.put("personalityCode",
+//                personalityType.map(PersonalityType::getCode).orElse("N/A"));
+//        response.put("traits",
+//                personalityType.map(PersonalityType::getTraits).orElse(List.of()));
+//
+//        response.put("favouriteJob", childProfile.getFavouriteJob());
+//        response.put("academicProfileMetadata", buildAcademicProfileMetadata(childProfile));
+//        response.put("subjectsInSystem", getSubjects());
 
         response.put("messages", buildMessages(messages));
         response.put("hasMore", hasMore);
         response.put("nextCursorId", nextCursorId);
 
         return response;
+    }
+
+    private List<Map<String, Object>> getSubjects() {
+        List<Subject> subjects = subjectRepo.findAll();
+
+        return subjects.stream()
+                .collect(Collectors.groupingBy(Subject::getType))
+                .entrySet()
+                .stream()
+                .map(entry -> {
+                    Map<String, Object> groupMap = new HashMap<>();
+
+                    // 🔥 dùng value thay vì name()
+                    groupMap.put("type", entry.getKey().getValue());
+
+                    // label cho FE
+                    String label = switch (entry.getKey()) {
+                        case REGULAR_SUBJECT -> "Môn học chính";
+                        case FOREIGN_LANGUAGE_SUBJECT -> "Ngoại ngữ";
+                    };
+                    groupMap.put("label", label);
+
+                    List<Map<String, Object>> subjectList = entry.getValue().stream()
+                            .map(s -> {
+                                Map<String, Object> item = new HashMap<>();
+                                item.put("id", s.getId());
+                                item.put("name", s.getName());
+                                return item;
+                            })
+                            .toList();
+
+                    groupMap.put("subjects", subjectList);
+
+                    return groupMap;
+                })
+                .toList();
     }
 
     private List<Map<String, Object>> buildMessages(List<ChatMessage> messages) {
@@ -289,10 +332,12 @@ public class ParentServiceImpl implements ParentService {
                 .toList();
     }
 
-
     @Override
     public ResponseEntity<ResponseObject> getStudents() {
-        List<Map<String, Object>> result = studentInfoRepo.findAll().stream()
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        List<Map<String, Object>> result = studentInfoRepo.findByParent_Account_Email(email).stream()
                 .map(this::buildStudentProfile)
                 .toList();
 
@@ -301,6 +346,18 @@ public class ParentServiceImpl implements ParentService {
                 "Get student infos successfully",
                 result
         );
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getStudentInfo(int studentProfileId) {
+
+        Optional<StudentProfile> studentProfile = studentInfoRepo.findById(studentProfileId);
+
+        if(studentProfile.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Student profile not found", null);
+        }
+
+        return ResponseBuilder.build(HttpStatus.OK, "Get student info successfully", buildStudentProfile(studentProfile.get()));
     }
 
     // FAVOURITE SCHOOLS
@@ -431,6 +488,18 @@ public class ParentServiceImpl implements ParentService {
         return ResponseBuilder.build(HttpStatus.CREATED, "Conversation successfully created", conservation.getId());
     }
 
+    @Override
+    public List<String> findCounsellorEmailsByCampusId(int campusId) {
+
+        List<Counsellor> counsellors = counsellorRepo.findByCampus_IdAndAccount_Status(campusId, Status.ACCOUNT_ACTIVE);
+
+        return counsellors.stream()
+                .map(Counsellor::getAccount)
+                .map(Account::getEmail)
+                .collect(Collectors.toList());
+
+    }
+
     private Map<String, Object> buildFavouriteSchool(FavouriteSchool favouriteSchool) {
 
         Map<String, Object> map = new HashMap<>();
@@ -462,10 +531,186 @@ public class ParentServiceImpl implements ParentService {
         result.put("gender", studentProfile.getGender());
         result.put("personalityTypeCode", studentProfile.getPersonalityTypeName());
         result.put("favouriteJob", studentProfile.getFavouriteJob());
-        result.put("academicProfileMetadata", studentProfile.getAcademicProfileMetadata());
+        result.put("academicProfileMetadata", mergeAcademicProfileMetadata(studentProfile));
+
+        Optional<PersonalityType> personalityType =
+                personalityTypeRepo.findByCode(studentProfile.getPersonalityTypeName());
+        result.put("personalityCode",
+                personalityType.map(PersonalityType::getCode).orElse("N/A"));
+        result.put("traits",
+                personalityType.map(PersonalityType::getTraits).orElse(List.of()));
+
+        result.put("favouriteJob", studentProfile.getFavouriteJob());
+        result.put("academicProfileMetadata", buildAcademicProfileMetadata(studentProfile));
+        result.put("subjectsInSystem", getSubjects());
+
         return result;
     }
 
+    private List<Map<String, Object>> mergeAcademicProfileMetadata(StudentProfile studentProfile) {
+
+        List<Subject> allSubjects = subjectRepo.findAll();
+
+        List<Map<String, Object>> storedAcademicProfiles =
+                (List<Map<String, Object>>) studentProfile.getAcademicProfileMetadata();
+
+        if (storedAcademicProfiles == null || storedAcademicProfiles.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Map<String, Object>> mergedAcademicProfiles = new ArrayList<>();
+
+        for (Map<String, Object> academicItem : storedAcademicProfiles) {
+            if (academicItem == null) {
+                continue;
+            }
+
+            String gradeLevel = academicItem.get("gradeLevel") == null
+                    ? null
+                    : academicItem.get("gradeLevel").toString();
+
+            List<Map<String, Object>> storedSubjectResults =
+                    (List<Map<String, Object>>) academicItem.get("subjectResults");
+
+            Map<String, Object> storedSubjectMap = new LinkedHashMap<>();
+
+            // Giữ subject cũ đã lưu
+            if (storedSubjectResults != null) {
+                for (Map<String, Object> subjectItem : storedSubjectResults) {
+                    if (subjectItem == null) {
+                        continue;
+                    }
+
+                    Object subjectNameObj = subjectItem.get("subjectName");
+                    if (subjectNameObj == null) {
+                        continue;
+                    }
+
+                    String subjectName = subjectNameObj.toString().trim();
+                    if (subjectName.isEmpty()) {
+                        continue;
+                    }
+
+                    String normalizedName = subjectName.toLowerCase();
+
+                    Map<String, Object> oldSubject = new HashMap<>();
+                    oldSubject.put("id", subjectItem.get("id"));
+                    oldSubject.put("name", subjectName);
+                    oldSubject.put("type", subjectItem.get("type"));
+                    oldSubject.put("score", subjectItem.get("score"));
+                    oldSubject.put("isAvailable", false); // mặc định coi là môn cũ không còn trong hệ thống
+
+                    storedSubjectMap.put(normalizedName, oldSubject);
+                }
+            }
+
+            for (Subject subject : allSubjects) {
+                String normalizedName = subject.getName().trim().toLowerCase();
+
+                boolean existedInProfile = storedSubjectMap.containsKey(normalizedName);
+
+                // Môn ngoại ngữ: chỉ hiện nếu đã có dữ liệu
+                if (subject.getType() == SubjectType.FOREIGN_LANGUAGE_SUBJECT && !existedInProfile) {
+                    continue;
+                }
+
+                Map<String, Object> mergedSubject = new HashMap<>();
+                mergedSubject.put("id", subject.getId());
+                mergedSubject.put("name", subject.getName());
+                mergedSubject.put("type", subject.getType().getValue());
+                mergedSubject.put("isAvailable", true);
+
+                if (existedInProfile) {
+                    Map<String, Object> oldSubject = (Map<String, Object>) storedSubjectMap.get(normalizedName);
+                    mergedSubject.put("score", oldSubject.get("score"));
+                } else {
+                    mergedSubject.put("score", null);
+                }
+
+                storedSubjectMap.put(normalizedName, mergedSubject);
+            }
+
+            Map<String, Object> mergedAcademicItem = new HashMap<>();
+            mergedAcademicItem.put("gradeLevel", gradeLevel);
+            mergedAcademicItem.put("subjectResults", new ArrayList<>(storedSubjectMap.values()));
+
+            mergedAcademicProfiles.add(mergedAcademicItem);
+        }
+
+        return mergedAcademicProfiles;
+    }
+
+    private List<Map<String, Object>> buildAcademicProfileMetadata(StudentProfile studentProfile) {
+
+        List<Map<String, Object>> storedAcademicProfiles =
+                (List<Map<String, Object>>) studentProfile.getAcademicProfileMetadata();
+
+        if (storedAcademicProfiles == null || storedAcademicProfiles.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        for (Map<String, Object> academicItem : storedAcademicProfiles) {
+            if (academicItem == null) {
+                continue;
+            }
+
+            String gradeLevel = academicItem.get("gradeLevel") == null
+                    ? null
+                    : academicItem.get("gradeLevel").toString();
+
+            List<Map<String, Object>> storedSubjectResults =
+                    (List<Map<String, Object>>) academicItem.get("subjectResults");
+
+            List<Map<String, Object>> subjectResults = new ArrayList<>();
+
+            if (storedSubjectResults != null) {
+                for (Map<String, Object> subjectItem : storedSubjectResults) {
+                    if (subjectItem == null) {
+                        continue;
+                    }
+
+                    Object subjectNameObj = subjectItem.get("subjectName");
+                    if (subjectNameObj == null) {
+                        continue;
+                    }
+
+                    String subjectName = subjectNameObj.toString().trim();
+                    if (subjectName.isEmpty()) {
+                        continue;
+                    }
+
+                    Optional<Subject> subjectOpt = subjectRepo.findByName(subjectName);
+
+                    Map<String, Object> subjectMap = new HashMap<>();
+                    subjectMap.put("id", subjectItem.get("id"));
+                    subjectMap.put("subjectName", subjectName);
+                    subjectMap.put("type", subjectItem.get("type"));
+                    subjectMap.put("score", subjectItem.get("score"));
+                    subjectMap.put("isAvailable", subjectOpt.isPresent());
+
+                    // Nếu subject còn trong hệ thống thì cập nhật lại thông tin mới nhất
+                    if (subjectOpt.isPresent()) {
+                        Subject subject = subjectOpt.get();
+                        subjectMap.put("id", subject.getId());
+                        subjectMap.put("subjectName", subject.getName());
+                        subjectMap.put("type", subject.getType().getValue());
+                    }
+
+                    subjectResults.add(subjectMap);
+                }
+            }
+
+            Map<String, Object> academicMap = new HashMap<>();
+            academicMap.put("gradeLevel", gradeLevel);
+            academicMap.put("subjectResults", subjectResults);
+
+            result.add(academicMap);
+        }
+
+        return result;
+    }
 
     private Gender parseGender(String value) {
         String normalizedValue = normalize(value);
@@ -516,29 +761,76 @@ public class ParentServiceImpl implements ParentService {
         Account account = AuthRequestUtil.extractAuthenticatedAccount();
 
         String error = validateAddStudentInfoRequest(request);
-
-        if(!error.isEmpty()){
+        if (!error.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
         List<Map<String, Object>> academicProfileMetaData = new ArrayList<>();
 
-        for (AddStudentInfoRequest.AcademicInfo academicInfo : request.getAcademicInfos()) {
-            Map<String, Object> academicMap = new HashMap<>();
-            academicMap.put("gradeLevel", normalize(academicInfo.getGradeLevel()));
+        if (request.getAcademicInfos() != null) {
+            for (AddStudentInfoRequest.AcademicInfo academicInfo : request.getAcademicInfos()) {
 
-            List<Map<String, Object>> subjectResultList = new ArrayList<>();
+                // academicInfo null -> bỏ qua
+                if (academicInfo == null) {
+                    continue;
+                }
 
-            if (academicInfo.getSubjectResults() != null) {
-                for (AddStudentInfoRequest.SubjectResult subjectResult : academicInfo.getSubjectResults()) {
-                    Map<String, Object> subjectMap = new HashMap<>();
-                    subjectMap.put("subjectName", subjectResult.getSubjectName());
-                    subjectMap.put("score", subjectResult.getScore());
-                    subjectResultList.add(subjectMap);
+                String gradeLevel = academicInfo.getGradeLevel();
+                List<AddStudentInfoRequest.SubjectResult> subjectResults = academicInfo.getSubjectResults();
+
+                boolean blankGradeLevel = isBlank(gradeLevel);
+                boolean emptySubjectResults = subjectResults == null || subjectResults.isEmpty();
+
+                // Dòng rỗng hoàn toàn -> bỏ qua
+                if (blankGradeLevel && emptySubjectResults) {
+                    continue;
+                }
+
+                // gradeLevel rỗng -> đã được validate phía trên, ở đây bỏ qua để an toàn
+                if (blankGradeLevel) {
+                    continue;
+                }
+
+                Map<String, Object> academicMap = new HashMap<>();
+                academicMap.put("gradeLevel", normalize(gradeLevel));
+
+                List<Map<String, Object>> subjectResultList = new ArrayList<>();
+
+                if (subjectResults != null) {
+                    for (AddStudentInfoRequest.SubjectResult subjectResult : subjectResults) {
+
+                        // subjectResult null -> bỏ qua
+                        if (subjectResult == null) {
+                            continue;
+                        }
+
+                        String subjectName = subjectResult.getSubjectName();
+                        Double score = subjectResult.getScore();
+
+                        boolean blankSubjectName = isBlank(subjectName);
+
+                        // Dòng môn học rỗng hoàn toàn -> bỏ qua
+                        if (blankSubjectName && score == null) {
+                            continue;
+                        }
+
+                        // Có điểm nhưng không có tên -> đã validate, ở đây bỏ qua để an toàn
+                        if (blankSubjectName) {
+                            continue;
+                        }
+
+                        Map<String, Object> subjectMap = new HashMap<>();
+                        subjectMap.put("subjectName", normalize(subjectName));
+                        subjectMap.put("score", score); // có thể null
+                        subjectResultList.add(subjectMap);
+                    }
+                }
+
+                if (!subjectResultList.isEmpty()) {
+                    academicMap.put("subjectResults", subjectResultList);
+                    academicProfileMetaData.add(academicMap);
                 }
             }
-            academicMap.put("subjectResults", subjectResultList);
-            academicProfileMetaData.add(academicMap);
         }
 
         studentInfoRepo.save(StudentProfile.builder()
@@ -549,55 +841,104 @@ public class ParentServiceImpl implements ParentService {
                 .personalityTypeName(normalize(request.getPersonalityTypeCode()))
                 .academicProfileMetadata(academicProfileMetaData)
                 .build());
-        return ResponseBuilder.build(HttpStatus.OK, "Add student info successfully", null);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Thêm thông tin học sinh thành công", null);
     }
 
     @Override
     public ResponseEntity<ResponseObject> updateStudentInfo(UpdateStudentInfoRequest request) {
 
-        Optional<StudentProfile> studentProfile = studentInfoRepo.findById(request.getStudentId());
+        Optional<StudentProfile> studentProfileOpt = studentInfoRepo.findById(request.getStudentId());
 
-        if(studentProfile.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Student profile not found", null);
+        if (studentProfileOpt.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Thông tin học sinh không tìm thấy", null);
         }
 
         String error = validateUpdateStudentInfoRequest(request);
-
-        if (!error.isEmpty()){
+        if (!error.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
+        StudentProfile studentProfile = studentProfileOpt.get();
+
         List<Map<String, Object>> academicProfileMetaData = new ArrayList<>();
 
-        for (UpdateStudentInfoRequest.AcademicInfo academicInfo : request.getAcademicInfos()) {
-            Map<String, Object> academicMap = new HashMap<>();
-            academicMap.put("gradeLevel", normalize(academicInfo.getGradeLevel()));
+        if (request.getAcademicInfos() != null) {
+            for (UpdateStudentInfoRequest.AcademicInfo academicInfo : request.getAcademicInfos()) {
 
-            List<Map<String, Object>> subjectResultList = new ArrayList<>();
+                // academicInfo null -> bỏ qua
+                if (academicInfo == null) {
+                    continue;
+                }
 
-            if (academicInfo.getSubjectResults() != null) {
-                for (UpdateStudentInfoRequest.SubjectResult subjectResult : academicInfo.getSubjectResults()) {
-                    Map<String, Object> subjectMap = new HashMap<>();
-                    subjectMap.put("subjectName", subjectResult.getSubjectName());
-                    subjectMap.put("score", subjectResult.getScore());
-                    subjectResultList.add(subjectMap);
+                String gradeLevel = academicInfo.getGradeLevel();
+                List<UpdateStudentInfoRequest.SubjectResult> subjectResults = academicInfo.getSubjectResults();
+
+                boolean blankGradeLevel = isBlank(gradeLevel);
+                boolean emptySubjectResults = subjectResults == null || subjectResults.isEmpty();
+
+                // Dòng rỗng hoàn toàn -> bỏ qua
+                if (blankGradeLevel && emptySubjectResults) {
+                    continue;
+                }
+
+                // gradeLevel rỗng -> đã được validate phía trên, ở đây bỏ qua để an toàn
+                if (blankGradeLevel) {
+                    continue;
+                }
+
+                Map<String, Object> academicMap = new HashMap<>();
+                academicMap.put("gradeLevel", normalize(gradeLevel));
+
+                List<Map<String, Object>> subjectResultList = new ArrayList<>();
+
+                if (subjectResults != null) {
+                    for (UpdateStudentInfoRequest.SubjectResult subjectResult : subjectResults) {
+
+                        // subjectResult null -> bỏ qua
+                        if (subjectResult == null) {
+                            continue;
+                        }
+
+                        String subjectName = subjectResult.getSubjectName();
+                        Double score = subjectResult.getScore();
+
+                        boolean blankSubjectName = isBlank(subjectName);
+
+                        // Dòng môn học rỗng hoàn toàn -> bỏ qua
+                        if (blankSubjectName && score == null) {
+                            continue;
+                        }
+
+                        // Có điểm nhưng không có tên -> đã validate phía trên, ở đây bỏ qua để an toàn
+                        if (blankSubjectName) {
+                            continue;
+                        }
+
+                        Map<String, Object> subjectMap = new HashMap<>();
+                        subjectMap.put("subjectName", normalize(subjectName));
+                        subjectMap.put("score", score); // có thể null
+                        subjectResultList.add(subjectMap);
+                    }
+                }
+
+                if (!subjectResultList.isEmpty()) {
+                    academicMap.put("subjectResults", subjectResultList);
+                    academicProfileMetaData.add(academicMap);
                 }
             }
-            academicMap.put("subjectResults", subjectResultList);
-            academicProfileMetaData.add(academicMap);
         }
 
-        studentProfile.get().setStudentName(normalize(request.getStudentName()));
-        studentProfile.get().setGender(parseGender(request.getGender()));
-        studentProfile.get().setFavouriteJob(normalize(request.getFavouriteJob()));
-        studentProfile.get().setPersonalityTypeName(normalize(request.getPersonalityTypeCode()));
-        studentProfile.get().setAcademicProfileMetadata(academicProfileMetaData);
+        studentProfile.setStudentName(normalize(request.getStudentName()));
+        studentProfile.setGender(parseGender(request.getGender()));
+        studentProfile.setFavouriteJob(normalize(request.getFavouriteJob()));
+        studentProfile.setPersonalityTypeName(normalize(request.getPersonalityTypeCode()));
+        studentProfile.setAcademicProfileMetadata(academicProfileMetaData);
 
-        studentInfoRepo.save(studentProfile.get());
+        studentInfoRepo.save(studentProfile);
 
-        return ResponseBuilder.build(HttpStatus.OK, "Update student info successfully", null);
+        return ResponseBuilder.build(HttpStatus.OK, "Cập nhật thông tin học sinh thành công", null);
     }
-
 
 
     // Get config admin persona, subject, major
@@ -691,212 +1032,270 @@ public class ParentServiceImpl implements ParentService {
     }
 
     private String validateUpdateStudentInfoRequest(UpdateStudentInfoRequest request) {
-        if (request == null) {
-            return "Request must not be null";
-        }
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
         if (isBlank(request.getStudentName())) {
-            return "Child name must not be blank";
+            return "Tên học sinh không được để trống";
         }
-        if (request.getStudentName().length() > 200) {
-            return "Child name must be less than or equal to 200 characters";
+
+        if (request.getStudentName().trim().length() > 200) {
+            return "Tên học sinh không được vượt quá 200 ký tự";
+        }
+
+        if (studentInfoRepo.existsByStudentNameIgnoreCaseAndParent_Account_EmailAndIdNot(
+                request.getStudentName().trim(),
+                email,
+                request.getStudentId()
+        )) {
+            return "Tên học sinh đã tồn tại";
         }
 
         if (isBlank(request.getGender())) {
-            return "Gender is required";
+            return "Giới tính là bắt buộc";
         }
+
         if (parseGender(request.getGender()) == null) {
-            return "Invalid gender";
-        }
-        if (request.getAcademicInfos() == null || request.getAcademicInfos().isEmpty()) {
-            return "Academic infos must not be empty";
+            return "Giới tính không hợp lệ";
         }
 
-        Optional<PersonalityType> personalityType = personalityTypeRepo.findByCode(request.getPersonalityTypeCode());
-
-        if(personalityType.isEmpty()){
-            return "Invalid personality type";
+        Optional<PersonalityType> personalityType =
+                personalityTypeRepo.findByCode(request.getPersonalityTypeCode());
+        if (personalityType.isEmpty()) {
+            return "Loại tính cách không hợp lệ";
         }
 
         Optional<Major> major = majorRepo.findByName(request.getFavouriteJob());
-
-        if(major.isEmpty()){
-            return "Invalid major";
+        if (major.isEmpty()) {
+            return "Ngành nghề yêu thích không hợp lệ";
         }
 
-        List<Subject> allSubjects = subjectRepo.findAll();
-        if (allSubjects.isEmpty()) {
-            return  "Subject data is empty";
+        if (request.getAcademicInfos() == null || request.getAcademicInfos().isEmpty()) {
+            return "";
         }
 
         Set<String> gradeLevels = new HashSet<>();
+
         for (int i = 0; i < request.getAcademicInfos().size(); i++) {
 
             UpdateStudentInfoRequest.AcademicInfo academicInfo = request.getAcademicInfos().get(i);
+
+            // academicInfo null -> bỏ qua
             if (academicInfo == null) {
-                return  "Academic info at index " + i + " must not be null";
+                continue;
             }
 
-            if (isBlank(academicInfo.getGradeLevel())) {
-                return "Grade level is required at academic info index " + i;
+            String gradeLevel = academicInfo.getGradeLevel();
+            List<UpdateStudentInfoRequest.SubjectResult> subjectResults = academicInfo.getSubjectResults();
+
+            boolean blankGradeLevel = isBlank(gradeLevel);
+
+            boolean emptySubjectResults = subjectResults == null || subjectResults.isEmpty();
+
+            // Dòng rỗng hoàn toàn -> bỏ qua
+            if (blankGradeLevel && emptySubjectResults) {
+                continue;
             }
-            if (parseGrade(academicInfo.getGradeLevel()) == null) {
-                return "Invalid grade level";
+
+            // Có dữ liệu môn học nhưng chưa nhập khối lớp -> lỗi
+            if (blankGradeLevel) {
+                return "Khối lớp là bắt buộc khi đã nhập danh sách môn học tại vị trí " + i;
             }
-            String normalizedGradeLevel = academicInfo.getGradeLevel().trim().toLowerCase();
+
+            if (parseGrade(gradeLevel) == null) {
+                return "Khối lớp không hợp lệ: " + gradeLevel;
+            }
+
+            String normalizedGradeLevel = gradeLevel.trim().toLowerCase();
             if (!gradeLevels.add(normalizedGradeLevel)) {
-                return  "Duplicate grade level: " + academicInfo.getGradeLevel();
+                return "Khối lớp bị trùng: " + gradeLevel;
             }
-            String error = validateAcademicSubjectsForUpdate(academicInfo, i);
-            if(!error.isEmpty()){
+
+            String error = validateAcademicSubjectsForUpdate(subjectResults, normalizedGradeLevel);
+            if (!error.isEmpty()) {
                 return error;
             }
         }
+
         return "";
     }
 
     private String validateAddStudentInfoRequest(AddStudentInfoRequest request) {
 
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
         if (isBlank(request.getStudentName())) {
-            return "Child name must not be blank";
+            return "Tên học sinh không được để trống";
         }
-        if (request.getStudentName().length() > 200) {
-            return "Child name must be less than or equal to 200 characters";
+        if (request.getStudentName().trim().length() > 200) {
+            return "Tên học sinh không được vượt quá 200 ký tự";
         }
 
+        if (studentInfoRepo.existsByStudentNameIgnoreCaseAndParent_Account_Email(
+                request.getStudentName().trim(),
+                email
+        )) {
+            return "Tên học sinh " + request.getStudentName().trim()  +" đã tồn tại";
+        }
+
+
         if (isBlank(request.getGender())) {
-            return "Gender is required";
+            return "Giới tính là bắt buộc";
         }
         if (parseGender(request.getGender()) == null) {
-            return "Invalid gender";
-        }
-        if (request.getAcademicInfos() == null || request.getAcademicInfos().isEmpty()) {
-            return "Academic infos must not be empty";
+            return "Giới tính không hợp lệ";
         }
 
         Optional<PersonalityType> personalityType = personalityTypeRepo.findByCode(request.getPersonalityTypeCode());
 
         if(personalityType.isEmpty()){
-            return "Invalid personality type";
+            return "Loại tính cách không hợp lệ";
         }
 
         Optional<Major> major = majorRepo.findByName(request.getFavouriteJob());
 
         if(major.isEmpty()){
-            return "Invalid major";
+            return "Ngành nghề yêu thích không hợp lệ";
         }
 
-        List<Subject> allSubjects = subjectRepo.findAll();
-        if (allSubjects.isEmpty()) {
-            return  "Subject data is empty";
+        if (request.getAcademicInfos() == null || request.getAcademicInfos().isEmpty()) {
+            return "";
         }
 
         Set<String> gradeLevels = new HashSet<>();
+
         for (int i = 0; i < request.getAcademicInfos().size(); i++) {
-
             AddStudentInfoRequest.AcademicInfo academicInfo = request.getAcademicInfos().get(i);
+
+            // academicInfo null -> bỏ qua
             if (academicInfo == null) {
-                return  "Academic info at index " + i + " must not be null";
+                continue;
             }
 
-            if (isBlank(academicInfo.getGradeLevel())) {
-                return "Grade level is required at academic info index " + i;
+            String gradeLevel = academicInfo.getGradeLevel();
+            List<AddStudentInfoRequest.SubjectResult> subjectResults = academicInfo.getSubjectResults();
+
+            boolean blankGradeLevel = isBlank(gradeLevel);
+            boolean emptySubjectResults = subjectResults == null || subjectResults.isEmpty();
+
+            // Dòng rỗng hoàn toàn -> bỏ qua
+            if (blankGradeLevel && emptySubjectResults) {
+                continue;
             }
-            if (parseGrade(academicInfo.getGradeLevel()) == null) {
-                return "Invalid grade level";
+
+            // Có dữ liệu môn học nhưng chưa nhập khối lớp -> lỗi
+            if (blankGradeLevel) {
+                return "Khối lớp là bắt buộc khi đã nhập danh sách môn học tại vị trí " + i;
             }
-            String normalizedGradeLevel = academicInfo.getGradeLevel().trim().toLowerCase();
+
+            if (parseGrade(gradeLevel) == null) {
+                return "Khối lớp không hợp lệ: " + gradeLevel;
+            }
+
+            String normalizedGradeLevel = gradeLevel.trim().toLowerCase();
             if (!gradeLevels.add(normalizedGradeLevel)) {
-                return  "Duplicate grade level: " + academicInfo.getGradeLevel();
+                return "Khối lớp bị trùng: " + gradeLevel;
             }
-            String error = validateAcademicSubjectsForCreate(academicInfo, i);
-            if(!error.isEmpty()){
+
+            String error = validateAcademicSubjectsForCreate(subjectResults, gradeLevel);
+            if (!error.isEmpty()) {
                 return error;
             }
         }
+
         return "";
     }
 
     private String validateAcademicSubjectsForCreate(
-            AddStudentInfoRequest.AcademicInfo academicInfo,
-            int academicIndex
-    ) {
-        List<AddStudentInfoRequest.SubjectResult> subjectResults = academicInfo.getSubjectResults();
-
-        if (subjectResults == null) {
-            return "Subject results must not be null at academic info index " + academicIndex;
+            List<AddStudentInfoRequest.SubjectResult> subjectResults,
+            String gradeLevel) {
+        if (subjectResults == null || subjectResults.isEmpty()) {
+            return "";
         }
-        Set<String> providedSubjectIds = new HashSet<>();
+
+        Set<String> providedSubjectNames = new HashSet<>();
+
         for (int j = 0; j < subjectResults.size(); j++) {
             AddStudentInfoRequest.SubjectResult subjectResult = subjectResults.get(j);
+
+            // subjectResult null -> bỏ qua
             if (subjectResult == null) {
-                return "Subject result must not be null at academic info index "
-                        + academicIndex + ", subject index " + j;
+                continue;
             }
-            if (subjectResult.getSubjectName() == null) {
-                return "Subject name is required at academic info index "
-                        + academicIndex + ", subject index " + j;
-            }
-            if (!providedSubjectIds.add(subjectResult.getSubjectName())) {
-                return  "Duplicate subject name: " + subjectResult.getSubjectName()
-                        + " at academic info index " + academicIndex;
-            }
-            Optional<Subject> subject = subjectRepo.findByName((subjectResult.getSubjectName()));
-            if(subject.isEmpty()) {
-                return "Subject not found with name: " + subjectResult.getSubjectName();
-            }
+
+            String subjectName = subjectResult.getSubjectName();
             Double score = subjectResult.getScore();
-            if (score == null){
-                return  "";
+
+            boolean blankSubjectName = isBlank(subjectName);
+
+            // Dòng môn học rỗng hoàn toàn -> bỏ qua
+            if (blankSubjectName && score == null) {
+                continue;
             }
-            if (score < 0 || score > 10) {
-                return "Score must be between 0 and 10 for subject '"
-                        + subject.get().getName()
-                        + "' at academic info index " + academicIndex
-                        + ", subject index " + j;
+
+            // Có điểm nhưng chưa nhập tên môn học -> lỗi
+            if (blankSubjectName && score != null) {
+                return "Bạn đã nhập điểm nhưng chưa điền tên môn học tại khối "
+                        + gradeLevel + ", vị trí " + j;
+            }
+
+            String normalizedSubjectName = subjectName.trim().toLowerCase();
+            if (!providedSubjectNames.add(normalizedSubjectName)) {
+                return "Môn học bị trùng: " + subjectName + " tại khối " + gradeLevel;
+            }
+
+            // subjectName có nhưng score null -> vẫn hợp lệ, vẫn lưu
+            if (score != null && (score < 0 || score > 10)) {
+                return "Điểm phải nằm trong khoảng từ 0 đến 10 cho môn '"
+                        + subjectName + "' tại khối " + gradeLevel;
             }
         }
+
         return "";
     }
 
     private String validateAcademicSubjectsForUpdate(
-            UpdateStudentInfoRequest.AcademicInfo academicInfo,
-            int academicIndex
+            List<UpdateStudentInfoRequest.SubjectResult> subjectResults,
+            String gradeLevel
     ) {
-        List<UpdateStudentInfoRequest.SubjectResult> subjectResults = academicInfo.getSubjectResults();
-
-        if (subjectResults == null) {
-            return "Subject results must not be null at academic info index " + academicIndex;
+        if (subjectResults == null || subjectResults.isEmpty()) {
+            return "";
         }
-        Set<String> providedSubjectIds = new HashSet<>();
+
+        Set<String> providedSubjectNames = new HashSet<>();
+
         for (int j = 0; j < subjectResults.size(); j++) {
             UpdateStudentInfoRequest.SubjectResult subjectResult = subjectResults.get(j);
+
             if (subjectResult == null) {
-                return "Subject result must not be null at academic info index "
-                        + academicIndex + ", subject index " + j;
+                continue;
             }
-            if (subjectResult.getSubjectName() == null) {
-                return "Subject name is required at academic info index "
-                        + academicIndex + ", subject index " + j;
-            }
-            if (!providedSubjectIds.add(subjectResult.getSubjectName())) {
-                return  "Duplicate subject name: " + subjectResult.getSubjectName()
-                        + " at academic info index " + academicIndex;
-            }
-            Optional<Subject> subject = subjectRepo.findByName((subjectResult.getSubjectName()));
-            if(subject.isEmpty()) {
-                return "Subject not found with name: " + subjectResult.getSubjectName();
-            }
+
+            String subjectName = subjectResult.getSubjectName();
             Double score = subjectResult.getScore();
-            if (score == null){
-                return  "";
+
+            boolean blankSubjectName = isBlank(subjectName);
+
+            if (blankSubjectName && score == null) {
+                continue;
             }
-            if (score < 0 || score > 10) {
-                return "Score must be between 0 and 10 for subject '"
-                        + subject.get().getName()
-                        + "' at academic info index " + academicIndex
-                        + ", subject index " + j;
+
+            if (blankSubjectName && score != null) {
+                return "Bạn đã nhập điểm nhưng chưa điền tên môn học tại khối "
+                        + gradeLevel + ", vị trí " + j;
+            }
+
+            String normalizedSubjectName = subjectName.trim().toLowerCase();
+            if (!providedSubjectNames.add(normalizedSubjectName)) {
+                return "Môn học bị trùng: " + subjectName + " tại khối " + gradeLevel;
+            }
+
+            if (score != null && (score < 0 || score > 10)) {
+                return "Điểm phải nằm trong khoảng từ 0 đến 10 cho môn '"
+                        + subjectName + "' tại khối " + gradeLevel;
             }
         }
+
         return "";
     }
 

@@ -8,6 +8,8 @@ import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import org.springframework.http.ResponseEntity;
 
+import java.util.List;
+
 public interface ParentService {
     ResponseEntity<ResponseObject> getConversations(Long cursorId);
     ResponseEntity<ResponseObject> getChatHistory(String parentEmail, int campusId, int studentProfileId, Long cursorId);
@@ -23,6 +25,8 @@ public interface ParentService {
     ResponseEntity<ResponseObject> updateStudentInfo(UpdateStudentInfoRequest request);
     ResponseEntity<ResponseObject> getStudents();
 
+    ResponseEntity<ResponseObject> getStudentInfo(int studentProfileId);
+
     //Favourite school
 
     ResponseEntity<ResponseObject> addFavouriteSchool(AddFavouriteSchoolRequest request);
@@ -32,4 +36,6 @@ public interface ParentService {
 //    ResponseEntity<ResponseObject> createFolder();
 
     ResponseEntity<ResponseObject> createConversation(CreateConversationRequest request);
+
+    List<String> findCounsellorEmailsByCampusId(int campusId);
 }
