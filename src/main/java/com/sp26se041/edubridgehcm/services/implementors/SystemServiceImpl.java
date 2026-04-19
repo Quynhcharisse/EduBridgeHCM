@@ -51,7 +51,13 @@ public class SystemServiceImpl implements SystemService {
 
         Map<String, Object> data = getConfigByKey(k);
 
-        if (data == null) return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Data invalid", null);
+        if (data == null) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Dữ liệu không hợp lệ",
+                    null
+            );
+        }
 
         return ResponseBuilder.build(HttpStatus.OK, "", data);
     }
@@ -78,11 +84,19 @@ public class SystemServiceImpl implements SystemService {
                 && request.getAdmissionQuotaData() == null
                 && request.getAdmissionSettingsData() == null
         ) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Data missing", null);
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Thiếu dữ liệu",
+                    null
+            );
         }
 
         updateConfig(request);
-        return ResponseBuilder.build(HttpStatus.OK, "Update successfully", null);
+        return ResponseBuilder.build(
+                HttpStatus.OK,
+                "Cập nhật thành công",
+                null
+        );
     }
 
     @Override
@@ -91,13 +105,22 @@ public class SystemServiceImpl implements SystemService {
         PlatformConfig config = platformConfigRepo.findByKey("admission_quota").orElse(null);
 
         if (config == null || config.getValue() == null)
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No quota config found", null);
+            return ResponseBuilder.build(
+                    HttpStatus.NOT_FOUND,
+                    "Không tìm thấy cấu hình chỉ tiêu",
+                    null
+            );
 
         Map<String, Object> allYearsData = (Map<String, Object>) config.getValue();
 
         Map<String, Object> yearData = (Map<String, Object>) allYearsData.get(year);
 
-        if (yearData == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "No data for year " + year, null);
+        if (yearData == null)
+            return ResponseBuilder.build(
+                    HttpStatus.NOT_FOUND,
+                    "Không tìm thấy dữ liệu cho năm " + year,
+                    null
+            );
 
         Map<String, Integer> idQuotas = (Map<String, Integer>) yearData.get("quotas");
 
@@ -131,6 +154,7 @@ public class SystemServiceImpl implements SystemService {
 
     @Transactional
     public void updateBusiness(CreateConfigDataRequest request) {
+
         CreateConfigDataRequest.BusinessData businessData = request.getBusinessData();
         Map<String, Object> businessJson = new HashMap<>();
 
@@ -153,6 +177,7 @@ public class SystemServiceImpl implements SystemService {
 
     @Transactional
     public void updateMedia(CreateConfigDataRequest request) {
+
         CreateConfigDataRequest.MediaData mediaData = request.getMediaData();
         Map<String, Object> mediaJson = new HashMap<>();
 

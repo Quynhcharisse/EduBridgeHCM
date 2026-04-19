@@ -43,7 +43,7 @@ public class OpenDayEvent {
     @Column(columnDefinition = "TEXT")
     String description;
 
-    @Column(name = "banner_url")
+    @Column(name = "banner_url", length = 255)
     String bannerUrl;
 
     @Column(name = "event_date")
