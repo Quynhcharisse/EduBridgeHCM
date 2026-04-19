@@ -113,6 +113,54 @@ public class EduBridgeHcmApplication {
 
         quotaData.put("2025-2026", year2025);
 
+        Map<String, Object> admissionSettingsData = new HashMap<>();
+        List<Map<String, Object>> allowedMethods = List.of(
+                Map.of(
+                        "code", "HOC_BA",
+                        "displayName", "Xét kết quả học tập (Học bạ)",
+                        "description", "Dựa trên điểm trung bình các môn học năm lớp 12 hoặc cả 3 năm THPT."
+                ),
+                Map.of(
+                        "code", "THPT",
+                        "displayName", "Xét điểm thi tốt nghiệp THPT",
+                        "description", "Sử dụng kết quả kỳ thi tốt nghiệp THPT quốc gia theo các tổ hợp môn."
+                ),
+                Map.of(
+                        "code", "DGNL",
+                        "displayName", "Kỳ thi Đánh giá năng lực (ĐHQG)",
+                        "description", "Sử dụng kết quả kỳ thi đánh giá năng lực do ĐH Quốc gia tổ chức."
+                ),
+                Map.of(
+                        "code", "TUYEN_THANG",
+                        "displayName", "Tuyển thẳng & Ưu tiên xét tuyển",
+                        "description", "Dành cho thí sinh đạt giải quốc gia, quốc tế hoặc theo quy định riêng của trường."
+                ),
+                Map.of(
+                        "code", "XET_TUYEN_KET_HOP",
+                        "displayName", "Xét tuyển kết hợp",
+                        "description", "Kết hợp điểm học bạ với chứng chỉ ngoại ngữ quốc tế (IELTS, TOEFL) hoặc giải thưởng năng khiếu."
+                ),
+
+                Map.of(
+                        "code", "KIEM_TRA_RIENG",
+                        "displayName", "Kiểm tra năng lực đầu vào của trường",
+                        "description", "Thí sinh tham gia bài thi đánh giá năng lực tư duy, ngoại ngữ hoặc phỏng vấn trực tiếp do nhà trường tổ chức."
+                ),
+
+                Map.of(
+                        "code", "DIEM_THI_VAO_10",
+                        "displayName", "Xét điểm thi tuyển sinh lớp 10",
+                        "description", "Sử dụng kết quả kỳ thi tuyển sinh vào lớp 10 do Sở Giáo dục và Đào tạo tổ chức."
+                ),
+
+                Map.of(
+                        "code", "UU_TIEN_RIENG",
+                        "displayName", "Ưu tiên xét tuyển theo chính sách trường",
+                        "description", "Dành cho học sinh có anh chị em đang theo học tại hệ thống hoặc thuộc các trường liên kết."
+                )
+        );
+        admissionSettingsData.put("allowedMethods", allowedMethods);
+
         LocalDateTime today = LocalDateTime.now();
 
         platformConfigRepo.saveAll(List.of(
@@ -131,6 +179,11 @@ public class EduBridgeHcmApplication {
                 PlatformConfig.builder()
                         .key("admissionQuota")
                         .value(quotaData)
+                        .creationDate(today)
+                        .modifiedDate(today).build(),
+                PlatformConfig.builder()
+                        .key("admissionSettingsData")
+                        .value(admissionSettingsData)
                         .creationDate(today)
                         .modifiedDate(today).build()));
     }
