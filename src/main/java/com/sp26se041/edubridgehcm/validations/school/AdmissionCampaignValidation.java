@@ -52,40 +52,40 @@ public class AdmissionCampaignValidation {
             return "Ngày kết thúc không được để trống";
         }
 
-        // Check quá khứ cho StartDate (cho phép lùi 1 ngày)
-        if (request.getStartDate().isBefore(LocalDate.now().minusDays(1))) {
-            return "Ngày bắt đầu không được ở trong quá khứ";
-        }
-
-        // Check quá khứ cho EndDate
-        if (request.getEndDate().isBefore(LocalDate.now())) {
-            return "Ngày kết thúc phải ở trong tương lai";
-        }
-
-        //chiến dịch phải diễn ra ít nhất là hơn 1 ngày
-        if (!request.getEndDate().isAfter(request.getStartDate())) {
-            return "Ngày kết thúc phải sau ngày bắt đầu";
-        }
-
-        // Quy tắc: StartDate có thể nằm ở quý 4 của năm trước (n-1)
-        // để bắt đầu nhận hồ sơ sớm cho năm học (n).
-        // Ví dụ: Chiến dịch 2027 có thể bắt đầu từ 01/10/2026.
-        if (request.getStartDate().isBefore(LocalDate.of(request.getYear() - 1, 10, 1))) {
-            return "Ngày bắt đầu quá sớm. Đợt tuyển sinh sớm cho năm " + request.getYear() + " nên bắt đầu từ tháng 10 năm " + (request.getYear() - 1);
-        }
-
-        if (request.getEndDate().isBefore(LocalDate.of(request.getYear() - 1, 12, 31))) {
-            return "Ngày kết thúc không hợp lệ. Chiến dịch cho năm " + request.getYear() + " phải kéo dài ít nhất đến hết năm " + (request.getYear() - 1);
-        }
-
-        // Quy tắc: EndDate phải kết thúc trong năm học đó để chốt sổ
-        if (request.getEndDate().getYear() != request.getYear()) {
-            return "Ngày kết thúc phải nằm trong năm học " + request.getYear();
-        }
-
-        if (admissionCampaignRepo.existsByYearAndSchoolIdAndStatusIn(actorCampus.getSchool().getId(), request.getYear(), List.of(Status.OPEN_ADMISSION_CAMPAIGN))) {
-            return "Mẫu chiến dịch cho năm học " + request.getYear() + " đã tồn tại";
-        }
+//        // Check quá khứ cho StartDate (cho phép lùi 1 ngày)
+//        if (request.getStartDate().isBefore(LocalDate.now().minusDays(1))) {
+//            return "Ngày bắt đầu không được ở trong quá khứ";
+//        }
+//
+//        // Check quá khứ cho EndDate
+//        if (request.getEndDate().isBefore(LocalDate.now())) {
+//            return "Ngày kết thúc phải ở trong tương lai";
+//        }
+//
+//        //chiến dịch phải diễn ra ít nhất là hơn 1 ngày
+//        if (!request.getEndDate().isAfter(request.getStartDate())) {
+//            return "Ngày kết thúc phải sau ngày bắt đầu";
+//        }
+//
+//        // Quy tắc: StartDate có thể nằm ở quý 4 của năm trước (n-1)
+//        // để bắt đầu nhận hồ sơ sớm cho năm học (n).
+//        // Ví dụ: Chiến dịch 2027 có thể bắt đầu từ 01/10/2026.
+//        if (request.getStartDate().isBefore(LocalDate.of(request.getYear() - 1, 10, 1))) {
+//            return "Ngày bắt đầu quá sớm. Đợt tuyển sinh sớm cho năm " + request.getYear() + " nên bắt đầu từ tháng 10 năm " + (request.getYear() - 1);
+//        }
+//
+//        if (request.getEndDate().isBefore(LocalDate.of(request.getYear() - 1, 12, 31))) {
+//            return "Ngày kết thúc không hợp lệ. Chiến dịch cho năm " + request.getYear() + " phải kéo dài ít nhất đến hết năm " + (request.getYear() - 1);
+//        }
+//
+//        // Quy tắc: EndDate phải kết thúc trong năm học đó để chốt sổ
+//        if (request.getEndDate().getYear() != request.getYear()) {
+//            return "Ngày kết thúc phải nằm trong năm học " + request.getYear();
+//        }
+//
+//        if (admissionCampaignRepo.existsByYearAndSchoolIdAndStatusIn(actorCampus.getSchool().getId(), request.getYear(), List.of(Status.OPEN_ADMISSION_CAMPAIGN))) {
+//            return "Mẫu chiến dịch cho năm học " + request.getYear() + " đã tồn tại";
+//        }
 
         return null;
     }
