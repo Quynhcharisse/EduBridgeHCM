@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 import java.util.List;
-import java.util.Map;
 
 @Data
 @NoArgsConstructor
@@ -47,12 +46,10 @@ public class CreateConfigDataRequest {
 
         // Dung lượng (Size)
         int maxImgSize;
-        int maxVideoSize;
         int maxDocSize;
 
         List<MediaFormat> imgFormats;   // Cho Avatar, Logo
-        List<MediaFormat> videoFormats; // Cho Video giới thiệu trường
-        List<MediaFormat> docFormats;   // Cho Giấy phép kinh doanh (PDF, DOCX)
+        List<MediaFormat> docFormats;   // Cho Giấy phép kinh doanh
     }
 
     @Data
@@ -72,8 +69,17 @@ public class CreateConfigDataRequest {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class AdmissionQuotaData {
         String year;
-        String sourceUrl;
-        Map<Integer, Integer> quotas;
+        List<Quota> quotas;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class Quota {
+        String schoolName;
+        int value;
     }
 
     @Data

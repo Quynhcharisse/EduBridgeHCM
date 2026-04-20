@@ -386,6 +386,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         operationJson.put("bufferBetweenSlotsMinutes", operationSettingsData.getBufferBetweenSlotsMinutes());
         operationJson.put("maxBookingPerSlot", operationSettingsData.getMaxBookingPerSlot());
         operationJson.put("allowBookingBeforeHours", operationSettingsData.getAllowBookingBeforeHours());
+
         // allowBookingBeforeHours ==> Trường cần thời gian chuẩn bị phòng thi/hồ sơ phỏng vấn
         // ==> không cho phép học sinh đặt lịch hôm nay để thi ngay hôm nay.
         operationJson.put("workingConfig", workingConfigMap);
