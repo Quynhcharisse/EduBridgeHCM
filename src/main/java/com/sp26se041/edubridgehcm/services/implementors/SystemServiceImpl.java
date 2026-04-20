@@ -6,6 +6,7 @@ import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.requests.CreateConfigDataRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
+import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.services.SystemService;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +29,9 @@ import java.util.stream.Collectors;
 public class SystemServiceImpl implements SystemService {
 
     private final PlatformConfigRepo platformConfigRepo;
+
     private final SchoolRepo schoolRepo;
+    private final SupabaseStorageService supabaseStorageService;
 
     @Override
     public ResponseEntity<ResponseObject> getConfigData() {
@@ -179,11 +182,9 @@ public class SystemServiceImpl implements SystemService {
         Map<String, Object> mediaJson = new HashMap<>();
 
         mediaJson.put("maxImgSize", media.getMaxImgSize());
-        mediaJson.put("maxVideoSize", media.getMaxVideoSize());
         mediaJson.put("maxDocSize", media.getMaxDocSize());
 
         mediaJson.put("imgFormat", mapFormats(media.getImgFormats()));
-        mediaJson.put("videoFormat", mapFormats(media.getVideoFormats()));
         mediaJson.put("docFormat", mapFormats(media.getDocFormats()));
 
         PlatformConfig config = platformConfigRepo.findByKey("media").orElse(
@@ -219,12 +220,22 @@ public class SystemServiceImpl implements SystemService {
     public void updateAdmissionQuota(CreateConfigDataRequest request) {
         CreateConfigDataRequest.AdmissionQuotaData admissionQuota = request.getAdmissionQuotaData();
 
-        Map<String, Object> currentYearInfo = new HashMap<>();
-        currentYearInfo.put("sourceUrl", admissionQuota.getSourceUrl());
+        List<Map<String, Object>> quotaAIData = admissionQuota.getQuotas().stream()
+                .filter(q -> schoolRepo.existsByName(q.getSchoolName()))
+                .map(q -> {
+                    School school = schoolRepo.findByName(q.getSchoolName()).orElse(null);
+                    assert school != null;
 
-        Map<String, Integer> formattedQuotas = new HashMap<>();
-        admissionQuota.getQuotas().forEach((id, val) -> formattedQuotas.put(id.toString(), val));
-        currentYearInfo.put("quotas", formattedQuotas);
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("schoolId", school.getId());
+                    data.put("value", q.getValue());
+                    return data;
+                })
+                .toList();
+
+        Map<String, Object> quotaData = new HashMap<>();
+        quotaData.put("year", admissionQuota.getYear());
+        quotaData.put("quotas", quotaAIData);
 
         PlatformConfig config = platformConfigRepo.findByKey("admissionQuota")
                 .orElse(PlatformConfig.builder()
@@ -232,14 +243,8 @@ public class SystemServiceImpl implements SystemService {
                         .creationDate(LocalDateTime.now())
                         .build());
 
-        Map<String, Object> allYearsData = (config.getValue() != null)
-                ? (Map<String, Object>) config.getValue()
-                : new HashMap<>();
-
-        allYearsData.put(admissionQuota.getYear(), currentYearInfo);
-
         assert config != null;
-        config.setValue(allYearsData);
+        config.setValue(quotaData);
         config.setModifiedDate(LocalDateTime.now());
         platformConfigRepo.save(config);
     }
