@@ -20,6 +20,7 @@ import lombok.experimental.FieldDefaults;
 import org.jspecify.annotations.NullMarked;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -60,4 +61,13 @@ public class SchoolSubscription {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     List<PaymentTransaction> paymentTransactionList;
+
+    @Column(name = "current_period_start")
+    LocalDateTime currentPeriodStart; // Dùng để tính Pro-rate chu kỳ hiện tại
+
+    @Column(name = "current_period_end")
+    LocalDateTime currentPeriodEnd;   // Chính là mốc để so với purchaseDate
+
+    @Column(name = "extra_counsellor_qty")
+    Integer extraCounsellorQty;       // Số lượng slot mua thêm riêng của trường này
 }

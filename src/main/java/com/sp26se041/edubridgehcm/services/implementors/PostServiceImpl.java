@@ -18,6 +18,7 @@ import com.sp26se041.edubridgehcm.services.PostService;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
+import com.sp26se041.edubridgehcm.utils.ConfigSystemUtil;
 import com.sp26se041.edubridgehcm.utils.CookieUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.validations.post.PostValidation;
@@ -174,6 +175,18 @@ public class PostServiceImpl implements PostService {
 
         } else {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền thực hiện thao tác này", null);
+        }
+
+        PlatformConfig media = platformConfigRepo.findByKey("media").orElse(null);
+        if (media == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy cấu hình media", null);
+        }
+
+        try {
+            ConfigSystemUtil.validateFileSize(media, file, false);
+            ConfigSystemUtil.validateFileFormat(media, file, false);
+        } catch (RuntimeException ex) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
         }
 
         // 5. Thực hiện Upload

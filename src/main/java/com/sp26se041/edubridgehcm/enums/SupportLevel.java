@@ -6,8 +6,8 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum SupportLevel {
-    BASIC("Hỗ trợ qua Email hoặc gọi điện hotline của trường"),
-    STANDARD("Nhắn tin với tư vấn viên hỗ trợ trực tiếp 24/7"),
-    ENTERPRISE("Hệ thống AI thông minh & Chuyên viên tư vấn cấp cao");
+    BASIC_SUPPORT("Phản hồi qua email support and hotline"),
+    STANDARD_SUPPORT("AI Chatbot (Cơ bản) - Trả lời dựa trên kho FAQ của trường"),
+    PREMIUM_SUPPORT("AI Chatbot (Cao cấp) & Có kênh hỗ trợ từ phía Admin hệ thông");
     private final String value;
 }

@@ -5,7 +5,6 @@ import com.sp26se041.edubridgehcm.requests.RegisterRequest;
 import com.sp26se041.edubridgehcm.utils.ConfigSystemUtil;
 
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -70,11 +69,11 @@ public class RegisterValidation {
             return "Số Hotline phải có đủ 10 số";
         }
 
-        String logoFormatError = validateMediaFile(request.getSchoolRequest().getLogoUrl(), mediaConfig, "imgFormat");
-        if (logoFormatError != null) return "Logo trường: " + logoFormatError;
+        String logoErr = ConfigSystemUtil.validateUrlFormat(mediaConfig, request.getSchoolRequest().getLogoUrl(), true);
+        if (logoErr != null) return "Logo trường: " + logoErr;
 
-        String licenseFormatError = validateMediaFile(request.getSchoolRequest().getBusinessLicenseUrl(), mediaConfig, "docFormat");
-        if (licenseFormatError != null) return "Giấy phép kinh doanh: " + licenseFormatError;
+        String licenseFormatErr = ConfigSystemUtil.validateUrlFormat(mediaConfig, request.getSchoolRequest().getBusinessLicenseUrl(), false);
+        if (licenseFormatErr != null) return "Giấy phép kinh doanh: " + licenseFormatErr;
 
         // 4. Validate định dạng URL Website
         if (!isBlank(request.getSchoolRequest().getWebsiteUrl()) && !Pattern.matches(URL_REGEX, request.getSchoolRequest().getWebsiteUrl())) {
@@ -101,20 +100,5 @@ public class RegisterValidation {
 
     private static boolean isBlank(String str) {
         return str == null || str.trim().isEmpty();
-    }
-
-    private static String validateMediaFile(String fileUrl, Map<String, Object> mediaConfig, String formatKey) {
-        if (isBlank(fileUrl)) return null;
-
-        // Sử dụng Util để lấy List<String> đuôi file đã cấu hình (ví dụ: .jpg, .png)
-        List<String> allowedFormats = ConfigSystemUtil.getAllowedFormats(mediaConfig, formatKey);
-
-        if (!allowedFormats.isEmpty()) {
-            boolean isValid = allowedFormats.stream().anyMatch(fileUrl.toLowerCase()::endsWith);
-            if (!isValid) {
-                return "không hỗ trợ. Chỉ chấp nhận: " + String.join(", ", allowedFormats);
-            }
-        }
-        return null;
     }
 }

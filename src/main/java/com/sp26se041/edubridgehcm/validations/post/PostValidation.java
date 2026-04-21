@@ -4,7 +4,6 @@ import com.sp26se041.edubridgehcm.enums.CategoryPost;
 import com.sp26se041.edubridgehcm.requests.CreatePostRequest;
 import com.sp26se041.edubridgehcm.utils.ConfigSystemUtil;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -56,57 +55,22 @@ public class PostValidation {
 
         for (int i = 0; i < imageItems.size(); i++) {
             var img = imageItems.get(i);
-            String urlError = validateMediaFormat(img.getUrl(), mediaConfig, "imgFormat");
-            if (urlError != null) return "Hình ảnh thứ " + (i + 1) + ": " + urlError;
+            String urlErr = ConfigSystemUtil.validateUrlFormat(mediaConfig, img.getUrl(), true);
+            if (urlErr != null) return "Hình ảnh thứ " + (i + 1) + ": " + urlErr;
         }
 
         if (isBlank(request.getThumbnail())) return "Ảnh đại diện (Thumbnail) bài viết là bắt buộc.";
-        String thumbnailError = validateMediaFormat(request.getThumbnail(), mediaConfig, "imgFormat");
-        if (thumbnailError != null) return "Ảnh đại diện: " + thumbnailError;
+        String thumbnailErr = ConfigSystemUtil.validateUrlFormat(mediaConfig, request.getThumbnail(), true);
+        if (thumbnailErr != null) return "Ảnh đại diện: " + thumbnailErr;
 
         if (request.getTypeFile() == null || request.getTypeFile().isBlank()) return "Loại tệp không được để trống.";
 
         if (isBlank(request.getTypeFile())) return "Loại tệp không được để trống.";
-        String typeFileError = validateTypeFileFormat(request.getTypeFile(), mediaConfig);
-        if (typeFileError != null) return typeFileError;
+        String typeFileErr = ConfigSystemUtil.validateUrlFormat(mediaConfig, request.getTypeFile(), false);
+        if (typeFileErr != null) return typeFileErr;
 
         if (parseCategoryPost(request.getCategoryPost()) == null)
             return "Danh mục bài viết không hợp lệ. Vui lòng chọn một danh mục hợp lệ.";
-        return null;
-    }
-
-    private static String validateTypeFileFormat(String typeFile, Map<String, Object> mediaConfig) {
-        if (mediaConfig == null) return null;
-
-        // Thu thập tất cả định dạng hợp lệ từ Admin (Ảnh, Video, Tài liệu)
-        List<String> allAllowed = new ArrayList<>();
-        allAllowed.addAll(ConfigSystemUtil.getAllowedFormats(mediaConfig, "imgFormat"));
-        allAllowed.addAll(ConfigSystemUtil.getAllowedFormats(mediaConfig, "videoFormat"));
-        allAllowed.addAll(ConfigSystemUtil.getAllowedFormats(mediaConfig, "docFormat"));
-
-        if (allAllowed.isEmpty()) return null;
-
-        // Chuẩn hóa typeFile để so sánh (ví dụ: "pdf" -> ".pdf")
-        String ext = typeFile.trim().toLowerCase();
-        if (!ext.startsWith(".")) ext = "." + ext;
-
-        if (!allAllowed.contains(ext)) {
-            return "Loại tệp '" + typeFile + "' không hỗ trợ. Chỉ chấp nhận: " + String.join(", ", allAllowed);
-        }
-        return null;
-    }
-
-    private static String validateMediaFormat(String url, Map<String, Object> mediaConfig, String formatKey) {
-        if (isBlank(url)) return "Đường dẫn không được để trống.";
-        if (!url.startsWith("http")) return "Đường dẫn không hợp lệ.";
-
-        List<String> allowedFormats = ConfigSystemUtil.getAllowedFormats(mediaConfig, formatKey);
-        if (!allowedFormats.isEmpty()) {
-            boolean isValid = allowedFormats.stream().anyMatch(url.toLowerCase()::endsWith);
-            if (!isValid) {
-                return "định dạng không hỗ trợ. Chỉ chấp nhận: " + String.join(", ", allowedFormats);
-            }
-        }
         return null;
     }
 

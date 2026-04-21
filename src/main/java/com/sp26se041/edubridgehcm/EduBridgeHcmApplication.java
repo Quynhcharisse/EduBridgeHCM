@@ -98,19 +98,48 @@ public class EduBridgeHcmApplication {
         business.put("minPay", 100000);
         business.put("maxPay", 200000000);
 
+        Map<String, Object> basePrices = new HashMap<>();
+        basePrices.put("trial", 0);
+        basePrices.put("standard", 500000);
+        basePrices.put("enterprise", 2000000);
+
+        Map<String, Object> featureUnitPrices = new HashMap<>();
+        featureUnitPrices.put("extraCounsellorSlot", 50000);
+        featureUnitPrices.put("aiChatbotMonthlyFee", 300000);
+        featureUnitPrices.put("premiumSupportFee", 200000);
+        featureUnitPrices.put("topRankingFee", 150000);
+
+        Map<String, Object> trialLimits = new HashMap<>();
+        trialLimits.put("durationDays", 7);
+        trialLimits.put("maxCounsellors", 2);
+
+        Map<String, Object> subscriptionPricing = new HashMap<>();
+        subscriptionPricing.put("basePrices", basePrices);
+        subscriptionPricing.put("featureUnitPrices", featureUnitPrices);
+        subscriptionPricing.put("trialLimits", trialLimits);
+
+        business.put("subscriptionPricing", subscriptionPricing);
+
         Map<String, Object> media = new HashMap<>();
         media.put("maxImgSize", 10);
-        media.put("maxVideoSize", 50);
         media.put("maxDocSize", 100);
         media.put("imgFormat", List.of(Map.of("format", ".jpg"), Map.of("format", ".jpeg"), Map.of("format", ".png"), Map.of("format", ".gif"), Map.of("format", ".webp")));
-        media.put("videoFormat", List.of(Map.of("format", ".mp4"), Map.of("format", ".avi"), Map.of("format", ".mov"), Map.of("format", ".wmv"), Map.of("format", ".webm")));
         media.put("docFormat", List.of(Map.of("format", ".pdf"), Map.of("format", ".doc"), Map.of("format", ".docx"), Map.of("format", ".txt"), Map.of("format", ".xls")));
 
         Map<String, Object> admissionQuota = new HashMap<>();
-        Map<String, Object> year2025 = new HashMap<>();
-        year2025.put("sourceUrl", "https://hcm.edu.vn/"); // Link mặc định của Sở
-        year2025.put("quotas", new HashMap<String, Integer>()); // Để trống để Admin tự điền sau
-        admissionQuota.put("2025-2026", year2025);
+        admissionQuota.put("year", 2025);
+
+        List<Map<String, Object>> quotas = List.of(
+                Map.of(
+                        "schoolId", 1,
+                        "value", 130
+                ),
+                Map.of(
+                        "schoolId", 2,
+                        "value", 304
+                )
+        );
+        admissionQuota.put("quotas", quotas);
 
         Map<String, Object> admissionSettingsData = new HashMap<>();
         List<Map<String, Object>> allowedMethods = List.of(
