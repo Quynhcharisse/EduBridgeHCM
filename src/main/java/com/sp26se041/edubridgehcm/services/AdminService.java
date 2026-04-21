@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.services;
 
 import com.sp26se041.edubridgehcm.requests.AddSubjectRequest;
+import com.sp26se041.edubridgehcm.requests.AutoFillQuotasByYearRequest;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
 import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -8,6 +9,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
 
 public interface AdminService {
+
+    ResponseEntity<ResponseObject> autoFillQuotasByYear(AutoFillQuotasByYearRequest request);
 
     ResponseEntity<ResponseObject> getConversations(Long cursorId);
 
