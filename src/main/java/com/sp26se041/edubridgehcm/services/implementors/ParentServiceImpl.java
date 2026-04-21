@@ -686,6 +686,7 @@ public class ParentServiceImpl implements ParentService {
                     String label = switch (entry.getKey()) {
                         case REGULAR_SUBJECT -> "Môn học chính";
                         case FOREIGN_LANGUAGE_SUBJECT -> "Ngoại ngữ";
+                        case THPT_SUBJECT -> "Môn học THPT";
                     };
                     groupMap.put("label", label);
 
@@ -1012,7 +1013,7 @@ public class ParentServiceImpl implements ParentService {
     }
 
     private List<Map<String, Object>> getSubjects() {
-        List<Subject> subjects = subjectRepo.findAll();
+        List<Subject> subjects = subjectRepo.findAllByTypeIn(List.of(SubjectType.REGULAR_SUBJECT, SubjectType.FOREIGN_LANGUAGE_SUBJECT));
 
         return subjects.stream()
                 .collect(Collectors.groupingBy(Subject::getType))
@@ -1028,6 +1029,7 @@ public class ParentServiceImpl implements ParentService {
                     String label = switch (entry.getKey()) {
                         case REGULAR_SUBJECT -> "Môn học chính";
                         case FOREIGN_LANGUAGE_SUBJECT -> "Ngoại ngữ";
+                        case THPT_SUBJECT -> "Môn học THPT";
                     };
                     groupMap.put("label", label);
 
