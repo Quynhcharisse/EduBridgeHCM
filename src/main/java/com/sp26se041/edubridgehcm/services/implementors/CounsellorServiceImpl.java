@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.Status;
+import com.sp26se041.edubridgehcm.enums.SubjectType;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.models.Conversation;
@@ -274,8 +275,9 @@ public class CounsellorServiceImpl implements CounsellorService {
     }
 
     private List<Map<String, Object>> getSubjects() {
-        List<Subject> subjects = subjectRepo.findAll();
-
+        List<Subject> subjects = subjectRepo.findAllByTypeIn(
+                List.of(SubjectType.REGULAR_SUBJECT, SubjectType.FOREIGN_LANGUAGE_SUBJECT)
+        );
         return subjects.stream()
                 .collect(Collectors.groupingBy(Subject::getType))
                 .entrySet()
@@ -286,11 +288,12 @@ public class CounsellorServiceImpl implements CounsellorService {
                     // 🔥 dùng value thay vì name()
                     groupMap.put("type", entry.getKey().getValue());
 
-                    // label cho FE
                     String label = switch (entry.getKey()) {
                         case REGULAR_SUBJECT -> "Môn học chính";
                         case FOREIGN_LANGUAGE_SUBJECT -> "Ngoại ngữ";
+                        case THPT_SUBJECT -> "Môn học THPT";
                     };
+
                     groupMap.put("label", label);
 
                     List<Map<String, Object>> subjectList = entry.getValue().stream()

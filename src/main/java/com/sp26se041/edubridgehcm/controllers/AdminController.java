@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.controllers;
 
 import com.sp26se041.edubridgehcm.requests.AddSubjectRequest;
+import com.sp26se041.edubridgehcm.requests.AutoFillQuotasByYearRequest;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
 import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -30,12 +31,19 @@ import org.springframework.web.multipart.MultipartFile;
 public class AdminController {
 
     private final AdminService adminService;
+
     private final WebSocketService webSocketService;
 
     @PostMapping("/school/registrations/verify")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ResponseObject> verifyRegistration(@RequestParam(name = "requestId") int requestId) {
         return adminService.verifyRegistration(requestId);
+    }
+
+    @PostMapping("/school/quotas/auto/fill")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ResponseObject> autoFillQuotasByYear(@RequestBody AutoFillQuotasByYearRequest request) {
+             return adminService.autoFillQuotasByYear(request);
     }
 
     @GetMapping("/school/registrations/list")

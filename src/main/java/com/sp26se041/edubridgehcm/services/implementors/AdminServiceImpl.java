@@ -29,6 +29,7 @@ import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
 import com.sp26se041.edubridgehcm.repositories.SubscriptionRepo;
 import com.sp26se041.edubridgehcm.repositories.TemplateDocxRepo;
 import com.sp26se041.edubridgehcm.requests.AddSubjectRequest;
+import com.sp26se041.edubridgehcm.requests.AutoFillQuotasByYearRequest;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
 import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -49,8 +50,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import java.text.Normalizer;
 import java.time.LocalDate;
@@ -100,6 +105,130 @@ public class AdminServiceImpl implements AdminService {
     private final ChatMessageRepo chatMessageRepo;
 
     private final RestTemplate restTemplate = new RestTemplate();
+
+    @Override
+    public ResponseEntity<ResponseObject> autoFillQuotasByYear(AutoFillQuotasByYearRequest request) {
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+
+        payload.put("url", request.getUrl());
+
+        List<Map<String, Object>> items = new ArrayList<>();
+
+        List<School> schools = schoolRepo.findAll();
+
+        if (schools.isEmpty()) {
+            return ResponseBuilder.build(
+                    HttpStatus.NOT_FOUND,
+                    "Không tìm thấy trường nào trong hệ thống để điền",
+                    null
+            );
+        }
+
+        schools.forEach(school -> {
+            Map<String, Object> schoolMap = new HashMap<>();
+            schoolMap.put("id", school.getId());
+            schoolMap.put("name", school.getName());
+            items.add(schoolMap);
+        });
+
+        payload.put("schools", items);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+
+        try {
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    "https://n8n-service-ijbl.onrender.com/webhook/news_article",
+                    entity,
+                    String.class
+            );
+
+            String rawBody = response.getBody();
+
+            if (rawBody == null || rawBody.isBlank()) {
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_GATEWAY,
+                        "n8n không trả dữ liệu",
+                        null
+                );
+            }
+
+            ObjectMapper objectMapper = new ObjectMapper();
+
+            Map<String, Object> responseBody = objectMapper.readValue(
+                    rawBody,
+                    new TypeReference<>() {}
+            );
+
+            String message = responseBody.get("message") != null
+                    ? responseBody.get("message").toString()
+                    : "Thành công";
+
+            Object body = responseBody.get("body");
+
+            return ResponseBuilder.build(
+                    HttpStatus.OK,
+                    message,
+                    body
+            );
+
+        } catch (HttpClientErrorException e) {
+            String rawError = e.getResponseBodyAsString();
+
+            if (rawError == null || rawError.isBlank()) {
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_REQUEST,
+                        "Yêu cầu không hợp lệ",
+                        null
+                );
+            }
+
+            try {
+                ObjectMapper objectMapper = new ObjectMapper();
+
+                Map<String, Object> errorBody = objectMapper.readValue(
+                        rawError,
+                        new TypeReference<>() {}
+                );
+
+                String message = errorBody.get("message") != null
+                        ? errorBody.get("message").toString()
+                        : "Yêu cầu không hợp lệ";
+
+                Object body = errorBody.get("body");
+
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_REQUEST,
+                        message,
+                        body
+                );
+            } catch (Exception ex) {
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_REQUEST,
+                        rawError,
+                        null
+                );
+            }
+
+        } catch (HttpServerErrorException e) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_GATEWAY,
+                    "n8n đang lỗi phía server",
+                    null
+            );
+
+        } catch (Exception e) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_GATEWAY,
+                    "Không gọi được n8n workflow",
+                    null
+            );
+        }
+
+    }
 
     @Override
     public ResponseEntity<ResponseObject> getConversations(Long cursorId) {
@@ -800,6 +929,7 @@ public class AdminServiceImpl implements AdminService {
                     String label = switch (entry.getKey()) {
                         case REGULAR_SUBJECT -> "Môn học chính";
                         case FOREIGN_LANGUAGE_SUBJECT -> "Ngoại ngữ";
+                        case THPT_SUBJECT -> "Môn học THPT";
                     };
                     groupMap.put("label", label);
 

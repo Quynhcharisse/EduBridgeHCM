@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum SubjectType {
     REGULAR_SUBJECT("regular"),
-    FOREIGN_LANGUAGE_SUBJECT("foreign_language");
+    FOREIGN_LANGUAGE_SUBJECT("foreign_language"),
+    THPT_SUBJECT("thpt");
     private final String value;
 }
