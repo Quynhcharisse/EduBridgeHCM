@@ -72,6 +72,9 @@ public class CreateConfigDataRequest {
         int trialCounsellor;
         int standardCounsellor;
         int enterpriseCounsellor;
+        int trialPostLimit;
+        int standardPostLimit;
+        int enterprisePostLimit;
     }
 
     @Data

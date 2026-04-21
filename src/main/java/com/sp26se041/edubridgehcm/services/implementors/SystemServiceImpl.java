@@ -173,6 +173,9 @@ public class SystemServiceImpl implements SystemService {
         packageQuotas.put("trialCounsellor", business.getSubscriptionPricing().getPackageQuotas().getTrialCounsellor());
         packageQuotas.put("standardCounsellor", business.getSubscriptionPricing().getPackageQuotas().getStandardCounsellor());
         packageQuotas.put("enterpriseCounsellor", business.getSubscriptionPricing().getPackageQuotas().getEnterpriseCounsellor());
+        packageQuotas.put("trialPostLimit", business.getSubscriptionPricing().getPackageQuotas().getTrialPostLimit());
+        packageQuotas.put("standardPostLimit", business.getSubscriptionPricing().getPackageQuotas().getStandardPostLimit());
+        packageQuotas.put("enterprisePostLimit", business.getSubscriptionPricing().getPackageQuotas().getEnterprisePostLimit());
 
         Map<String, Object> subscriptionPricing = new HashMap<>();
         subscriptionPricing.put("basePrices", basePrices);

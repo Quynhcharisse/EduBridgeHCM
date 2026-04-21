@@ -266,25 +266,28 @@ public class ConfigSystemUtil {
         Map<String, Object> subscriptionPricing = (Map<String, Object>) subscriptionPricingRaw;
         Object basePricingObj = subscriptionPricing.get("basePrices");
         Object featureUnitPricingObj = subscriptionPricing.get("featureUnitPrices");
-        Object trialLimitPricingObj = subscriptionPricing.get("trialLimits");
-        if (!(trialLimitPricingObj instanceof Map<?, ?>)) {
-            trialLimitPricingObj = subscriptionPricing.get("packageQuotas");
+        Object packageQuotasObj = subscriptionPricing.get("PackageQuotas");
+
+        if (!(packageQuotasObj instanceof Map<?, ?>)) {
+            packageQuotasObj = subscriptionPricing.get("packageQuotas");
         }
 
         if (!(basePricingObj instanceof Map<?, ?> basePricingRaw)) {
             throw new RuntimeException("Thiếu hoặc sai cấu hình giá nền");
         }
+
         if (!(featureUnitPricingObj instanceof Map<?, ?> featureUnitPricingRaw)) {
             throw new RuntimeException("Thiếu hoặc sai cấu hình đơn giá tính năng");
         }
-        if (!(trialLimitPricingObj instanceof Map<?, ?> trialLimitPricingRaw)) {
-            throw new RuntimeException("Thiếu hoặc sai cấu hình định mức gói (trialLimits hoặc packageQuotas)");
+
+        if (!(packageQuotasObj instanceof Map<?, ?> packageQuotasRaw)) {
+            throw new RuntimeException("Thiếu hoặc sai cấu hình định mức gói");
         }
 
         return Map.of(
                 "basePricing", (Map<String, Object>) basePricingRaw,
                 "featureUnitPricing", (Map<String, Object>) featureUnitPricingRaw,
-                "trialLimitPricing", (Map<String, Object>) trialLimitPricingRaw
+                "packageQuotas", (Map<String, Object>) packageQuotasRaw
         );
     }
 
