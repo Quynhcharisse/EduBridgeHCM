@@ -10,12 +10,13 @@ import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.ConfigSystemUtil;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 
 public class AccountValidation {
 
-    public static String updateProfileValidation(UpdateProfileRequest request, Account account, Map<String, Object> mediaConfig) {
+    public static String updateProfileValidation(UpdateProfileRequest request,
+                                                 Account account,
+                                                 Map<String, Object> mediaConfig) {
 
         if (account == null) {
             return "Tài khoản không tồn tại";
@@ -189,14 +190,16 @@ public class AccountValidation {
                     return "Vui lòng cung cấp Logo trường";
                 }
 
-                String logoError = validateFileFormat(request.getCampusData().getSchoolData().getLogoUrl(), mediaConfig, "imgFormat");
-                if (logoError != null) {
-                    return "Logo trường: " + logoError;
-                }
+                String logoImage = request.getCampusData().getSchoolData().getLogoUrl();
+
+                String formatErr = ConfigSystemUtil.validateUrlFormat(mediaConfig, logoImage, true);
+
+                if (formatErr != null) return "Logo trường: " + formatErr;
 
                 if (normalize(request.getCampusData().getSchoolData().getWebsiteUrl()) == null) {
                     return "Vui lòng nhập địa chỉ Website trường";
                 }
+
                 if (!normalize(request.getCampusData().getSchoolData().getWebsiteUrl()).startsWith("http")) {
                     return "Địa chỉ Website trường phải là một đường dẫn (URL) hợp lệ";
                 }
@@ -206,28 +209,6 @@ public class AccountValidation {
         }
 
         return "Vai trò hiện tại không hỗ trợ cập nhật thông tin hồ sơ";
-    }
-
-    private static String validateFileFormat(String url, Map<String, Object> mediaConfig, String typeKey) {
-        String normalizedUrl = normalize(url);
-        if (normalizedUrl == null) return "Đường dẫn không được để trống";
-
-        if (!normalizedUrl.startsWith("http")) {
-            return "Đường dẫn phải là một URL hợp lệ";
-        }
-
-        List<String> allowedFormats = ConfigSystemUtil.getAllowedFormats(mediaConfig, typeKey);
-
-        if (!allowedFormats.isEmpty()) {
-            boolean isValid = allowedFormats.stream()
-                    .anyMatch(ext -> normalizedUrl.toLowerCase().endsWith(ext.toLowerCase()));
-
-            if (!isValid) {
-                return "định dạng không hỗ trợ. Chỉ chấp nhận: " + String.join(", ", allowedFormats);
-            }
-        }
-
-        return null;
     }
 
     public static Gender parseGender(String value) {

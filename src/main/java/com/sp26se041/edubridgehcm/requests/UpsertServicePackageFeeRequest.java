@@ -1,10 +1,6 @@
 package com.sp26se041.edubridgehcm.requests;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 @Data
@@ -18,9 +14,13 @@ public class UpsertServicePackageFeeRequest {
 
     String name;
 
+    String packageType;
+
     String description;
 
     Double price;
+
+    Double finalPrice;
 
     Integer durationDays;
 
@@ -33,9 +33,9 @@ public class UpsertServicePackageFeeRequest {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class FeatureData {
         Integer maxCounsellors;
-        Boolean allowChat;
+        Boolean hasAiAssistant;
         String parentPostPermission; // NONE, VIEW_ONLY, CREATE_POST
-        Boolean isFeatured;
+        Boolean isFeatured; // Hiện nhãn nổi bật
         Integer topRanking;
         String supportLevel;
     }

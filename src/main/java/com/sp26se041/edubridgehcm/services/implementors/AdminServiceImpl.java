@@ -1,33 +1,8 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
-import com.sp26se041.edubridgehcm.enums.BoardingType;
-import com.sp26se041.edubridgehcm.enums.CategoryTemplate;
-import com.sp26se041.edubridgehcm.enums.PersonalityTypeGroup;
-import com.sp26se041.edubridgehcm.enums.Role;
-import com.sp26se041.edubridgehcm.enums.Status;
-import com.sp26se041.edubridgehcm.enums.SubjectType;
-import com.sp26se041.edubridgehcm.enums.SupportLevel;
-import com.sp26se041.edubridgehcm.models.Account;
-import com.sp26se041.edubridgehcm.models.Campus;
-import com.sp26se041.edubridgehcm.models.ChatMessage;
-import com.sp26se041.edubridgehcm.models.Conversation;
-import com.sp26se041.edubridgehcm.models.PersonalityType;
-import com.sp26se041.edubridgehcm.models.School;
-import com.sp26se041.edubridgehcm.models.SchoolRegistrationRequest;
-import com.sp26se041.edubridgehcm.models.Subject;
-import com.sp26se041.edubridgehcm.models.Subscription;
-import com.sp26se041.edubridgehcm.models.TemplateDocx;
-import com.sp26se041.edubridgehcm.repositories.AccountRepo;
-import com.sp26se041.edubridgehcm.repositories.CampusRepo;
-import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
-import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
-import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
-import com.sp26se041.edubridgehcm.repositories.SchoolRegistrationRequestRepo;
-import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
-import com.sp26se041.edubridgehcm.repositories.SchoolSubscriptionRepo;
-import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
-import com.sp26se041.edubridgehcm.repositories.SubscriptionRepo;
-import com.sp26se041.edubridgehcm.repositories.TemplateDocxRepo;
+import com.sp26se041.edubridgehcm.enums.*;
+import com.sp26se041.edubridgehcm.models.*;
+import com.sp26se041.edubridgehcm.repositories.*;
 import com.sp26se041.edubridgehcm.requests.AddSubjectRequest;
 import com.sp26se041.edubridgehcm.requests.AutoFillQuotasByYearRequest;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
@@ -37,16 +12,13 @@ import com.sp26se041.edubridgehcm.services.AdminService;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
+import com.sp26se041.edubridgehcm.utils.ConfigSystemUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.validations.admin.SubscriptionValidation;
 import com.sp26se041.edubridgehcm.validations.admin.VerifyRegistrationValidation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,16 +33,7 @@ import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -103,6 +66,8 @@ public class AdminServiceImpl implements AdminService {
     private final ConversationRepo conversationRepo;
 
     private final ChatMessageRepo chatMessageRepo;
+
+    private final PlatformConfigRepo platformConfigRepo;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -508,7 +473,7 @@ public class AdminServiceImpl implements AdminService {
 
             String templatePath = schoolTemplateDocx.get().getFolderName() + "/" + schoolTemplateDocx.get().getFileName();
 
-             schoolFileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
+            schoolFileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
 
         } catch (Exception ex) {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
@@ -534,27 +499,27 @@ public class AdminServiceImpl implements AdminService {
                 .build());
 
         if (!schoolFileUrl.isEmpty()) {
-           try {
-               Map<String, Object> payload = new LinkedHashMap<>();
-               payload.put("type", "school_info");
-               payload.put("schoolId", school.getId());
-               payload.put("schoolName", request.getSchoolName().trim());
-               payload.put("schoolInfoFileUrl", schoolFileUrl);
+            try {
+                Map<String, Object> payload = new LinkedHashMap<>();
+                payload.put("type", "school_info");
+                payload.put("schoolId", school.getId());
+                payload.put("schoolName", request.getSchoolName().trim());
+                payload.put("schoolInfoFileUrl", schoolFileUrl);
 
-               HttpHeaders headers = new HttpHeaders();
-               headers.setContentType(MediaType.APPLICATION_JSON);
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
 
-               HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
 
-               restTemplate.postForEntity(
-                       n8nUrl,
-                       entity,
-                       String.class
-               );
+                restTemplate.postForEntity(
+                        n8nUrl,
+                        entity,
+                        String.class
+                );
 
-           } catch (Exception e) {
-               System.out.println(e.getMessage());
-           }
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+            }
         }
 
         Campus campus = campusRepo.save(
@@ -684,11 +649,11 @@ public class AdminServiceImpl implements AdminService {
             subscription = subscriptionRepo.findById(request.getPackageId()).orElse(null);
 
             if (subscription == null) {
-                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy gói dịch vụ.", null);
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy gói dịch vụ.", null);
             }
 
             if (subscription.getPackageStatus() != Status.PACKAGE_DRAFT) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ có thể chỉnh sửa gói ở trạng thái nháp (DRAFT).", null);
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ có thể chỉnh sửa gói ở trạng thái nháp.", null);
             }
         } else {
             subscription = new Subscription();
@@ -696,13 +661,41 @@ public class AdminServiceImpl implements AdminService {
         }
 
         subscription.setName(request.getName());
+        subscription.setPackageType(PackageType.valueOf(request.getPackageType()));
         subscription.setDescription(request.getDescription());
-        subscription.setPrice(request.getPrice());
         subscription.setDurationDays(request.getDurationDays());
 
         if (request.getFeatureData() != null) {
             subscription.setFeatures(buildFeatureJson(request.getFeatureData()));
         }
+
+        // Tính giá từ platform_config "business", gán price / phí / thuế / finalPrice
+        PlatformConfig businessConfig = platformConfigRepo.findByKey("business").orElse(null);
+        
+        if (businessConfig == null || businessConfig.getValue() == null) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Chưa cấu hình doanh nghiệp.", null);
+        }
+
+        if (!(businessConfig.getValue() instanceof Map<?, ?> businessRaw)) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Cấu hình doanh nghiệp không hợp lệ.", null);
+        }
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> businessMap = (Map<String, Object>) businessRaw;
+
+        ConfigSystemUtil.SubscriptionPriceBreakdown breakdown;
+
+        try {
+            //tính giá từ platform_config "business"
+            breakdown = ConfigSystemUtil.calculateSubscriptionPriceBreakdown(request, businessMap);
+        } catch (RuntimeException ex) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
+        }
+
+        subscription.setPrice(breakdown.netPrice());
+        subscription.setServiceFee(breakdown.serviceFee());
+        subscription.setTaxFee(breakdown.taxFee());
+        subscription.setFinalPrice(breakdown.finalPrice());
 
         subscriptionRepo.save(subscription);
 
@@ -712,7 +705,7 @@ public class AdminServiceImpl implements AdminService {
     private Map<String, Object> buildFeatureJson(UpsertServicePackageFeeRequest.FeatureData request) {
         Map<String, Object> data = new HashMap<>();
         data.put("maxCounsellors", request.getMaxCounsellors());
-        data.put("allowChat", request.getAllowChat());
+        data.put("hasAiAssistant", request.getHasAiAssistant());
         data.put("parentPostPermission", request.getParentPostPermission());
         data.put("isFeatured", request.getIsFeatured());
         data.put("topRanking", request.getTopRanking());
@@ -749,7 +742,11 @@ public class AdminServiceImpl implements AdminService {
         data.put("id", subscription.getId());
         data.put("name", subscription.getName());
         data.put("description", subscription.getDescription());
+        data.put("packageType", subscription.getPackageType());
         data.put("price", subscription.getPrice());
+        data.put("serviceFee", subscription.getServiceFee());
+        data.put("taxFee", subscription.getTaxFee());
+        data.put("finalPrice", subscription.getFinalPrice());
         data.put("durationDays", subscription.getDurationDays());
         data.put("status", subscription.getPackageStatus());
         data.put("features", subscription.getFeatures());
@@ -963,6 +960,18 @@ public class AdminServiceImpl implements AdminService {
         try {
             categoryTempl = parseCategoryTemplate(categoryTemplate);
         } catch (Exception ex) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
+        }
+
+        PlatformConfig media = platformConfigRepo.findByKey("media").orElse(null);
+        if (media == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy cấu hình media", null);
+        }
+
+        try {
+            ConfigSystemUtil.validateFileSize(media, file, false);
+            ConfigSystemUtil.validateFileFormat(media, file, false);
+        } catch (RuntimeException ex) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
         }
 
@@ -1216,14 +1225,6 @@ public class AdminServiceImpl implements AdminService {
 
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
-    }
-
-    private Campus extractActorCampus() {
-        Account account = AuthRequestUtil.extractAuthenticatedAccount();
-        if (account == null || account.getRole() != Role.SCHOOL) {
-            return null;
-        }
-        return account.getCampus();
     }
 
 }

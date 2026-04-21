@@ -1,15 +1,18 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.CategoryPost;
+import com.sp26se041.edubridgehcm.enums.PackageType;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.PlatformConfig;
 import com.sp26se041.edubridgehcm.models.Post;
+import com.sp26se041.edubridgehcm.models.SchoolSubscription;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.PostRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolSubscriptionRepo;
 import com.sp26se041.edubridgehcm.requests.CreatePostRequest;
 import com.sp26se041.edubridgehcm.requests.DisablePostRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -18,6 +21,7 @@ import com.sp26se041.edubridgehcm.services.PostService;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
+import com.sp26se041.edubridgehcm.utils.ConfigSystemUtil;
 import com.sp26se041.edubridgehcm.utils.CookieUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.validations.post.PostValidation;
@@ -35,6 +39,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -50,6 +55,8 @@ public class PostServiceImpl implements PostService {
     private final SupabaseStorageService supabaseStorageService;
 
     private final PlatformConfigRepo platformConfigRepo;
+
+    private final SchoolSubscriptionRepo schoolSubscriptionRepo;
 
     @Override
     public ResponseEntity<ResponseObject> createPost(CreatePostRequest request, HttpServletRequest httpRequest) {
@@ -94,6 +101,11 @@ public class PostServiceImpl implements PostService {
 
             if (!isCampusCategory(category)) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Trường học chỉ được phép đăng thông tin tuyển sinh, sự kiện hoặc học bổng", null);
+            }
+
+            String quotaError = validateSchoolPostQuota(actorCampus.getSchool().getId());
+            if (quotaError != null) {
+                return ResponseBuilder.build(HttpStatus.FORBIDDEN, quotaError, null);
             }
         } else {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền đăng bài viết", null);
@@ -174,6 +186,18 @@ public class PostServiceImpl implements PostService {
 
         } else {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền thực hiện thao tác này", null);
+        }
+
+        PlatformConfig media = platformConfigRepo.findByKey("media").orElse(null);
+        if (media == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy cấu hình media", null);
+        }
+
+        try {
+            ConfigSystemUtil.validateFileSize(media, file, false);
+            ConfigSystemUtil.validateFileFormat(media, file, false);
+        } catch (RuntimeException ex) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
         }
 
         // 5. Thực hiện Upload
@@ -358,5 +382,78 @@ public class PostServiceImpl implements PostService {
     private boolean isAdminCategory(CategoryPost category) {
         return List.of(CategoryPost.SYSTEM_NOTIFICATIONS, CategoryPost.GENERAL_EDUCATION_NEWS)
                 .contains(category);
+    }
+
+//check
+    private String validateSchoolPostQuota(Integer schoolId) {
+        
+        Optional<SchoolSubscription> activeSubOpt = schoolSubscriptionRepo
+                .findBySchoolIdAndEndDateGreaterThanEqualAndIsSelectedTrue(schoolId, java.time.LocalDate.now());
+
+        if (activeSubOpt.isEmpty() || activeSubOpt.get().getSubscription() == null) {
+            return "Trường chưa có gói dịch vụ đang hoạt động để đăng bài";
+        }
+
+        SchoolSubscription activeSub = activeSubOpt.get();
+        Integer postLimit = resolvePostLimitFromConfig(activeSub.getSubscription().getPackageType());
+
+        // -1 nghĩa là không giới hạn
+        if (postLimit == null || postLimit < 0) {
+            return null;
+        }
+
+        LocalDateTime startDate = activeSub.getStartDate().atStartOfDay();
+        LocalDateTime endDate = activeSub.getEndDate().atTime(23, 59, 59);
+
+        long usedPosts = postRepo.countByAuthorCampusSchoolIdAndCategoryPostInAndPublishedDateBetween(
+                schoolId,
+                List.of(CategoryPost.CAMPUS_EVENTS, CategoryPost.CAMPUS_ADMISSION, CategoryPost.CAMPUS_SCHOLARSHIP),
+                startDate,
+                endDate
+        );
+
+        if (usedPosts >= postLimit) {
+            return "Bạn đã đạt giới hạn đăng bài của gói hiện tại (" + postLimit + " bài/kỳ gói)";
+        }
+        return null;
+    }
+
+//check
+    @SuppressWarnings("unchecked")
+    private Integer resolvePostLimitFromConfig(PackageType packageType) {
+        PlatformConfig businessConfig = platformConfigRepo.findByKey("business").orElse(null);
+        if (businessConfig == null || !(businessConfig.getValue() instanceof Map<?, ?> businessMapRaw)) {
+            return -1;
+        }
+
+        Map<String, Object> business = (Map<String, Object>) businessMapRaw;
+        Object subscriptionPricingObj = business.get("subscriptionPricing");
+        if (!(subscriptionPricingObj instanceof Map<?, ?> subscriptionPricingRaw)) {
+            return -1;
+        }
+
+        Map<String, Object> subscriptionPricing = (Map<String, Object>) subscriptionPricingRaw;
+        Object packageQuotasObj = subscriptionPricing.get("packageQuotas");
+        if (!(packageQuotasObj instanceof Map<?, ?> packageQuotasRaw)) {
+            return -1;
+        }
+
+        Map<String, Object> packageQuotas = (Map<String, Object>) packageQuotasRaw;
+        String key = switch (packageType) {
+            case TRIAL -> "trialPostLimit";
+            case STANDARD -> "standardPostLimit";
+            case ENTERPRISE -> "enterprisePostLimit";
+        };
+
+        Object limitObj = packageQuotas.get(key);
+        if (limitObj == null) {
+            return -1;
+        }
+
+        if (!(limitObj instanceof Number numberValue)) {
+            throw new RuntimeException("Cấu hình giới hạn đăng bài không hợp lệ cho gói " + packageType);
+        }
+
+        return numberValue.intValue();
     }
 }

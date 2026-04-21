@@ -6,7 +6,6 @@ import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.requests.CreateConfigDataRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
-import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.services.SystemService;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
@@ -16,12 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,7 +25,6 @@ public class SystemServiceImpl implements SystemService {
     private final PlatformConfigRepo platformConfigRepo;
 
     private final SchoolRepo schoolRepo;
-    private final SupabaseStorageService supabaseStorageService;
 
     @Override
     public ResponseEntity<ResponseObject> getConfigData() {
@@ -164,6 +157,33 @@ public class SystemServiceImpl implements SystemService {
         businessJson.put("minPay", business.getMinPay());
         businessJson.put("maxPay", business.getMaxPay());
 
+        Map<String, Object> basePrices = new HashMap<>();
+        basePrices.put("trial", business.getSubscriptionPricing().getBasePrices().getTrial());
+        basePrices.put("standard", business.getSubscriptionPricing().getBasePrices().getStandard());
+        basePrices.put("enterprise", business.getSubscriptionPricing().getBasePrices().getEnterprise());
+
+        Map<String, Object> featureUnitPrices = new HashMap<>();
+        featureUnitPrices.put("extraCounsellorSlot", business.getSubscriptionPricing().getFeatureUnitPrices().getExtraCounsellorSlot());
+        featureUnitPrices.put("aiChatbotMonthlyFee", business.getSubscriptionPricing().getFeatureUnitPrices().getAiChatbotMonthlyFee());
+        featureUnitPrices.put("premiumSupportFee", business.getSubscriptionPricing().getFeatureUnitPrices().getPremiumSupportFee());
+        featureUnitPrices.put("topRankingFee", business.getSubscriptionPricing().getFeatureUnitPrices().getTopRankingFee());
+
+        Map<String, Object> packageQuotas = new HashMap<>();
+        packageQuotas.put("durationDays", business.getSubscriptionPricing().getPackageQuotas().getDurationDays());
+        packageQuotas.put("trialCounsellor", business.getSubscriptionPricing().getPackageQuotas().getTrialCounsellor());
+        packageQuotas.put("standardCounsellor", business.getSubscriptionPricing().getPackageQuotas().getStandardCounsellor());
+        packageQuotas.put("enterpriseCounsellor", business.getSubscriptionPricing().getPackageQuotas().getEnterpriseCounsellor());
+        packageQuotas.put("trialPostLimit", business.getSubscriptionPricing().getPackageQuotas().getTrialPostLimit());
+        packageQuotas.put("standardPostLimit", business.getSubscriptionPricing().getPackageQuotas().getStandardPostLimit());
+        packageQuotas.put("enterprisePostLimit", business.getSubscriptionPricing().getPackageQuotas().getEnterprisePostLimit());
+
+        Map<String, Object> subscriptionPricing = new HashMap<>();
+        subscriptionPricing.put("basePrices", basePrices);
+        subscriptionPricing.put("featureUnitPrices", featureUnitPrices);
+        subscriptionPricing.put("packageQuotas", packageQuotas);
+
+        businessJson.put("subscriptionPricing", subscriptionPricing);
+
         PlatformConfig config = platformConfigRepo.findByKey("business").orElse(
                 PlatformConfig.builder()
                         .key("business")
@@ -179,6 +199,9 @@ public class SystemServiceImpl implements SystemService {
     @Transactional
     public void updateMedia(CreateConfigDataRequest request) {
         CreateConfigDataRequest.MediaData media = request.getMediaData();
+
+        validateMediaConfigRequest(media);
+
         Map<String, Object> mediaJson = new HashMap<>();
 
         mediaJson.put("maxImgSize", media.getMaxImgSize());
@@ -214,6 +237,42 @@ public class SystemServiceImpl implements SystemService {
                     return map;
                 })
                 .toList();
+    }
+
+    private void validateMediaConfigRequest(CreateConfigDataRequest.MediaData media) {
+        if (media == null) {
+            throw new RuntimeException("Dữ liệu cấu hình không được để trống");
+        }
+
+        if (media.getMaxImgSize() <= 0 || media.getMaxImgSize() > 100) {
+            throw new RuntimeException("Dung lượng ảnh tối đa phải từ 1MB đến 100MB");
+        }
+        if (media.getMaxDocSize() <= 0 || media.getMaxDocSize() > 100) {
+            throw new RuntimeException("Dung lượng tài liệu tối đa phải từ 1MB đến 100MB");
+        }
+
+        if (media.getImgFormats() == null || media.getImgFormats().isEmpty()) {
+            throw new RuntimeException("Danh sách định dạng ảnh không được để trống");
+        }
+        if (media.getDocFormats() == null || media.getDocFormats().isEmpty()) {
+            throw new RuntimeException("Danh sách định dạng tài liệu không được để trống");
+        }
+
+        validateFormatStrings(media.getImgFormats(), "Ảnh");
+        validateFormatStrings(media.getDocFormats(), "Tài liệu");
+    }
+
+    private void validateFormatStrings(List<CreateConfigDataRequest.MediaFormat> formats, String typeLabel) {
+        for (CreateConfigDataRequest.MediaFormat format : formats) {
+            if (format.getFormat() == null) {
+                throw new RuntimeException("Định dạng " + typeLabel + " không được để trống");
+            }
+
+            String fmt = format.getFormat().trim();
+            if (fmt.isEmpty() || !fmt.matches("^[a-zA-Z0-9.]+$")) {
+                throw new RuntimeException("Định dạng " + typeLabel + " '" + fmt + "' không hợp lệ");
+            }
+        }
     }
 
     @Transactional

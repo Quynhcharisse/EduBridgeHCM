@@ -18,6 +18,7 @@ import com.sp26se041.edubridgehcm.services.AuthService;
 import com.sp26se041.edubridgehcm.services.JWTService;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
+import com.sp26se041.edubridgehcm.utils.ConfigSystemUtil;
 import com.sp26se041.edubridgehcm.utils.CookieUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.validations.auth.RegisterValidation;
@@ -64,6 +65,18 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public ResponseEntity<ResponseObject> uploadBusinessLicensePdf(MultipartFile file) {
+        PlatformConfig media = platformConfigRepo.findByKey("media").orElse(null);
+        
+        if (media == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy cấu hình media", null);
+        }
+
+        try {
+            ConfigSystemUtil.validateFileSize(media, file, false);
+            ConfigSystemUtil.validateFileFormat(media, file, false);
+        } catch (RuntimeException ex) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
+        }
 
         String fileName = "business_license_" + UUID.randomUUID();
 

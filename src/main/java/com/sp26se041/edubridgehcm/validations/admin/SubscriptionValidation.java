@@ -19,16 +19,11 @@ public class SubscriptionValidation {
             return "Tên gói dịch vụ quá dài (tối đa 100 ký tự).";
         }
 
-        if (request.getPrice() == null || request.getPrice() < 0) {
-            return "Giá tiền không được để trống và không được là số âm.";
-        }
-
         // Validate Duration
         if (request.getDurationDays() == null || request.getDurationDays() <= 0) {
             return "Thời hạn (số ngày) không được để trống và phải lớn hơn 0.";
         }
 
-        // 2. Validate Features (Cực kỳ quan trọng vì đây là cục JSON)
         if (request.getFeatureData() == null) {
             return "Dữ liệu tính năng của gói không được để trống.";
         }
@@ -39,7 +34,7 @@ public class SubscriptionValidation {
             return "Số lượng tư vấn viên tối đa không được nhỏ hơn -1.";
         }
 
-        if (features.getAllowChat() == null) return "Vui lòng thiết lập quyền cho phép chat.";
+        if (features.getHasAiAssistant() == null) return "Vui lòng thiết lập quyền cho phép chat.";
 
         if (features.getIsFeatured() == null) return "Vui lòng thiết lập trạng thái gói nổi bật (Featured).";
 
