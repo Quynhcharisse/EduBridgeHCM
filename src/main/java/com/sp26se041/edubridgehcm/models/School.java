@@ -56,8 +56,10 @@ public class School {
 
     String hotline;
 
+    @Column(length = 500)
     String folderPath;
 
+    @Column(length = 500)
     String fileName;
 
     @Column(name = "average_rating")
