@@ -39,9 +39,5 @@ public class SystemController {
         return systemService.updateConfigData(request);
     }
 
-    @GetMapping("/school/quota/year")
-    @PreAuthorize("hasAnyRole('ADMIN')")
-    public ResponseEntity<ResponseObject> getQuotaByYear(@RequestParam String year) {
-        return systemService.getQuotaByYear(year);
-    }
+
 }
