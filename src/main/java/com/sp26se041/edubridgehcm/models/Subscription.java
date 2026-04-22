@@ -3,13 +3,28 @@ package com.sp26se041.edubridgehcm.models;
 import com.sp26se041.edubridgehcm.enums.PackageType;
 import com.sp26se041.edubridgehcm.enums.Status;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+import lombok.ToString;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.Type;
 import org.jspecify.annotations.NullMarked;
 
-import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -45,16 +60,16 @@ public class Subscription {
     Status packageStatus;
 
     @Column(name = "price")
-    Double price;
+    BigDecimal price;
 
     @Column(name = "final_price")
-    Double finalPrice; // giá cuối cùng bao gồm thuế/phí
+    BigDecimal finalPrice; // giá cuối cùng bao gồm thuế/phí
 
     @Column(name = "service_fee")
-    Double serviceFee;
+    BigDecimal serviceFee;
 
     @Column(name = "tax_fee")
-    Double taxFee;
+    BigDecimal taxFee;
 
     @Column(name = "duration_days")
     Integer durationDays;

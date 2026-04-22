@@ -6,6 +6,8 @@ import com.sp26se041.edubridgehcm.models.PlatformConfig;
 import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
 
@@ -39,8 +41,7 @@ public class ConfigSystemUtil {
 
             String fileExt = cleanUrl.substring(cleanUrl.lastIndexOf("."));
 
-            boolean isValid = allowedFormats.stream()
-                    .anyMatch(f -> fileExt.equals(f.get("format").toLowerCase()));
+            boolean isValid = allowedFormats.stream().anyMatch(f -> fileExt.equals(f.get("format").toLowerCase()));
 
             if (!isValid) {
                 return "Định dạng file " + fileExt + " không được hỗ trợ cho " + typeLabel;
@@ -92,9 +93,7 @@ public class ConfigSystemUtil {
             throw new RuntimeException("Chưa cấu hình định dạng cho phép!");
         }
 
-        List<String> formatList = allowedFormats.stream()
-                .map(m -> m.get("format"))
-                .toList();
+        List<String> formatList = allowedFormats.stream().map(m -> m.get("format")).toList();
 
         String originalName = file.getOriginalFilename();
         if (originalName == null || !originalName.contains(".")) {
@@ -113,24 +112,17 @@ public class ConfigSystemUtil {
     }
 
     //Tách kết quả tính giá để lưu đủ net / phí dịch vụ / thuế / giá cuối lên DB.
-    public record SubscriptionPriceBreakdown(
-            double netPrice,
-            double serviceFee,
-            double taxFee,
-            double finalPrice
-    ) {
+    public record SubscriptionPriceBreakdown(BigDecimal netPrice, BigDecimal serviceFee, BigDecimal taxFee,
+                                             BigDecimal finalPrice) {
     }
 
     //Tổng cộng giá ==> trả về tổng
-    public static Double calculateSubscriptionPrice(UpsertServicePackageFeeRequest request, Map<String, Object> business) {
+    public static BigDecimal calculateSubscriptionPrice(UpsertServicePackageFeeRequest request, Map<String, Object> business) {
         return calculateSubscriptionPriceBreakdown(request, business).finalPrice();
     }
 
     //Tờ hóa đơn chi tiết
-    public static SubscriptionPriceBreakdown calculateSubscriptionPriceBreakdown(
-            UpsertServicePackageFeeRequest request,
-            Map<String, Object> business
-    ) {
+    public static SubscriptionPriceBreakdown calculateSubscriptionPriceBreakdown(UpsertServicePackageFeeRequest request, Map<String, Object> business) {
 
         validatePricingInput(request, business);
 
@@ -142,7 +134,7 @@ public class ConfigSystemUtil {
         PackageType packageType = parsePackageType(request.getPackageType());
 
         //bước xác định giá nền (gốc) của từng gói
-        double basePrice = resolveBasePrice(basePricing, packageType);
+        BigDecimal basePrice = resolveBasePrice(basePricing, packageType);
 
         // lấy con số counsellor mà admin sẽ thiết lập = số lượng mục tiêu tư vấn viên cho gói dịch vụ đang tạo
         int requestedCounsellors = request.getFeatureData().getMaxCounsellors() == null ? 0 : request.getFeatureData().getMaxCounsellors();
@@ -158,53 +150,43 @@ public class ConfigSystemUtil {
         validateTrialPolicy(packageType, request);
 
         //step xử lý khách hàng chỉ chi trả cho phần ngưỡng
-        double extraCounsellorSlotTotal = calculateExtraCounsellorTotal(
-                packageType,
-                requestedCounsellors,
-                includedCounsellors,
-                featureUnitPricing
-        );
+        BigDecimal extraCounsellorSlotTotal = calculateExtraCounsellorTotal(packageType, requestedCounsellors, includedCounsellors, featureUnitPricing);
 
         //bước tính tổng giá nền + giá cho quota counsellor vượt mức 
-        double netPrice = basePrice + extraCounsellorSlotTotal;
+        BigDecimal netPrice = basePrice.add(extraCounsellorSlotTotal);
 
         //hệ thống tự động cộng dồn giá của các tính năng
         // mà Admin đã "tick chọn" cho gói đó vào tổng giá trị cuối cùng.
         netPrice = applyAddonFees(netPrice, request, featureUnitPricing);
 
         // lấy số cấu hình tỷ lệ ra ==> thuế VAT
-        Object taxRateObj = business.get("taxRate");
-        if (!(taxRateObj instanceof Number taxRateNumber)) {
-            throw new RuntimeException("Thiếu hoặc sai cấu hình tỉ lệ thuế xuất");
-        }
-
-        double taxRate = taxRateNumber.doubleValue();
+        BigDecimal taxRate = getAsBigDecimal(business.get("taxRate"), "tỉ lệ thuế xuất");
 
         // lấy số cấu hình tỷ lệ phí dịch vụ hệ thống
-        Object serviceRateObj = business.get("serviceRate");
-        if (!(serviceRateObj instanceof Number serviceRateNumber)) {
-            throw new RuntimeException("Thiếu hoặc sai cấu hình tỉ lệ phí dịch vụ");
-        }
-
-        double serviceRate = serviceRateNumber.doubleValue();
+        BigDecimal serviceRate = getAsBigDecimal(business.get("serviceRate"), "tỉ lệ phí dịch vụ");
 
         // tính phí dịch vụ = gói giá gốc * tỉ lệ phí dịch vụ
         // vd phí dịch vụ gói A = 1.000.000 * 2% = 20.000 VND
-        double serviceFee = netPrice * serviceRate;
+        BigDecimal serviceFee = netPrice.multiply(serviceRate);
 
         // tính tiền thuế / thuế trên tổng giá trị
         // thuế 10% ==> (tiền giá gói + tiền phí dịch vụ) * tỉ lệ % thuế
         // 1.020.000 * 0.1 = 120.000 vnd
-        double taxAmount = (netPrice + serviceFee) * taxRate;
+        BigDecimal taxAmount = netPrice.add(serviceFee).multiply(taxRate);
 
         //Cộng tất cả các thành phần lại để ra con số mà khách hàng thấy trên màn hình sẽ trả
-        double finalAmount = netPrice + serviceFee + taxAmount;
+        BigDecimal finalAmountRaw = netPrice.add(serviceFee).add(taxAmount);
+
+        //Tổng tiền và làm tròn đến hàng nghìn
+        BigDecimal finalPrice = finalAmountRaw
+                .divide(new BigDecimal("1000"), 0, RoundingMode.CEILING)
+                .multiply(new BigDecimal("1000"));
 
         return new SubscriptionPriceBreakdown(
-                netPrice,
-                serviceFee,
-                taxAmount,
-                (double) Math.round(finalAmount)
+                netPrice.setScale(0, RoundingMode.HALF_UP),
+                serviceFee.setScale(0, RoundingMode.HALF_UP),
+                taxAmount.setScale(0, RoundingMode.HALF_UP),
+                finalPrice
         );
     }
 
@@ -225,19 +207,14 @@ public class ConfigSystemUtil {
     }
 
     // tùy vào lọai gói sẽ có tương ứng giá khởi điểm
-    private static double resolveBasePrice(Map<String, Object> basePricing, PackageType packageType) {
+    private static BigDecimal resolveBasePrice(Map<String, Object> basePricing, PackageType packageType) {
         String basePriceKey = switch (packageType) {
             case TRIAL -> "trial";
             case STANDARD -> "standard";
             case ENTERPRISE -> "enterprise";
         };
 
-        Object basePriceObj = basePricing.get(basePriceKey);
-        if (!(basePriceObj instanceof Number basePriceNumber)) {
-            throw new RuntimeException("Thiếu hoặc sai cấu hình giá nền." + basePriceKey);
-        }
-
-        return basePriceNumber.doubleValue();
+        return getAsBigDecimal(basePricing.get(basePriceKey), "giá nền " + basePriceKey);
     }
 
     private static void validatePricingInput(UpsertServicePackageFeeRequest request, Map<String, Object> business) {
@@ -284,11 +261,7 @@ public class ConfigSystemUtil {
             throw new RuntimeException("Thiếu hoặc sai cấu hình định mức gói");
         }
 
-        return Map.of(
-                "basePricing", (Map<String, Object>) basePricingRaw,
-                "featureUnitPricing", (Map<String, Object>) featureUnitPricingRaw,
-                "packageQuotas", (Map<String, Object>) packageQuotasRaw
-        );
+        return Map.of("basePricing", (Map<String, Object>) basePricingRaw, "featureUnitPricing", (Map<String, Object>) featureUnitPricingRaw, "packageQuotas", (Map<String, Object>) packageQuotasRaw);
     }
 
     //validate policy của gói dùng thử ==> ko hỗ trợ add-on trả phí các tính năng trả tiền 
@@ -298,10 +271,8 @@ public class ConfigSystemUtil {
         }
 
         boolean hasAi = Boolean.TRUE.equals(request.getFeatureData().getHasAiAssistant());
-        boolean hasTopRanking = request.getFeatureData().getTopRanking() != null
-                && request.getFeatureData().getTopRanking() > 0;
-        boolean hasPremiumSupport = request.getFeatureData().getSupportLevel() != null
-                && parseSupportLevel(request.getFeatureData().getSupportLevel()) == SupportLevel.PREMIUM_SUPPORT;
+        boolean hasTopRanking = request.getFeatureData().getTopRanking() != null && request.getFeatureData().getTopRanking() > 0;
+        boolean hasPremiumSupport = request.getFeatureData().getSupportLevel() != null && parseSupportLevel(request.getFeatureData().getSupportLevel()) == SupportLevel.PREMIUM_SUPPORT;
 
         if (hasAi || hasTopRanking || hasPremiumSupport) {
             throw new RuntimeException("Gói dùng thử không hỗ trợ add-on trả phí");
@@ -310,15 +281,10 @@ public class ConfigSystemUtil {
 
     //tính tổng phí cho quota counsellor vượt mức
     //Cái gì khách được hưởng miễn phí theo gói, và cái gì khách phải móc hầu bao trả thêm.
-    private static double calculateExtraCounsellorTotal(
-            PackageType packageType,
-            int requestedCounsellors,
-            int includedCounsellors,
-            Map<String, Object> featureUnitPricing
-    ) {
+    private static BigDecimal calculateExtraCounsellorTotal(PackageType packageType, int requestedCounsellors, int includedCounsellors, Map<String, Object> featureUnitPricing) {
         // đối vs gói thử ==> ko đ phí
         if (packageType == PackageType.TRIAL) {
-            return 0;
+            return BigDecimal.ZERO;
         }
 
         //xử lý bài toán sài hao
@@ -327,47 +293,37 @@ public class ConfigSystemUtil {
         //khách muốn mua 10 --> gói cho 5 --> dư 5
         //Khách hàng chỉ trả tiền cho phần "vượt ngưỡng" (ExtraSlots) ==> mô hình kinh doanh Zoom hay Google Workspace
         int extraSlots = Math.max(0, requestedCounsellors - includedCounsellors);
-        Object extraCounsellorSlotObj = featureUnitPricing.get("extraCounsellorSlot");
 
-        if (!(extraCounsellorSlotObj instanceof Number extraFeeNum)) {
-            throw new RuntimeException("Thiếu cấu hình phí counsellor vượt mức");
-        }
+        BigDecimal unitPrice = getAsBigDecimal(featureUnitPricing.get("extraCounsellorSlot"), "phí counsellor vượt mức");
 
-        return extraSlots * extraFeeNum.doubleValue();
+        return unitPrice.multiply(BigDecimal.valueOf(extraSlots));
     }
 
     //Ước tính giá gói ==> để đưa giá cuối sau khi lựa chọn các tính năng
     // ==> tùy thuộc apply tính năng
-    private static double applyAddonFees(
-            double netPrice,
-            UpsertServicePackageFeeRequest request,
-            Map<String, Object> featureUnitPricing
-    ) {
+    private static BigDecimal applyAddonFees(BigDecimal netPrice, UpsertServicePackageFeeRequest request, Map<String, Object> featureUnitPricing) {
+
+        BigDecimal total = netPrice;
+
         if (Boolean.TRUE.equals(request.getFeatureData().getHasAiAssistant())) {
-            Object aiFeeObj = featureUnitPricing.get("aiChatbotMonthlyFee");
-            if (!(aiFeeObj instanceof Number aiFee)) {
-                throw new RuntimeException("Thiếu hoặc sai cấu hình phí trợ lý AI");
-            }
-            netPrice += aiFee.doubleValue();
+            total = total.add(getAsBigDecimal(featureUnitPricing.get("aiChatbotMonthlyFee"), "phí trợ lý AI"));
         }
 
         if (request.getFeatureData().getTopRanking() != null && request.getFeatureData().getTopRanking() > 0) {
-            Object topRankingFeeObj = featureUnitPricing.get("topRankingFee");
-            if (!(topRankingFeeObj instanceof Number topRankingFee)) {
-                throw new RuntimeException("Thiếu hoặc sai cấu hình phí top ranking");
-            }
-            netPrice += topRankingFee.doubleValue();
+            total = total.add(getAsBigDecimal(featureUnitPricing.get("topRankingFee"), "phí top ranking"));
         }
 
-        if (request.getFeatureData().getSupportLevel() != null
-                && parseSupportLevel(request.getFeatureData().getSupportLevel()) == SupportLevel.PREMIUM_SUPPORT) {
-            Object premiumSupportFeeObj = featureUnitPricing.get("premiumSupportFee");
-            if (!(premiumSupportFeeObj instanceof Number premiumSupportFeeNumber)) {
-                throw new RuntimeException("Thiếu hoặc sai cấu hình phí hỗ trợ cao cấp");
-            }
-            netPrice += premiumSupportFeeNumber.doubleValue();
+        if (request.getFeatureData().getSupportLevel() != null && parseSupportLevel(request.getFeatureData().getSupportLevel()) == SupportLevel.PREMIUM_SUPPORT) {
+            total = total.add(getAsBigDecimal(featureUnitPricing.get("premiumSupportFee"), "phí hỗ trợ cao cấp"));
         }
 
         return netPrice;
+    }
+
+    private static BigDecimal getAsBigDecimal(Object value, String label) {
+        if (value instanceof Number num) {
+            return BigDecimal.valueOf(num.doubleValue());
+        }
+        throw new RuntimeException("Thiếu hoặc sai định dạng cấu hình: " + label);
     }
 }

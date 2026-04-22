@@ -215,7 +215,7 @@ public class SchoolServiceImpl implements SchoolService {
             Optional<TemplateDocx> campusTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.CAMPUS_INFO_TEMPLATE);
 
             if (campusTemplateDocx.isEmpty()) {
-                throw  new Exception("Mẫu tài liệu thông tin cơ sở không có sẵn.");
+                throw new Exception("Mẫu tài liệu thông tin cơ sở không có sẵn.");
             }
 
             String templatePath = campusTemplateDocx.get().getFolderName() + "/" + campusTemplateDocx.get().getFileName();
@@ -552,7 +552,8 @@ public class SchoolServiceImpl implements SchoolService {
         //Tìm Campaign
         AdmissionCampaign campaign = admissionCampaignRepo.findById(id).filter(c -> c.getSchool().getId().equals(actorCampus.getSchool().getId())).orElse(null);
 
-        if (campaign == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Cơ sở không tồn tại trong hệ thống", null);
+        if (campaign == null)
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Cơ sở không tồn tại trong hệ thống", null);
 
         if (!campaign.getStatus().equals(Status.DRAFT_ADMISSION_CAMPAIGN)) {
             return ResponseBuilder.build(
@@ -610,7 +611,8 @@ public class SchoolServiceImpl implements SchoolService {
         //Tìm Campaign
         AdmissionCampaign campaign = admissionCampaignRepo.findById(id).filter(c -> c.getSchool().getId().equals(actorCampus.getSchool().getId())).orElse(null);
 
-        if (campaign == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Cơ sở không tồn tại trong hệ thống", null);
+        if (campaign == null)
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Cơ sở không tồn tại trong hệ thống", null);
 
         // 2. Chỉ cho hủy nếu đang OPEN
         if (campaign.getStatus() == Status.CANCELLED_ADMISSION_CAMPAIGN) {
@@ -665,7 +667,7 @@ public class SchoolServiceImpl implements SchoolService {
             List<AdmissionCampaign> campaigns = admissionCampaignRepo.findBySchoolIdAndYearOrderByStatusAsc(schoolId, year);
 
             if (campaigns == null) {
-                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy danh sách chiến dịch dịch tuyển sinh năm "+ year, null);
+                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy danh sách chiến dịch dịch tuyển sinh năm " + year, null);
             }
 
             List<Map<String, Object>> data = campaigns.stream().map(this::buildCampaignData).toList();
@@ -1774,7 +1776,8 @@ public class SchoolServiceImpl implements SchoolService {
         // step 1 : xác thực school - campus chính
         Campus actorCampus = extractActorCampus();
 
-        if (actorCampus == null) return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoàn cơ sở không tồn tại trong hệ thống", null);
+        if (actorCampus == null)
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoàn cơ sở không tồn tại trong hệ thống", null);
 
         if (!actorCampus.getIsPrimaryBranch()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Chỉ cơ sở chính mới được phép thực hiện thao tác này", null);
@@ -1794,7 +1797,7 @@ public class SchoolServiceImpl implements SchoolService {
         Subscription subscription = subscriptionRepo.findById(request.getPackageId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy gói dịch vụ trong hệ thống"));
 
-        if (subscription.getPrice() == null || subscription.getPrice() <= 0) {
+        if (subscription.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
             return ResponseBuilder.build(
                     HttpStatus.BAD_REQUEST,
                     "Giá gói dịch vụ phải lớn hơn 0",
@@ -1846,8 +1849,8 @@ public class SchoolServiceImpl implements SchoolService {
 
 // step 4 : cấu hình vnpay
         String vnp_TxnRef = VNPayConfig.getRandomNumber(8); // mã đơn hàng
-        long amount = BigDecimal.valueOf(subscription.getPrice())
-                .multiply(BigDecimal.valueOf(100))
+        long amount = subscription.getPrice()
+                .multiply(BigDecimal.valueOf(100)) // VNPay yêu cầu nhân 100
                 .setScale(0, RoundingMode.HALF_UP)
                 .longValue();
 
