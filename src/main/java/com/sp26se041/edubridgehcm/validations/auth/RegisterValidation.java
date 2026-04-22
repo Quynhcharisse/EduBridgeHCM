@@ -12,8 +12,6 @@ public class RegisterValidation {
 
     private static final String EMAIL_REGEX = "^[A-Za-z0-9+_.-]+@(.+)$";
 
-    private static final String PHONE_REGEX = "^\\d{10}$";
-
     private static final String URL_REGEX = "^(https?|ftp)://[^\\s/$.?#].[^\\s]*$";
 
     public static String registerValidation(RegisterRequest request, Map<String, Object> mediaConfig) {
@@ -62,11 +60,12 @@ public class RegisterValidation {
 
         if (isBlank(request.getSchoolRequest().getCampusPhone())) return "Số điện thoại cơ sở không được để trống";
 
-        if (!request.getSchoolRequest().getCampusPhone().matches(PHONE_REGEX))
-            return "Số điện thoại cơ sở phải bao gồm 10 chữ số";
+        String campusPhoneErr = validateHotline(request.getSchoolRequest().getCampusPhone());
+        if (campusPhoneErr != null) return "Số điện thoại cơ sở " + campusPhoneErr;
 
-        if (!isBlank(request.getSchoolRequest().getHotline()) && !request.getSchoolRequest().getHotline().matches(PHONE_REGEX)) {
-            return "Số Hotline phải có đủ 10 số";
+        if (!isBlank(request.getSchoolRequest().getHotline())) {
+            String hotlineErr = validateHotline(request.getSchoolRequest().getHotline());
+            if (hotlineErr != null) return "Hotline " + hotlineErr;
         }
 
         String logoErr = ConfigSystemUtil.validateUrlFormat(mediaConfig, request.getSchoolRequest().getLogoUrl(), true);
@@ -101,4 +100,27 @@ public class RegisterValidation {
     private static boolean isBlank(String str) {
         return str == null || str.trim().isEmpty();
     }
+
+    public static String validateHotline(String hotline) {
+
+        if (hotline == null || hotline.isBlank()) {
+            return "không được để trống";
+        }
+
+        // Loại bỏ khoảng trắng, dấu chấm, dấu gạch ngang
+        String cleanHotline = hotline.replaceAll("[\\s.\\-]", "");
+
+        // Regex:
+        // Nhóm 1: (0|84) + (đầu số 2,3,5,7,8,9) + (7 đến 9 chữ số sau đó) -> Cho di động và số bàn
+        // Nhóm 2: 1800 + (4 đến 6 chữ số)
+        // Nhóm 3: 1900 + (4 đến 6 chữ số)
+        String regex = "^((0|84)(3|5|7|8|9|2)([0-9]{7,9})|1800[0-9]{4,6}|1900[0-9]{4,6})$";
+
+        if (!cleanHotline.matches(regex)) {
+            return "Định dạng không hợp lệ";
+        }
+
+        return null;
+    }
+
 }

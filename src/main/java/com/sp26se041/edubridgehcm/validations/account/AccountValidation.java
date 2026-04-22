@@ -81,9 +81,8 @@ public class AccountValidation {
                 return "Vui lòng nhập số điện thoại phụ huynh";
             }
 
-            if (!isValidPhoneNumber(parentPhone)) {
-                return "Số điện thoại phụ huynh không hợp lệ (phải đủ 10 chữ số và bắt đầu bằng số 0)";
-            }
+            String phoneErr = validateHotline(request.getParentData().getPhone());
+            if (phoneErr != null) return "Số điện thoại phụ huynh " + phoneErr;
 
             if (parentOccupation == null) {
                 return "Vui lòng cung cấp thông tin nghề nghiệp";
@@ -144,9 +143,8 @@ public class AccountValidation {
                 return "Vui lòng nhập số điện thoại cơ sở";
             }
 
-            if (!isValidPhoneNumber(request.getCampusData().getPhoneNumber())) {
-                return "Số điện thoại cơ sở không hợp lệ (phải đủ 10 chữ số và bắt đầu bằng số 0)";
-            }
+            String phoneErr = validateHotline(request.getCampusData().getPhoneNumber());
+            if (phoneErr != null) return "Số điện thoại phụ huynh " + phoneErr;
 
             if (normalize(request.getCampusData().getCity()) == null) {
                 return "Vui lòng chọn Tỉnh/Thành phố";
@@ -181,9 +179,9 @@ public class AccountValidation {
                     return "Mô tả trường không được vượt quá 2000 ký tự";
                 }
 
-                if (normalize(request.getCampusData().getSchoolData().getHotline()) != null
-                        && !isValidHotline(normalize(request.getCampusData().getSchoolData().getHotline()))) {
-                    return "Số Hotline không hợp lệ (phải từ 8-11 chữ số và bắt đầu bằng 0, 18 hoặc 19)";
+                if (!isBlank(request.getCampusData().getSchoolData().getHotline())) {
+                    String hotlineErr = validateHotline(request.getCampusData().getSchoolData().getHotline());
+                    if (hotlineErr != null) return "Hotline trường " + hotlineErr;
                 }
 
                 if (normalize(request.getCampusData().getSchoolData().getLogoUrl()) == null) {
@@ -241,14 +239,30 @@ public class AccountValidation {
                 .orElse(null);
     }
 
-    public static boolean isValidPhoneNumber(String value) {
-        String normalizedValue = normalize(value);
-        return normalizedValue != null && normalizedValue.matches("^0\\d{9}$");
+    private static boolean isBlank(String str) {
+        return str == null || str.trim().isEmpty();
     }
 
-    public static boolean isValidHotline(String value) {
-        String normalizedValue = normalize(value);
-        return normalizedValue != null && normalizedValue.matches("^(0|18|19)\\d{7,10}$");
+    public static String validateHotline(String hotline) {
+
+        if (hotline == null || hotline.isBlank()) {
+            return "không được để trống";
+        }
+
+        // Loại bỏ khoảng trắng, dấu chấm, dấu gạch ngang
+        String cleanHotline = hotline.replaceAll("[\\s.\\-]", "");
+
+        // Regex:
+        // Nhóm 1: (0|84) + (đầu số 2,3,5,7,8,9) + (7 đến 9 chữ số sau đó) -> Cho di động và số bàn
+        // Nhóm 2: 1800 + (4 đến 6 chữ số)
+        // Nhóm 3: 1900 + (4 đến 6 chữ số)
+        String regex = "^((0|84)(3|5|7|8|9|2)([0-9]{7,9})|1800[0-9]{4,6}|1900[0-9]{4,6})$";
+
+        if (!cleanHotline.matches(regex)) {
+            return "Định dạng không hợp lệ";
+        }
+
+        return null;
     }
 
     public static boolean isExactDigits(String value) {
