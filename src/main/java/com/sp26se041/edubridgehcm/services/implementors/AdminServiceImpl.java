@@ -29,6 +29,7 @@ import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
+import java.math.BigDecimal;
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -770,7 +771,7 @@ public class AdminServiceImpl implements AdminService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ có thể phát hành gói ở trạng thái nháp (DRAFT). Trạng thái hiện tại: " + subscription.getPackageStatus(), null);
         }
 
-        if (subscription.getPrice() <= 0) {
+        if (subscription.getPrice().compareTo(BigDecimal.ZERO)<= 0) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không thể phát hành: giá phải lớn hơn 0.", null);
         }
 

@@ -110,14 +110,19 @@ public class EduBridgeHcmApplication {
         featureUnitPrices.put("premiumSupportFee", 200000);
         featureUnitPrices.put("topRankingFee", 150000);
 
-        Map<String, Object> trialLimits = new HashMap<>();
-        trialLimits.put("durationDays", 7);
-        trialLimits.put("maxCounsellors", 2);
+        Map<String, Object> packageQuotas = new HashMap<>();
+        packageQuotas.put("durationDays", 7);
+        packageQuotas.put("trialCounsellor", 2);
+        packageQuotas.put("standardCounsellor", 20);
+        packageQuotas.put("enterpriseCounsellor", 200);
+        packageQuotas.put("trialPostLimit", 0);
+        packageQuotas.put("standardPostLimit", 50);
+        packageQuotas.put("enterprisePostLimit", -1);
 
         Map<String, Object> subscriptionPricing = new HashMap<>();
         subscriptionPricing.put("basePrices", basePrices);
         subscriptionPricing.put("featureUnitPrices", featureUnitPrices);
-        subscriptionPricing.put("trialLimits", trialLimits);
+        subscriptionPricing.put("packageQuotas", packageQuotas);
 
         business.put("subscriptionPricing", subscriptionPricing);
 

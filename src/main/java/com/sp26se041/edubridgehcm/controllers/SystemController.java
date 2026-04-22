@@ -29,7 +29,6 @@ public class SystemController {
     }
 
     @GetMapping("/config/key")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL', 'PARENT', 'COUNSELLOR')")
     public ResponseEntity<ResponseObject> getConfigDataByKey(@RequestParam String k) {
         return systemService.getConfigDataByKey(k);
     }
