@@ -33,6 +33,7 @@ public class UpsertServicePackageFeeRequest {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class FeatureData {
         Integer maxCounsellors;
+        Integer postLimit;
         Boolean hasAiAssistant;
         String parentPostPermission; // NONE, VIEW_ONLY, CREATE_POST
         Boolean isFeatured; // Hiện nhãn nổi bật
