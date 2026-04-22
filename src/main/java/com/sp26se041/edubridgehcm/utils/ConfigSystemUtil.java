@@ -151,11 +151,12 @@ public class ConfigSystemUtil {
         int includedPosts = switch (packageType) {
             case TRIAL -> ((Number) packageQuotas.getOrDefault("trialPostLimit", 0)).intValue();
             case STANDARD -> ((Number) packageQuotas.getOrDefault("standardPostLimit", 0)).intValue();
-            case ENTERPRISE -> ((Number) packageQuotas.getOrDefault("enterprisePostLimit", -1)).intValue(); // -1 là vô hạn
+            case ENTERPRISE ->
+                    ((Number) packageQuotas.getOrDefault("enterprisePostLimit", -1)).intValue(); // -1 là vô hạn
         };
 
         // step xử lý policy đối vs gói dùng thử
-        validateTrialPolicy(packageType, request);
+        validateTrialPolicy(packageType, request, packageQuotas);
 
         //step xử lý khách hàng chỉ chi trả cho phần ngưỡng
         BigDecimal extraCounsellorSlotTotal = calculateExtraCounsellorTotal(packageType, requestedCounsellors, includedCounsellors, featureUnitPricing);
@@ -274,8 +275,8 @@ public class ConfigSystemUtil {
         return Map.of("basePricing", (Map<String, Object>) basePricingRaw, "featureUnitPricing", (Map<String, Object>) featureUnitPricingRaw, "packageQuotas", (Map<String, Object>) packageQuotasRaw);
     }
 
-    //validate policy của gói dùng thử ==> ko hỗ trợ add-on trả phí các tính năng trả tiền 
-    private static void validateTrialPolicy(PackageType packageType, UpsertServicePackageFeeRequest request) {
+    //validate policy của gói dùng thử ==> ko hỗ trợ add-on trả phí các tính năng trả tiền
+    private static void validateTrialPolicy(PackageType packageType, UpsertServicePackageFeeRequest request, Map<String, Object> packageQuotas) {
         if (packageType != PackageType.TRIAL) {
             return;
         }
@@ -286,6 +287,21 @@ public class ConfigSystemUtil {
 
         if (hasAi || hasTopRanking || hasPremiumSupport) {
             throw new RuntimeException("Gói dùng thử không hỗ trợ add-on trả phí");
+        }
+
+        int requestedPosts = request.getFeatureData().getPostLimit() == null ? 0 : request.getFeatureData().getPostLimit();
+        int trialPostLimit = ((Number) packageQuotas.getOrDefault("trialPostLimit", 0)).intValue();
+
+        if (requestedPosts > trialPostLimit) {
+            throw new RuntimeException("Gói dùng thử không được phép tùy chỉnh vượt định mức " + trialPostLimit + " bài đăng.");
+        }
+
+        int requestedCounsellors = request.getFeatureData().getMaxCounsellors() == null ? 0 : request.getFeatureData().getMaxCounsellors();
+
+        int trialCounsellorLimit = ((Number) packageQuotas.getOrDefault("trialCounsellor", 0)).intValue();
+
+        if (requestedCounsellors > trialCounsellorLimit) {
+            throw new RuntimeException("Gói dùng thử chỉ được phép tối đa " + trialCounsellorLimit + " tư vấn viên.");
         }
     }
 
@@ -346,11 +362,14 @@ public class ConfigSystemUtil {
             total = total.add(getAsBigDecimal(featureUnitPricing.get("topRankingFee"), "phí top ranking"));
         }
 
-        if (request.getFeatureData().getSupportLevel() != null && parseSupportLevel(request.getFeatureData().getSupportLevel()) == SupportLevel.PREMIUM_SUPPORT) {
-            total = total.add(getAsBigDecimal(featureUnitPricing.get("premiumSupportFee"), "phí hỗ trợ cao cấp"));
+        if (request.getFeatureData().getSupportLevel() != null) {
+            SupportLevel level = parseSupportLevel(request.getFeatureData().getSupportLevel());
+            if (level == SupportLevel.PREMIUM_SUPPORT) {
+                total = total.add(getAsBigDecimal(featureUnitPricing.getOrDefault("premiumSupportFee", 0), "phí hỗ trợ cao cấp"));
+            }
         }
 
-        return netPrice;
+        return total;
     }
 
     private static BigDecimal getAsBigDecimal(Object value, String label) {
