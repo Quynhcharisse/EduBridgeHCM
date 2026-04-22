@@ -19,7 +19,7 @@ public class ConfigSystemUtil {
         }
 
         if (mediaConfig == null) {
-            return "Cấu hình truyền thông không tồn tại";
+            return "Cấu hình media không tồn tại";
         }
 
         String formatKey = isImage ? "imgFormat" : "docFormat";
@@ -59,8 +59,9 @@ public class ConfigSystemUtil {
         Map<String, Object> mediaConfig = (Map<String, Object>) media.getValue();
 
         if (mediaConfig == null) {
-            throw new RuntimeException("Không tìm thấy cấu hình của truyền thông");
+            throw new RuntimeException("Không tìm thấy cấu hình media");
         }
+
         String keySize = isImage ? "maxImgSize" : "maxDocSize";
 
         Object value = mediaConfig.get(keySize);
@@ -68,6 +69,7 @@ public class ConfigSystemUtil {
         if (value == null) throw new RuntimeException("Chưa cấu hình dung lượng cho " + (isImage ? "ảnh" : "tài liệu"));
 
         int maxSizeMb = ((Number) value).intValue();
+
         long maxSizeBytes = (long) maxSizeMb * 1024 * 1024;
 
         if (file.getSize() > maxSizeBytes) {

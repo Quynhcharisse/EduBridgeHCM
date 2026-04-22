@@ -11,4 +11,6 @@ public interface TemplateDocxRepo extends JpaRepository<TemplateDocx, Long> {
     Optional<TemplateDocx> findTopByTypeOrderByVersionDesc(CategoryTemplate type);
 
     List<TemplateDocx> findByTypeOrderByVersionDesc(CategoryTemplate type);
+
+    long countByType(CategoryTemplate type);
 }
