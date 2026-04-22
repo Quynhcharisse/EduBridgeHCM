@@ -480,6 +480,7 @@ public class AdminServiceImpl implements AdminService {
         String newBusinessLicenseUrl = request.getBusinessLicenseUrl(); // Mặc định dùng lại url cũ
 
         try {
+
             String schoolNameSlug = toSafeObjectKey(request.getSchoolName());
             String oldPath = supabaseStorageService.extractObjectPath(request.getBusinessLicenseUrl());
 
@@ -493,6 +494,7 @@ public class AdminServiceImpl implements AdminService {
             }
         } catch (Exception ex) {
             // Log lỗi nhưng không return 500 để Admin vẫn duyệt được account
+            System.out.println(ex.getMessage());
         }
 
         try {
@@ -1068,20 +1070,21 @@ public class AdminServiceImpl implements AdminService {
     @Override
     public ResponseEntity<ResponseObject> removeTemplateDocx(long templateDocxId) {
 
-        long totalTemplates = templateDocxRepo.count();
-
-        if (totalTemplates == 1) {
-            return ResponseBuilder.build(
-                    HttpStatus.BAD_REQUEST,
-                    "Không thể xóa mẫu docx cuối cùng trong hệ thống.",
-                    null
-            );
-        }
 
         Optional<TemplateDocx> templateDocx = templateDocxRepo.findById(templateDocxId);
 
         if (templateDocx.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy mẫu docx.", null);
+        }
+
+        long totalByType = templateDocxRepo.countByType((templateDocx.get().getType()));
+
+        if (totalByType == 1) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Không thể xóa mẫu docx cuối cùng của loại này.",
+                    null
+            );
         }
 
         try {
