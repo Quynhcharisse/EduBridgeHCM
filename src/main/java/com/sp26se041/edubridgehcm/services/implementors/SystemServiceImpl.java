@@ -168,7 +168,7 @@ public class SystemServiceImpl implements SystemService {
         basePrices.put("enterprise", business.getSubscriptionPricing().getBasePrices().getEnterprise());
 
         Map<String, Object> featureUnitPrices = new HashMap<>();
-        featureUnitPrices.put("extraCounsellorSlot", business.getSubscriptionPricing().getFeatureUnitPrices().getExtraCounsellorSlot());
+        featureUnitPrices.put("extraCounsellorFeePerSlot", business.getSubscriptionPricing().getFeatureUnitPrices().getExtraCounsellorFeePerSlot());
         featureUnitPrices.put("extraPostFee", business.getSubscriptionPricing().getFeatureUnitPrices().getExtraPostFee());
         featureUnitPrices.put("aiChatbotMonthlyFee", business.getSubscriptionPricing().getFeatureUnitPrices().getAiChatbotMonthlyFee());
         featureUnitPrices.put("premiumSupportFee", business.getSubscriptionPricing().getFeatureUnitPrices().getPremiumSupportFee());
