@@ -146,14 +146,24 @@ public class ConfigSystemUtil {
             case ENTERPRISE -> ((Number) packageQuotas.getOrDefault("enterpriseCounsellor", 0)).intValue();
         };
 
+        int requestedPosts = request.getFeatureData().getPostLimit() == null ? 0 : request.getFeatureData().getPostLimit();
+
+        int includedPosts = switch (packageType) {
+            case TRIAL -> ((Number) packageQuotas.getOrDefault("trialPostLimit", 0)).intValue();
+            case STANDARD -> ((Number) packageQuotas.getOrDefault("standardPostLimit", 0)).intValue();
+            case ENTERPRISE -> ((Number) packageQuotas.getOrDefault("enterprisePostLimit", -1)).intValue(); // -1 là vô hạn
+        };
+
         // step xử lý policy đối vs gói dùng thử
         validateTrialPolicy(packageType, request);
 
         //step xử lý khách hàng chỉ chi trả cho phần ngưỡng
         BigDecimal extraCounsellorSlotTotal = calculateExtraCounsellorTotal(packageType, requestedCounsellors, includedCounsellors, featureUnitPricing);
 
+        BigDecimal extraPostTotal = calculateExtraPostTotal(packageType, requestedPosts, includedPosts, featureUnitPricing);
+
         //bước tính tổng giá nền + giá cho quota counsellor vượt mức 
-        BigDecimal netPrice = basePrice.add(extraCounsellorSlotTotal);
+        BigDecimal netPrice = basePrice.add(extraCounsellorSlotTotal).add(extraPostTotal);
 
         //hệ thống tự động cộng dồn giá của các tính năng
         // mà Admin đã "tick chọn" cho gói đó vào tổng giá trị cuối cùng.
