@@ -281,7 +281,10 @@ public class ConfigSystemUtil {
 
     //tính tổng phí cho quota counsellor vượt mức
     //Cái gì khách được hưởng miễn phí theo gói, và cái gì khách phải móc hầu bao trả thêm.
-    private static BigDecimal calculateExtraCounsellorTotal(PackageType packageType, int requestedCounsellors, int includedCounsellors, Map<String, Object> featureUnitPricing) {
+    private static BigDecimal calculateExtraCounsellorTotal(PackageType packageType,
+                                                            int requestedCounsellors,
+                                                            int includedCounsellors,
+                                                            Map<String, Object> featureUnitPricing) {
         // đối vs gói thử ==> ko đ phí
         if (packageType == PackageType.TRIAL) {
             return BigDecimal.ZERO;
@@ -297,6 +300,26 @@ public class ConfigSystemUtil {
         BigDecimal unitPrice = getAsBigDecimal(featureUnitPricing.get("extraCounsellorSlot"), "phí counsellor vượt mức");
 
         return unitPrice.multiply(BigDecimal.valueOf(extraSlots));
+    }
+
+    private static BigDecimal calculateExtraPostTotal(PackageType packageType,
+                                                      int requestedPosts,
+                                                      int includedPosts,
+                                                      Map<String, Object> featureUnitPricing) {
+
+        // 1. Nếu là Enterprise hoặc được thiết lập Vô hạn (-1), phí phụ trội bằng 0
+        if (packageType == PackageType.TRIAL || includedPosts == -1 || requestedPosts == -1) {
+            return BigDecimal.ZERO;
+        }
+
+        // 2. Tính số lượng bài đăng vượt định mức (chỉ áp dụng cho gói có giới hạn hữu hạn)
+        int extraPosts = Math.max(0, requestedPosts - includedPosts);
+        if (extraPosts == 0) return BigDecimal.ZERO;
+
+        // 3. Lấy đơn giá mỗi bài đăng thêm
+        BigDecimal unitPrice = getAsBigDecimal(featureUnitPricing.getOrDefault("extraPostFee", 0), "phí bài đăng vượt mức");
+
+        return unitPrice.multiply(BigDecimal.valueOf(extraPosts));
     }
 
     //Ước tính giá gói ==> để đưa giá cuối sau khi lựa chọn các tính năng

@@ -15,7 +15,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -164,6 +169,7 @@ public class SystemServiceImpl implements SystemService {
 
         Map<String, Object> featureUnitPrices = new HashMap<>();
         featureUnitPrices.put("extraCounsellorSlot", business.getSubscriptionPricing().getFeatureUnitPrices().getExtraCounsellorSlot());
+        featureUnitPrices.put("extraPostFee", business.getSubscriptionPricing().getFeatureUnitPrices().getExtraPostFee());
         featureUnitPrices.put("aiChatbotMonthlyFee", business.getSubscriptionPricing().getFeatureUnitPrices().getAiChatbotMonthlyFee());
         featureUnitPrices.put("premiumSupportFee", business.getSubscriptionPricing().getFeatureUnitPrices().getPremiumSupportFee());
         featureUnitPrices.put("topRankingFee", business.getSubscriptionPricing().getFeatureUnitPrices().getTopRankingFee());
