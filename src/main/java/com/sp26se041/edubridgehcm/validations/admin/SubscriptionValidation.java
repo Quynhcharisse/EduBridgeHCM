@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.validations.admin;
 
 import com.sp26se041.edubridgehcm.enums.ParentPostPermission;
+import com.sp26se041.edubridgehcm.enums.PackageType;
 import com.sp26se041.edubridgehcm.enums.SupportLevel;
 import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
 import org.springframework.util.StringUtils;
@@ -10,6 +11,9 @@ import java.util.Arrays;
 public class SubscriptionValidation {
 
     public static String upsertSubscriptionValidation(UpsertServicePackageFeeRequest request) {
+        if (request == null) {
+            return "Thiếu dữ liệu yêu cầu.";
+        }
 
         if (!StringUtils.hasText(request.getName())) {
             return "Tên gói dịch vụ không được để trống.";
@@ -17,6 +21,10 @@ public class SubscriptionValidation {
 
         if (request.getName().length() > 100) {
             return "Tên gói dịch vụ quá dài (tối đa 100 ký tự).";
+        }
+
+        if (parsePackageType(request.getPackageType()) == null) {
+            return "Loại gói không hợp lệ. Phải thuộc một trong các giá trị: " + Arrays.toString(PackageType.values());
         }
 
         // Validate Duration
@@ -78,6 +86,18 @@ public class SubscriptionValidation {
                         || r.name().equalsIgnoreCase(normalizedValue)
                         || r.getValue().contains(normalizedValue)
                 )
+                .findFirst()
+                .orElse(null);
+    }
+
+    public static PackageType parsePackageType(String value) {
+        String normalizedValue = normalize(value);
+        if (normalizedValue == null) {
+            return null;
+        }
+
+        return Arrays.stream(PackageType.values())
+                .filter(r -> r.name().equalsIgnoreCase(normalizedValue))
                 .findFirst()
                 .orElse(null);
     }

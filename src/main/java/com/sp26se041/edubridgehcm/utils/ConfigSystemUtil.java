@@ -159,12 +159,12 @@ public class ConfigSystemUtil {
         validateTrialPolicy(packageType, request, packageQuotas);
 
         //step xử lý khách hàng chỉ chi trả cho phần ngưỡng
-        BigDecimal extraCounsellorSlotTotal = calculateExtraCounsellorTotal(packageType, requestedCounsellors, includedCounsellors, featureUnitPricing);
+        BigDecimal extraCounsellorFeeTotal = calculateExtraCounsellorTotal(packageType, requestedCounsellors, includedCounsellors, featureUnitPricing);
 
         BigDecimal extraPostTotal = calculateExtraPostTotal(packageType, requestedPosts, includedPosts, featureUnitPricing);
 
         //bước tính tổng giá nền + giá cho quota counsellor vượt mức 
-        BigDecimal netPrice = basePrice.add(extraCounsellorSlotTotal).add(extraPostTotal);
+        BigDecimal netPrice = basePrice.add(extraCounsellorFeeTotal).add(extraPostTotal);
 
         //hệ thống tự động cộng dồn giá của các tính năng
         // mà Admin đã "tick chọn" cho gói đó vào tổng giá trị cuối cùng.
@@ -323,7 +323,7 @@ public class ConfigSystemUtil {
         //Khách hàng chỉ trả tiền cho phần "vượt ngưỡng" (ExtraSlots) ==> mô hình kinh doanh Zoom hay Google Workspace
         int extraSlots = Math.max(0, requestedCounsellors - includedCounsellors);
 
-        BigDecimal unitPrice = getAsBigDecimal(featureUnitPricing.get("extraCounsellorSlot"), "phí counsellor vượt mức");
+        BigDecimal unitPrice = getAsBigDecimal(featureUnitPricing.get("extraCounsellorFeePerSlot"), "phí counsellor vượt mức");
 
         return unitPrice.multiply(BigDecimal.valueOf(extraSlots));
     }

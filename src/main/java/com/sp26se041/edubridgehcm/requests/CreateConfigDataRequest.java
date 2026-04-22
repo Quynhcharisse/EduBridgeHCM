@@ -61,7 +61,7 @@ public class CreateConfigDataRequest {
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class FeatureUnitPrices {
-        double extraCounsellorSlot;
+        double extraCounsellorFeePerSlot;
         double extraPostFee;
         double aiChatbotMonthlyFee;
         double premiumSupportFee;

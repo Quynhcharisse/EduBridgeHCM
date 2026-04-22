@@ -1,8 +1,35 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
-import com.sp26se041.edubridgehcm.enums.*;
-import com.sp26se041.edubridgehcm.models.*;
-import com.sp26se041.edubridgehcm.repositories.*;
+import com.sp26se041.edubridgehcm.enums.CategoryTemplate;
+import com.sp26se041.edubridgehcm.enums.PackageType;
+import com.sp26se041.edubridgehcm.enums.PersonalityTypeGroup;
+import com.sp26se041.edubridgehcm.enums.Role;
+import com.sp26se041.edubridgehcm.enums.Status;
+import com.sp26se041.edubridgehcm.enums.SubjectType;
+import com.sp26se041.edubridgehcm.enums.SupportLevel;
+import com.sp26se041.edubridgehcm.models.Account;
+import com.sp26se041.edubridgehcm.models.Campus;
+import com.sp26se041.edubridgehcm.models.ChatMessage;
+import com.sp26se041.edubridgehcm.models.Conversation;
+import com.sp26se041.edubridgehcm.models.PersonalityType;
+import com.sp26se041.edubridgehcm.models.PlatformConfig;
+import com.sp26se041.edubridgehcm.models.School;
+import com.sp26se041.edubridgehcm.models.SchoolRegistrationRequest;
+import com.sp26se041.edubridgehcm.models.Subject;
+import com.sp26se041.edubridgehcm.models.Subscription;
+import com.sp26se041.edubridgehcm.models.TemplateDocx;
+import com.sp26se041.edubridgehcm.repositories.AccountRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusRepo;
+import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
+import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
+import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
+import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolRegistrationRequestRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolSubscriptionRepo;
+import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
+import com.sp26se041.edubridgehcm.repositories.SubscriptionRepo;
+import com.sp26se041.edubridgehcm.repositories.TemplateDocxRepo;
 import com.sp26se041.edubridgehcm.requests.AddSubjectRequest;
 import com.sp26se041.edubridgehcm.requests.AutoFillQuotasByYearRequest;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
@@ -18,7 +45,11 @@ import com.sp26se041.edubridgehcm.validations.admin.SubscriptionValidation;
 import com.sp26se041.edubridgehcm.validations.admin.VerifyRegistrationValidation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,7 +65,16 @@ import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -126,7 +166,8 @@ public class AdminServiceImpl implements AdminService {
 
             Map<String, Object> responseBody = objectMapper.readValue(
                     rawBody,
-                    new TypeReference<>() {}
+                    new TypeReference<>() {
+                    }
             );
 
             String message = responseBody.get("message") != null
@@ -157,7 +198,8 @@ public class AdminServiceImpl implements AdminService {
 
                 Map<String, Object> errorBody = objectMapper.readValue(
                         rawError,
-                        new TypeReference<>() {}
+                        new TypeReference<>() {
+                        }
                 );
 
                 String message = errorBody.get("message") != null
@@ -641,7 +683,7 @@ public class AdminServiceImpl implements AdminService {
         String error = SubscriptionValidation.upsertSubscriptionValidation(request);
 
         if (error != null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, error, null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
         boolean isCreate = (request.getPackageId() == null);
@@ -661,18 +703,21 @@ public class AdminServiceImpl implements AdminService {
             subscription.setPackageStatus(Status.PACKAGE_DRAFT);
         }
 
+        PackageType packageType = SubscriptionValidation.parsePackageType(request.getPackageType());
+        SupportLevel supportLevel = SubscriptionValidation.parseSupportLevel(request.getFeatureData().getSupportLevel());
+
         subscription.setName(request.getName());
-        subscription.setPackageType(PackageType.valueOf(request.getPackageType()));
+        subscription.setPackageType(packageType);
         subscription.setDescription(request.getDescription());
         subscription.setDurationDays(request.getDurationDays());
 
         if (request.getFeatureData() != null) {
-            subscription.setFeatures(buildFeatureJson(request.getFeatureData()));
+            subscription.setFeatures(buildFeatureJson(request.getFeatureData(), supportLevel));
         }
 
         // Tính giá từ platform_config "business", gán price / phí / thuế / finalPrice
         PlatformConfig businessConfig = platformConfigRepo.findByKey("business").orElse(null);
-        
+
         if (businessConfig == null || businessConfig.getValue() == null) {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Chưa cấu hình doanh nghiệp.", null);
         }
@@ -703,14 +748,15 @@ public class AdminServiceImpl implements AdminService {
         return ResponseBuilder.build(isCreate ? HttpStatus.CREATED : HttpStatus.OK, isCreate ? "Tạo gói nháp thành công" : "Cập nhật gói nháp thành công", null);
     }
 
-    private Map<String, Object> buildFeatureJson(UpsertServicePackageFeeRequest.FeatureData request) {
+    private Map<String, Object> buildFeatureJson(UpsertServicePackageFeeRequest.FeatureData request, SupportLevel supportLevel) {
         Map<String, Object> data = new HashMap<>();
         data.put("maxCounsellors", request.getMaxCounsellors());
+        data.put("postLimit", request.getPostLimit());
         data.put("hasAiAssistant", request.getHasAiAssistant());
         data.put("parentPostPermission", request.getParentPostPermission());
         data.put("isFeatured", request.getIsFeatured());
         data.put("topRanking", request.getTopRanking());
-        data.put("supportLevel", SupportLevel.valueOf(request.getSupportLevel()));
+        data.put("supportLevel", supportLevel);
         return data;
     }
 
@@ -771,7 +817,7 @@ public class AdminServiceImpl implements AdminService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ có thể phát hành gói ở trạng thái nháp (DRAFT). Trạng thái hiện tại: " + subscription.getPackageStatus(), null);
         }
 
-        if (subscription.getPrice().compareTo(BigDecimal.ZERO)<= 0) {
+        if (subscription.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không thể phát hành: giá phải lớn hơn 0.", null);
         }
 
