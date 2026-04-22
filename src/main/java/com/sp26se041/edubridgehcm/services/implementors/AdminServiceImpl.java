@@ -1274,4 +1274,9 @@ public class AdminServiceImpl implements AdminService {
         return value == null || value.trim().isEmpty();
     }
 
+    @Override
+    public ResponseEntity<ResponseObject> getRevenuesSummary() {
+        return null;
+    }
+
 }
