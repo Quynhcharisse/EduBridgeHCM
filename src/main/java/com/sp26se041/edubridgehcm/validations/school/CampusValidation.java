@@ -9,38 +9,42 @@ import java.util.Locale;
 
 public class CampusValidation {
 
+    private static final String EMAIL_REGEX = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$";
+
     public static String validateCreateCampus(CreateCampusRequest request, AccountRepo accountRepo, CampusRepo campusRepo, int schoolId) {
+
         if (request == null) {
             return "Dữ liệu yêu cầu không được để trống";
         }
 
-        if (normalize(request.getEmail()) == null) {
+        String email = normalize(request.getEmail());
+
+        if (email == null) {
             return "Email không được để trống";
         }
 
-        if (normalize(request.getEmail()).length() > 100) {
+        if (email.length() > 100) {
             return "Email không được vượt quá 100 ký tự";
         }
 
-        if (accountRepo.findByEmail(normalize(request.getEmail())).isPresent()) {
+        if (!email.matches(EMAIL_REGEX)) return "Định dạng Email không hợp lệ";
+
+        if (accountRepo.findByEmail(email).isPresent()) {
             return "Email này đã được sử dụng trên hệ thống";
         }
 
-        if (normalize(request.getAddress()) == null) {
+        String address = normalize(request.getAddress());
+        if (address == null) {
             return "Địa chỉ không được để trống";
         }
 
-        if (normalize(request.getAddress()).length() > 250) {
+        if (address.length() > 250) {
             return "Địa chỉ không được vượt quá 250 ký tự";
         }
 
-        if (normalize(request.getPhone()) == null) {
-            return "Số điện thoại không được để trống";
-        }
+        String phoneErr = validateHotline(request.getPhone());
 
-        if (!normalize(request.getPhone()).matches("^0\\d{9}$")) {
-            return "Số điện thoại không hợp lệ (phải bắt đầu bằng số 0 và có đúng 10 chữ số)";
-        }
+        if (phoneErr != null) return "Số điện thoại cơ sở " + phoneErr;
 
         if (normalize(request.getCity()) == null) {
             return "Vui lòng chọn Tỉnh/Thành phố";
@@ -87,5 +91,27 @@ public class CampusValidation {
             }
             return null;
         }
+    }
+
+    public static String validateHotline(String hotline) {
+
+        if (hotline == null || hotline.isBlank()) {
+            return "không được để trống";
+        }
+
+        // Loại bỏ khoảng trắng, dấu chấm, dấu gạch ngang
+        String cleanHotline = hotline.replaceAll("[\\s.\\-]", "");
+
+        // Regex:
+        // Nhóm 1: (0|84) + (đầu số 2,3,5,7,8,9) + (7 đến 9 chữ số sau đó) -> Cho di động và số bàn
+        // Nhóm 2: 1800 + (4 đến 6 chữ số)
+        // Nhóm 3: 1900 + (4 đến 6 chữ số)
+        String regex = "^((0|84)(3|5|7|8|9|2)([0-9]{7,9})|1800[0-9]{4,6}|1900[0-9]{4,6})$";
+
+        if (!cleanHotline.matches(regex)) {
+            return "Định dạng không hợp lệ";
+        }
+
+        return null;
     }
 }

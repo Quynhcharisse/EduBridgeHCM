@@ -244,13 +244,6 @@ public class SystemServiceImpl implements SystemService {
             throw new RuntimeException("Dữ liệu cấu hình không được để trống");
         }
 
-        if (media.getMaxImgSize() <= 0 || media.getMaxImgSize() > 100) {
-            throw new RuntimeException("Dung lượng ảnh tối đa phải từ 1MB đến 100MB");
-        }
-        if (media.getMaxDocSize() <= 0 || media.getMaxDocSize() > 100) {
-            throw new RuntimeException("Dung lượng tài liệu tối đa phải từ 1MB đến 100MB");
-        }
-
         if (media.getImgFormats() == null || media.getImgFormats().isEmpty()) {
             throw new RuntimeException("Danh sách định dạng ảnh không được để trống");
         }
