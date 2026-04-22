@@ -111,7 +111,7 @@ public class CreateConfigDataRequest {
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class AdmissionQuotaData {
-        String year;
+        Source source;
         List<Quota> quotas;
     }
 
@@ -120,8 +120,20 @@ public class CreateConfigDataRequest {
     @AllArgsConstructor
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class Source {
+           String sourceName;
+           String sourceUrl;
+           String sourceType;
+           String year;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class Quota {
-        String schoolName;
+        int schoolId;
         int value;
     }
 
