@@ -60,7 +60,6 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
         // ✅ lấy extension
         String ext = originalFilename.substring(originalFilename.lastIndexOf(".") + 1).toLowerCase();
 
-
         if (!allowedExt.contains(ext)) {
             throw new IllegalArgumentException(
                     "Chỉ cho các định dạng file: " + String.join(", ", allowedExt)

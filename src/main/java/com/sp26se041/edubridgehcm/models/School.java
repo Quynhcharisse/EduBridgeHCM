@@ -56,14 +56,16 @@ public class School {
 
     String hotline;
 
+    @Column(length = 500)
     String folderPath;
 
+    @Column(length = 500)
     String fileName;
 
     @Column(name = "average_rating")
     BigDecimal averageRating;
 
-    @Column(name = "business_license_url")
+    @Column(name = "business_license_url", length = 500)
     String businessLicenseUrl; // Link ảnh giấy phép kinh doanh
 
     @Column(name = "is_featured")

@@ -349,7 +349,6 @@ public class ParentServiceImpl implements ParentService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Thông tin trẻ không tồn tại trong hệ thống", null);
         }
 
-
         Conversation conservation = Conversation.builder()
                 .parentEmail(request.getParentEmail().trim())
                 .counsellorEmail("N/A")
@@ -416,9 +415,6 @@ public class ParentServiceImpl implements ParentService {
                 personalityType.map(PersonalityType::getCode).orElse("N/A"));
         result.put("traits",
                 personalityType.map(PersonalityType::getTraits).orElse(List.of()));
-
-        result.put("favouriteJob", studentProfile.getFavouriteJob());
-        result.put("academicProfileMetadata", buildAcademicProfileMetadata(studentProfile));
         result.put("subjectsInSystem", getSubjects());
 
         return result;
@@ -1125,7 +1121,7 @@ public class ParentServiceImpl implements ParentService {
 
     private List<Map<String, Object>> mergeAcademicProfileMetadata(StudentProfile studentProfile) {
 
-        List<Subject> allSubjects = subjectRepo.findAll();
+        List<Subject> allSubjects = subjectRepo.findAllByTypeIn( List.of(SubjectType.REGULAR_SUBJECT, SubjectType.FOREIGN_LANGUAGE_SUBJECT));
 
         List<Map<String, Object>> storedAcademicProfiles =
                 (List<Map<String, Object>>) studentProfile.getAcademicProfileMetadata();
@@ -1181,6 +1177,7 @@ public class ParentServiceImpl implements ParentService {
             }
 
             for (Subject subject : allSubjects) {
+
                 String normalizedName = subject.getName().trim().toLowerCase();
 
                 boolean existedInProfile = storedSubjectMap.containsKey(normalizedName);
@@ -1214,78 +1211,6 @@ public class ParentServiceImpl implements ParentService {
         }
 
         return mergedAcademicProfiles;
-    }
-
-    private List<Map<String, Object>> buildAcademicProfileMetadata(StudentProfile studentProfile) {
-
-        List<Map<String, Object>> storedAcademicProfiles =
-                (List<Map<String, Object>>) studentProfile.getAcademicProfileMetadata();
-
-        if (storedAcademicProfiles == null || storedAcademicProfiles.isEmpty()) {
-            return new ArrayList<>();
-        }
-
-        List<Map<String, Object>> result = new ArrayList<>();
-
-        for (Map<String, Object> academicItem : storedAcademicProfiles) {
-            if (academicItem == null) {
-                continue;
-            }
-
-            String gradeLevel = academicItem.get("gradeLevel") == null
-                    ? null
-                    : academicItem.get("gradeLevel").toString();
-
-            List<Map<String, Object>> storedSubjectResults =
-                    (List<Map<String, Object>>) academicItem.get("subjectResults");
-
-            List<Map<String, Object>> subjectResults = new ArrayList<>();
-
-            if (storedSubjectResults != null) {
-                for (Map<String, Object> subjectItem : storedSubjectResults) {
-                    if (subjectItem == null) {
-                        continue;
-                    }
-
-                    Object subjectNameObj = subjectItem.get("subjectName");
-                    if (subjectNameObj == null) {
-                        continue;
-                    }
-
-                    String subjectName = subjectNameObj.toString().trim();
-                    if (subjectName.isEmpty()) {
-                        continue;
-                    }
-
-                    Optional<Subject> subjectOpt = subjectRepo.findByName(subjectName);
-
-                    Map<String, Object> subjectMap = new HashMap<>();
-                    subjectMap.put("id", subjectItem.get("id"));
-                    subjectMap.put("subjectName", subjectName);
-                    subjectMap.put("type", subjectItem.get("type"));
-                    subjectMap.put("score", subjectItem.get("score"));
-                    subjectMap.put("isAvailable", subjectOpt.isPresent());
-
-                    // Nếu subject còn trong hệ thống thì cập nhật lại thông tin mới nhất
-                    if (subjectOpt.isPresent()) {
-                        Subject subject = subjectOpt.get();
-                        subjectMap.put("id", subject.getId());
-                        subjectMap.put("subjectName", subject.getName());
-                        subjectMap.put("type", subject.getType().getValue());
-                    }
-
-                    subjectResults.add(subjectMap);
-                }
-            }
-
-            Map<String, Object> academicMap = new HashMap<>();
-            academicMap.put("gradeLevel", gradeLevel);
-            academicMap.put("subjectResults", subjectResults);
-
-            result.add(academicMap);
-        }
-
-        return result;
     }
 
     private Gender parseGender(String value) {
