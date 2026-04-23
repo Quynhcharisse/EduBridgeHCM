@@ -44,7 +44,7 @@ public class PaymentTransaction {
     SchoolSubscription schoolSubscription;
 
     // VNPay transaction information
-    @Column(name = "vnp_txn_ref")
+    @Column(name = "vnp_txn_ref", unique = true, nullable = false)
     String vnpTxnRef; // mã giao dịch của hệ thống
 
     @Column(name = "vnp_transaction_no")

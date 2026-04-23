@@ -7,9 +7,11 @@ import com.sp26se041.edubridgehcm.enums.CurriculumType;
 import com.sp26se041.edubridgehcm.enums.FeeUnit;
 import com.sp26se041.edubridgehcm.enums.LanguageInstruction;
 import com.sp26se041.edubridgehcm.enums.LearningMethod;
+import com.sp26se041.edubridgehcm.enums.PackageType;
 import com.sp26se041.edubridgehcm.enums.ResourceType;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
+import com.sp26se041.edubridgehcm.enums.SubscriptionAction;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
 import com.sp26se041.edubridgehcm.models.Campus;
@@ -21,6 +23,7 @@ import com.sp26se041.edubridgehcm.models.Curriculum;
 import com.sp26se041.edubridgehcm.models.OpenDayEvent;
 import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.PaymentTransaction;
+import com.sp26se041.edubridgehcm.models.PlatformConfig;
 import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
@@ -39,6 +42,8 @@ import com.sp26se041.edubridgehcm.repositories.FavouriteSchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.OpenDayEventRepo;
 import com.sp26se041.edubridgehcm.repositories.ParentRepo;
 import com.sp26se041.edubridgehcm.repositories.PaymentTransactionRepo;
+import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
+import com.sp26se041.edubridgehcm.repositories.PostRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
@@ -51,6 +56,7 @@ import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
 import com.sp26se041.edubridgehcm.requests.CreateSubscriptionRequest;
 import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
 import com.sp26se041.edubridgehcm.requests.ProgramRequest;
+import com.sp26se041.edubridgehcm.requests.SubscriptionPreviewRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -58,6 +64,7 @@ import com.sp26se041.edubridgehcm.services.SchoolService;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
+import com.sp26se041.edubridgehcm.utils.ConfigSystemUtil;
 import com.sp26se041.edubridgehcm.utils.CurriculumNamingUtil;
 import com.sp26se041.edubridgehcm.utils.ExcelUtil;
 import com.sp26se041.edubridgehcm.utils.PaginationUtil;
@@ -122,6 +129,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class SchoolServiceImpl implements SchoolService {
 
+    private final PostRepo postRepo;
     @Value("${AI_SERVICE_N8N}")
     private String n8nUrl;
 
@@ -156,6 +164,8 @@ public class SchoolServiceImpl implements SchoolService {
     private final PaymentTransactionRepo paymentTransactionRepo;
 
     private final SchoolConfigRepo schoolConfigRepo;
+
+    private final PlatformConfigRepo platformConfigRepo;
 
     private final CampusResourceQuotaRepo campusResourceQuotaRepo;
 
@@ -782,7 +792,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Khung chương trình không tồn tại trong hệ thống", null);
         }
 
-        if (target.getSchool().getId() != actorCampus.getSchool().getId()) {
+        if (!target.getSchool().getId().equals(actorCampus.getSchool().getId())) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Khung chương trình không thuộc trường của bạn.", null);
         }
 
@@ -794,10 +804,13 @@ public class SchoolServiceImpl implements SchoolService {
                     return ResponseBuilder.build(HttpStatus.OK, "Chỉ có khung chương trình nháp mới được công bố", null);
                 }
 
+                int yearToPublish = LocalDate.now().getYear();
+
                 //Nếu bạn đang chuẩn bị PUBLISH một bản nháp mới cho "Khối Tự Nhiên - 2024",
                 // hệ thống sẽ lục tìm: "Hệ thống đã có bản nào là Tự Nhiên - 2024 đang chạy (ACTIVE) chưa?"
                 // . Nếu có, bản đó lập tức bị coi là "phiên bản cũ" và bị đẩy vào kho ARCHIVED.
-                Curriculum currentActive = curriculumRepo.findByGroupCodeAndApplicationYearAndCurriculumStatus(target.getGroupCode(), target.getApplicationYear(), Status.CUR_ACTIVE);
+                Curriculum currentActive = curriculumRepo.findByGroupCodeAndApplicationYearAndCurriculumStatus(target.getGroupCode(),
+                        yearToPublish, Status.CUR_ACTIVE);
 
                 //Tìm bản ACTIVE hiện tại của cùng nhóm --> nếu có cho vào bản CUR_ARCHIVED
                 if (currentActive != null) {
@@ -805,9 +818,13 @@ public class SchoolServiceImpl implements SchoolService {
                     curriculumRepo.save(currentActive);
                 }
 
+                String subTypeName = CurriculumNamingUtil.extractSubTypeNameFromName(target.getName());
+                target.setName(CurriculumNamingUtil.generatePublishedName(subTypeName, yearToPublish));
+
                 target.setCurriculumStatus(Status.CUR_ACTIVE);
+                target.setApplicationYear(yearToPublish);
                 curriculumRepo.save(target);
-                return ResponseBuilder.build(HttpStatus.OK, "Công bố khung chương trình thành công", target.getId());
+                return ResponseBuilder.build(HttpStatus.OK, "Công bố khung chương trình" + yearToPublish +  "thành công", target.getId());
 
             case "REVISE":
                 // Chỉnh sửa, cập nhật dựa trên bản cũ để tạo bản mới
@@ -847,14 +864,12 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     private Curriculum buildNewCurriculum(CurriculumRequest request, School school) {
-        // tạo mới thì draft
         CurriculumType type = CurriculumValidation.parseCurriculumType(request.getCurriculumType());
         return Curriculum.builder()
-                .name(CurriculumNamingUtil.generateName(request))
+                .name(CurriculumNamingUtil.generateDraftName(request))
                 .groupCode(CurriculumNamingUtil.generateGroupCode(request))
                 .curriculumType(type)
                 .learningMethodList(request.getMethodLearningList().stream().map(LearningMethod::valueOf).collect(Collectors.toList()))
-                .applicationYear(request.getApplicationYear())
                 .description(request.getDescription())
                 .subjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()))
                 .school(school)
@@ -865,30 +880,36 @@ public class SchoolServiceImpl implements SchoolService {
     private void applyRequestToCurriculum(Curriculum curriculum, CurriculumRequest request) {
 
         if (request == null) return;
-
         curriculum.setDescription(request.getDescription());
         curriculum.setSubjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()));
         curriculum.setLearningMethodList(request.getMethodLearningList().stream().map(LearningMethod::valueOf).collect(Collectors.toList()));
 
         // Chỉ generate lại tên curriculum từ các trường thành phần, tuyệt đối không lấy từ request.getName()
         // Không setName ở bất kỳ nơi nào khác ngoài đây và buildNewCurriculum
-        boolean isIdentityChanging = curriculum.getApplicationYear() != request.getApplicationYear() || !curriculum.getCurriculumType().name().equals(request.getCurriculumType()) || !curriculum.getGroupCode().equals(CurriculumNamingUtil.generateGroupCode(request));
+        boolean isIdentityChanging = !curriculum.getCurriculumType().name().equals(request.getCurriculumType()) || !curriculum.getGroupCode().equals(CurriculumNamingUtil.generateGroupCode(request));
 
         if (isIdentityChanging) {
-            // Chỉ khi có ý định đổi Identity mới kiểm tra DB
             boolean hasLinkedPrograms = curriculum.getId() != null && programRepo.existsByCurriculumId(curriculum.getId());
             if (!hasLinkedPrograms) {
-                // Luôn generate lại tên từ các trường thành phần
-                curriculum.setName(CurriculumNamingUtil.generateName(request));
+                curriculum.setName(CurriculumNamingUtil.generateDraftName(request));
                 curriculum.setGroupCode(CurriculumNamingUtil.generateGroupCode(request));
-                curriculum.setApplicationYear(request.getApplicationYear());
                 curriculum.setCurriculumType(CurriculumType.valueOf(request.getCurriculumType()));
             }
         }
     }
 
     private Curriculum evolveFromExisting(Curriculum existing, CurriculumRequest request) {
-        Curriculum clone = Curriculum.builder().name(existing.getName()).groupCode(existing.getGroupCode()).description(existing.getDescription()).curriculumType(existing.getCurriculumType()).learningMethodList(existing.getLearningMethodList()).applicationYear(existing.getApplicationYear()).subjectsJsonb(existing.getSubjectsJsonb()).school(existing.getSchool()).parent(existing).curriculumStatus(Status.CUR_DRAFT).build();
+        Curriculum clone = Curriculum.builder()
+                .name(existing.getName())
+                .groupCode(existing.getGroupCode())
+                .description(existing.getDescription())
+                .curriculumType(existing.getCurriculumType())
+                .learningMethodList(existing.getLearningMethodList())
+                .applicationYear(null)
+                .subjectsJsonb(existing.getSubjectsJsonb())
+                .school(existing.getSchool())
+                .parent(existing)
+                .curriculumStatus(Status.CUR_DRAFT).build();
 
         if (request != null) {
             applyRequestToCurriculum(clone, request);
@@ -1797,21 +1818,22 @@ public class SchoolServiceImpl implements SchoolService {
         Subscription subscription = subscriptionRepo.findById(request.getPackageId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy gói dịch vụ trong hệ thống"));
 
-        if (subscription.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+        if (subscription.getFinalPrice() == null || subscription.getFinalPrice().compareTo(BigDecimal.ZERO) <= 0) {
             return ResponseBuilder.build(
                     HttpStatus.BAD_REQUEST,
-                    "Giá gói dịch vụ phải lớn hơn 0",
+                    "Tổng tiền gói dịch vụ không hợp lệ",
                     null
             );
         }
 
         //ktra upgrade vs renew
-        // ktra upgrade vs renew
         List<SchoolSubscription> currentActiveSub =
                 schoolSubscriptionRepo.findBySchoolIdAndIsSelected(school.getId(), true);
 
         LocalDate calculatedStartDate = LocalDate.now();
+        LocalDate calculatedEndDate = calculatedStartDate.plusDays(subscription.getDurationDays());
         String orderNote = "Thanh toán gói " + normalize(subscription.getName());
+        BigDecimal amountToCharge = subscription.getFinalPrice();
 
         if (!currentActiveSub.isEmpty()) {
             // Lấy gói có ngày kết thúc xa nhất trong đám đang active để tính nối đuôi
@@ -1821,13 +1843,63 @@ public class SchoolServiceImpl implements SchoolService {
 
             if (current.getSubscription().getId().equals(request.getPackageId())) {
                 // Nếu GIA HẠN (Renew) - Cùng loại gói
-                if (current.getEndDate().isAfter(LocalDate.now())) {
-                    calculatedStartDate = current.getEndDate().plusDays(1);
-                    orderNote = "Gia hạn gói " + normalize(subscription.getName()) + " từ ngày " + calculatedStartDate;
-                }
+                LocalDate baseDate = LocalDate.now().isAfter(current.getEndDate()) ? LocalDate.now() : current.getEndDate();
+                calculatedStartDate = baseDate;
+                calculatedEndDate = baseDate.plusDays(subscription.getDurationDays());
+                amountToCharge = subscription.getFinalPrice();
+                orderNote = "Gia hạn gói " + normalize(subscription.getName()) + " từ ngày " + calculatedStartDate;
             } else {
                 // Nếu NÂNG CẤP (Upgrade) - Khác loại gói
-                orderNote = "Nâng cấp lên gói " + normalize(subscription.getName());
+                long remainingDays = ChronoUnit.DAYS.between(LocalDate.now(), current.getEndDate());
+                if (remainingDays <= 0) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Gói hiện tại đã hết hạn, vui lòng gia hạn hoặc mua gói mới.",
+                            null
+                    );
+                }
+
+                Integer currentDurationDays = current.getSubscription().getDurationDays();
+                Integer targetDurationDays = subscription.getDurationDays();
+                if (currentDurationDays == null || currentDurationDays <= 0
+                        || targetDurationDays == null || targetDurationDays <= 0) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Gói dịch vụ thiếu cấu hình thời hạn.",
+                            null
+                    );
+                }
+
+                boolean isTrial = current.getSubscription().getPackageType() == PackageType.TRIAL;
+                BigDecimal currentPrice = isTrial ? BigDecimal.ZERO : current.getSubscription().getPrice();
+                BigDecimal targetPrice = subscription.getPrice();
+                if (targetPrice == null || (!isTrial && currentPrice == null)) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Giá gói không hợp lệ để nâng cấp.",
+                            null
+                    );
+                }
+
+                BigDecimal remainingDaysDecimal = BigDecimal.valueOf(remainingDays);
+                BigDecimal currentDailyPrice = currentPrice.divide(BigDecimal.valueOf(currentDurationDays), 6, RoundingMode.HALF_UP);
+                BigDecimal targetDailyPrice = targetPrice.divide(BigDecimal.valueOf(targetDurationDays), 6, RoundingMode.HALF_UP);
+                BigDecimal creditOld = currentDailyPrice.multiply(remainingDaysDecimal).setScale(0, RoundingMode.HALF_UP);
+                BigDecimal chargeNew = targetDailyPrice.multiply(remainingDaysDecimal).setScale(0, RoundingMode.HALF_UP);
+                BigDecimal netAmount = chargeNew.subtract(creditOld);
+                if (netAmount.compareTo(BigDecimal.ZERO) < 0) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Không thể hạ cấp gói trong thao tác nâng cấp.",
+                            null
+                    );
+                }
+
+                ConfigSystemUtil.SubscriptionPriceBreakdown breakdown = calculateBreakdownFromNet(netAmount);
+                amountToCharge = breakdown.finalPrice();
+                calculatedStartDate = LocalDate.now();
+                calculatedEndDate = current.getEndDate(); // giữ nguyên hạn cũ theo policy preview
+                orderNote = "Nâng cấp lên gói " + normalize(subscription.getName()) + " theo proration";
             }
         }
 
@@ -1840,7 +1912,7 @@ public class SchoolServiceImpl implements SchoolService {
                 .school(school)
                 .subscription(subscription)
                 .startDate(calculatedStartDate)
-                .endDate(calculatedStartDate.plusDays(subscription.getDurationDays()))
+                .endDate(calculatedEndDate)
                 .isSelected(false) // chưa kích hoạt cho đến khi thanh toán xong
                 .licenseKey(licenseKey)
                 .build();
@@ -1848,8 +1920,8 @@ public class SchoolServiceImpl implements SchoolService {
         schoolSubscription = schoolSubscriptionRepo.save(schoolSubscription);
 
 // step 4 : cấu hình vnpay
-        String vnp_TxnRef = VNPayConfig.getRandomNumber(8); // mã đơn hàng
-        long amount = subscription.getPrice()
+        String vnp_TxnRef = generateUniqueVnpTxnRef(); // mã đơn hàng
+        long amount = amountToCharge
                 .multiply(BigDecimal.valueOf(100)) // VNPay yêu cầu nhân 100
                 .setScale(0, RoundingMode.HALF_UP)
                 .longValue();
@@ -1895,7 +1967,19 @@ public class SchoolServiceImpl implements SchoolService {
         return ResponseBuilder.build(HttpStatus.OK, "Payment URL tạo thành công", paymentUrl);
     }
 
+    private String generateUniqueVnpTxnRef() {
+        final int maxAttempts = 10;
+        for (int i = 0; i < maxAttempts; i++) {
+            String txnRef = VNPayConfig.getRandomNumber(8);
+            if (!paymentTransactionRepo.existsByVnpTxnRef(txnRef)) {
+                return txnRef;
+            }
+        }
+        throw new RuntimeException("Không thể tạo mã giao dịch thanh toán duy nhất.");
+    }
+
     @Override
+    @Transactional
     public ResponseEntity<ResponseObject> handleVNPayCallback(HttpServletRequest request) {
 
         Map<String, String> vnp_Params = new HashMap<>();
@@ -1925,11 +2009,23 @@ public class SchoolServiceImpl implements SchoolService {
         if (checkSum.equalsIgnoreCase(vnp_SecureHash.trim())) {
             String vnp_ResponseCode = vnp_Params.get("vnp_ResponseCode");
             String vnp_TxnRef = vnp_Params.get("vnp_TxnRef");
+            String vnpAmountRaw = vnp_Params.get("vnp_Amount");
 
             if (vnp_TxnRef == null || vnp_TxnRef.isBlank()) {
                 return ResponseBuilder.build(
                         HttpStatus.BAD_REQUEST,
                         "Thiếu mã tham chiếu giao dịch",
+                        null
+                );
+            }
+
+            long callbackAmount;
+            try {
+                callbackAmount = Long.parseLong(vnpAmountRaw);
+            } catch (Exception ex) {
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_REQUEST,
+                        "Số tiền VNPay trả về không hợp lệ",
                         null
                 );
             }
@@ -1955,6 +2051,17 @@ public class SchoolServiceImpl implements SchoolService {
                 );
             }
 
+            if (transaction.getVnpAmount() == null || transaction.getVnpAmount() != callbackAmount) {
+                transaction.setStatus(Status.PAYMENT_FAILED);
+                transaction.setUpdatedAt(LocalDateTime.now());
+                paymentTransactionRepo.save(transaction);
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_REQUEST,
+                        "Số tiền thanh toán không khớp với giao dịch",
+                        null
+                );
+            }
+
             if ("00".equals(vnp_ResponseCode)) {
                 // Cập nhật giao dịch
                 transaction.setStatus(Status.PAYMENT_SUCCESS);
@@ -1976,6 +2083,7 @@ public class SchoolServiceImpl implements SchoolService {
             } else {
                 // thanh toán thất bại (Người dùng hủy hoặc lỗi thẻ)
                 transaction.setStatus(Status.PAYMENT_FAILED);
+                transaction.setUpdatedAt(LocalDateTime.now());
                 paymentTransactionRepo.save(transaction);
 
                 return ResponseBuilder.build(
@@ -2241,25 +2349,56 @@ public class SchoolServiceImpl implements SchoolService {
     private Map<String, Object> buildCurrentSubscription(SchoolSubscription schoolSub) {
         // tính số ngày còn lại
         long daysRemaining = ChronoUnit.DAYS.between(LocalDate.now(), schoolSub.getEndDate());
+
         boolean isExpired = LocalDate.now().isAfter(schoolSub.getEndDate());
 
         // 1. Lấy thông tin Features từ gói cước
         Map<String, Object> features = (Map<String, Object>) schoolSub.getSubscription().getFeatures();
-        Object maxCounsellorsObj = (features != null) ? features.get("maxCounsellors") : 0;
-        int totalCounsellorsInPackage = (maxCounsellorsObj instanceof Number) ? ((Number) maxCounsellorsObj).intValue() : 0;
+        Map<String, Object> entitlements = extractFeatures(features);
+
+        int totalCounsellorsInPackage = ((Number) features.getOrDefault("maxCounsellors", 0)).intValue();
+        int postLimit = ((Number) features.getOrDefault("postLimit", 0)).intValue();
 
         Campus actorCampus = extractActorCampus();
+
+        // Quota (Hạn mức được chia)
         var quotaOpt = campusResourceQuotaRepo.findByCampusIdAndResourceType(actorCampus.getId(), ResourceType.COUNSELLOR);
         int myQuota = quotaOpt.map(CampusResourceQuota::getMaxQuota).orElse(0);
 
-        // 3. Tính toán số lượng đã chia cho các chi nhánh khác
-        int totalAllocatedToOthers = totalCounsellorsInPackage - myQuota;
+        // Usage (Số lượng đã dùng thực tế)
+        long counsellorUsage = accountRepo.countByCampusIdAndRole(actorCampus.getId(), Role.COUNSELLOR);
+        long postUsage = postRepo.countByAuthor_Campus_Id(actorCampus.getId());
+
+        int totalAllocatedToOthers = Math.max(0, totalCounsellorsInPackage - myQuota);
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("packageName", schoolSub.getSubscription().getName());
         data.put("licenseKey", schoolSub.getLicenseKey());
         data.put("startDate", schoolSub.getStartDate());
         data.put("endDate", schoolSub.getEndDate());
+        data.put("dasRemaining", Math.max(0, daysRemaining));
+        data.put("isExpired", isExpired);
+
+        // --- CHI TIẾT QUYỀN LỢI ---
+        data.put("entitlements", entitlements);
+
+        Map<String, Object> usageReport = new LinkedHashMap<>();
+        // Thống kê Counsellor
+        Map<String, Object> counsellorStats = new LinkedHashMap<>();
+        counsellorStats.put("totalPackage", totalCounsellorsInPackage);
+        counsellorStats.put("myCampusQuota", myQuota);
+        counsellorStats.put("myCampusUsage", counsellorUsage);
+        counsellorStats.put("otherCampusesQuota", totalAllocatedToOthers);
+        usageReport.put("counsellors", counsellorStats);
+
+        // Thống kê Post
+        Map<String, Object> postStats = new LinkedHashMap<>();
+        postStats.put("limit", postLimit == -1 ? "Vô hạn" : postLimit);
+        postStats.put("usage", postUsage);
+        postStats.put("remaining", postLimit == -1 ? "Vô hạn" : Math.max(0, postLimit - postUsage));
+        usageReport.put("posts", postStats);
+
+        data.put("usageReport", usageReport);
 
         // --- PHẦN BỔ SUNG TRỌNG ĐIỂM ĐỐI ĐỐI VS CAMPUS CHÍNH ---
         Map<String, Object> resourceSummary = new LinkedHashMap<>();
@@ -2267,24 +2406,234 @@ public class SchoolServiceImpl implements SchoolService {
         resourceSummary.put("myCampusQuota", myQuota);
         resourceSummary.put("otherCampusesQuota", Math.max(0, totalAllocatedToOthers));
         data.put("resourceSummary", resourceSummary);
-        // ------------------------------
 
-        data.put("dasRemaining", Math.max(0, daysRemaining));
-        data.put("isExpired", isExpired);
-        data.put(
-                "statusMessage",
-                isExpired
-                        ? "Đã hết hạn"
-                        : "Đang hoạt động (còn " + daysRemaining + " ngày)"
-        );
-
-        data.put(
-                "suggestion",
-                isExpired
-                        ? "Gói dịch vụ của bạn đã hết hạn. Vui lòng mua gói mới để tiếp tục sử dụng dịch vụ"
-                        : "Nếu bạn mua lại cùng gói '" + schoolSub.getSubscription().getName() +
-                        "', thời gian sẽ được cộng dồn liên tục đến ngày " + schoolSub.getEndDate()
-        );
+        // ---------------STATUS HIÊNT THỊ---------------//
+        data.put("statusMessage", isExpired ? "Đã hết hạn" : "Đang hoạt động (còn " + daysRemaining + " ngày)");
+        data.put("suggestion", generateSmartSuggestion(isExpired, daysRemaining, postLimit, postUsage));
         return data;
     }
+
+    private String generateSmartSuggestion(boolean isExpired, long daysLeft, int postLimit, long postUsage) {
+        if (isExpired) return "Gói dịch vụ đã hết hạn. Vui lòng mua gói mới để tiếp tục sử dụng.";
+
+        if (daysLeft <= 7)
+            return "Gói của bạn chỉ còn " + daysLeft + " ngày. Hãy gia hạn sớm để tránh gián đoạn dịch vụ.";
+
+        // Nếu sắp hết dung lượng bài đăng (trên 90%)
+        if (postLimit != -1 && (double) postUsage / postLimit > 0.9) {
+            return "Bạn đã sử dụng gần hết hạn mức bài đăng. Hãy cân nhắc nâng cấp gói.";
+        }
+
+        return "Gói dịch vụ đang hoạt động tốt. Bạn có thể cộng dồn thời gian bằng cách mua gói cùng loại.";
+    }
+
+    private Map<String, Object> extractFeatures(Map<String, Object> rawFeatures) {
+
+        if (rawFeatures == null) return new HashMap<>();
+
+        Map<String, Object> extracted = new LinkedHashMap<>();
+        String[] keys = {
+                "maxCounsellors",
+                "postLimit",
+                "hasAiAssistant",
+                "supportLevel",
+                "topRanking",
+                "parentPostPermission",
+                "isFeatured"
+        };
+
+        for (String key : keys) {
+            Object value = rawFeatures.get(key);
+            if ("postLimit".equals(key) && Integer.valueOf(-1).equals(value)) {
+                extracted.put(key, "Vô hạn");
+            } else {
+                extracted.put(key, value != null ? value : 0);
+            }
+        }
+        return extracted;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> previewSubscription(SubscriptionPreviewRequest request) {
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Tài khoản cơ sở không tồn tại trong hệ thống", null);
+        }
+
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Chỉ cơ sở chính mới được phép thực hiện thao tác này", null);
+        }
+
+        //lấy gói đang active
+        SchoolSubscription activeSub = schoolSubscriptionRepo.findBySchoolIdAndIsSelected(actorCampus.getSchool().getId(), true)
+                .stream().findFirst().orElse(null);
+
+        if (activeSub == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không có gói dịch vụ nào đang hoạt động.", null);
+        }
+
+        try {
+
+            // parse action 
+            if (request == null || request.getActionType() == null || request.getActionType().isBlank()) {
+                throw new RuntimeException("Thiếu loại hành động (actionType).");
+            }
+
+            SubscriptionAction action = SubscriptionAction.valueOf(request.getActionType().trim().toUpperCase());
+
+            // netAmount là tiền chênh lệch gốc 
+            BigDecimal netAmount = BigDecimal.ZERO;
+            Map<String, Object> warnings = new LinkedHashMap<>();
+            Map<String, Object> currentDetails = new LinkedHashMap<>();
+            Map<String, Object> targetDetails = new LinkedHashMap<>();
+
+            switch (action) {
+                case UPGRADE -> {
+
+                    if (request.getTargetPackageId() == null) {
+                        throw new RuntimeException("Thiếu gói đích để nâng cấp.");
+                    }
+
+                    Subscription targetSub = subscriptionRepo.findById(request.getTargetPackageId())
+                            .orElseThrow(() -> new RuntimeException("Gói đích không tồn tại"));
+
+                    if (targetSub.getId().equals(activeSub.getSubscription().getId())) {
+                        throw new RuntimeException("Gói đích phải khác gói hiện tại.");
+                    }
+
+                    // ktra gói hiện tại có phải là gói dùng thử không
+                    boolean isTrial = activeSub.getSubscription().getPackageType() == PackageType.TRIAL;
+
+                    // Policy A: prorate theo thời gian còn lại và giữ nguyên ngày hết hạn hiện tại
+                    long remainingDays = ChronoUnit.DAYS.between(LocalDate.now(), activeSub.getEndDate());
+                    if (remainingDays <= 0) {
+                        throw new RuntimeException("Gói hiện tại đã hết hạn, vui lòng gia hạn để tiếp tục.");
+                    }
+
+                    Integer currentDurationDays = activeSub.getSubscription().getDurationDays();
+                    Integer targetDurationDays = targetSub.getDurationDays();
+                    if (currentDurationDays == null || currentDurationDays <= 0
+                            || targetDurationDays == null || targetDurationDays <= 0) {
+                        throw new RuntimeException("Gói dịch vụ thiếu cấu hình thời hạn (durationDays).");
+                    }
+
+                    BigDecimal remainingDaysDecimal = BigDecimal.valueOf(remainingDays);
+
+                    // netAmount luôn là giá gốc trước thuế/phí để tránh tính chồng
+                    BigDecimal currentVal = isTrial ? BigDecimal.ZERO : activeSub.getSubscription().getPrice();
+                    BigDecimal targetVal = targetSub.getPrice();
+                    if (targetVal == null || (!isTrial && currentVal == null)) {
+                        throw new RuntimeException("Giá gói không hợp lệ để tính preview.");
+                    }
+
+                    BigDecimal currentDailyPrice = currentVal.divide(BigDecimal.valueOf(currentDurationDays), 6, RoundingMode.HALF_UP);
+                    BigDecimal targetDailyPrice = targetVal.divide(BigDecimal.valueOf(targetDurationDays), 6, RoundingMode.HALF_UP);
+
+                    BigDecimal creditOld = currentDailyPrice.multiply(remainingDaysDecimal).setScale(0, RoundingMode.HALF_UP);
+                    BigDecimal chargeNew = targetDailyPrice.multiply(remainingDaysDecimal).setScale(0, RoundingMode.HALF_UP);
+                    netAmount = chargeNew.subtract(creditOld);
+
+                    if (netAmount.compareTo(BigDecimal.ZERO) < 0) {
+                        throw new RuntimeException("Không thể hạ cấp gói trong thao tác nâng cấp.");
+                    }
+
+                    currentDetails.put("packageName", activeSub.getSubscription().getName());
+                    currentDetails.put("price", currentVal);
+                    currentDetails.put("durationDays", currentDurationDays);
+                    currentDetails.put("expiryDate", activeSub.getEndDate());
+
+                    targetDetails.put("packageName", targetSub.getName());
+                    targetDetails.put("price", targetVal);
+                    targetDetails.put("durationDays", targetDurationDays);
+                    targetDetails.put("remainingDays", remainingDays);
+                    targetDetails.put("creditOld", creditOld);
+                    targetDetails.put("chargeNew", chargeNew);
+                    targetDetails.put("newExpiryDate", activeSub.getEndDate());
+                    warnings.put("message", "Nâng cấp áp dụng theo proration phần thời gian còn lại và giữ nguyên ngày hết hạn hiện tại.");
+                    warnings.put("pricingNote", "Tiền chênh lệch được tính từ giá gốc trước thuế/phí, sau đó mới cộng Service Fee và VAT.");
+                }
+
+                //netAmount = giá_gói_hiện_tại
+                case RENEW -> {
+                    netAmount = activeSub.getSubscription().getPrice();
+                    if (netAmount == null) {
+                        throw new RuntimeException("Giá gói hiện tại không hợp lệ để gia hạn.");
+                    }
+                    Integer durationDays = activeSub.getSubscription().getDurationDays();
+                    if (durationDays == null || durationDays <= 0) {
+                        throw new RuntimeException("Gói hiện tại thiếu cấu hình thời hạn (durationDays).");
+                    }
+                    LocalDate baseDate = LocalDate.now().isAfter(activeSub.getEndDate()) ? LocalDate.now() : activeSub.getEndDate();
+                    currentDetails.put("packageName", activeSub.getSubscription().getName());
+                    currentDetails.put("price", netAmount);
+                    currentDetails.put("expiryDate", activeSub.getEndDate());
+                    targetDetails.put("packageName", activeSub.getSubscription().getName());
+                    targetDetails.put("baseDate", baseDate);
+                    targetDetails.put("newExpiryDate", baseDate.plusDays(durationDays));
+                    warnings.put("message", "Gia hạn giúp cộng dồn thời gian sử dụng.");
+                }
+
+            }
+
+            // Step 5: Build financial breakdown and response
+            var breakdown = calculateBreakdownFromNet(netAmount);
+
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("action", action);
+            response.put("netAmount", netAmount);
+            response.put("breakdown", breakdown);
+            response.put("current", currentDetails);
+            response.put("target", targetDetails);
+            response.put("warnings", warnings);
+
+            return ResponseBuilder.build(HttpStatus.OK, "Xem trước thay đổi gói thành công", response);
+        } catch (Exception e) {
+            String message = e.getMessage() != null ? e.getMessage() : "Dữ liệu preview không hợp lệ.";
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, message, null);
+        }
+    }
+
+    private ConfigSystemUtil.SubscriptionPriceBreakdown calculateBreakdownFromNet(BigDecimal netAmount) {
+        BigDecimal serviceRate = resolveBusinessRate("serviceRate");
+        BigDecimal taxRate = resolveBusinessRate("taxRate");
+
+        BigDecimal normalizedNet = netAmount == null ? BigDecimal.ZERO : netAmount.max(BigDecimal.ZERO);
+        BigDecimal serviceFee = normalizedNet.multiply(serviceRate).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal taxFee = normalizedNet.add(serviceFee).multiply(taxRate).setScale(0, RoundingMode.HALF_UP);
+
+        BigDecimal finalPrice = normalizedNet.add(serviceFee).add(taxFee);
+        finalPrice = finalPrice
+                .divide(new BigDecimal("1000"), 0, RoundingMode.CEILING)
+                .multiply(new BigDecimal("1000"));
+
+        return new ConfigSystemUtil.SubscriptionPriceBreakdown(normalizedNet, serviceFee, taxFee, finalPrice);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> asMap(Object value) {
+        if (value instanceof Map<?, ?> raw) {
+            return (Map<String, Object>) raw;
+        }
+        return Collections.emptyMap();
+    }
+
+    private Map<String, Object> getBusinessMap() {
+        PlatformConfig config = platformConfigRepo.findByKey("business").orElse(null);
+        if (config == null || config.getValue() == null) {
+            throw new RuntimeException("Chưa cấu hình business.");
+        }
+        return asMap(config.getValue());
+    }
+
+    private BigDecimal resolveBusinessRate(String key) {
+        Map<String, Object> business = getBusinessMap();
+        Object rawValue = business.get(key);
+        if (!(rawValue instanceof Number number)) {
+            throw new RuntimeException("Thiếu cấu hình " + key + ".");
+        }
+        return BigDecimal.valueOf(number.doubleValue());
+    }
+
 }

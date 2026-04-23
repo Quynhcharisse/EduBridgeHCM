@@ -141,13 +141,6 @@ public class ConfigSystemUtil {
         // lấy con số counsellor mà admin sẽ thiết lập = số lượng mục tiêu tư vấn viên cho gói dịch vụ đang tạo
         int requestedCounsellors = request.getFeatureData().getMaxCounsellors() == null ? 0 : request.getFeatureData().getMaxCounsellors();
 
-        // xd mỗi loại gói sẽ kèm theo
-        int includedCounsellors = switch (packageType) {
-            case TRIAL -> ((Number) packageQuotas.getOrDefault("trialCounsellor", 0)).intValue();
-            case STANDARD -> ((Number) packageQuotas.getOrDefault("standardCounsellor", 0)).intValue();
-            case ENTERPRISE -> ((Number) packageQuotas.getOrDefault("enterpriseCounsellor", 0)).intValue();
-        };
-
         int requestedPosts = request.getFeatureData().getPostLimit() == null ? 0 : request.getFeatureData().getPostLimit();
 
         int includedPosts = switch (packageType) {
@@ -160,13 +153,10 @@ public class ConfigSystemUtil {
         // step xử lý policy đối vs gói dùng thử
         validateTrialPolicy(packageType, request, packageQuotas);
 
-        //step xử lý khách hàng chỉ chi trả cho phần ngưỡng
-        BigDecimal extraCounsellorFeeTotal = calculateExtraCounsellorTotal(packageType, requestedCounsellors, includedCounsellors, featureUnitPricing);
-
         BigDecimal extraPostTotal = calculateExtraPostTotal(packageType, requestedPosts, includedPosts, featureUnitPricing);
 
-        //bước tính tổng giá nền + giá cho quota counsellor vượt mức 
-        BigDecimal netPrice = basePrice.add(extraCounsellorFeeTotal).add(extraPostTotal);
+        // bỏ phí vượt counsellor: net chỉ gồm giá nền + phí post vượt mức
+        BigDecimal netPrice = basePrice.add(extraPostTotal);
 
         //hệ thống tự động cộng dồn giá của các tính năng
         // mà Admin đã "tick chọn" cho gói đó vào tổng giá trị cuối cùng.
@@ -305,29 +295,6 @@ public class ConfigSystemUtil {
         if (requestedCounsellors > trialCounsellorLimit) {
             throw new RuntimeException("Gói dùng thử chỉ được phép tối đa " + trialCounsellorLimit + " tư vấn viên.");
         }
-    }
-
-    //tính tổng phí cho quota counsellor vượt mức
-    //Cái gì khách được hưởng miễn phí theo gói, và cái gì khách phải móc hầu bao trả thêm.
-    private static BigDecimal calculateExtraCounsellorTotal(PackageType packageType,
-                                                            int requestedCounsellors,
-                                                            int includedCounsellors,
-                                                            Map<String, Object> featureUnitPricing) {
-        // đối vs gói thử ==> ko đ phí
-        if (packageType == PackageType.TRIAL) {
-            return BigDecimal.ZERO;
-        }
-
-        //xử lý bài toán sài hao
-        //includedCounsellors : Hạn mức được tặng
-        //requestedCounsellors : Nhu cầu thực tế
-        //khách muốn mua 10 --> gói cho 5 --> dư 5
-        //Khách hàng chỉ trả tiền cho phần "vượt ngưỡng" (ExtraSlots) ==> mô hình kinh doanh Zoom hay Google Workspace
-        int extraSlots = Math.max(0, requestedCounsellors - includedCounsellors);
-
-        BigDecimal unitPrice = getAsBigDecimal(featureUnitPricing.get("extraCounsellorFeePerSlot"), "phí counsellor vượt mức");
-
-        return unitPrice.multiply(BigDecimal.valueOf(extraSlots));
     }
 
     private static BigDecimal calculateExtraPostTotal(PackageType packageType,

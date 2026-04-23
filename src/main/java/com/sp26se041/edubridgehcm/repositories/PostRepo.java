@@ -21,4 +21,6 @@ public interface PostRepo extends JpaRepository<Post, Integer> {
             LocalDateTime startDate,
             LocalDateTime endDate
     );
+
+    long countByAuthor_Campus_Id(Integer campusId);
 }

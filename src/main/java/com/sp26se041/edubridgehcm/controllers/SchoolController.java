@@ -6,6 +6,7 @@ import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
 import com.sp26se041.edubridgehcm.requests.CreateSubscriptionRequest;
 import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
 import com.sp26se041.edubridgehcm.requests.ProgramRequest;
+import com.sp26se041.edubridgehcm.requests.SubscriptionPreviewRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
@@ -180,6 +181,12 @@ public class SchoolController {
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> createSubscription(@RequestBody CreateSubscriptionRequest request, HttpServletRequest httpRequest) {
         return schoolService.createSubscription(request, httpRequest);
+    }
+
+    @PostMapping("/subscription/preview")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> previewSubscription(@RequestBody SubscriptionPreviewRequest request) {
+        return schoolService.previewSubscription(request);
     }
 
     @GetMapping("/vnpay-callback")

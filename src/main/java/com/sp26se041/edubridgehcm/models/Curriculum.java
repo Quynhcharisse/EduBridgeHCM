@@ -57,7 +57,7 @@ public class Curriculum {
     Object learningMethodList;
 
     @Column(name = "application_year")
-    int applicationYear;
+    Integer applicationYear;
 
     @Column(name = "group_code")
     String groupCode;

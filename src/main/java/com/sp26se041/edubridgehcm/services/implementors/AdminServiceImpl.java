@@ -13,6 +13,7 @@ import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.models.Conversation;
 import com.sp26se041.edubridgehcm.models.PersonalityType;
 import com.sp26se041.edubridgehcm.models.PlatformConfig;
+import com.sp26se041.edubridgehcm.models.PaymentTransaction;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolRegistrationRequest;
 import com.sp26se041.edubridgehcm.models.Subject;
@@ -23,6 +24,7 @@ import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
 import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
+import com.sp26se041.edubridgehcm.repositories.PaymentTransactionRepo;
 import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRegistrationRequestRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
@@ -64,6 +66,7 @@ import java.math.BigDecimal;
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -74,8 +77,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 
 @Service
 @RequiredArgsConstructor
@@ -109,6 +116,8 @@ public class AdminServiceImpl implements AdminService {
     private final ChatMessageRepo chatMessageRepo;
 
     private final PlatformConfigRepo platformConfigRepo;
+
+    private final PaymentTransactionRepo paymentTransactionRepo;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -1164,7 +1173,7 @@ public class AdminServiceImpl implements AdminService {
         }
     }
 
-    private PersonalityTypeGroup parsePersonalityTypeGroup(String group) {
+    private PersonalityTypeGroup parsePersonalityTypeGroup(String group){
         if (group == null || group.isBlank()) {
             throw new IllegalArgumentException("Nhóm loại tính cách không được để trống.");
         }
@@ -1275,6 +1284,183 @@ public class AdminServiceImpl implements AdminService {
 
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getRevenuesSummary(Integer year, Integer month, String packageType, Integer schoolId) {
+        
+        if (year == null || year < 2000 || year > 2100) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Năm không hợp lệ. Vui lòng nhập từ 2000 đến 2100.", null);
+        }
+
+        if (month != null && (month < 1 || month > 12)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tháng không hợp lệ. Vui lòng nhập từ 1 đến 12.", null);
+        }
+
+        LocalDateTime fromAt;
+        LocalDateTime toAt;
+        String scope;
+
+        if (month == null) {
+            fromAt = LocalDate.of(year, 1, 1).atStartOfDay();
+            toAt = fromAt.plusYears(1);
+            scope = "YEAR";
+        } else {
+            YearMonth yearMonth = YearMonth.of(year, month);
+            fromAt = yearMonth.atDay(1).atStartOfDay();
+            toAt = yearMonth.plusMonths(1).atDay(1).atStartOfDay();
+            scope = "MONTH";
+        }
+
+        String normalizedPackageType = (packageType == null || packageType.isBlank())
+                ? null
+                : packageType.trim().toUpperCase(Locale.ROOT);
+
+        if (normalizedPackageType != null) {
+            try {
+                PackageType.valueOf(normalizedPackageType);
+            } catch (IllegalArgumentException ex) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Loại gói không hợp lệ. Vui lòng dùng TRIAL, STANDARD hoặc ENTERPRISE.", null);
+            }
+        }
+
+        String schoolName = null;
+        if (schoolId != null) {
+            School school = schoolRepo.findById(schoolId).orElse(null);
+            if (school == null) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy trường với mã định danh: " + schoolId, null);
+            }
+            schoolName = school.getName();
+        }
+
+        List<PaymentTransaction> transactions = paymentTransactionRepo.findAll(
+                buildRevenueSpecification(fromAt, toAt, normalizedPackageType, schoolId)
+        );
+
+        BigDecimal totalNetRevenue = BigDecimal.ZERO;
+        BigDecimal totalServiceFee = BigDecimal.ZERO;
+        BigDecimal totalTaxFee = BigDecimal.ZERO;
+        BigDecimal totalFinalRevenue = BigDecimal.ZERO;
+        long countedTransactions = 0L;
+
+        Map<String, RevenueAccumulator> trendAccumulator = new TreeMap<>();
+
+        for (PaymentTransaction transaction : transactions) {
+            Subscription subscription = transaction.getSchoolSubscription() == null
+                    ? null
+                    : transaction.getSchoolSubscription().getSubscription();
+
+            BigDecimal netRevenue = subscription == null ? BigDecimal.ZERO : safeMoney(subscription.getPrice());
+            BigDecimal serviceFee = subscription == null ? BigDecimal.ZERO : safeMoney(subscription.getServiceFee());
+            BigDecimal taxFee = subscription == null ? BigDecimal.ZERO : safeMoney(subscription.getTaxFee());
+            BigDecimal finalRevenue = resolveFinalRevenue(subscription, transaction);
+
+            if (finalRevenue.compareTo(BigDecimal.ZERO) == 0
+                    && netRevenue.compareTo(BigDecimal.ZERO) == 0
+                    && serviceFee.compareTo(BigDecimal.ZERO) == 0
+                    && taxFee.compareTo(BigDecimal.ZERO) == 0) {
+                continue;
+            }
+
+            totalNetRevenue = totalNetRevenue.add(netRevenue);
+            totalServiceFee = totalServiceFee.add(serviceFee);
+            totalTaxFee = totalTaxFee.add(taxFee);
+            totalFinalRevenue = totalFinalRevenue.add(finalRevenue);
+            countedTransactions++;
+
+            String period = month == null
+                    ? transaction.getUpdatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM"))
+                    : transaction.getUpdatedAt().toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE);
+
+            RevenueAccumulator acc = trendAccumulator.computeIfAbsent(period, k -> new RevenueAccumulator());
+            acc.netRevenue = acc.netRevenue.add(netRevenue);
+            acc.serviceFee = acc.serviceFee.add(serviceFee);
+            acc.taxFee = acc.taxFee.add(taxFee);
+            acc.finalRevenue = acc.finalRevenue.add(finalRevenue);
+            acc.transactions++;
+        }
+
+        Map<String, Object> totals = new LinkedHashMap<>();
+        totals.put("totalNetRevenue", totalNetRevenue);
+        totals.put("totalServiceFee", totalServiceFee);
+        totals.put("totalTaxFee", totalTaxFee);
+        totals.put("totalFinalRevenue", totalFinalRevenue);
+        totals.put("totalTransactions", countedTransactions);
+
+        List<Map<String, Object>> trend = trendAccumulator.entrySet().stream().map(entry -> {
+            RevenueAccumulator row = entry.getValue();
+            Map<String, Object> point = new LinkedHashMap<>();
+            point.put("period", entry.getKey());
+            point.put("netRevenue", row.netRevenue);
+            point.put("serviceFee", row.serviceFee);
+            point.put("taxFee", row.taxFee);
+            point.put("finalRevenue", row.finalRevenue);
+            point.put("transactions", row.transactions);
+            return point;
+        }).toList();
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("year", year);
+        data.put("month", month);
+        data.put("packageType", normalizedPackageType);
+        data.put("schoolId", schoolId);
+        data.put("schoolName", schoolName);
+        data.put("scope", scope);
+        data.put("totals", totals);
+        data.put("trend", trend);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy thống kê doanh thu thành công", data);
+    }
+
+    private Specification<PaymentTransaction> buildRevenueSpecification(LocalDateTime fromAt,
+                                                                        LocalDateTime toAt,
+                                                                        String packageType,
+                                                                        Integer schoolId) {
+        return (root, query, cb) -> {
+            root.fetch("schoolSubscription", JoinType.INNER).fetch("subscription", JoinType.INNER);
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("status"), Status.PAYMENT_SUCCESS));
+            predicates.add(cb.greaterThanOrEqualTo(root.get("updatedAt"), fromAt));
+            predicates.add(cb.lessThan(root.get("updatedAt"), toAt));
+
+            if (schoolId != null) {
+                predicates.add(cb.equal(root.get("school").get("id"), schoolId));
+            }
+
+            if (packageType != null) {
+                predicates.add(cb.equal(
+                        root.get("schoolSubscription").get("subscription").get("packageType"),
+                        PackageType.valueOf(packageType)
+                ));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    private BigDecimal safeMoney(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
+    }
+
+    private BigDecimal resolveFinalRevenue(Subscription subscription, PaymentTransaction transaction) {
+        if (subscription != null && subscription.getFinalPrice() != null) {
+            return subscription.getFinalPrice();
+        }
+
+        if (transaction.getVnpAmount() != null) {
+            // VNPay amount is stored as VND * 100.
+            return BigDecimal.valueOf(transaction.getVnpAmount()).movePointLeft(2);
+        }
+
+        return BigDecimal.ZERO;
+    }
+
+    private static class RevenueAccumulator {
+        private BigDecimal netRevenue = BigDecimal.ZERO;
+        private BigDecimal serviceFee = BigDecimal.ZERO;
+        private BigDecimal taxFee = BigDecimal.ZERO;
+        private BigDecimal finalRevenue = BigDecimal.ZERO;
+        private long transactions = 0L;
     }
 
 }
