@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -97,7 +98,7 @@ public class SchoolController {
         return schoolService.getNationalCurriculumTemplate();
     }
 
-    @PostMapping("/extract/excel/international")
+    @PostMapping(value = "/extract/excel/international", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ResponseObject> extractSubjectsFromExcel(@RequestParam("file") MultipartFile file) {
         return schoolService.extractSubjectsFromExcel(file);
     }
