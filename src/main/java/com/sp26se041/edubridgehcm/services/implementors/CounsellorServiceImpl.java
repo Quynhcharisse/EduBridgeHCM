@@ -259,14 +259,6 @@ public class CounsellorServiceImpl implements CounsellorService {
         response.put("campusId", conversation.getCampusId());
         response.put("studentProfileId", conversation.getStudentProfile().getId());
         response.put("childName", childProfile.getStudentName());
-        response.put("gender", childProfile.getGender());
-        response.put("personalityCode",
-                personalityType.map(PersonalityType::getCode).orElse("N/A"));
-        response.put("traits",
-                personalityType.map(PersonalityType::getTraits).orElse(List.of()));
-        response.put("favouriteJob", childProfile.getFavouriteJob());
-        response.put("academicProfileMetadata", buildAcademicProfileMetadata(childProfile));
-        response.put("subjectsInSystem", getSubjects());
         response.put("messages", buildMessages(messages));
         response.put("hasMore", hasMore);
         response.put("nextCursorId", nextCursorId);
@@ -353,7 +345,7 @@ public class CounsellorServiceImpl implements CounsellorService {
                         continue;
                     }
 
-                    Optional<Subject> subjectOpt = subjectRepo.findByName(subjectName);
+                    Optional<Subject> subjectOpt = subjectRepo.findByNameAndType(subjectName, SubjectType.REGULAR_SUBJECT);
 
                     Map<String, Object> subjectMap = new HashMap<>();
                     subjectMap.put("id", subjectItem.get("id"));
