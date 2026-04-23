@@ -15,4 +15,6 @@ public interface SubjectRepo extends JpaRepository<Subject,Long> {
     boolean existsByName(String name);
 
     List<Subject> findAllByTypeIn(Collection<SubjectType> types);
+
+    Optional<Subject> findByNameAndType(String name, SubjectType type);
 }

@@ -14,5 +14,4 @@ public interface SystemService {
 
     ResponseEntity<ResponseObject> updateConfigData(CreateConfigDataRequest request);
 
-    ResponseEntity<ResponseObject> getQuotaByYear(String year);
 }

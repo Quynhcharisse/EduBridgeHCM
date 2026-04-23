@@ -121,49 +121,6 @@ public class SystemServiceImpl implements SystemService {
         );
     }
 
-    @Override
-    public ResponseEntity<ResponseObject> getQuotaByYear(String year) {
-        PlatformConfig config = platformConfigRepo.findByKey("admissionQuota").orElse(null);
-
-        if (config == null || config.getValue() == null)
-            return ResponseBuilder.build(
-                    HttpStatus.NOT_FOUND,
-                    "Không tìm thấy cấu hình chỉ tiêu",
-                    null
-            );
-
-        Map<String, Object> allYearsData = (Map<String, Object>) config.getValue();
-
-        Map<String, Object> yearData = (Map<String, Object>) allYearsData.get(year);
-
-        if (yearData == null)
-            return ResponseBuilder.build(
-                    HttpStatus.NOT_FOUND,
-                    "Không tìm thấy dữ liệu cho năm " + year,
-                    null
-            );
-
-        Map<String, Integer> idQuotas = (Map<String, Integer>) yearData.get("quotas");
-
-        Map<String, Integer> displayQuotas = new HashMap<>();
-
-        Set<Integer> targetIds = idQuotas.keySet().stream()
-                .map(Integer::parseInt)
-                .collect(Collectors.toSet());
-
-        Map<Integer, String> schoolNames = schoolRepo.findAllById(targetIds).stream()
-                .collect(Collectors.toMap(School::getId, School::getName));
-
-        idQuotas.forEach((id, val) -> {
-            String name = schoolNames.get(Integer.parseInt(id)); // chuyển id là string thành id để dò tương ứng id đó sẽ có name là gì?
-            displayQuotas.put(name, val);
-        });
-
-        Map<String, Object> response = new HashMap<>(yearData);
-        response.put("quotas", displayQuotas);
-
-        return ResponseBuilder.build(HttpStatus.OK, "", response);
-    }
 
     @Transactional
     public void updateConfig(CreateConfigDataRequest request) {
@@ -299,20 +256,28 @@ public class SystemServiceImpl implements SystemService {
         CreateConfigDataRequest.AdmissionQuotaData admissionQuota = request.getAdmissionQuotaData();
 
         List<Map<String, Object>> quotaAIData = admissionQuota.getQuotas().stream()
-                .filter(q -> schoolRepo.existsByName(q.getSchoolName()))
+                .filter(q -> schoolRepo.existsById(q.getSchoolId()))
                 .map(q -> {
-                    School school = schoolRepo.findByName(q.getSchoolName()).orElse(null);
+                    School school = schoolRepo.findById(q.getSchoolId()).orElse(null);
                     assert school != null;
 
                     Map<String, Object> data = new HashMap<>();
                     data.put("schoolId", school.getId());
+                    data.put("schoolName", school.getName());
                     data.put("value", q.getValue());
                     return data;
                 })
                 .toList();
 
+        Map<String, Object> sourceData = new HashMap<>();
+
+        sourceData.put("sourceName", admissionQuota.getSource().getSourceName());
+        sourceData.put("sourceType", admissionQuota.getSource().getSourceType());
+        sourceData.put("sourceUrl", admissionQuota.getSource().getSourceUrl());
+        sourceData.put("year", admissionQuota.getSource().getYear());
+
         Map<String, Object> quotaData = new HashMap<>();
-        quotaData.put("year", admissionQuota.getYear());
+        quotaData.put("source", sourceData);
         quotaData.put("quotas", quotaAIData);
 
         PlatformConfig config = platformConfigRepo.findByKey("admissionQuota")
