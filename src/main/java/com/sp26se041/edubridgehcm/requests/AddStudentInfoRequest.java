@@ -40,6 +40,4 @@ public class AddStudentInfoRequest {
         String subjectName;
         Double score;
     }
-
-
 }
