@@ -1287,7 +1287,7 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> getRevenuesSummary(Integer year, Integer month, String packageType, Integer schoolId) {
+    public ResponseEntity<ResponseObject> getRevenuesSummary(Integer year, Integer month, String packageType) {
         
         if (year == null || year < 2000 || year > 2100) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Năm không hợp lệ. Vui lòng nhập từ 2000 đến 2100.", null);
@@ -1324,17 +1324,8 @@ public class AdminServiceImpl implements AdminService {
             }
         }
 
-        String schoolName = null;
-        if (schoolId != null) {
-            School school = schoolRepo.findById(schoolId).orElse(null);
-            if (school == null) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy trường với mã định danh: " + schoolId, null);
-            }
-            schoolName = school.getName();
-        }
-
         List<PaymentTransaction> transactions = paymentTransactionRepo.findAll(
-                buildRevenueSpecification(fromAt, toAt, normalizedPackageType, schoolId)
+                buildRevenueSpecification(fromAt, toAt, normalizedPackageType)
         );
 
         BigDecimal totalNetRevenue = BigDecimal.ZERO;
@@ -1403,8 +1394,8 @@ public class AdminServiceImpl implements AdminService {
         data.put("year", year);
         data.put("month", month);
         data.put("packageType", normalizedPackageType);
-        data.put("schoolId", schoolId);
-        data.put("schoolName", schoolName);
+        data.put("schoolId", null);
+        data.put("schoolName", null);
         data.put("scope", scope);
         data.put("totals", totals);
         data.put("trend", trend);
@@ -1414,18 +1405,13 @@ public class AdminServiceImpl implements AdminService {
 
     private Specification<PaymentTransaction> buildRevenueSpecification(LocalDateTime fromAt,
                                                                         LocalDateTime toAt,
-                                                                        String packageType,
-                                                                        Integer schoolId) {
+                                                                        String packageType) {
         return (root, query, cb) -> {
             root.fetch("schoolSubscription", JoinType.INNER).fetch("subscription", JoinType.INNER);
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("status"), Status.PAYMENT_SUCCESS));
             predicates.add(cb.greaterThanOrEqualTo(root.get("updatedAt"), fromAt));
             predicates.add(cb.lessThan(root.get("updatedAt"), toAt));
-
-            if (schoolId != null) {
-                predicates.add(cb.equal(root.get("school").get("id"), schoolId));
-            }
 
             if (packageType != null) {
                 predicates.add(cb.equal(

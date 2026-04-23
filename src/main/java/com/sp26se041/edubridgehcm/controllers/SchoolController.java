@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 
@@ -89,6 +90,16 @@ public class SchoolController {
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> upsertCurriculum(@RequestBody CurriculumRequest request) {
         return schoolService.upsertCurriculum(request);
+    }
+
+    @GetMapping("/templates/national")
+    public ResponseEntity<ResponseObject> getNationalTemplate() {
+        return schoolService.getNationalCurriculumTemplate();
+    }
+
+    @PostMapping("/extract/excel/international")
+    public ResponseEntity<ResponseObject> extractSubjectsFromExcel(@RequestParam("file") MultipartFile file) {
+        return schoolService.extractSubjectsFromExcel(file);
     }
 
     @PatchMapping("/{id}/activate/curriculum")

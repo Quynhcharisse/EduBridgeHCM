@@ -72,45 +72,50 @@ public class CurriculumValidation {
             return "Loại chương trình hoặc Phương thức học tập không hợp lệ.";
         }
 
-        // 6. Validate Nội dung môn học (Subjects)
         if (request.getSubjectOptions() == null || request.getSubjectOptions().isEmpty()) {
             return "Khung chương trình phải chứa ít nhất một môn học.";
         }
 
-        // Giới hạn số lượng môn học
         if (request.getSubjectOptions().size() > 50) {
-            return "Một khung chương trình không thể có quá 50 môn học.";
+            return "Số lượng môn học tối đa là 50.";
+        }
+
+        CurriculumType type = parseCurriculumType(request.getCurriculumType());
+
+        if (type == null) return "Loại chương trình giảng dạy không hợp lệ.";
+
+        boolean isNational = CurriculumType.NATIONAL.equals(type);
+
+        if (isNational && request.getSubjectOptions().size() < 8) {
+            return "Khung chương trình Quốc gia phải có ít nhất 8 môn (7 bắt buộc và 1 ngoại ngữ).";
         }
 
         Set<String> subjectNames = new HashSet<>();
-        boolean hasMandatory = false;
+        int mandatoryCount = 0;
 
         for (var opt : request.getSubjectOptions()) {
             String sName = opt.getName() != null ? opt.getName().trim() : "";
             if (StringUtils.isBlank(sName)) return "Tên môn học không được để trống.";
-
-            if (sName.length() > 100) return "Tên môn học '" + sName + "' quá dài (tối đa 100 ký tự).";
+            if (sName.length() > 100) return "Tên môn học '" + sName + "' quá dài.";
 
             if (!subjectNames.add(sName.toLowerCase())) {
                 return "Phát hiện tên môn học bị trùng lặp: " + sName;
             }
 
-            String sDesc = opt.getDescription() != null ? opt.getDescription().trim() : "";
-            if (StringUtils.isBlank(sDesc)) {
-                return "Mô tả cho môn học '" + sName + "' không được để trống.";
-            }
-
-            if (sDesc.length() > 1000) {
-                return "Mô tả cho môn học '" + sName + "' quá dài (tối đa 1000 ký tự).";
-            }
-
             if (Boolean.TRUE.equals(opt.getIsMandatory())) {
-                hasMandatory = true;
+                mandatoryCount++;
             }
         }
 
-        if (!hasMandatory) {
-            return "Khung chương trình phải có ít nhất một môn học bắt buộc.";
+        // 5. Kiểm tra logic môn bắt buộc theo Type
+        if (isNational) {
+            if (mandatoryCount < 7) {
+                return "Hệ Quốc gia phải có ít nhất 7 môn bắt buộc.";
+            }
+        } else {
+            if (mandatoryCount == 0) {
+                return "Khung chương trình phải có ít nhất một môn học bắt buộc.";
+            }
         }
 
         return null;
