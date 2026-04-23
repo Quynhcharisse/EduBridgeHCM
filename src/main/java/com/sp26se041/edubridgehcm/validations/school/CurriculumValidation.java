@@ -10,7 +10,6 @@ import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
 import com.sp26se041.edubridgehcm.utils.CurriculumNamingUtil;
 import io.hypersistence.utils.common.StringUtils;
 
-import java.time.Year;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -35,9 +34,6 @@ public class CurriculumValidation {
             int linkedPrograms = programRepo.countByCurriculumId(existing.getId());
 
             if (linkedPrograms > 0) {
-                if (existing.getApplicationYear() != request.getApplicationYear()) {
-                    return String.format("Không thể thay đổi năm áp dụng vì có %d chương trình đang sử dụng khung chương trình này.", linkedPrograms);
-                }
                 if (!existing.getCurriculumType().name().equals(request.getCurriculumType())) {
                     return "Không thể thay đổi loại chương trình khi đã có chương trình đào tạo liên kết.";
                 }
@@ -49,15 +45,14 @@ public class CurriculumValidation {
             }
         }
 
-        // 3. Kiểm tra trùng lặp Business Identity trong Database
         String targetGroupCode = CurriculumNamingUtil.generateGroupCode(request);
 
-        boolean isDuplicateIdentity = curriculumRepo.existsByGroupCodeAndApplicationYearAndCurriculumStatusNotAndIdNot(
-                targetGroupCode, request.getApplicationYear(), Status.CUR_ARCHIVED, request.getCurriculumId() != null ? request.getCurriculumId() : -1
-        );
+        // 3. Kiểm tra trùng lặp bản nháp (Vì không có Year, chỉ được phép có 1 bản nháp cho mỗi GroupCode)
+        boolean isDuplicateDraft = curriculumRepo.existsByGroupCodeAndCurriculumStatusAndIdNot(
+                targetGroupCode, Status.CUR_DRAFT, request.getCurriculumId() != null ? request.getCurriculumId() : -1);
 
-        if (isDuplicateIdentity) {
-            return "Khung chương trình có cùng loại, năm và phân loại phụ này đã tồn tại (ở dạng Nháp hoặc Đang hoạt động).";
+        if (isDuplicateDraft) {
+            return "Đã tồn tại một bản nháp cho phân loại chương trình này. Vui lòng cập nhật bản nháp đó.";
         }
 
         // 4. Validate Enum & Các trường cơ bản
@@ -75,12 +70,6 @@ public class CurriculumValidation {
             }
         } catch (Exception e) {
             return "Loại chương trình hoặc Phương thức học tập không hợp lệ.";
-        }
-
-        // 5. Validate Năm áp dụng
-        int currentYear = Year.now().getValue();
-        if (request.getApplicationYear() < currentYear - 2 || request.getApplicationYear() > currentYear + 5) {
-            return "Năm áp dụng phải nằm trong khoảng từ " + (currentYear - 2) + " đến " + (currentYear + 5);
         }
 
         // 6. Validate Nội dung môn học (Subjects)

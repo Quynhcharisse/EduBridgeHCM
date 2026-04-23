@@ -26,8 +26,6 @@ public class CurriculumRequest {
 
     List<String> methodLearningList;
 
-    int applicationYear;
-
     List<SubjectOptionRequest> subjectOptions;
 
     @Data

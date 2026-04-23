@@ -792,7 +792,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Khung chương trình không tồn tại trong hệ thống", null);
         }
 
-        if (target.getSchool().getId() != actorCampus.getSchool().getId()) {
+        if (!target.getSchool().getId().equals(actorCampus.getSchool().getId())) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Khung chương trình không thuộc trường của bạn.", null);
         }
 
@@ -804,10 +804,13 @@ public class SchoolServiceImpl implements SchoolService {
                     return ResponseBuilder.build(HttpStatus.OK, "Chỉ có khung chương trình nháp mới được công bố", null);
                 }
 
+                int yearToPublish = LocalDate.now().getYear();
+
                 //Nếu bạn đang chuẩn bị PUBLISH một bản nháp mới cho "Khối Tự Nhiên - 2024",
                 // hệ thống sẽ lục tìm: "Hệ thống đã có bản nào là Tự Nhiên - 2024 đang chạy (ACTIVE) chưa?"
                 // . Nếu có, bản đó lập tức bị coi là "phiên bản cũ" và bị đẩy vào kho ARCHIVED.
-                Curriculum currentActive = curriculumRepo.findByGroupCodeAndApplicationYearAndCurriculumStatus(target.getGroupCode(), target.getApplicationYear(), Status.CUR_ACTIVE);
+                Curriculum currentActive = curriculumRepo.findByGroupCodeAndApplicationYearAndCurriculumStatus(target.getGroupCode(),
+                        yearToPublish, Status.CUR_ACTIVE);
 
                 //Tìm bản ACTIVE hiện tại của cùng nhóm --> nếu có cho vào bản CUR_ARCHIVED
                 if (currentActive != null) {
@@ -815,9 +818,13 @@ public class SchoolServiceImpl implements SchoolService {
                     curriculumRepo.save(currentActive);
                 }
 
+                String subTypeName = CurriculumNamingUtil.extractSubTypeNameFromName(target.getName());
+                target.setName(CurriculumNamingUtil.generatePublishedName(subTypeName, yearToPublish));
+
                 target.setCurriculumStatus(Status.CUR_ACTIVE);
+                target.setApplicationYear(yearToPublish);
                 curriculumRepo.save(target);
-                return ResponseBuilder.build(HttpStatus.OK, "Công bố khung chương trình thành công", target.getId());
+                return ResponseBuilder.build(HttpStatus.OK, "Công bố khung chương trình" + yearToPublish +  "thành công", target.getId());
 
             case "REVISE":
                 // Chỉnh sửa, cập nhật dựa trên bản cũ để tạo bản mới
@@ -857,14 +864,12 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     private Curriculum buildNewCurriculum(CurriculumRequest request, School school) {
-        // tạo mới thì draft
         CurriculumType type = CurriculumValidation.parseCurriculumType(request.getCurriculumType());
         return Curriculum.builder()
-                .name(CurriculumNamingUtil.generateName(request))
+                .name(CurriculumNamingUtil.generateDraftName(request))
                 .groupCode(CurriculumNamingUtil.generateGroupCode(request))
                 .curriculumType(type)
                 .learningMethodList(request.getMethodLearningList().stream().map(LearningMethod::valueOf).collect(Collectors.toList()))
-                .applicationYear(request.getApplicationYear())
                 .description(request.getDescription())
                 .subjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()))
                 .school(school)
@@ -875,30 +880,36 @@ public class SchoolServiceImpl implements SchoolService {
     private void applyRequestToCurriculum(Curriculum curriculum, CurriculumRequest request) {
 
         if (request == null) return;
-
         curriculum.setDescription(request.getDescription());
         curriculum.setSubjectsJsonb(buildSubjectsJsonb(request.getSubjectOptions()));
         curriculum.setLearningMethodList(request.getMethodLearningList().stream().map(LearningMethod::valueOf).collect(Collectors.toList()));
 
         // Chỉ generate lại tên curriculum từ các trường thành phần, tuyệt đối không lấy từ request.getName()
         // Không setName ở bất kỳ nơi nào khác ngoài đây và buildNewCurriculum
-        boolean isIdentityChanging = curriculum.getApplicationYear() != request.getApplicationYear() || !curriculum.getCurriculumType().name().equals(request.getCurriculumType()) || !curriculum.getGroupCode().equals(CurriculumNamingUtil.generateGroupCode(request));
+        boolean isIdentityChanging = !curriculum.getCurriculumType().name().equals(request.getCurriculumType()) || !curriculum.getGroupCode().equals(CurriculumNamingUtil.generateGroupCode(request));
 
         if (isIdentityChanging) {
-            // Chỉ khi có ý định đổi Identity mới kiểm tra DB
             boolean hasLinkedPrograms = curriculum.getId() != null && programRepo.existsByCurriculumId(curriculum.getId());
             if (!hasLinkedPrograms) {
-                // Luôn generate lại tên từ các trường thành phần
-                curriculum.setName(CurriculumNamingUtil.generateName(request));
+                curriculum.setName(CurriculumNamingUtil.generateDraftName(request));
                 curriculum.setGroupCode(CurriculumNamingUtil.generateGroupCode(request));
-                curriculum.setApplicationYear(request.getApplicationYear());
                 curriculum.setCurriculumType(CurriculumType.valueOf(request.getCurriculumType()));
             }
         }
     }
 
     private Curriculum evolveFromExisting(Curriculum existing, CurriculumRequest request) {
-        Curriculum clone = Curriculum.builder().name(existing.getName()).groupCode(existing.getGroupCode()).description(existing.getDescription()).curriculumType(existing.getCurriculumType()).learningMethodList(existing.getLearningMethodList()).applicationYear(existing.getApplicationYear()).subjectsJsonb(existing.getSubjectsJsonb()).school(existing.getSchool()).parent(existing).curriculumStatus(Status.CUR_DRAFT).build();
+        Curriculum clone = Curriculum.builder()
+                .name(existing.getName())
+                .groupCode(existing.getGroupCode())
+                .description(existing.getDescription())
+                .curriculumType(existing.getCurriculumType())
+                .learningMethodList(existing.getLearningMethodList())
+                .applicationYear(null)
+                .subjectsJsonb(existing.getSubjectsJsonb())
+                .school(existing.getSchool())
+                .parent(existing)
+                .curriculumStatus(Status.CUR_DRAFT).build();
 
         if (request != null) {
             applyRequestToCurriculum(clone, request);
