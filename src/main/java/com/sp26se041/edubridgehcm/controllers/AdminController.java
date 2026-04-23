@@ -144,7 +144,10 @@ public class AdminController {
 
     @GetMapping("/revenues/summary")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> getRevenuesSummary() {
-        return adminService.getRevenuesSummary();
+    public ResponseEntity<ResponseObject> getRevenuesSummary(@RequestParam(name = "year") Integer year,
+                                                             @RequestParam(name = "month", required = false) Integer month,
+                                                             @RequestParam(name = "packageType", required = false) String packageType,
+                                                             @RequestParam(name = "schoolId", required = false) Integer schoolId) {
+        return adminService.getRevenuesSummary(year, month, packageType, schoolId);
     }
 }

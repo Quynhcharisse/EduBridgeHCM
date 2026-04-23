@@ -20,5 +20,5 @@ public interface AccountRepo extends JpaRepository<Account, Integer> {
 
     List<Account> findByRole(Role role);
 
-    boolean existsByEmail(String email);
+    long countByCampusIdAndRole(Integer id, Role role);
 }

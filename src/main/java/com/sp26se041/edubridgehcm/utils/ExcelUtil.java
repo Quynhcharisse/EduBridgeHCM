@@ -1,6 +1,5 @@
 package com.sp26se041.edubridgehcm.utils;
 
-import com.sp26se041.edubridgehcm.models.School;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.FillPatternType;
@@ -21,10 +20,10 @@ import java.util.function.BiConsumer;
 public class ExcelUtil {
 
     public static <T> void exportToExcel(Path path,
-                                        String sheetName,
-                                        String[] headers,
-                                        List<T> data,
-                                        BiConsumer<T, Row> rowMapper) throws IOException {
+                                         String sheetName,
+                                         String[] headers,
+                                         List<T> data,
+                                         BiConsumer<T, Row> rowMapper) throws IOException {
         //path handling NIO.2
         Path parent = path.getParent();
 

@@ -6,6 +6,7 @@ import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
 import com.sp26se041.edubridgehcm.requests.CreateSubscriptionRequest;
 import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
 import com.sp26se041.edubridgehcm.requests.ProgramRequest;
+import com.sp26se041.edubridgehcm.requests.SubscriptionPreviewRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import jakarta.servlet.http.HttpServletRequest;
@@ -63,6 +64,8 @@ public interface SchoolService {
     ResponseEntity<ResponseObject> viewCurrentSubscription();
 
     ResponseEntity<ResponseObject> createSubscription(CreateSubscriptionRequest request, HttpServletRequest httpRequest);
+
+    ResponseEntity<ResponseObject> previewSubscription(SubscriptionPreviewRequest request);
 
     ResponseEntity<ResponseObject> handleVNPayCallback(HttpServletRequest request);
 
