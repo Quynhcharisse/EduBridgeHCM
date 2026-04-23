@@ -43,7 +43,7 @@ public class AdminController {
     @PostMapping("/school/quotas/auto/fill")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ResponseObject> autoFillQuotasByYear(@RequestBody AutoFillQuotasByYearRequest request) {
-             return adminService.autoFillQuotasByYear(request);
+        return adminService.autoFillQuotasByYear(request);
     }
 
     @GetMapping("/school/registrations/list")
@@ -142,4 +142,12 @@ public class AdminController {
         return webSocketService.markConversationAsRead(conversationId, email);
     }
 
+    @GetMapping("/revenues/summary")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ResponseObject> getRevenuesSummary(@RequestParam(name = "year") Integer year,
+                                                             @RequestParam(name = "month", required = false) Integer month,
+                                                             @RequestParam(name = "packageType", required = false) String packageType,
+                                                             @RequestParam(name = "schoolId", required = false) Integer schoolId) {
+        return adminService.getRevenuesSummary(year, month, packageType, schoolId);
+    }
 }

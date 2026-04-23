@@ -92,6 +92,27 @@ public class SystemServiceImpl implements SystemService {
             );
         }
 
+        if (request.getBusinessData() != null) {
+            CreateConfigDataRequest.BusinessData businessData = request.getBusinessData();
+            if (businessData.getSubscriptionPricing() == null
+                    || businessData.getSubscriptionPricing().getBasePrices() == null) {
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_REQUEST,
+                        "Thiếu cấu hình giá cơ bản cho gói dịch vụ.",
+                        null
+                );
+            }
+
+            double trialPrice = businessData.getSubscriptionPricing().getBasePrices().getTrial();
+            if (Double.compare(trialPrice, 0d) != 0) {
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_REQUEST,
+                        "Giá gói trial phải luôn bằng 0.",
+                        null
+                );
+            }
+        }
+
         updateConfig(request);
         return ResponseBuilder.build(
                 HttpStatus.OK,
@@ -125,7 +146,6 @@ public class SystemServiceImpl implements SystemService {
         basePrices.put("enterprise", business.getSubscriptionPricing().getBasePrices().getEnterprise());
 
         Map<String, Object> featureUnitPrices = new HashMap<>();
-        featureUnitPrices.put("extraCounsellorFeePerSlot", business.getSubscriptionPricing().getFeatureUnitPrices().getExtraCounsellorFeePerSlot());
         featureUnitPrices.put("extraPostFee", business.getSubscriptionPricing().getFeatureUnitPrices().getExtraPostFee());
         featureUnitPrices.put("aiChatbotMonthlyFee", business.getSubscriptionPricing().getFeatureUnitPrices().getAiChatbotMonthlyFee());
         featureUnitPrices.put("premiumSupportFee", business.getSubscriptionPricing().getFeatureUnitPrices().getPremiumSupportFee());
