@@ -34,6 +34,8 @@ public interface SchoolService {
 
     ResponseEntity<ResponseObject> viewAdmissionCampaignTemplate(int year);
 
+    ResponseEntity<ResponseObject> viewAdmissionCampaignTemplatePublic(int schoolId, int year);
+
     ResponseEntity<ResponseObject> upsertCurriculum(CurriculumRequest request);
 
     ResponseEntity<ResponseObject> handleCurriculumAction(int id, String action);
