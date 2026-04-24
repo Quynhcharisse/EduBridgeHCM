@@ -81,10 +81,16 @@ public class SchoolController {
         return schoolService.cancelAdmissionCampaign(id, reason);
     }
 
-    @GetMapping("{year}/campaign/template")
+    @GetMapping("/{year}/campaign/template")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> viewAdmissionCampaignTemplate(@PathVariable int year) {
         return schoolService.viewAdmissionCampaignTemplate(year);
+    }
+
+    @GetMapping("/{schoolId}/campaign/template/public")
+    public ResponseEntity<ResponseObject> viewAdmissionCampaignTemplatePublic(@PathVariable int schoolId,
+                                                                              @RequestParam(defaultValue = "0") int year) {
+        return schoolService.viewAdmissionCampaignTemplatePublic(schoolId, year);
     }
 
     @PostMapping("/curriculum")

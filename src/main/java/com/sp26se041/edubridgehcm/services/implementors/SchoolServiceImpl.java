@@ -761,16 +761,21 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         int schoolId = actorCampus.getSchool().getId();
+        return buildAdmissionCampaignTemplateResponse(schoolId, year);
+    }
 
+    @Override
+    public ResponseEntity<ResponseObject> viewAdmissionCampaignTemplatePublic(int schoolId, int year) {
+        if (!schoolRepo.existsById(schoolId)) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy trường học", null);
+        }
+        return buildAdmissionCampaignTemplateResponse(schoolId, year);
+    }
+
+    private ResponseEntity<ResponseObject> buildAdmissionCampaignTemplateResponse(int schoolId, int year) {
         if (year > 0) {
             List<AdmissionCampaign> campaigns = admissionCampaignRepo.findBySchoolIdAndYearOrderByStatusAsc(schoolId, year);
-
-            if (campaigns == null) {
-                return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy danh sách chiến dịch dịch tuyển sinh năm " + year, null);
-            }
-
             List<Map<String, Object>> data = campaigns.stream().map(this::buildCampaignData).toList();
-
             return ResponseBuilder.build(HttpStatus.OK, "Hiển thị danh sách chiến dịch tuyển sinh năm " + year + " thành công", data);
         }
 
