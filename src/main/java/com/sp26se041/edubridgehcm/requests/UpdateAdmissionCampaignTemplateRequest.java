@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -27,4 +28,6 @@ public class UpdateAdmissionCampaignTemplateRequest {
     LocalDate startDate;
 
     LocalDate endDate;
+
+    List<CreateAdmissionCampaignTemplateRequest.AdmissionMethodTimelineRequest> admissionMethodTimelines;
 }

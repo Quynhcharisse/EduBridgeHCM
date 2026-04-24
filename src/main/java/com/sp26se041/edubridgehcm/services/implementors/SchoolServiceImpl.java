@@ -130,6 +130,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -457,7 +458,35 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
-        AdmissionCampaign admissionCampaign = AdmissionCampaign.builder().school(actorCampus.getSchool()).name(normalize(request.getName())).description(normalize(request.getDescription())).year(request.getYear()).startDate(request.getStartDate()).endDate(request.getEndDate()).status(Status.DRAFT_ADMISSION_CAMPAIGN).build();
+        List<Map<String, Object>> methodTimelines;
+        try {
+            methodTimelines = resolveAdmissionMethodTimelines(
+                    actorCampus.getSchool().getId(),
+                    request.getAdmissionMethodTimelines(),
+                    request.getStartDate(),
+                    request.getEndDate()
+            );
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
+        if (methodTimelines == null) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Vui lòng cấu hình phương thức tuyển sinh cho trường trước khi tạo chiến dịch",
+                    null
+            );
+        }
+
+        AdmissionCampaign admissionCampaign = AdmissionCampaign.builder()
+                .school(actorCampus.getSchool())
+                .name(normalize(request.getName()))
+                .description(normalize(request.getDescription()))
+                .year(request.getYear())
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate())
+                .admissionMethodTimelines(methodTimelines)
+                .status(Status.DRAFT_ADMISSION_CAMPAIGN)
+                .build();
         admissionCampaignRepo.save(admissionCampaign);
 
         return ResponseBuilder.build(HttpStatus.CREATED, "Tạo chiến dịch tuyển sinh thành công", null);
@@ -492,6 +521,7 @@ public class SchoolServiceImpl implements SchoolService {
         request.setYear(oldCampaign.getYear());
         request.setStartDate(oldCampaign.getStartDate());
         request.setEndDate(oldCampaign.getEndDate());
+        request.setAdmissionMethodTimelines(convertMethodTimelinesToRequests(oldCampaign.getAdmissionMethodTimelines()));
 
         String error = AdmissionCampaignValidation.validationCreateAdmissionCampaignTemplate(request, actorCampus, admissionCampaignRepo);
 
@@ -499,7 +529,35 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
-        AdmissionCampaign newCampaign = AdmissionCampaign.builder().school(oldCampaign.getSchool()).name(request.getName()).description(request.getDescription()).year(request.getYear()).startDate(request.getStartDate()).endDate(request.getEndDate()).status(Status.DRAFT_ADMISSION_CAMPAIGN).build();
+        List<Map<String, Object>> methodTimelines;
+        try {
+            methodTimelines = resolveAdmissionMethodTimelines(
+                    actorCampus.getSchool().getId(),
+                    request.getAdmissionMethodTimelines(),
+                    request.getStartDate(),
+                    request.getEndDate()
+            );
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
+        if (methodTimelines == null) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Vui lòng cấu hình phương thức tuyển sinh cho trường trước khi nhân bản chiến dịch",
+                    null
+            );
+        }
+
+        AdmissionCampaign newCampaign = AdmissionCampaign.builder()
+                .school(oldCampaign.getSchool())
+                .name(request.getName())
+                .description(request.getDescription())
+                .year(request.getYear())
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate())
+                .admissionMethodTimelines(methodTimelines)
+                .status(Status.DRAFT_ADMISSION_CAMPAIGN)
+                .build();
 
         admissionCampaignRepo.save(newCampaign);
 
@@ -552,6 +610,25 @@ public class SchoolServiceImpl implements SchoolService {
         admissionCampaign.setYear(request.getYear());
         admissionCampaign.setStartDate(request.getStartDate());
         admissionCampaign.setEndDate(request.getEndDate());
+        List<Map<String, Object>> methodTimelines;
+        try {
+            methodTimelines = resolveAdmissionMethodTimelines(
+                    actorCampus.getSchool().getId(),
+                    request.getAdmissionMethodTimelines(),
+                    request.getStartDate(),
+                    request.getEndDate()
+            );
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
+        if (methodTimelines == null) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Vui lòng cấu hình phương thức tuyển sinh cho trường trước khi cập nhật chiến dịch",
+                    null
+            );
+        }
+        admissionCampaign.setAdmissionMethodTimelines(methodTimelines);
         admissionCampaignRepo.save(admissionCampaign);
 
         return ResponseBuilder.build(HttpStatus.OK, "Cập nhật chiến dịch tuyển sinh thành công", null);
@@ -804,15 +881,7 @@ public class SchoolServiceImpl implements SchoolService {
                 String desc = (descCell != null) ? getCellValueAsString(descCell) : "";
 
                 // 3. Xử lý isMandatory (Mặc định là false nếu để trống)
-                boolean isMandatory = false;
-                Cell mandatoryCell = row.getCell(2);
-                if (mandatoryCell != null) {
-                    if (mandatoryCell.getCellType() == CellType.BOOLEAN) {
-                        isMandatory = mandatoryCell.getBooleanCellValue();
-                    } else if (mandatoryCell.getCellType() == CellType.STRING) {
-                        isMandatory = "true".equalsIgnoreCase(mandatoryCell.getStringCellValue().trim());
-                    }
-                }
+                boolean isMandatory = parseMandatoryCell(row.getCell(2));
 
                 subjects.add(CurriculumRequest.SubjectOptionRequest.builder()
                         .name(name)
@@ -1156,6 +1225,15 @@ public class SchoolServiceImpl implements SchoolService {
             );
         }
 
+        String duplicatedCoreSubject = findDuplicatedCoreSubjectName(request.getExtraSubjectList(), curriculum.getSubjectsJsonb());
+        if (duplicatedCoreSubject != null) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Môn học bổ sung bị trùng với môn bắt buộc trong khung chương trình: " + duplicatedCoreSubject,
+                    null
+            );
+        }
+
         program.setCurriculum(curriculum);
         program.setName(normalize(request.getName()));
         program.setLanguageOfInstructionList(request.getLanguageOfInstructionList().stream().map(LanguageInstruction::valueOf).collect(Collectors.toList()));
@@ -1195,6 +1273,77 @@ public class SchoolServiceImpl implements SchoolService {
                 isNew ? "Tạo chương trình thành công" : "Cập nhật chương trình thành công",
                 null
         );
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> extractProgramSubjectsFromExcel(MultipartFile file) {
+        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+            List<ProgramRequest.SubjectExtraRequest> subjects = new ArrayList<>();
+            Sheet sheet = workbook.getSheetAt(0);
+
+            for (Row row : sheet) {
+                if (row.getRowNum() == 0) continue;
+
+                Cell nameCell = row.getCell(0);
+                String normalizedName = normalize(getCellValueAsString(nameCell));
+                if (StringUtils.isBlank(normalizedName)) continue;
+
+                String normalizedDescription = normalize(getCellValueAsString(row.getCell(1)));
+                boolean isMandatory = parseMandatoryCell(row.getCell(2));
+
+                ProgramRequest.SubjectExtraRequest subject = new ProgramRequest.SubjectExtraRequest();
+                subject.setName(normalizedName);
+                subject.setDescription(normalizedDescription);
+                subject.setIsMandatory(isMandatory);
+                subjects.add(subject);
+            }
+
+            return ResponseBuilder.build(HttpStatus.OK, "Đọc file môn học của chương trình thành công", subjects);
+        } catch (Exception e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Lỗi đọc file Excel: " + e.getMessage(), null);
+        }
+    }
+
+    private boolean parseMandatoryCell(Cell mandatoryCell) {
+        if (mandatoryCell == null) {
+            return false;
+        }
+        if (mandatoryCell.getCellType() == CellType.BOOLEAN) {
+            return mandatoryCell.getBooleanCellValue();
+        }
+        if (mandatoryCell.getCellType() == CellType.STRING) {
+            return "true".equalsIgnoreCase(mandatoryCell.getStringCellValue().trim());
+        }
+        return false;
+    }
+
+    private String findDuplicatedCoreSubjectName(List<ProgramRequest.SubjectExtraRequest> extraSubjects, Object curriculumSubjectsRaw) {
+        if (extraSubjects == null || extraSubjects.isEmpty() || !(curriculumSubjectsRaw instanceof List<?> curriculumSubjects) || curriculumSubjects.isEmpty()) {
+            return null;
+        }
+
+        Set<String> mandatoryCoreNames = curriculumSubjects.stream()
+                .filter(Map.class::isInstance)
+                .map(subject -> (Map<?, ?>) subject)
+                .filter(subject -> Boolean.TRUE.equals(subject.get("isMandatory")))
+                .map(subject -> normalize(Objects.toString(subject.get("name"), null)))
+                .filter(StringUtils::isNotBlank)
+                .map(name -> name.toLowerCase(Locale.ROOT))
+                .collect(Collectors.toSet());
+
+        for (ProgramRequest.SubjectExtraRequest extraSubject : extraSubjects) {
+            if (extraSubject == null) {
+                continue;
+            }
+            String normalizedExtraName = normalize(extraSubject.getName());
+            if (StringUtils.isBlank(normalizedExtraName)) {
+                continue;
+            }
+            if (mandatoryCoreNames.contains(normalizedExtraName.toLowerCase(Locale.ROOT))) {
+                return normalizedExtraName;
+            }
+        }
+        return null;
     }
 
     @Override
@@ -1386,9 +1535,145 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("year", campaign.getYear());
         data.put("startDate", campaign.getStartDate());
         data.put("endDate", campaign.getEndDate());
+        data.put("admissionMethodTimelines", campaign.getAdmissionMethodTimelines());
         data.put("status", autoCheckAndExpireStatus(campaign));
         data.put("schoolId", campaign.getSchool().getId());
         return data;
+    }
+
+    private List<Map<String, Object>> resolveAdmissionMethodTimelines(
+            int schoolId,
+            List<CreateAdmissionCampaignTemplateRequest.AdmissionMethodTimelineRequest> requestTimelines,
+            LocalDate campaignStartDate,
+            LocalDate campaignEndDate) {
+        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "admissionSettingsData").orElse(null);
+        if (config == null || !(config.getValue() instanceof Map<?, ?> configMap)) {
+            return null;
+        }
+
+        Object allowedMethodsRaw = configMap.get("allowedMethods");
+        if (!(allowedMethodsRaw instanceof List<?> allowedMethods) || allowedMethods.isEmpty()) {
+            return null;
+        }
+
+        Map<String, Map<String, Object>> allowedByCode = new LinkedHashMap<>();
+        for (Object item : allowedMethods) {
+            if (!(item instanceof Map<?, ?> methodMap)) {
+                continue;
+            }
+            String methodCode = normalize(Objects.toString(methodMap.get("code"), null));
+            if (methodCode == null) {
+                continue;
+            }
+            Map<String, Object> normalized = new LinkedHashMap<>();
+            normalized.put("code", methodCode);
+            normalized.put("displayName", normalize(Objects.toString(methodMap.get("displayName"), null)));
+            normalized.put("description", normalize(Objects.toString(methodMap.get("description"), null)));
+            allowedByCode.put(methodCode.toLowerCase(Locale.ROOT), normalized);
+        }
+
+        if (allowedByCode.isEmpty()) {
+            return null;
+        }
+
+        if (requestTimelines == null || requestTimelines.isEmpty()) {
+            return allowedByCode.values().stream().map(method -> {
+                Map<String, Object> timeline = new LinkedHashMap<>();
+                timeline.put("methodCode", method.get("code"));
+                timeline.put("displayName", method.get("displayName"));
+                timeline.put("description", method.get("description"));
+                timeline.put("startDate", campaignStartDate);
+                timeline.put("endDate", campaignEndDate);
+                return timeline;
+            }).collect(Collectors.toList());
+        }
+
+        Set<String> seenCodes = new HashSet<>();
+        List<Map<String, Object>> resolved = new ArrayList<>();
+        for (CreateAdmissionCampaignTemplateRequest.AdmissionMethodTimelineRequest timelineRequest : requestTimelines) {
+            String methodCode = normalize(timelineRequest != null ? timelineRequest.getMethodCode() : null);
+            if (methodCode == null) {
+                throw new IllegalArgumentException("Mã phương thức tuyển sinh không được để trống");
+            }
+            String normalizedCode = methodCode.toLowerCase(Locale.ROOT);
+            if (!seenCodes.add(normalizedCode)) {
+                throw new IllegalArgumentException("Phương thức tuyển sinh bị trùng: " + methodCode);
+            }
+
+            Map<String, Object> configuredMethod = allowedByCode.get(normalizedCode);
+            if (configuredMethod == null) {
+                throw new IllegalArgumentException("Phương thức tuyển sinh chưa được cấu hình: " + methodCode);
+            }
+
+            LocalDate methodStartDate = timelineRequest.getStartDate();
+            LocalDate methodEndDate = timelineRequest.getEndDate();
+            if (methodStartDate == null || methodEndDate == null) {
+                throw new IllegalArgumentException("Mỗi phương thức tuyển sinh phải có ngày bắt đầu và ngày kết thúc");
+            }
+            if (!methodEndDate.isAfter(methodStartDate)) {
+                throw new IllegalArgumentException("Ngày kết thúc phải sau ngày bắt đầu cho phương thức: " + methodCode);
+            }
+            if (methodStartDate.isBefore(campaignStartDate) || methodEndDate.isAfter(campaignEndDate)) {
+                throw new IllegalArgumentException(
+                        "Thời gian của phương thức " + methodCode + " phải nằm trong khoảng thời gian chiến dịch"
+                );
+            }
+
+            Map<String, Object> timeline = new LinkedHashMap<>();
+            timeline.put("methodCode", configuredMethod.get("code"));
+            timeline.put("displayName", configuredMethod.get("displayName"));
+            timeline.put("description", configuredMethod.get("description"));
+            timeline.put("startDate", methodStartDate);
+            timeline.put("endDate", methodEndDate);
+            resolved.add(timeline);
+        }
+
+        if (resolved.size() != allowedByCode.size()) {
+            throw new IllegalArgumentException("Vui lòng khai báo đủ thời gian cho tất cả phương thức tuyển sinh đã cấu hình");
+        }
+
+        return resolved;
+    }
+
+    private List<CreateAdmissionCampaignTemplateRequest.AdmissionMethodTimelineRequest> convertMethodTimelinesToRequests(Object timelinesRaw) {
+        if (!(timelinesRaw instanceof List<?> timelines)) {
+            return Collections.emptyList();
+        }
+
+        List<CreateAdmissionCampaignTemplateRequest.AdmissionMethodTimelineRequest> requests = new ArrayList<>();
+        for (Object item : timelines) {
+            if (!(item instanceof Map<?, ?> map)) {
+                continue;
+            }
+
+            String methodCode = normalize(Objects.toString(map.get("methodCode"), null));
+            LocalDate startDate = parseLocalDateSafe(map.get("startDate"));
+            LocalDate endDate = parseLocalDateSafe(map.get("endDate"));
+            if (methodCode == null || startDate == null || endDate == null) {
+                continue;
+            }
+
+            requests.add(CreateAdmissionCampaignTemplateRequest.AdmissionMethodTimelineRequest.builder()
+                    .methodCode(methodCode)
+                    .startDate(startDate)
+                    .endDate(endDate)
+                    .build());
+        }
+        return requests;
+    }
+
+    private LocalDate parseLocalDateSafe(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof LocalDate localDate) {
+            return localDate;
+        }
+        try {
+            return LocalDate.parse(String.valueOf(value));
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private Map<String, Object> buildProgramData(Program program) {

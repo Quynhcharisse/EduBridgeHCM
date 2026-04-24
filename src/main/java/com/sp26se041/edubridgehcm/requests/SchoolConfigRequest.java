@@ -40,6 +40,7 @@ public class SchoolConfigRequest {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class AdmissionSettingsData {
         List<AdmissionMethodDetail> allowedMethods;
+        List<MethodAdmissionProcess> methodAdmissionProcess; // quy trình tuyển sinh theo từng phương thức
         int quotaAlertThresholdPercent;
         boolean autoCloseOnFull;
     }
@@ -139,7 +140,6 @@ public class SchoolConfigRequest {
         int allowBookingBeforeHours; // Chặn đặt lịch sát giờ (ví dụ: phải đặt trước 24h)
         WorkingConfig workingConfig; //Default Policy (Quy tắc nền) ==> áp dụng 365 ngày
         AcademicCalendarConfig academicCalendar;
-        List<MethodAdmissionProcess> methodAdmissionProcess; // các quy trình tuyển sinh
         //Danh sách các mùa tuyển sinh/chiến dịch đặc biệt
         //Override Policy (Quy tắc đè). Nó chỉ tồn tại trong một khoảng thời gian ngắn (ví dụ 1 tháng cao điểm).
         List<AdmissionSeason> admissionSeasons;

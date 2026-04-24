@@ -8,12 +8,14 @@ import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusResourceQuota;
+import com.sp26se041.edubridgehcm.models.PlatformConfig;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.SchoolSubscription;
 import com.sp26se041.edubridgehcm.models.TemplateDocx;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusResourceQuotaRepo;
+import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolSubscriptionRepo;
@@ -27,6 +29,12 @@ import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.utils.WorkShiftConfigValidator;
 import lombok.RequiredArgsConstructor;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -36,7 +44,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -44,9 +55,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -69,6 +82,8 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
     private final CampusResourceQuotaRepo campusResourceQuotaRepo;
 
     private final SchoolRepo schoolRepo;
+
+    private final PlatformConfigRepo platformConfigRepo;
 
     private final TemplateDocxRepo templateDocxRepo;
 
@@ -138,8 +153,37 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                 })
                 .collect(Collectors.toList());
 
+        List<String> validMethodCodes = allowedMethodsJson.stream()
+                .map(m -> Objects.toString(m.get("code"), ""))
+                .collect(Collectors.toList());
+
+        List<Map<String, Object>> admissionProcessesJson = new ArrayList<>();
+        if (admissionSettingsData.getMethodAdmissionProcess() != null) {
+            for (var methodProcess : admissionSettingsData.getMethodAdmissionProcess()) {
+                if (!validMethodCodes.contains(methodProcess.getMethodCode())) {
+                    throw new RuntimeException("Mã phương pháp " + methodProcess.getMethodCode() + " không hợp lệ.");
+                }
+
+                Map<String, Object> processMap = new HashMap<>();
+                processMap.put("methodCode", methodProcess.getMethodCode());
+
+                List<Map<String, Object>> stepsData = methodProcess.getSteps().stream()
+                        .map(step -> {
+                            Map<String, Object> s = new HashMap<>();
+                            s.put("stepOrder", step.getStepOrder());
+                            s.put("stepName", step.getStepName());
+                            s.put("description", step.getDescription());
+                            return s;
+                        }).collect(Collectors.toList());
+
+                processMap.put("steps", stepsData);
+                admissionProcessesJson.add(processMap);
+            }
+        }
+
         Map<String, Object> admissionJson = new HashMap<>();
         admissionJson.put("allowedMethods", allowedMethodsJson);
+        admissionJson.put("admissionProcesses", admissionProcessesJson);
         admissionJson.put("quotaAlertThresholdPercent", admissionSettingsData.getQuotaAlertThresholdPercent());
         admissionJson.put("autoCloseOnFull", admissionSettingsData.isAutoCloseOnFull());
 
@@ -219,6 +263,77 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         schoolConfigRepo.save(config);
     }
 
+    //dành cho import hồ sơ bắt buộc chung
+    @Override
+    public ResponseEntity<ResponseObject> importMandatoryDocs(MultipartFile file) {
+        try {
+            if (file.isEmpty()) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "File không được để trống", null);
+            }
+
+            String fileName = file.getOriginalFilename();
+            if (fileName == null || (!fileName.endsWith(".xlsx") && !fileName.endsWith(".xls"))) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Định dạng file không hỗ trợ (chỉ chấp nhận .xlsx, .xls)", null);
+            }
+
+            List<Map<String, Object>> mandatoryAllJson = new ArrayList<>();
+
+            // 2. Đọc file Excel bằng Apache POI
+            try (InputStream is = file.getInputStream();
+                 Workbook workbook = new XSSFWorkbook(is)) {
+
+                Sheet sheet = workbook.getSheetAt(0);
+                Iterator<Row> rows = sheet.iterator();
+
+                // Bỏ qua dòng tiêu đề
+                if (rows.hasNext()) rows.next();
+
+                while (rows.hasNext()) {
+                    Row currentRow = rows.next();
+
+                    // Đọc Cell (Cột 0: Mã, Cột 1: Tên)
+                    String code = getCellValueAsString(currentRow.getCell(0));
+                    String name = getCellValueAsString(currentRow.getCell(1));
+
+                    // Bỏ qua dòng nếu cả mã và tên đều trống
+                    if (code.isEmpty() && name.isEmpty()) continue;
+
+                    // Build Map theo format yêu cầu
+                    Map<String, Object> docMap = new HashMap<>();
+                    docMap.put("code", code);
+                    docMap.put("name", name);
+                    docMap.put("required", true); // Luôn là true cho hồ sơ bắt buộc chung
+
+                    mandatoryAllJson.add(docMap);
+                }
+            }
+
+            return ResponseBuilder.build(HttpStatus.OK, "Đọc file hồ sơ thành công", mandatoryAllJson);
+
+        } catch (IOException e) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi đọc file", null);
+        } catch (Exception e) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Hệ thống gặp lỗi khi xử lý", null);
+        }
+    }
+
+    private String getCellValueAsString(Cell cell) {
+        if (cell == null) return "";
+        switch (cell.getCellType()) {
+            case STRING:
+                return cell.getStringCellValue().trim();
+            case NUMERIC:
+                if (DateUtil.isCellDateFormatted(cell)) return cell.getDateCellValue().toString();
+                return String.valueOf((int) cell.getNumericCellValue());
+            case BOOLEAN:
+                return String.valueOf(cell.getBooleanCellValue());
+            case FORMULA:
+                return cell.getCellFormula();
+            default:
+                return "";
+        }
+    }
+
     @Transactional
     public void updateFinancePolicy(int schoolId, SchoolConfigRequest request) {
 
@@ -296,16 +411,6 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
             }
         }
 
-        SchoolConfig admissionConfig = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "admissionSettingsData")
-                .orElseThrow(() -> new RuntimeException("Vui lòng định cấu hình phương thức nhập học trước"));
-
-        Map<String, Object> admissionData = (Map<String, Object>) admissionConfig.getValue();
-        List<Map<String, Object>> allowedMethods = (List<Map<String, Object>>) admissionData.get("allowedMethods");
-
-        List<String> validMethodCodes = allowedMethods.stream()
-                .map(m -> m.get("code").toString())
-                .collect(Collectors.toList());
-
         // 2. Map Working Config (Giờ làm việc)
         Map<String, Object> workingConfigMap = new HashMap<>();
         if (operationSettingsData.getWorkingConfig() != null) {
@@ -323,33 +428,6 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                     .map(WorkShiftConfigValidator::toPersistedShiftMap)
                     .collect(Collectors.toList());
             workingConfigMap.put("workShifts", shiftsJson);
-        }
-
-        //Map Admission Processes (Quy trình tuyển sinh theo từng phương thức)
-        List<Map<String, Object>> processesJson = new ArrayList<>();
-
-        if (operationSettingsData.getMethodAdmissionProcess() != null) {
-            for (var methodProcess : operationSettingsData.getMethodAdmissionProcess()) {
-
-                if (!validMethodCodes.contains(methodProcess.getMethodCode())) {
-                    throw new RuntimeException("Mã phương pháp " + methodProcess.getMethodCode() + " không hợp lệ.");
-                }
-
-                Map<String, Object> processMap = new HashMap<>();
-                processMap.put("methodCode", methodProcess.getMethodCode());
-
-                List<Map<String, Object>> stepsData = methodProcess.getSteps().stream()
-                        .map(step -> {
-                            Map<String, Object> s = new HashMap<>();
-                            s.put("stepOrder", step.getStepOrder());
-                            s.put("stepName", step.getStepName());
-                            s.put("description", step.getDescription());
-                            return s;
-                        }).collect(Collectors.toList());
-
-                processMap.put("steps", stepsData);
-                processesJson.add(processMap);
-            }
         }
 
         // map Admission Seasons (Các chiến dịch/mùa tuyển sinh đặc biệt)
@@ -391,7 +469,6 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         // ==> không cho phép học sinh đặt lịch hôm nay để thi ngay hôm nay.
         operationJson.put("workingConfig", workingConfigMap);
         operationJson.put("academicCalendar", academicCalendarMap);
-        operationJson.put("admissionProcesses", processesJson);
         operationJson.put("admissionSeasons", seasonsJson);
 
         SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "operationSettingsData")
@@ -768,15 +845,13 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
             return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "không có phép", null);
         }
 
-        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), k).orElse(null);
+        int schoolId = actorCampus.getSchool().getId();
 
-        if (config == null) {
+        Map<String, Object> data = getConfigByKey(schoolId, k);
+
+        if (data == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy cấu hình cho trường này", null);
         }
-
-        Map<String, Object> data = getConfigByKey(k);
-
-        if (data == null) return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Dữ liệu không hợp lệ", null);
 
         return ResponseBuilder.build(HttpStatus.OK, "", data);
     }
@@ -811,17 +886,69 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         return ResponseBuilder.build(HttpStatus.OK, "", campusConfigJson);
     }
 
-    private Map<String, Object> getConfigByKey(String key) {
+    private Map<String, Object> getConfigByKey(int schoolId, String key) {
+        SchoolConfig schoolConfig = schoolConfigRepo.findBySchoolIdAndKey(schoolId, key).orElse(null);
+        if (schoolConfig != null && schoolConfig.getValue() instanceof Map<?, ?> schoolValue) {
+            Map<String, Object> data = new HashMap<>();
+            data.put(key, schoolValue);
+            return data;
+        }
 
-        SchoolConfig config = schoolConfigRepo.findByKey(key).orElse(null);
+        if ("admissionSettingsData".equals(key) || "documentRequirementsData".equals(key)) {
+            Map<String, Object> templateData = resolveAdmissionTemplateByKey(key);
+            if (templateData != null) {
+                return templateData;
+            }
+        }
 
-        if (config == null) return null;
+        return null;
+    }
 
+    private Map<String, Object> resolveAdmissionTemplateByKey(String key) {
+        PlatformConfig platformConfig = platformConfigRepo.findByKey("admissionSettingsData").orElse(null);
+        if (platformConfig == null || !(platformConfig.getValue() instanceof Map<?, ?> rawTemplate)) {
+            return null;
+        }
+
+        Map<String, Object> template = (Map<String, Object>) rawTemplate;
         Map<String, Object> data = new HashMap<>();
-        Map<String, Object> value = (Map<String, Object>) config.getValue();
-        data.put(key, value);
 
-        return data;
+        if ("admissionSettingsData".equals(key)) {
+            data.put("admissionSettingsData", buildAdmissionSettingsFromTemplate(template));
+            return data;
+        }
+
+        if ("documentRequirementsData".equals(key)) {
+            data.put("documentRequirementsData", buildDocumentRequirementsFromTemplate(template));
+            return data;
+        }
+
+        return null;
+    }
+
+    private Map<String, Object> buildAdmissionSettingsFromTemplate(Map<String, Object> template) {
+        Map<String, Object> admission = new HashMap<>();
+        admission.put("allowedMethods", toSafeList(template.get("allowedMethods")));
+        admission.put("admissionProcesses", toSafeList(template.get("admissionProcesses")));
+        return admission;
+    }
+
+    private Map<String, Object> buildDocumentRequirementsFromTemplate(Map<String, Object> template) {
+        Map<String, Object> docReq = new HashMap<>();
+        Map<String, Object> templateDocReq = template.get("documentRequirementsData") instanceof Map<?, ?> doc
+                ? (Map<String, Object>) doc
+                : null;
+
+        docReq.put("mandatoryAll", templateDocReq != null ? toSafeList(templateDocReq.get("mandatoryAll")) : Collections.emptyList());
+        docReq.put("byMethod", templateDocReq != null ? toSafeList(templateDocReq.get("byMethod")) : Collections.emptyList());
+        return docReq;
+    }
+
+    private List<Map<String, Object>> toSafeList(Object source) {
+        if (source instanceof List<?> list) {
+            return (List<Map<String, Object>>) list;
+        }
+        return Collections.emptyList();
     }
 
     private Campus extractActorCampus() {

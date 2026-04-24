@@ -101,8 +101,9 @@ public class ProgramValidation {
                     return "Phát hiện tên môn học bổ sung bị trùng lặp trong yêu cầu: " + extraName;
                 }
 
-                if (normalize(extra.getDescription()) == null) {
-                    return "Mô tả cho môn học bổ sung '" + extraName + "' không được để trống.";
+                String extraDescription = normalize(extra.getDescription());
+                if (extraDescription != null && extraDescription.length() > 1000) {
+                    return "Mô tả cho môn học bổ sung '" + extraName + "' quá dài (tối đa 1000 ký tự).";
                 }
             }
         }
