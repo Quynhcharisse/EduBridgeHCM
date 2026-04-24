@@ -149,4 +149,10 @@ public class AdminController {
                                                              @RequestParam(name = "packageType", required = false) String packageType) {
         return adminService.getRevenuesSummary(year, month, packageType);
     }
+
+    @GetMapping("/dashboard/overview")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ResponseObject> getDashboardOverview(@RequestParam(name = "year") Integer year) {
+        return adminService.getDashboardOverview(year);
+    }
 }
