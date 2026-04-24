@@ -27,6 +27,12 @@ import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.utils.WorkShiftConfigValidator;
 import lombok.RequiredArgsConstructor;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -36,7 +42,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -44,6 +53,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -217,6 +227,77 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         config.setValue(admissionJson);
         config.setUpdatedAt(LocalDateTime.now());
         schoolConfigRepo.save(config);
+    }
+
+    //dành cho import hồ sơ bắt buộc chung
+    @Override
+    public ResponseEntity<ResponseObject> importMandatoryDocs(MultipartFile file) {
+        try {
+            if (file.isEmpty()) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "File không được để trống", null);
+            }
+
+            String fileName = file.getOriginalFilename();
+            if (fileName == null || (!fileName.endsWith(".xlsx") && !fileName.endsWith(".xls"))) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Định dạng file không hỗ trợ (chỉ chấp nhận .xlsx, .xls)", null);
+            }
+
+            List<Map<String, Object>> mandatoryAllJson = new ArrayList<>();
+
+            // 2. Đọc file Excel bằng Apache POI
+            try (InputStream is = file.getInputStream();
+                 Workbook workbook = new XSSFWorkbook(is)) {
+
+                Sheet sheet = workbook.getSheetAt(0);
+                Iterator<Row> rows = sheet.iterator();
+
+                // Bỏ qua dòng tiêu đề
+                if (rows.hasNext()) rows.next();
+
+                while (rows.hasNext()) {
+                    Row currentRow = rows.next();
+
+                    // Đọc Cell (Cột 0: Mã, Cột 1: Tên)
+                    String code = getCellValueAsString(currentRow.getCell(0));
+                    String name = getCellValueAsString(currentRow.getCell(1));
+
+                    // Bỏ qua dòng nếu cả mã và tên đều trống
+                    if (code.isEmpty() && name.isEmpty()) continue;
+
+                    // Build Map theo format yêu cầu
+                    Map<String, Object> docMap = new HashMap<>();
+                    docMap.put("code", code);
+                    docMap.put("name", name);
+                    docMap.put("required", true); // Luôn là true cho hồ sơ bắt buộc chung
+
+                    mandatoryAllJson.add(docMap);
+                }
+            }
+
+            return ResponseBuilder.build(HttpStatus.OK, "Đọc file hồ sơ thành công", mandatoryAllJson);
+
+        } catch (IOException e) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi đọc file", null);
+        } catch (Exception e) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Hệ thống gặp lỗi khi xử lý", null);
+        }
+    }
+
+    private String getCellValueAsString(Cell cell) {
+        if (cell == null) return "";
+        switch (cell.getCellType()) {
+            case STRING:
+                return cell.getStringCellValue().trim();
+            case NUMERIC:
+                if (DateUtil.isCellDateFormatted(cell)) return cell.getDateCellValue().toString();
+                return String.valueOf((int) cell.getNumericCellValue());
+            case BOOLEAN:
+                return String.valueOf(cell.getBooleanCellValue());
+            case FORMULA:
+                return cell.getCellFormula();
+            default:
+                return "";
+        }
     }
 
     @Transactional
