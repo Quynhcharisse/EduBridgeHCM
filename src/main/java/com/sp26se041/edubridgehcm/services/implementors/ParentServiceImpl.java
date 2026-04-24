@@ -345,8 +345,15 @@ public class ParentServiceImpl implements ParentService {
 
         Optional<StudentProfile> studentProfile = studentInfoRepo.findById(request.getStudentProfileId());
 
-        if(studentProfile.isEmpty()) {
+        if (studentProfile.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Thông tin trẻ không tồn tại trong hệ thống", null);
+        }
+
+        Optional<Conversation> existingConversation =
+                conversationRepo.findByParentEmailAndCampusIdAndStudentProfile(request.getParentEmail(), request.getCampusId(), studentProfile.get());
+
+        if (existingConversation.isPresent()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Conversation already exists", null);
         }
 
         Conversation conservation = Conversation.builder()
@@ -436,6 +443,7 @@ public class ParentServiceImpl implements ParentService {
         Account account = AuthRequestUtil.extractAuthenticatedAccount();
 
         String error = validateAddStudentInfoRequest(request);
+
         if (!error.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
