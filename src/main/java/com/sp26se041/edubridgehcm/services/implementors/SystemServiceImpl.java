@@ -188,14 +188,12 @@ public class SystemServiceImpl implements SystemService {
                     workbook.getSheet("admissionProcesses"),
                     validMethodCodes
             );
-            List<Map<String, Object>> mandatoryAll = parseDocumentsSheet(workbook.getSheet("mandatoryAll"));
             List<Map<String, Object>> byMethod = parseByMethodDocumentsSheet(
                     workbook.getSheet("byMethod"),
                     validMethodCodes
             );
 
             Map<String, Object> documentRequirementsData = new HashMap<>();
-            documentRequirementsData.put("mandatoryAll", mandatoryAll);
             documentRequirementsData.put("byMethod", byMethod);
 
             Map<String, Object> admissionTemplate = new HashMap<>();
@@ -295,35 +293,6 @@ public class SystemServiceImpl implements SystemService {
         return processes;
     }
 
-    private List<Map<String, Object>> parseDocumentsSheet(Sheet sheet) {
-        if (sheet == null) return Collections.emptyList();
-
-        DataFormatter formatter = new DataFormatter();
-        List<Map<String, Object>> docs = new ArrayList<>();
-
-        for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-            Row row = sheet.getRow(i);
-            if (row == null) continue;
-
-            String code = cellText(row.getCell(0), formatter);
-            String name = cellText(row.getCell(1), formatter);
-            String requiredRaw = cellText(row.getCell(2), formatter);
-
-            if (code.isBlank() && name.isBlank() && requiredRaw.isBlank()) continue;
-            if (code.isBlank() || name.isBlank()) {
-                throw new IllegalArgumentException("Sheet mandatoryAll thiếu code/name tại dòng " + (i + 1));
-            }
-
-            Map<String, Object> doc = new HashMap<>();
-            doc.put("code", code);
-            doc.put("name", name);
-            doc.put("required", parseBoolean(requiredRaw));
-            docs.add(doc);
-        }
-
-        return docs;
-    }
-
     private List<Map<String, Object>> parseByMethodDocumentsSheet(Sheet sheet, Set<String> validMethodCodes) {
         if (sheet == null) return Collections.emptyList();
 
@@ -374,7 +343,6 @@ public class SystemServiceImpl implements SystemService {
         String value = raw.trim().toLowerCase();
         return value.equals("true") || value.equals("1") || value.equals("yes") || value.equals("y");
     }
-
 
     @Transactional
     public void updateConfig(CreateConfigDataRequest request) {
@@ -618,12 +586,10 @@ public class SystemServiceImpl implements SystemService {
         Map<String, Object> admissionJson = new HashMap<>();
         admissionJson.put("allowedMethods", allowedMethodsJson);
         admissionJson.put("admissionProcesses", admissionProcessesJson);
-        // Alias để đồng bộ với cấu trúc school config hiện tại.
         admissionJson.put("byMethod", methodDocumentRequirementsJson);
         admissionJson.put("methodDocumentRequirements", methodDocumentRequirementsJson);
 
         Map<String, Object> documentRequirementsTemplateJson = new HashMap<>();
-        documentRequirementsTemplateJson.put("mandatoryAll", Collections.emptyList());
         documentRequirementsTemplateJson.put("byMethod", methodDocumentRequirementsJson);
         admissionJson.put("documentRequirementsData", documentRequirementsTemplateJson);
 
@@ -637,166 +603,6 @@ public class SystemServiceImpl implements SystemService {
         config.setValue(admissionJson);
         config.setModifiedDate(LocalDateTime.now());
         platformConfigRepo.save(config);
-    }
-
-    private Map<String, Object> buildAdmissionTemplateFromJson(JsonNode root) {
-        JsonNode admissionNode = root.has("admissionSettingsData") ? root.get("admissionSettingsData") : root;
-        if (admissionNode == null || !admissionNode.isObject()) {
-            throw new IllegalArgumentException("Thiếu object admissionSettingsData trong file import");
-        }
-
-        List<Map<String, Object>> allowedMethods = parseAllowedMethods(admissionNode.get("allowedMethods"));
-        Set<String> validMethodCodes = allowedMethods.stream()
-                .map(m -> String.valueOf(m.get("code")).trim())
-                .collect(Collectors.toCollection(HashSet::new));
-
-        List<Map<String, Object>> admissionProcesses = parseAdmissionProcesses(
-                admissionNode.get("admissionProcesses"),
-                validMethodCodes
-        );
-
-        JsonNode documentRequirementsNode = admissionNode.get("documentRequirementsData");
-        List<Map<String, Object>> mandatoryAll = parseDocuments(
-                documentRequirementsNode != null ? documentRequirementsNode.get("mandatoryAll") : null,
-                "documentRequirementsData.mandatoryAll"
-        );
-        List<Map<String, Object>> byMethod = parseByMethodDocuments(
-                documentRequirementsNode != null ? documentRequirementsNode.get("byMethod") : null,
-                validMethodCodes
-        );
-
-        Map<String, Object> documentRequirementsData = new HashMap<>();
-        documentRequirementsData.put("mandatoryAll", mandatoryAll);
-        documentRequirementsData.put("byMethod", byMethod);
-
-        Map<String, Object> admissionTemplate = new HashMap<>();
-        admissionTemplate.put("allowedMethods", allowedMethods);
-        admissionTemplate.put("admissionProcesses", admissionProcesses);
-        admissionTemplate.put("documentRequirementsData", documentRequirementsData);
-        admissionTemplate.put("byMethod", byMethod);
-        admissionTemplate.put("methodDocumentRequirements", byMethod);
-        return admissionTemplate;
-    }
-
-    private List<Map<String, Object>> parseAllowedMethods(JsonNode node) {
-        if (node == null || !node.isArray()) {
-            throw new IllegalArgumentException("allowedMethods phải là mảng");
-        }
-
-        List<Map<String, Object>> methods = new ArrayList<>();
-        Set<String> seenCodes = new HashSet<>();
-        for (JsonNode method : node) {
-            String code = text(method, "code", "allowedMethods.code");
-            if (!seenCodes.add(code.toLowerCase())) {
-                throw new IllegalArgumentException("Phương thức tuyển sinh bị trùng: " + code);
-            }
-
-            Map<String, Object> item = new HashMap<>();
-            item.put("code", code);
-            item.put("displayName", text(method, "displayName", "allowedMethods.displayName"));
-            item.put("description", method.has("description") ? method.get("description").asText("") : "");
-            methods.add(item);
-        }
-
-        return methods;
-    }
-
-    private List<Map<String, Object>> parseAdmissionProcesses(JsonNode node, Set<String> validMethodCodes) {
-        if (node == null) {
-            return Collections.emptyList();
-        }
-        if (!node.isArray()) {
-            throw new IllegalArgumentException("admissionProcesses phải là mảng");
-        }
-
-        List<Map<String, Object>> processes = new ArrayList<>();
-        Set<String> seenMethodCodes = new HashSet<>();
-        for (JsonNode process : node) {
-            String methodCode = text(process, "methodCode", "admissionProcesses.methodCode");
-            if (!validMethodCodes.contains(methodCode)) {
-                throw new IllegalArgumentException("methodCode không tồn tại trong allowedMethods: " + methodCode);
-            }
-            if (!seenMethodCodes.add(methodCode.toLowerCase())) {
-                throw new IllegalArgumentException("admissionProcesses bị trùng methodCode: " + methodCode);
-            }
-
-            JsonNode stepsNode = process.get("steps");
-            if (stepsNode == null || !stepsNode.isArray()) {
-                throw new IllegalArgumentException("admissionProcesses.steps phải là mảng cho methodCode: " + methodCode);
-            }
-
-            List<Map<String, Object>> steps = new ArrayList<>();
-            for (JsonNode step : stepsNode) {
-                if (!step.has("stepOrder") || !step.get("stepOrder").canConvertToInt()) {
-                    throw new IllegalArgumentException("stepOrder phải là số nguyên cho methodCode: " + methodCode);
-                }
-
-                Map<String, Object> stepItem = new HashMap<>();
-                stepItem.put("stepOrder", step.get("stepOrder").asInt());
-                stepItem.put("stepName", text(step, "stepName", "admissionProcesses.steps.stepName"));
-                stepItem.put("description", step.has("description") ? step.get("description").asText("") : "");
-                steps.add(stepItem);
-            }
-
-            Map<String, Object> processItem = new HashMap<>();
-            processItem.put("methodCode", methodCode);
-            processItem.put("steps", steps);
-            processes.add(processItem);
-        }
-
-        return processes;
-    }
-
-    private List<Map<String, Object>> parseByMethodDocuments(JsonNode node, Set<String> validMethodCodes) {
-        if (node == null) {
-            return Collections.emptyList();
-        }
-        if (!node.isArray()) {
-            throw new IllegalArgumentException("documentRequirementsData.byMethod phải là mảng");
-        }
-
-        List<Map<String, Object>> byMethod = new ArrayList<>();
-        Set<String> seenMethodCodes = new HashSet<>();
-        for (JsonNode methodNode : node) {
-            String methodCode = text(methodNode, "methodCode", "documentRequirementsData.byMethod.methodCode");
-            if (!validMethodCodes.contains(methodCode)) {
-                throw new IllegalArgumentException("methodCode không tồn tại trong allowedMethods: " + methodCode);
-            }
-            if (!seenMethodCodes.add(methodCode.toLowerCase())) {
-                throw new IllegalArgumentException("documentRequirementsData.byMethod bị trùng methodCode: " + methodCode);
-            }
-
-            List<Map<String, Object>> documents = parseDocuments(
-                    methodNode.get("documents"),
-                    "documentRequirementsData.byMethod.documents"
-            );
-
-            Map<String, Object> item = new HashMap<>();
-            item.put("methodCode", methodCode);
-            item.put("documents", documents);
-            byMethod.add(item);
-        }
-
-        return byMethod;
-    }
-
-    private List<Map<String, Object>> parseDocuments(JsonNode node, String pathLabel) {
-        if (node == null) {
-            return Collections.emptyList();
-        }
-        if (!node.isArray()) {
-            throw new IllegalArgumentException(pathLabel + " phải là mảng");
-        }
-
-        List<Map<String, Object>> docs = new ArrayList<>();
-        for (JsonNode doc : node) {
-            Map<String, Object> item = new HashMap<>();
-            item.put("code", text(doc, "code", pathLabel + ".code"));
-            item.put("name", text(doc, "name", pathLabel + ".name"));
-            item.put("required", doc.has("required") && doc.get("required").asBoolean());
-            docs.add(item);
-        }
-        return docs;
     }
 
     private String text(JsonNode node, String fieldName, String pathLabel) {
