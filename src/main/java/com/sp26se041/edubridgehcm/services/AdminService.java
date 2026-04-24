@@ -42,5 +42,7 @@ public interface AdminService {
 
     ResponseEntity<ResponseObject> getTemplateDocs(String categoryTemplate);
 
+    ResponseEntity<ResponseObject> getDashboardOverview(Integer year);
+
     ResponseEntity<ResponseObject> getRevenuesSummary(Integer year, Integer month, String packageType);
 }
