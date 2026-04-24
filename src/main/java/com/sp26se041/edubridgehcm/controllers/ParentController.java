@@ -159,6 +159,12 @@ public class ParentController {
         return parentService.updateStudentInfo(request);
     }
 
+    @PostMapping("/transcript/auto/fill")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<ResponseObject> autoFillTranscript() {
+        return null;
+    }
+
     @GetMapping("/student")
     @PreAuthorize("hasRole('PARENT')")
     public ResponseEntity<ResponseObject> getStudentInfos() {

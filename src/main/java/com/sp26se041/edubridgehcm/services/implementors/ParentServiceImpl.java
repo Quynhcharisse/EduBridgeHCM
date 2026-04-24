@@ -411,6 +411,7 @@ public class ParentServiceImpl implements ParentService {
         Optional<PersonalityType> personalityType =
                 personalityTypeRepo.findByCode(studentProfile.getPersonalityTypeName());
 
+
         Map<String, Object> result = new HashMap<>();
         result.put("id", studentProfile.getId());
         result.put("studentName", studentProfile.getStudentName());
@@ -423,9 +424,11 @@ public class ParentServiceImpl implements ParentService {
         result.put("traits",
                 personalityType.map(PersonalityType::getTraits).orElse(List.of()));
         result.put("subjectsInSystem", getSubjects());
+        result.put("transcriptImages", studentProfile.getTranscriptImages());
 
         return result;
     }
+
 
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
@@ -451,6 +454,7 @@ public class ParentServiceImpl implements ParentService {
         List<Map<String, Object>> academicProfileMetaData = new ArrayList<>();
 
         if (request.getAcademicInfos() != null) {
+
             for (AddStudentInfoRequest.AcademicInfo academicInfo : request.getAcademicInfos()) {
 
                 // academicInfo null -> bỏ qua
@@ -516,9 +520,20 @@ public class ParentServiceImpl implements ParentService {
             }
         }
 
+        List<Map<String, Object>> transcriptImages = request.getTranscriptImages()
+                .stream()
+                .map(item -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("grade", item.getGrade());
+                    map.put("imageUrl", item.getImageUrl());
+                    return map;
+                })
+                .toList();
+
         studentInfoRepo.save(StudentProfile.builder()
                 .studentName(normalize(request.getStudentName()))
                 .parent(account.getParent())
+                .transcriptImages(transcriptImages)
                 .favouriteJob(normalize(request.getFavouriteJob()))
                 .gender(Gender.valueOf(normalize(request.getGender())))
                 .personalityTypeName(normalize(request.getPersonalityTypeCode()))
@@ -612,11 +627,22 @@ public class ParentServiceImpl implements ParentService {
             }
         }
 
+        List<Map<String, Object>> transcriptImages = request.getTranscriptImages()
+                .stream()
+                .map(item -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("grade", item.getGrade());
+                    map.put("imageUrl", item.getImageUrl());
+                    return map;
+                })
+                .toList();
+
         studentProfile.setStudentName(normalize(request.getStudentName()));
         studentProfile.setGender(parseGender(request.getGender()));
         studentProfile.setFavouriteJob(normalize(request.getFavouriteJob()));
         studentProfile.setPersonalityTypeName(normalize(request.getPersonalityTypeCode()));
         studentProfile.setAcademicProfileMetadata(academicProfileMetaData);
+        studentProfile.setTranscriptImages(transcriptImages);
 
         studentInfoRepo.save(studentProfile);
 
