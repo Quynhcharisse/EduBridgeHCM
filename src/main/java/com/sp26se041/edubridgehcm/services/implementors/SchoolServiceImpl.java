@@ -804,15 +804,7 @@ public class SchoolServiceImpl implements SchoolService {
                 String desc = (descCell != null) ? getCellValueAsString(descCell) : "";
 
                 // 3. Xử lý isMandatory (Mặc định là false nếu để trống)
-                boolean isMandatory = false;
-                Cell mandatoryCell = row.getCell(2);
-                if (mandatoryCell != null) {
-                    if (mandatoryCell.getCellType() == CellType.BOOLEAN) {
-                        isMandatory = mandatoryCell.getBooleanCellValue();
-                    } else if (mandatoryCell.getCellType() == CellType.STRING) {
-                        isMandatory = "true".equalsIgnoreCase(mandatoryCell.getStringCellValue().trim());
-                    }
-                }
+                boolean isMandatory = parseMandatoryCell(row.getCell(2));
 
                 subjects.add(CurriculumRequest.SubjectOptionRequest.builder()
                         .name(name)
@@ -1156,6 +1148,15 @@ public class SchoolServiceImpl implements SchoolService {
             );
         }
 
+        String duplicatedCoreSubject = findDuplicatedCoreSubjectName(request.getExtraSubjectList(), curriculum.getSubjectsJsonb());
+        if (duplicatedCoreSubject != null) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Môn học bổ sung bị trùng với môn bắt buộc trong khung chương trình: " + duplicatedCoreSubject,
+                    null
+            );
+        }
+
         program.setCurriculum(curriculum);
         program.setName(normalize(request.getName()));
         program.setLanguageOfInstructionList(request.getLanguageOfInstructionList().stream().map(LanguageInstruction::valueOf).collect(Collectors.toList()));
@@ -1195,6 +1196,77 @@ public class SchoolServiceImpl implements SchoolService {
                 isNew ? "Tạo chương trình thành công" : "Cập nhật chương trình thành công",
                 null
         );
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> extractProgramSubjectsFromExcel(MultipartFile file) {
+        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+            List<ProgramRequest.SubjectExtraRequest> subjects = new ArrayList<>();
+            Sheet sheet = workbook.getSheetAt(0);
+
+            for (Row row : sheet) {
+                if (row.getRowNum() == 0) continue;
+
+                Cell nameCell = row.getCell(0);
+                String normalizedName = normalize(getCellValueAsString(nameCell));
+                if (StringUtils.isBlank(normalizedName)) continue;
+
+                String normalizedDescription = normalize(getCellValueAsString(row.getCell(1)));
+                boolean isMandatory = parseMandatoryCell(row.getCell(2));
+
+                ProgramRequest.SubjectExtraRequest subject = new ProgramRequest.SubjectExtraRequest();
+                subject.setName(normalizedName);
+                subject.setDescription(normalizedDescription);
+                subject.setIsMandatory(isMandatory);
+                subjects.add(subject);
+            }
+
+            return ResponseBuilder.build(HttpStatus.OK, "Đọc file môn học của chương trình thành công", subjects);
+        } catch (Exception e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Lỗi đọc file Excel: " + e.getMessage(), null);
+        }
+    }
+
+    private boolean parseMandatoryCell(Cell mandatoryCell) {
+        if (mandatoryCell == null) {
+            return false;
+        }
+        if (mandatoryCell.getCellType() == CellType.BOOLEAN) {
+            return mandatoryCell.getBooleanCellValue();
+        }
+        if (mandatoryCell.getCellType() == CellType.STRING) {
+            return "true".equalsIgnoreCase(mandatoryCell.getStringCellValue().trim());
+        }
+        return false;
+    }
+
+    private String findDuplicatedCoreSubjectName(List<ProgramRequest.SubjectExtraRequest> extraSubjects, Object curriculumSubjectsRaw) {
+        if (extraSubjects == null || extraSubjects.isEmpty() || !(curriculumSubjectsRaw instanceof List<?> curriculumSubjects) || curriculumSubjects.isEmpty()) {
+            return null;
+        }
+
+        Set<String> mandatoryCoreNames = curriculumSubjects.stream()
+                .filter(Map.class::isInstance)
+                .map(subject -> (Map<?, ?>) subject)
+                .filter(subject -> Boolean.TRUE.equals(subject.get("isMandatory")))
+                .map(subject -> normalize(Objects.toString(subject.get("name"), null)))
+                .filter(StringUtils::isNotBlank)
+                .map(name -> name.toLowerCase(Locale.ROOT))
+                .collect(Collectors.toSet());
+
+        for (ProgramRequest.SubjectExtraRequest extraSubject : extraSubjects) {
+            if (extraSubject == null) {
+                continue;
+            }
+            String normalizedExtraName = normalize(extraSubject.getName());
+            if (StringUtils.isBlank(normalizedExtraName)) {
+                continue;
+            }
+            if (mandatoryCoreNames.contains(normalizedExtraName.toLowerCase(Locale.ROOT))) {
+                return normalizedExtraName;
+            }
+        }
+        return null;
     }
 
     @Override

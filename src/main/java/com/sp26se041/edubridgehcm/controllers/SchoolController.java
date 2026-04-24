@@ -103,6 +103,12 @@ public class SchoolController {
         return schoolService.extractSubjectsFromExcel(file);
     }
 
+    @PostMapping(value = "/extract/excel/program-subjects", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> extractProgramSubjectsFromExcel(@RequestParam("file") MultipartFile file) {
+        return schoolService.extractProgramSubjectsFromExcel(file);
+    }
+
     @PatchMapping("/{id}/activate/curriculum")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> handleCurriculumAction(@PathVariable int id, @RequestParam(name = "action") String action) {
