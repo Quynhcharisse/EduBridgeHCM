@@ -64,7 +64,7 @@ public interface SchoolService {
 
     ResponseEntity<ResponseObject> viewCurrentSubscription();
 
-    ResponseEntity<ResponseObject> createSubscription(CreateSubscriptionRequest request, HttpServletRequest httpRequest);
+    ResponseEntity<ResponseObject> createSchoolSubscription(CreateSubscriptionRequest request, HttpServletRequest httpRequest);
 
     ResponseEntity<ResponseObject> previewSubscription(SubscriptionPreviewRequest request);
 
