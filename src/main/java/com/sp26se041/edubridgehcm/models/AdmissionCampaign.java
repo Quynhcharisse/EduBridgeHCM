@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.models;
 
 import com.sp26se041.edubridgehcm.enums.Status;
+import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -21,6 +22,7 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.experimental.FieldDefaults;
 import org.jspecify.annotations.NullMarked;
+import org.hibernate.annotations.Type;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -63,6 +65,10 @@ public class AdmissionCampaign {
 
     @Column(name = "end_date")
     LocalDate endDate;
+
+    @Type(JsonBinaryType.class)
+    @Column(name = "admission_method_timelines", columnDefinition = "jsonb")
+    Object admissionMethodTimelines;
 
     @Enumerated(EnumType.STRING)
     Status status;

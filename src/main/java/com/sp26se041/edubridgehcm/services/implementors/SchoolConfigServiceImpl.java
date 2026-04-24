@@ -57,6 +57,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -148,8 +149,37 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                 })
                 .collect(Collectors.toList());
 
+        List<String> validMethodCodes = allowedMethodsJson.stream()
+                .map(m -> Objects.toString(m.get("code"), ""))
+                .collect(Collectors.toList());
+
+        List<Map<String, Object>> admissionProcessesJson = new ArrayList<>();
+        if (admissionSettingsData.getMethodAdmissionProcess() != null) {
+            for (var methodProcess : admissionSettingsData.getMethodAdmissionProcess()) {
+                if (!validMethodCodes.contains(methodProcess.getMethodCode())) {
+                    throw new RuntimeException("Mã phương pháp " + methodProcess.getMethodCode() + " không hợp lệ.");
+                }
+
+                Map<String, Object> processMap = new HashMap<>();
+                processMap.put("methodCode", methodProcess.getMethodCode());
+
+                List<Map<String, Object>> stepsData = methodProcess.getSteps().stream()
+                        .map(step -> {
+                            Map<String, Object> s = new HashMap<>();
+                            s.put("stepOrder", step.getStepOrder());
+                            s.put("stepName", step.getStepName());
+                            s.put("description", step.getDescription());
+                            return s;
+                        }).collect(Collectors.toList());
+
+                processMap.put("steps", stepsData);
+                admissionProcessesJson.add(processMap);
+            }
+        }
+
         Map<String, Object> admissionJson = new HashMap<>();
         admissionJson.put("allowedMethods", allowedMethodsJson);
+        admissionJson.put("admissionProcesses", admissionProcessesJson);
         admissionJson.put("quotaAlertThresholdPercent", admissionSettingsData.getQuotaAlertThresholdPercent());
         admissionJson.put("autoCloseOnFull", admissionSettingsData.isAutoCloseOnFull());
 
@@ -377,16 +407,6 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
             }
         }
 
-        SchoolConfig admissionConfig = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "admissionSettingsData")
-                .orElseThrow(() -> new RuntimeException("Vui lòng định cấu hình phương thức nhập học trước"));
-
-        Map<String, Object> admissionData = (Map<String, Object>) admissionConfig.getValue();
-        List<Map<String, Object>> allowedMethods = (List<Map<String, Object>>) admissionData.get("allowedMethods");
-
-        List<String> validMethodCodes = allowedMethods.stream()
-                .map(m -> m.get("code").toString())
-                .collect(Collectors.toList());
-
         // 2. Map Working Config (Giờ làm việc)
         Map<String, Object> workingConfigMap = new HashMap<>();
         if (operationSettingsData.getWorkingConfig() != null) {
@@ -404,33 +424,6 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                     .map(WorkShiftConfigValidator::toPersistedShiftMap)
                     .collect(Collectors.toList());
             workingConfigMap.put("workShifts", shiftsJson);
-        }
-
-        //Map Admission Processes (Quy trình tuyển sinh theo từng phương thức)
-        List<Map<String, Object>> processesJson = new ArrayList<>();
-
-        if (operationSettingsData.getMethodAdmissionProcess() != null) {
-            for (var methodProcess : operationSettingsData.getMethodAdmissionProcess()) {
-
-                if (!validMethodCodes.contains(methodProcess.getMethodCode())) {
-                    throw new RuntimeException("Mã phương pháp " + methodProcess.getMethodCode() + " không hợp lệ.");
-                }
-
-                Map<String, Object> processMap = new HashMap<>();
-                processMap.put("methodCode", methodProcess.getMethodCode());
-
-                List<Map<String, Object>> stepsData = methodProcess.getSteps().stream()
-                        .map(step -> {
-                            Map<String, Object> s = new HashMap<>();
-                            s.put("stepOrder", step.getStepOrder());
-                            s.put("stepName", step.getStepName());
-                            s.put("description", step.getDescription());
-                            return s;
-                        }).collect(Collectors.toList());
-
-                processMap.put("steps", stepsData);
-                processesJson.add(processMap);
-            }
         }
 
         // map Admission Seasons (Các chiến dịch/mùa tuyển sinh đặc biệt)
@@ -472,7 +465,6 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         // ==> không cho phép học sinh đặt lịch hôm nay để thi ngay hôm nay.
         operationJson.put("workingConfig", workingConfigMap);
         operationJson.put("academicCalendar", academicCalendarMap);
-        operationJson.put("admissionProcesses", processesJson);
         operationJson.put("admissionSeasons", seasonsJson);
 
         SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "operationSettingsData")
