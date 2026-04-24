@@ -1394,8 +1394,6 @@ public class AdminServiceImpl implements AdminService {
         data.put("year", year);
         data.put("month", month);
         data.put("packageType", normalizedPackageType);
-        data.put("schoolId", null);
-        data.put("schoolName", null);
         data.put("scope", scope);
         data.put("totals", totals);
         data.put("trend", trend);
