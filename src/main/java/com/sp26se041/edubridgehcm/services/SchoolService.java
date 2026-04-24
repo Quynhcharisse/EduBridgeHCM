@@ -12,6 +12,7 @@ import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 
@@ -70,4 +71,8 @@ public interface SchoolService {
     ResponseEntity<ResponseObject> handleVNPayCallback(HttpServletRequest request);
 
     ResponseEntity<ResponseObject> searchNearby(Double lat, Double lng, Double radius);
+
+    ResponseEntity<ResponseObject> extractSubjectsFromExcel(MultipartFile file);
+
+    ResponseEntity<ResponseObject> getNationalCurriculumTemplate();
 }

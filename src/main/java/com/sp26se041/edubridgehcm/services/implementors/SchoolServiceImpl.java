@@ -11,6 +11,7 @@ import com.sp26se041.edubridgehcm.enums.PackageType;
 import com.sp26se041.edubridgehcm.enums.ResourceType;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
+import com.sp26se041.edubridgehcm.enums.SubjectType;
 import com.sp26se041.edubridgehcm.enums.SubscriptionAction;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
@@ -28,6 +29,7 @@ import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.SchoolSubscription;
+import com.sp26se041.edubridgehcm.models.Subject;
 import com.sp26se041.edubridgehcm.models.Subscription;
 import com.sp26se041.edubridgehcm.models.TemplateDocx;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
@@ -48,6 +50,7 @@ import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolSubscriptionRepo;
+import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
 import com.sp26se041.edubridgehcm.repositories.SubscriptionRepo;
 import com.sp26se041.edubridgehcm.repositories.TemplateDocxRepo;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
@@ -77,6 +80,13 @@ import com.sp26se041.edubridgehcm.validations.school.ProgramValidation;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -93,6 +103,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -130,6 +141,7 @@ import java.util.stream.Collectors;
 public class SchoolServiceImpl implements SchoolService {
 
     private final PostRepo postRepo;
+    private final SubjectRepo subjectRepo;
     @Value("${AI_SERVICE_N8N}")
     private String n8nUrl;
 
@@ -763,8 +775,96 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         targetCurriculum.setCurriculumStatus(Status.CUR_DRAFT);
-        curriculumRepo.save(targetCurriculum);
-        return ResponseBuilder.build(isNew ? HttpStatus.CREATED : HttpStatus.OK, isNew ? "Tạo khung chương trình (nháp) thành công" : "Cập nhật khung chương trình thành công", null);
+        Curriculum saved = curriculumRepo.save(targetCurriculum);
+
+        //Khi sửa một bản ACTIVE, hệ thống sẽ tạo ra một bản DRAFT mới (Clone).
+        // Nếu bạn không trả về ID của bản DRAFT mới này,
+        // Frontend vẫn cầm ID của bản ACTIVE. Khi người dùng nhấn "Lưu" lần 2,
+        // Backend lại thấy ID đó là ACTIVE và lại tiếp tục clone ra thêm một bản DRAFT nữa ==> Sinh ra hàng loạt bản nháp trùng lặp.
+
+        return ResponseBuilder.build(isNew ? HttpStatus.CREATED : HttpStatus.OK, isNew ? "Tạo khung chương trình (nháp) thành công" : "Cập nhật khung chương trình thành công", saved.getId());
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> extractSubjectsFromExcel(MultipartFile file) {
+        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) { // Sử dụng try-with-resources để tự động đóng file
+            List<CurriculumRequest.SubjectOptionRequest> subjects = new ArrayList<>();
+            Sheet sheet = workbook.getSheetAt(0);
+
+            for (Row row : sheet) {
+                if (row.getRowNum() == 0) continue;
+
+                // 1. Đọc Tên môn (Bắt buộc phải có)
+                Cell nameCell = row.getCell(0);
+                if (nameCell == null || StringUtils.isBlank(getCellValueAsString(nameCell))) continue;
+                String name = getCellValueAsString(nameCell);
+
+                // 2. Đọc Mô tả (Optional - Có thể trống)
+                Cell descCell = row.getCell(1);
+                String desc = (descCell != null) ? getCellValueAsString(descCell) : "";
+
+                // 3. Xử lý isMandatory (Mặc định là false nếu để trống)
+                boolean isMandatory = false;
+                Cell mandatoryCell = row.getCell(2);
+                if (mandatoryCell != null) {
+                    if (mandatoryCell.getCellType() == CellType.BOOLEAN) {
+                        isMandatory = mandatoryCell.getBooleanCellValue();
+                    } else if (mandatoryCell.getCellType() == CellType.STRING) {
+                        isMandatory = "true".equalsIgnoreCase(mandatoryCell.getStringCellValue().trim());
+                    }
+                }
+
+                subjects.add(CurriculumRequest.SubjectOptionRequest.builder()
+                        .name(name)
+                        .description(desc)
+                        .isMandatory(isMandatory)
+                        .build());
+            }
+            return ResponseBuilder.build(HttpStatus.OK, "Đọc file thành công", subjects);
+        } catch (Exception e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Lỗi đọc file Excel: " + e.getMessage(), null);
+        }
+    }
+
+    private String getCellValueAsString(Cell cell) {
+        if (cell == null) return "";
+        return switch (cell.getCellType()) {
+            case STRING -> cell.getStringCellValue();
+            case NUMERIC -> String.valueOf((int) cell.getNumericCellValue());
+            case BOOLEAN -> String.valueOf(cell.getBooleanCellValue());
+            default -> "";
+        };
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getNationalCurriculumTemplate() {
+
+        List<Subject> allSubjects = subjectRepo.findAll();
+
+        // lọc 7 môn học bắt buộc
+        List<Map<String, Object>> mandatory = allSubjects.stream()
+                .filter(s -> s.getType() == SubjectType.THPT_SUBJECT)
+                .map(s -> Map.<String, Object>of(
+                        "name", s.getName(),
+                        "description", "Môn học bắt buộc theo chương trình GDPT 2018",
+                        "isMandatory", true
+                )).toList();
+
+        // lọc danh sách ngoại ngữ để chọn
+        List<Map<String, Object>> languages = allSubjects.stream()
+                .filter(s -> s.getType() == SubjectType.FOREIGN_LANGUAGE_SUBJECT)
+                .map(s -> Map.<String, Object>of(
+                        "id", s.getId(),
+                        "name", s.getName(),
+                        "description", "Môn ngoại ngữ lựa chọn",
+                        "isMandatory", false
+                )).toList();
+
+        Map<String, Object> data = Map.of(
+                "mandatorySubjects", mandatory,
+                "languageOptions", languages
+        );
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy mẫu chương trình quốc gia thành công", data);
     }
 
     @Override
@@ -824,7 +924,7 @@ public class SchoolServiceImpl implements SchoolService {
                 target.setCurriculumStatus(Status.CUR_ACTIVE);
                 target.setApplicationYear(yearToPublish);
                 curriculumRepo.save(target);
-                return ResponseBuilder.build(HttpStatus.OK, "Công bố khung chương trình" + yearToPublish +  "thành công", target.getId());
+                return ResponseBuilder.build(HttpStatus.OK, "Công bố khung chương trình" + yearToPublish + "thành công", target.getId());
 
             case "REVISE":
                 // Chỉnh sửa, cập nhật dựa trên bản cũ để tạo bản mới
