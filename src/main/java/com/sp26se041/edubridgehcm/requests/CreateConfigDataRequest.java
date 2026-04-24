@@ -143,6 +143,8 @@ public class CreateConfigDataRequest {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class AdmissionSettingsData {
         List<AdmissionMethodDetail> allowedMethods;
+        List<MethodAdmissionProcess> methodAdmissionProcess;
+        List<MethodDocumentRequirement> methodDocumentRequirements;
     }
 
     @Data
@@ -154,5 +156,47 @@ public class CreateConfigDataRequest {
         String code;
         String displayName;
         String description;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class MethodAdmissionProcess {
+        String methodCode;
+        List<StepDetail> steps;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class StepDetail {
+        int stepOrder;
+        String stepName;
+        String description;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class MethodDocumentRequirement {
+        String methodCode;
+        List<DocumentDetail> documents;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class DocumentDetail {
+        String code;
+        String name;
+        boolean required;
     }
 }

@@ -5,14 +5,17 @@ import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SystemService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/system")
@@ -37,6 +40,12 @@ public class SystemController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ResponseObject> updateConfigData(@RequestBody CreateConfigDataRequest request) {
         return systemService.updateConfigData(request);
+    }
+
+    @PostMapping(value = "/config/admission/template/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ResponseObject> importAdmissionTemplate(@RequestParam("file") MultipartFile file) {
+        return systemService.importAdmissionTemplate(file);
     }
 
 
