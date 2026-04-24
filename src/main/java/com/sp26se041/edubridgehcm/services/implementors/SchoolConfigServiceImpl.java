@@ -8,12 +8,14 @@ import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusResourceQuota;
+import com.sp26se041.edubridgehcm.models.PlatformConfig;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.SchoolSubscription;
 import com.sp26se041.edubridgehcm.models.TemplateDocx;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusResourceQuotaRepo;
+import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolSubscriptionRepo;
@@ -80,6 +82,8 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
     private final CampusResourceQuotaRepo campusResourceQuotaRepo;
 
     private final SchoolRepo schoolRepo;
+
+    private final PlatformConfigRepo platformConfigRepo;
 
     private final TemplateDocxRepo templateDocxRepo;
 
@@ -841,15 +845,13 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
             return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "không có phép", null);
         }
 
-        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(actorCampus.getSchool().getId(), k).orElse(null);
+        int schoolId = actorCampus.getSchool().getId();
 
-        if (config == null) {
+        Map<String, Object> data = getConfigByKey(schoolId, k);
+
+        if (data == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy cấu hình cho trường này", null);
         }
-
-        Map<String, Object> data = getConfigByKey(k);
-
-        if (data == null) return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Dữ liệu không hợp lệ", null);
 
         return ResponseBuilder.build(HttpStatus.OK, "", data);
     }
@@ -884,17 +886,69 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         return ResponseBuilder.build(HttpStatus.OK, "", campusConfigJson);
     }
 
-    private Map<String, Object> getConfigByKey(String key) {
+    private Map<String, Object> getConfigByKey(int schoolId, String key) {
+        SchoolConfig schoolConfig = schoolConfigRepo.findBySchoolIdAndKey(schoolId, key).orElse(null);
+        if (schoolConfig != null && schoolConfig.getValue() instanceof Map<?, ?> schoolValue) {
+            Map<String, Object> data = new HashMap<>();
+            data.put(key, schoolValue);
+            return data;
+        }
 
-        SchoolConfig config = schoolConfigRepo.findByKey(key).orElse(null);
+        if ("admissionSettingsData".equals(key) || "documentRequirementsData".equals(key)) {
+            Map<String, Object> templateData = resolveAdmissionTemplateByKey(key);
+            if (templateData != null) {
+                return templateData;
+            }
+        }
 
-        if (config == null) return null;
+        return null;
+    }
 
+    private Map<String, Object> resolveAdmissionTemplateByKey(String key) {
+        PlatformConfig platformConfig = platformConfigRepo.findByKey("admissionSettingsData").orElse(null);
+        if (platformConfig == null || !(platformConfig.getValue() instanceof Map<?, ?> rawTemplate)) {
+            return null;
+        }
+
+        Map<String, Object> template = (Map<String, Object>) rawTemplate;
         Map<String, Object> data = new HashMap<>();
-        Map<String, Object> value = (Map<String, Object>) config.getValue();
-        data.put(key, value);
 
-        return data;
+        if ("admissionSettingsData".equals(key)) {
+            data.put("admissionSettingsData", buildAdmissionSettingsFromTemplate(template));
+            return data;
+        }
+
+        if ("documentRequirementsData".equals(key)) {
+            data.put("documentRequirementsData", buildDocumentRequirementsFromTemplate(template));
+            return data;
+        }
+
+        return null;
+    }
+
+    private Map<String, Object> buildAdmissionSettingsFromTemplate(Map<String, Object> template) {
+        Map<String, Object> admission = new HashMap<>();
+        admission.put("allowedMethods", toSafeList(template.get("allowedMethods")));
+        admission.put("admissionProcesses", toSafeList(template.get("admissionProcesses")));
+        return admission;
+    }
+
+    private Map<String, Object> buildDocumentRequirementsFromTemplate(Map<String, Object> template) {
+        Map<String, Object> docReq = new HashMap<>();
+        Map<String, Object> templateDocReq = template.get("documentRequirementsData") instanceof Map<?, ?> doc
+                ? (Map<String, Object>) doc
+                : null;
+
+        docReq.put("mandatoryAll", templateDocReq != null ? toSafeList(templateDocReq.get("mandatoryAll")) : Collections.emptyList());
+        docReq.put("byMethod", templateDocReq != null ? toSafeList(templateDocReq.get("byMethod")) : Collections.emptyList());
+        return docReq;
+    }
+
+    private List<Map<String, Object>> toSafeList(Object source) {
+        if (source instanceof List<?> list) {
+            return (List<Map<String, Object>>) list;
+        }
+        return Collections.emptyList();
     }
 
     private Campus extractActorCampus() {
