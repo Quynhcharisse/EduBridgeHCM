@@ -103,8 +103,7 @@ public enum Status {
     RESERVATION_PAYMENT_SUCCESS("reservation_payment_success"),
     RESERVATION_PAYMENT_FAILED("reservation_payment_failed"),
     RESERVATION_CANCELLED("reservation_cancelled"),
-    RESERVATION_REJECTED("reservation_rejected");
-
+    RESERVATION_REJECTED("reservation_rejected"),
 
     UPCOMING("Sắp diễn ra"),
     ONGOING("Đang diễn ra"),
