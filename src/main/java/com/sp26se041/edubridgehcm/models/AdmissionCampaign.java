@@ -67,9 +67,15 @@ public class AdmissionCampaign {
     LocalDate endDate;
 
     @Type(JsonBinaryType.class)
-    @Column(name = "admission_method_timelines", columnDefinition = "jsonb")
+    @Column(columnDefinition = "jsonb")
     Object admissionMethodTimelines;
 
     @Enumerated(EnumType.STRING)
     Status status;
+
+    @OneToMany(mappedBy = "admissionCampaign")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<CounsellorSlot> counsellorSlotList ;
+
 }

@@ -3,17 +3,21 @@ package com.sp26se041.edubridgehcm.services.implementors;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.enums.SubjectType;
 import com.sp26se041.edubridgehcm.models.Account;
+import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.models.Conversation;
 import com.sp26se041.edubridgehcm.models.Counsellor;
+import com.sp26se041.edubridgehcm.models.CounsellorSlot;
 import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.PersonalityType;
 import com.sp26se041.edubridgehcm.models.StudentProfile;
 import com.sp26se041.edubridgehcm.models.Subject;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
 import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
 import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
+import com.sp26se041.edubridgehcm.repositories.CounsellorSlotRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
 import com.sp26se041.edubridgehcm.repositories.StudentInfoRepo;
 import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
@@ -27,9 +31,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +62,116 @@ public class CounsellorServiceImpl implements CounsellorService {
     private final CounsellorRepo counsellorRepo;
 
     private final SubjectRepo subjectRepo;
+    private final CounsellorSlotRepo counsellorSlotRepo;
+    private final CampusScheduleTemplateRepo campusScheduleTemplateRepo;
+
+    @Override
+    public ResponseEntity<ResponseObject> getCounsellorCalendar(LocalDate startDate, LocalDate endDate) {
+
+        String email = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
+        if (startDate.getDayOfWeek() != DayOfWeek.MONDAY) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "startDate phải là Thứ 2", null);
+        }
+
+        if (endDate.getDayOfWeek() != DayOfWeek.SUNDAY) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "endDate phải là Chủ nhật", null);
+        }
+
+        if (endDate.isBefore(startDate)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "endDate phải > startDate", null);
+        }
+
+        if (!startDate.plusDays(6).equals(endDate)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Phải chọn đúng 1 tuần (7 ngày)", null);
+        }
+
+        Counsellor counsellor = counsellorRepo
+                .findByAccountId(accountRepo.findByEmail(email).get().getId());
+
+        List<CounsellorSlot> counsellorSlotList =
+                counsellorSlotRepo.findByCounsellorIdAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+                        counsellor.getId(),
+                        endDate,
+                        startDate
+                );
+
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        for (CounsellorSlot counsellorSlot : counsellorSlotList) {
+
+            CampusScheduleTemplate scheduleTemplate = counsellorSlot.getCampusScheduleTemplate();
+
+            LocalDate slotDate = getDateByDayOfWeek(
+                    startDate,
+                    endDate,
+                    scheduleTemplate.getDayOfWeek()
+            );
+
+            if (slotDate == null) continue;
+
+            Status status = getSlotStatus(
+                    slotDate,
+                    scheduleTemplate.getStartTime(),
+                    scheduleTemplate.getEndTime()
+            );
+
+            Map<String, Object> slotMap = new HashMap<>();
+            slotMap.put("counsellorSlotId", counsellorSlot.getId());
+            slotMap.put("counsellorId", counsellor.getId());
+            slotMap.put("campusScheduleTemplateId", scheduleTemplate.getId());
+            slotMap.put("date", slotDate);
+            slotMap.put("dayOfWeek", scheduleTemplate.getDayOfWeek());
+            slotMap.put("startTime", scheduleTemplate.getStartTime());
+            slotMap.put("endTime", scheduleTemplate.getEndTime());
+            slotMap.put("status", status);           // UPCOMING / ONGOING / PAST
+            slotMap.put("statusLabel", status.getValue());  // Tiếng Việt
+
+            result.add(slotMap);
+        }
+
+        result.sort(
+                Comparator
+                        .comparing((Map<String, Object> m) -> (LocalDate) m.get("date"))
+                        .thenComparing(m -> (LocalTime) m.get("startTime"))
+        );
+
+        return ResponseBuilder.build(HttpStatus.OK, "", result);
+    }
+
+    private LocalDate getDateByDayOfWeek(LocalDate startDate, LocalDate endDate, String dayOfWeek) {
+        LocalDate date = startDate;
+
+        while (!date.isAfter(endDate)) {
+            if (date.getDayOfWeek().name().substring(0, 3).equals(dayOfWeek)) {
+                return date;
+            }
+            date = date.plusDays(1);
+        }
+
+        return null;
+    }
+
+    private Status getSlotStatus(LocalDate slotDate, LocalTime startTime, LocalTime endTime) {
+
+        LocalDateTime now = LocalDateTime.now();
+
+        LocalDateTime startDateTime = LocalDateTime.of(slotDate, startTime);
+        LocalDateTime endDateTime = LocalDateTime.of(slotDate, endTime);
+
+        if (now.isBefore(startDateTime)) {
+            return Status.UPCOMING;
+        }
+
+        if (now.isAfter(endDateTime)) {
+            return Status.PAST;
+        }
+
+        return Status.ONGOING;
+    }
 
     @Override
     public ResponseEntity<ResponseObject> getConversations(String status, Long cursorId) {

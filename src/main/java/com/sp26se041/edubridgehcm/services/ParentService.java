@@ -4,11 +4,13 @@ import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
 import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
 import com.sp26se041.edubridgehcm.requests.AutoFillTranscriptRequest;
+import com.sp26se041.edubridgehcm.requests.CreateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import org.springframework.http.ResponseEntity;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public interface ParentService {
@@ -41,4 +43,8 @@ public interface ParentService {
     ResponseEntity<ResponseObject> createConversation(CreateConversationRequest request);
 
     List<String> findCounsellorEmailsByCampusId(int campusId);
+
+    ResponseEntity<ResponseObject> getSlots(int campusId, LocalDate startDate, LocalDate endDate);
+
+    ResponseEntity<ResponseObject> createConsultationOfflineRequest(CreateConsultationOfflineRequest request);
 }

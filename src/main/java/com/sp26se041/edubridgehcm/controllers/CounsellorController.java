@@ -6,6 +6,7 @@ import com.sp26se041.edubridgehcm.services.ParentService;
 import com.sp26se041.edubridgehcm.services.WebSocketService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +15,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/v1/counsellor")
@@ -36,6 +39,13 @@ public class CounsellorController {
     @PreAuthorize("hasRole('COUNSELLOR')")
     public ResponseEntity<?> getConversations(@RequestParam String status, @RequestParam (required = false) Long cursorId){
         return counsellorService.getConversations(status, cursorId);
+    }
+
+    @GetMapping("/calendar")
+    @PreAuthorize("hasRole('COUNSELLOR')")
+    public ResponseEntity<ResponseObject> getCounsellorCalendar(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+                                                                @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate){
+        return counsellorService.getCounsellorCalendar(startDate, endDate);
     }
 
     @PutMapping("/messages/read/{conversationId}/{username}")
