@@ -211,8 +211,9 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, createPricePolicyError, null);
         }
 
-        LocalDate effectiveOpenDate = (request.getOpenDate() != null) ? request.getOpenDate() : campaign.getStartDate();
-        LocalDate effectiveCloseDate = (request.getCloseDate() != null) ? request.getCloseDate() : campaign.getEndDate();
+        // Offering luôn bám theo khung thời gian chiến dịch, không nhận ngày riêng từ FE.
+        LocalDate effectiveOpenDate = campaign.getStartDate();
+        LocalDate effectiveCloseDate = campaign.getEndDate();
 
         // 3. Calculate Final Tuition
         // Formula: Final = Base * (1 + % / 100)
@@ -344,8 +345,8 @@ public class CampusServiceImpl implements CampusService {
                 usedQuota,
                 offering.getApplicationStatus(),
                 configuredQuota,
-                request.getOpenDate() != null ? request.getOpenDate() : offering.getOpenDate(),
-                request.getCloseDate() != null ? request.getCloseDate() : offering.getCloseDate(),
+                targetCampaign.getStartDate(),
+                targetCampaign.getEndDate(),
                 request.getLearningMode() != null ? request.getLearningMode() : offering.getLearningMode(),
                 campusProgramOfferingRepo
         );
@@ -405,8 +406,8 @@ public class CampusServiceImpl implements CampusService {
 
         offering.setPriceAdjustmentPercentage(storedAdjustmentRatio);
         offering.setFinalTuitionFee(targetFinalTuition.setScale(0, RoundingMode.HALF_UP));
-        offering.setOpenDate(request.getOpenDate() != null ? request.getOpenDate() : offering.getOpenDate());
-        offering.setCloseDate(request.getCloseDate() != null ? request.getCloseDate() : offering.getCloseDate());
+        offering.setOpenDate(targetCampaign.getStartDate());
+        offering.setCloseDate(targetCampaign.getEndDate());
 
         campusProgramOfferingRepo.save(offering);
 
