@@ -3,6 +3,7 @@ package com.sp26se041.edubridgehcm.services;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
 import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
+import com.sp26se041.edubridgehcm.requests.AutoFillTranscriptRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -24,6 +25,8 @@ public interface ParentService {
     ResponseEntity<ResponseObject> addStudentInfo(AddStudentInfoRequest request);
     ResponseEntity<ResponseObject> updateStudentInfo(UpdateStudentInfoRequest request);
     ResponseEntity<ResponseObject> getStudents();
+
+    ResponseEntity<ResponseObject> autoFillTranscript(AutoFillTranscriptRequest request);
 
     ResponseEntity<ResponseObject> getStudentInfo(int studentProfileId);
 

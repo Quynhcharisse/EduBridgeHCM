@@ -3,6 +3,7 @@ package com.sp26se041.edubridgehcm.controllers;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
 import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
+import com.sp26se041.edubridgehcm.requests.AutoFillTranscriptRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -161,8 +162,8 @@ public class ParentController {
 
     @PostMapping("/transcript/auto/fill")
     @PreAuthorize("hasRole('PARENT')")
-    public ResponseEntity<ResponseObject> autoFillTranscript() {
-        return null;
+    public ResponseEntity<ResponseObject> autoFillTranscript(@RequestBody AutoFillTranscriptRequest request) {
+        return parentService.autoFillTranscript(request);
     }
 
     @GetMapping("/student")
@@ -176,6 +177,5 @@ public class ParentController {
     public ResponseEntity<ResponseObject> getStudentInfoById(@PathVariable int id) {
         return parentService.getStudentInfo(id);
     }
-
 
 }
