@@ -39,7 +39,7 @@ public class ConsultationOfflineRequest {
     @Column(name = "phone")
     String phone;
 
-    @Column(name = "question")
+    @Column(name = "question", length = 1100)
     String question;
 
     @Column(name = "note")
