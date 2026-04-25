@@ -1681,15 +1681,7 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         if (requestTimelines == null || requestTimelines.isEmpty()) {
-            return allowedByCode.values().stream().map(method -> {
-                Map<String, Object> timeline = new LinkedHashMap<>();
-                timeline.put("methodCode", method.get("code"));
-                timeline.put("displayName", method.get("displayName"));
-                timeline.put("description", method.get("description"));
-                timeline.put("startDate", campaignStartDate);
-                timeline.put("endDate", campaignEndDate);
-                return timeline;
-            }).collect(Collectors.toList());
+            throw new IllegalArgumentException("Chiến dịch phải có ít nhất 1 phương thức tuyển sinh.");
         }
 
         Set<String> seenCodes = new HashSet<>();
@@ -1730,10 +1722,6 @@ public class SchoolServiceImpl implements SchoolService {
             timeline.put("startDate", methodStartDate);
             timeline.put("endDate", methodEndDate);
             resolved.add(timeline);
-        }
-
-        if (resolved.size() != allowedByCode.size()) {
-            throw new IllegalArgumentException("Vui lòng khai báo đủ thời gian cho tất cả phương thức tuyển sinh đã cấu hình");
         }
 
         return resolved;
