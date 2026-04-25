@@ -21,6 +21,7 @@ public class AddStudentInfoRequest {
     String personalityTypeCode;
     String favouriteJob;
     List<AcademicInfo> academicInfos;
+    List<TranscriptImage> transcriptImages;
 
     @Data
     @NoArgsConstructor
@@ -31,6 +32,17 @@ public class AddStudentInfoRequest {
         List<SubjectResult>  subjectResults;
         String gradeLevel;
     }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class TranscriptImage {
+         String grade;
+         String imageUrl;
+    }
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

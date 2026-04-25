@@ -236,10 +236,6 @@ public class EduBridgeHcmApplication {
         subjectRepo.save(Subject.builder().name("Khoa học tự nhiên").type(SubjectType.REGULAR_SUBJECT).build());
         subjectRepo.save(Subject.builder().name("Công nghệ").type(SubjectType.REGULAR_SUBJECT).build());
         subjectRepo.save(Subject.builder().name("Tin học").type(SubjectType.REGULAR_SUBJECT).build());
-        subjectRepo.save(Subject.builder().name("Giáo dục thể chất").type(SubjectType.REGULAR_SUBJECT).build());
-        subjectRepo.save(Subject.builder().name("Nghệ thuật (Âm nhạc, Mĩ thuật)").type(SubjectType.REGULAR_SUBJECT).build());
-        subjectRepo.save(Subject.builder().name("Hoạt động trải nghiệm, hướng nghiệp").type(SubjectType.REGULAR_SUBJECT).build());
-        subjectRepo.save(Subject.builder().name("Nội dung giáo dục của địa phương").type(SubjectType.REGULAR_SUBJECT).build());
 
         subjectRepo.save(Subject.builder().name("Anh Văn").type(SubjectType.FOREIGN_LANGUAGE_SUBJECT).build());
         subjectRepo.save(Subject.builder().name("Tiếng Pháp").type(SubjectType.FOREIGN_LANGUAGE_SUBJECT).build());

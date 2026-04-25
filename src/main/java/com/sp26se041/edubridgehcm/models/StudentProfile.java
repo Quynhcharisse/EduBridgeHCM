@@ -63,6 +63,10 @@ public class StudentProfile {
     @Column(name = "favourite_job")
     String favouriteJob;
 
+    @Type(JsonBinaryType.class)
+    @Column(columnDefinition = "jsonb")
+    Object transcriptImages;
+
     @OneToMany(mappedBy = "studentProfile", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude

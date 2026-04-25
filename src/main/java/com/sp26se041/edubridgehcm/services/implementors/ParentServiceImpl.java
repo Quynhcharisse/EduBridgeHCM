@@ -30,6 +30,7 @@ import com.sp26se041.edubridgehcm.repositories.StudentInfoRepo;
 import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
 import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
 import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
+import com.sp26se041.edubridgehcm.requests.AutoFillTranscriptRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
@@ -42,11 +43,19 @@ import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.RestTemplate;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -91,7 +100,7 @@ public class ParentServiceImpl implements ParentService {
 
     private final CounsellorRepo counsellorRepo;
 
-
+    private final RestTemplate restTemplate = new RestTemplate();
 
     @Override
     public  ResponseEntity<ResponseObject> getConversations(Long cursorId) {
@@ -221,6 +230,122 @@ public class ParentServiceImpl implements ParentService {
                 "",
                 result
         );
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> autoFillTranscript(AutoFillTranscriptRequest request) {
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+
+        List<Map<String, Object>> items = request.getImages()
+                .stream()
+                .map(item -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("gradeLevel", item.getGradeLevel());
+                    map.put("imageUrl", item.getImageUrl());
+                    return map;
+                })
+                .toList();;
+
+        payload.put("images", items);
+        payload.put("subjectsInSystem", getSubjects());
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+
+        try {
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    "https://n8n-service-ijbl.onrender.com/webhook/ocr-academic",
+                    entity,
+                    String.class
+            );
+
+            String rawBody = response.getBody();
+
+            if (rawBody == null || rawBody.isBlank()) {
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_GATEWAY,
+                        "n8n không trả dữ liệu",
+                        null
+                );
+            }
+
+            ObjectMapper objectMapper = new ObjectMapper();
+
+            Map<String, Object> responseBody = objectMapper.readValue(
+                    rawBody,
+                    new TypeReference<>() {
+                    }
+            );
+
+            String message = responseBody.get("message") != null
+                    ? responseBody.get("message").toString()
+                    : "Thành công";
+
+            Object body = responseBody.get("body");
+
+            return ResponseBuilder.build(
+                    HttpStatus.OK,
+                    message,
+                    body
+            );
+
+        } catch (HttpClientErrorException e) {
+            String rawError = e.getResponseBodyAsString();
+
+            if (rawError == null || rawError.isBlank()) {
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_REQUEST,
+                        "Yêu cầu không hợp lệ",
+                        null
+                );
+            }
+
+            try {
+                ObjectMapper objectMapper = new ObjectMapper();
+
+                Map<String, Object> errorBody = objectMapper.readValue(
+                        rawError,
+                        new TypeReference<>() {
+                        }
+                );
+
+                String message = errorBody.get("message") != null
+                        ? errorBody.get("message").toString()
+                        : "Yêu cầu không hợp lệ";
+
+                Object body = errorBody.get("body");
+
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_REQUEST,
+                        message,
+                        body
+                );
+            } catch (Exception ex) {
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_REQUEST,
+                        rawError,
+                        null
+                );
+            }
+
+        } catch (HttpServerErrorException e) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_GATEWAY,
+                    "n8n đang lỗi phía server",
+                    null
+            );
+
+        } catch (Exception e) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_GATEWAY,
+                    "Không gọi được n8n workflow: " + e.getMessage(),
+                    null
+            );
+        }
+
     }
 
     @Override
@@ -411,6 +536,7 @@ public class ParentServiceImpl implements ParentService {
         Optional<PersonalityType> personalityType =
                 personalityTypeRepo.findByCode(studentProfile.getPersonalityTypeName());
 
+
         Map<String, Object> result = new HashMap<>();
         result.put("id", studentProfile.getId());
         result.put("studentName", studentProfile.getStudentName());
@@ -423,9 +549,11 @@ public class ParentServiceImpl implements ParentService {
         result.put("traits",
                 personalityType.map(PersonalityType::getTraits).orElse(List.of()));
         result.put("subjectsInSystem", getSubjects());
+        result.put("transcriptImages", studentProfile.getTranscriptImages());
 
         return result;
     }
+
 
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
@@ -451,6 +579,7 @@ public class ParentServiceImpl implements ParentService {
         List<Map<String, Object>> academicProfileMetaData = new ArrayList<>();
 
         if (request.getAcademicInfos() != null) {
+
             for (AddStudentInfoRequest.AcademicInfo academicInfo : request.getAcademicInfos()) {
 
                 // academicInfo null -> bỏ qua
@@ -480,6 +609,7 @@ public class ParentServiceImpl implements ParentService {
                 List<Map<String, Object>> subjectResultList = new ArrayList<>();
 
                 if (subjectResults != null) {
+
                     for (AddStudentInfoRequest.SubjectResult subjectResult : subjectResults) {
 
                         // subjectResult null -> bỏ qua
@@ -516,9 +646,20 @@ public class ParentServiceImpl implements ParentService {
             }
         }
 
+        List<Map<String, Object>> transcriptImages = request.getTranscriptImages()
+                .stream()
+                .map(item -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("grade", item.getGrade());
+                    map.put("imageUrl", item.getImageUrl());
+                    return map;
+                })
+                .toList();
+
         studentInfoRepo.save(StudentProfile.builder()
                 .studentName(normalize(request.getStudentName()))
                 .parent(account.getParent())
+                .transcriptImages(transcriptImages)
                 .favouriteJob(normalize(request.getFavouriteJob()))
                 .gender(Gender.valueOf(normalize(request.getGender())))
                 .personalityTypeName(normalize(request.getPersonalityTypeCode()))
@@ -612,11 +753,22 @@ public class ParentServiceImpl implements ParentService {
             }
         }
 
+        List<Map<String, Object>> transcriptImages = request.getTranscriptImages()
+                .stream()
+                .map(item -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("grade", item.getGrade());
+                    map.put("imageUrl", item.getImageUrl());
+                    return map;
+                })
+                .toList();
+
         studentProfile.setStudentName(normalize(request.getStudentName()));
         studentProfile.setGender(parseGender(request.getGender()));
         studentProfile.setFavouriteJob(normalize(request.getFavouriteJob()));
         studentProfile.setPersonalityTypeName(normalize(request.getPersonalityTypeCode()));
         studentProfile.setAcademicProfileMetadata(academicProfileMetaData);
+        studentProfile.setTranscriptImages(transcriptImages);
 
         studentInfoRepo.save(studentProfile);
 
