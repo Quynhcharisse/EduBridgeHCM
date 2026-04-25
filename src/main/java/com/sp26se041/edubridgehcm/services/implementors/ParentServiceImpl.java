@@ -6,7 +6,9 @@ import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.enums.SubjectType;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
+import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
+import com.sp26se041.edubridgehcm.models.ConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.models.Conversation;
 import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.FavouriteSchool;
@@ -18,7 +20,9 @@ import com.sp26se041.edubridgehcm.models.StudentProfile;
 import com.sp26se041.edubridgehcm.models.Subject;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
 import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
+import com.sp26se041.edubridgehcm.repositories.ConsultationOfflineRequestRepo;
 import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.FavouriteSchoolRepo;
@@ -31,6 +35,7 @@ import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
 import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
 import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
 import com.sp26se041.edubridgehcm.requests.AutoFillTranscriptRequest;
+import com.sp26se041.edubridgehcm.requests.CreateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
@@ -57,7 +62,10 @@ import org.springframework.web.client.RestTemplate;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -101,6 +109,8 @@ public class ParentServiceImpl implements ParentService {
     private final CounsellorRepo counsellorRepo;
 
     private final RestTemplate restTemplate = new RestTemplate();
+    private final CampusScheduleTemplateRepo campusScheduleTemplateRepo;
+    private final ConsultationOfflineRequestRepo consultationOfflineRequestRepo;
 
     @Override
     public  ResponseEntity<ResponseObject> getConversations(Long cursorId) {
@@ -504,6 +514,157 @@ public class ParentServiceImpl implements ParentService {
                 .map(Account::getEmail)
                 .collect(Collectors.toList());
 
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getSlots(int campusId, LocalDate startDate, LocalDate endDate) {
+
+        if (startDate.getDayOfWeek() != DayOfWeek.MONDAY) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "startDate phải là Thứ 2", null);
+        }
+
+        if (endDate.getDayOfWeek() != DayOfWeek.SUNDAY) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "endDate phải là Chủ nhật", null);
+        }
+
+        if (endDate.isBefore(startDate)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "endDate phải > startDate", null);
+        }
+
+        if (!startDate.plusDays(6).equals(endDate)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Phải chọn đúng 1 tuần (7 ngày)", null);
+        }
+
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        List<CampusScheduleTemplate> campusScheduleTemplates = campusScheduleTemplateRepo.findByCampusIdAndActiveTrueOrderByStartTimeAsc(campusId);
+
+        for (CampusScheduleTemplate campusScheduleTemplate : campusScheduleTemplates) {
+
+            LocalDate slotDate = getDateByDayOfWeek(
+                    startDate,
+                    endDate,
+                    campusScheduleTemplate.getDayOfWeek()
+            );
+            if (slotDate == null) continue;
+
+            Status status = getSlotStatus(
+                    slotDate,
+                    campusScheduleTemplate.getStartTime(),
+                    campusScheduleTemplate.getEndTime()
+            );
+
+            Map<String, Object> slotMap = new HashMap<>();
+            slotMap.put("campusScheduleTemplateId", campusScheduleTemplate.getId());
+            slotMap.put("date", slotDate);
+            slotMap.put("dayOfWeek", campusScheduleTemplate.getDayOfWeek());
+            slotMap.put("startTime", campusScheduleTemplate.getStartTime());
+            slotMap.put("endTime", campusScheduleTemplate.getEndTime());
+            slotMap.put("status", status);
+            slotMap.put("statusLabel", status.getValue());
+
+            result.add(slotMap);
+
+        }
+        result.sort(
+                Comparator
+                        .comparing((Map<String, Object> m) -> (LocalDate) m.get("date"))
+                        .thenComparing(m -> (LocalTime) m.get("startTime"))
+        );
+
+        return ResponseBuilder.build(HttpStatus.OK, "", result);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> createConsultationOfflineRequest(CreateConsultationOfflineRequest request) {
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        Optional<Parent> parent = parentRepo.findByAccount_Email(email);
+
+        if (parent.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "Tài khoản phụ huynh không tồn tại", null);
+        }
+
+        if (request.getPhone() == null || request.getPhone().isBlank()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Số điện thoại không được để trống", null);
+        }
+
+        if (!request.getPhone().matches("^(0|\\+84)(3|5|7|8|9)[0-9]{8}$")) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Số điện thoại không hợp lệ", null);
+        }
+
+        if (request.getQuestion() == null || request.getQuestion().isBlank()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Câu hỏi tư vấn không được để trống", null);
+        }
+
+        if (request.getQuestion().length() > 1000) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Câu hỏi tư vấn không được vượt quá 1000 ký tự", null);
+        }
+
+        if (request.getAppointmentDate() == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Ngày hẹn tư vấn không được để trống", null);
+        }
+
+        if (request.getAppointmentTime() == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Giờ hẹn tư vấn không được để trống", null);
+        }
+
+        LocalDateTime appointmentDateTime = LocalDateTime.of(
+                request.getAppointmentDate(),
+                request.getAppointmentTime()
+        );
+
+        if (appointmentDateTime.isBefore(LocalDateTime.now())) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Thời gian hẹn phải lớn hơn thời gian hiện tại", null);
+        }
+
+        ConsultationOfflineRequest consultationOfflineRequest = ConsultationOfflineRequest.builder()
+                .appointmentDate(request.getAppointmentDate())
+                .parent(parent.get())
+                .phone(request.getPhone().trim())
+                .question(request.getQuestion().trim())
+                .appointmentTime(request.getAppointmentTime())
+                .appointmentDate(request.getAppointmentDate())
+                .createdDate(LocalDate.now())
+                .status(Status.CONSULTATION_PENDING)
+                .build();
+
+        consultationOfflineRequestRepo.save(consultationOfflineRequest);
+
+        return ResponseBuilder.build(HttpStatus.CREATED, "", null);
+
+    }
+
+    private LocalDate getDateByDayOfWeek(LocalDate startDate, LocalDate endDate, String dayOfWeek) {
+        LocalDate date = startDate;
+
+        while (!date.isAfter(endDate)) {
+            if (date.getDayOfWeek().name().substring(0, 3).equals(dayOfWeek)) {
+                return date;
+            }
+            date = date.plusDays(1);
+        }
+
+        return null;
+    }
+
+    private Status getSlotStatus(LocalDate slotDate, LocalTime startTime, LocalTime endTime) {
+
+        LocalDateTime now = LocalDateTime.now();
+
+        LocalDateTime startDateTime = LocalDateTime.of(slotDate, startTime);
+        LocalDateTime endDateTime = LocalDateTime.of(slotDate, endTime);
+
+        if (now.isBefore(startDateTime)) {
+            return Status.UPCOMING;
+        }
+
+        if (now.isAfter(endDateTime)) {
+            return Status.PAST;
+        }
+
+        return Status.ONGOING;
     }
 
     private Map<String, Object> buildFavouriteSchool(FavouriteSchool favouriteSchool) {

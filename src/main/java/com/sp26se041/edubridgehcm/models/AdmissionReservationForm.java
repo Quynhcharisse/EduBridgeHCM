@@ -40,4 +40,5 @@ public class AdmissionReservationForm {
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     Status status;
+
 }

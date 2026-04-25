@@ -47,4 +47,6 @@ public interface CounsellorSlotRepo extends JpaRepository<CounsellorSlot, Intege
             LocalDate end,
             List<Status> statuses
     );
+
+    List<CounsellorSlot> findByCounsellorIdAndStartDateLessThanEqualAndEndDateGreaterThanEqual(Integer counsellorId, LocalDate startDateIsLessThan, LocalDate endDateIsGreaterThan);
 }
