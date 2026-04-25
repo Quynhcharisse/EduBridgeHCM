@@ -23,8 +23,6 @@ public interface CampusService {
 
     ResponseEntity<ResponseObject> updateCampusProgramOffering(UpdateCampusProgramOfferingRequest request);
 
-    ResponseEntity<ResponseObject> closeCampusProgramOffering(Integer offeringId);
-
     ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(int offeringId, OfferingProgramAction action);
 
     ResponseEntity<ResponseObject> createAccountCounsellor(CreateAccountCounsellorRequest request);

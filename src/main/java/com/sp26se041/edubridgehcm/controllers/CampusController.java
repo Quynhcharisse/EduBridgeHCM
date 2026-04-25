@@ -2,10 +2,10 @@ package com.sp26se041.edubridgehcm.controllers;
 
 import com.sp26se041.edubridgehcm.enums.OfferingProgramAction;
 import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
-import com.sp26se041.edubridgehcm.requests.ReassignConsultationsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.ReassignConsultationsRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -52,7 +52,7 @@ public class CampusController {
         return campusService.viewCampusProgramOfferingList(campusId, page, pageSize);
     }
 
-    @PutMapping("/offering/list")
+    @PutMapping("/offering")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> updateCampusProgramOffering(@RequestBody UpdateCampusProgramOfferingRequest request) {
         return campusService.updateCampusProgramOffering(request);
@@ -62,12 +62,6 @@ public class CampusController {
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(@PathVariable int offeringId, @RequestParam OfferingProgramAction action) {
         return campusService.changeCampusProgramOfferingStatus(offeringId, action);
-    }
-
-    @PutMapping("/{offeringId}/offering/close")
-    @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> closeCampusProgramOffering(@PathVariable int offeringId) {
-        return campusService.closeCampusProgramOffering(offeringId);
     }
 
     @PostMapping("/counsellor")
