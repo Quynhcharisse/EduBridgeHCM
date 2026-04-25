@@ -49,7 +49,6 @@ public class CounsellorSlot {
     @JoinColumn(name = "`counsellor_id`")
     Counsellor counsellor;
 
-    /** Chiến dịch tuyển sinh — phạm vi gán lịch; bản ghi cũ có thể null trước khi migrate. */
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "admission_campaign_id")
     AdmissionCampaign admissionCampaign;
