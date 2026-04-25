@@ -1,6 +1,6 @@
 package com.sp26se041.edubridgehcm.services;
 
-import com.sp26se041.edubridgehcm.enums.Status;
+import com.sp26se041.edubridgehcm.enums.OfferingProgramAction;
 import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.ReassignConsultationsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
@@ -25,7 +25,7 @@ public interface CampusService {
 
     ResponseEntity<ResponseObject> closeCampusProgramOffering(Integer offeringId);
 
-    ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(int offeringId, Status targetStatus);
+    ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(int offeringId, OfferingProgramAction action);
 
     ResponseEntity<ResponseObject> createAccountCounsellor(CreateAccountCounsellorRequest request);
 

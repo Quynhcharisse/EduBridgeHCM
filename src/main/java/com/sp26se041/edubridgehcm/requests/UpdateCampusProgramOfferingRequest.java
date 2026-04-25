@@ -29,6 +29,8 @@ public class UpdateCampusProgramOfferingRequest {
 
     LearningMode learningMode;
 
+    Float priceAdjustmentPercentage;
+
     BigDecimal tuitionFee;
 
     LocalDate openDate;

@@ -63,7 +63,7 @@ public class CampusProgramOfferingValidation {
             return "Không tìm thấy chương trình đào tạo";
         }
 
-        if (!program.getStatus().equals(Status.PRO_INACTIVE)) {
+        if (program.getStatus().equals(Status.PRO_INACTIVE)) {
             return "Chương trình đào tạo hiện không hoạt động";
         }
 
@@ -217,9 +217,11 @@ public class CampusProgramOfferingValidation {
             return "Cơ sở này đã có suất tuyển sinh tương tự trong chiến dịch này";
         }
 
-        BigDecimal targetTuition = request.getTuitionFee() != null ? request.getTuitionFee() : offering.getFinalTuitionFee();
+        if (request.getPriceAdjustmentPercentage() != null && request.getPriceAdjustmentPercentage() < -100) {
+            return "Phần trăm điều chỉnh không thể làm học phí trở thành số âm";
+        }
 
-        if (targetTuition.signum() < 0) {
+        if (request.getTuitionFee() != null && request.getTuitionFee().signum() < 0) {
             return "Học phí phải lớn hơn hoặc bằng 0";
         }
 

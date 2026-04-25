@@ -2,6 +2,7 @@ package com.sp26se041.edubridgehcm.enums;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import java.util.Set;
 
 @Getter
 @RequiredArgsConstructor
@@ -94,7 +95,17 @@ public enum Status {
     CANCELLED("cancelled"),
     AVAILABLE("available"),
     DISABLED("disabled"),
-    SLOT_UNASSIGNED("slot_unassigned");
+    SLOT_UNASSIGNED("slot_unassigned"),
+
+    //With status for admission reservation form (đơn giữ chỗ)
+    RESERVATION_OPEN("reservation_open"),
+    RESERVATION_DRAFT("reservation_draft"),
+    RESERVATION_PAYMENT_PENDING("reservation_payment_pending"),
+    RESERVATION_PAYMENT_SUCCESS("reservation_payment_success"),
+    RESERVATION_PAYMENT_FAILED("reservation_payment_failed"),
+    RESERVATION_CANCELLED("reservation_cancelled"),
+    RESERVATION_REJECTED("reservation_rejected");
+
 
     private final String value;
 
@@ -109,5 +120,17 @@ public enum Status {
             case FEATURE_AVAILABLE -> "Tính năng sẵn dùng.";
             default -> "";
         };
+    }
+
+    /**
+     * Trạng thái đơn giữ chỗ còn hiệu lực để tính quota.
+     */
+    public static Set<Status> activeReservationStatuses() {
+        return Set.of(
+                RESERVATION_OPEN,
+                RESERVATION_DRAFT,
+                RESERVATION_PAYMENT_PENDING,
+                RESERVATION_PAYMENT_SUCCESS
+        );
     }
 }
