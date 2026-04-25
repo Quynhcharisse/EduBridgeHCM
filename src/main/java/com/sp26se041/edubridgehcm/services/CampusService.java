@@ -2,6 +2,7 @@ package com.sp26se041.edubridgehcm.services;
 
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
+import com.sp26se041.edubridgehcm.requests.ReassignConsultationsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
@@ -42,7 +43,9 @@ public interface CampusService {
 
     ResponseEntity<ResponseObject> syncCounsellorIntoSlots(AssignCounsellorIntoSlotsRequest request);
 
-    ResponseEntity<ResponseObject> getAvailableSlots(LocalDate targetDate);
+    ResponseEntity<ResponseObject> getAvailableSlots(LocalDate targetDate, Integer campaignId);
+
+    ResponseEntity<ResponseObject> reassignConsultationRequests(ReassignConsultationsRequest request);
 
     ResponseEntity<ResponseObject> getAssignedSlots(Integer counsellorId);
 

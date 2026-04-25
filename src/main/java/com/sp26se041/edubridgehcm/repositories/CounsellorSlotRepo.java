@@ -29,6 +29,8 @@ public interface CounsellorSlotRepo extends JpaRepository<CounsellorSlot, Intege
 
     List<CounsellorSlot> findByCampusScheduleTemplate_Campus_Id(Integer campusId);
 
+    List<CounsellorSlot> findByCampusScheduleTemplate_Id(Integer templateId);
+
     // Trường hợp 1: Dành cho Holiday của riêng 1 Campus
     long countByCounsellorCampusSchoolIdAndCounsellorCampusIdAndStartDateBetweenAndStatusIn(
             Integer schoolId,

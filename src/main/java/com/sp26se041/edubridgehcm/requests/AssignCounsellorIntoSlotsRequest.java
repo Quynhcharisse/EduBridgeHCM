@@ -23,6 +23,8 @@ public class AssignCounsellorIntoSlotsRequest {
 
     List<Integer> slotIds;
 
+    Integer campaignId;
+
     LocalDate startDate;
 
     LocalDate endDate;
