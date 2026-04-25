@@ -41,3 +41,4 @@ public class AdmissionReservationForm {
     @Column(name = "status")
     Status status;
 
+}
