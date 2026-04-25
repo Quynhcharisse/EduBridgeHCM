@@ -382,35 +382,6 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
 
         SchoolConfigRequest.OperationSettingsData operationSettingsData = request.getOperationSettingsData();
 
-        Map<String, Object> academicCalendarMap = new HashMap<>();
-        if (operationSettingsData.getAcademicCalendar() != null) {
-            var calendar = operationSettingsData.getAcademicCalendar();
-
-            if (calendar.getTerm1() != null && calendar.getTerm2() != null) {
-                LocalDate endT1 = calendar.getTerm1().getEnd();
-                LocalDate startT2 = calendar.getTerm2().getStart();
-
-                // check cả 2 date khác null trước khi so sánh
-                if (endT1 != null && startT2 != null && !endT1.isBefore(startT2)) {
-                    throw new IllegalArgumentException("Học kỳ 1 (" + endT1 + ") phải kết thúc trước khi Học kỳ 2 (" + startT2 + ") bắt đầu.");
-                }
-            }
-
-            if (calendar.getTerm1() != null) {
-                Map<String, Object> term1 = new HashMap<>();
-                term1.put("start", calendar.getTerm1().getStart());
-                term1.put("end", calendar.getTerm1().getEnd());
-                academicCalendarMap.put("term1", term1);
-            }
-
-            if (calendar.getTerm2() != null) {
-                Map<String, Object> term2 = new HashMap<>();
-                term2.put("start", calendar.getTerm2().getStart());
-                term2.put("end", calendar.getTerm2().getEnd());
-                academicCalendarMap.put("term2", term2);
-            }
-        }
-
         // 2. Map Working Config (Giờ làm việc)
         Map<String, Object> workingConfigMap = new HashMap<>();
         if (operationSettingsData.getWorkingConfig() != null) {
@@ -468,7 +439,6 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         // allowBookingBeforeHours ==> Trường cần thời gian chuẩn bị phòng thi/hồ sơ phỏng vấn
         // ==> không cho phép học sinh đặt lịch hôm nay để thi ngay hôm nay.
         operationJson.put("workingConfig", workingConfigMap);
-        operationJson.put("academicCalendar", academicCalendarMap);
         operationJson.put("admissionSeasons", seasonsJson);
 
         SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "operationSettingsData")

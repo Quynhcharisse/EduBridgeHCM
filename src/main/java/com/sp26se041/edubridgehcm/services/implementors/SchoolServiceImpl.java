@@ -1569,11 +1569,11 @@ public class SchoolServiceImpl implements SchoolService {
                     "methodDocumentRequirements",
                     docsByMethod.getOrDefault(methodCode.toLowerCase(Locale.ROOT), Collections.emptyList())
             );
-            methodDetail.put("mandatoryAll", mandatoryAll);
             methodDetails.add(methodDetail);
         }
 
         data.put("admissionMethodDetails", methodDetails);
+        data.put("mandatoryAll", mandatoryAll);
         return data;
     }
 
