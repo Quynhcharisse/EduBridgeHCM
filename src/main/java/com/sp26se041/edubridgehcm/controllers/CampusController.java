@@ -2,6 +2,7 @@ package com.sp26se041.edubridgehcm.controllers;
 
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
+import com.sp26se041.edubridgehcm.requests.ReassignConsultationsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
@@ -119,8 +120,16 @@ public class CampusController {
     }
 
     @GetMapping("/counsellor/slot/available")
-    public ResponseEntity<ResponseObject> getAvailableSlots(LocalDate targetDate) {
-        return campusService.getAvailableSlots(targetDate);
+    public ResponseEntity<ResponseObject> getAvailableSlots(
+            @RequestParam LocalDate targetDate,
+            @RequestParam(required = false) Integer campaignId) {
+        return campusService.getAvailableSlots(targetDate, campaignId);
+    }
+
+    @PostMapping("/counsellor/consultations/reassign")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> reassignConsultations(@RequestBody ReassignConsultationsRequest request) {
+        return campusService.reassignConsultationRequests(request);
     }
 
     @GetMapping("/counsellor/slots/assigned")

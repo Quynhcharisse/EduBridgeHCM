@@ -139,7 +139,6 @@ public class SchoolConfigRequest {
         int maxBookingPerSlot;       // Số học sinh tối đa trong 1 ca
         int allowBookingBeforeHours; // Chặn đặt lịch sát giờ (ví dụ: phải đặt trước 24h)
         WorkingConfig workingConfig; //Default Policy (Quy tắc nền) ==> áp dụng 365 ngày
-        AcademicCalendarConfig academicCalendar;
         //Danh sách các mùa tuyển sinh/chiến dịch đặc biệt
         //Override Policy (Quy tắc đè). Nó chỉ tồn tại trong một khoảng thời gian ngắn (ví dụ 1 tháng cao điểm).
         List<AdmissionSeason> admissionSeasons;
@@ -159,22 +158,6 @@ public class SchoolConfigRequest {
         List<WorkShift> extraShifts;     // Các ca làm việc tăng cường (ví dụ ca tối)
         Integer minCounsellorMultiplier; // Hệ số nhân nhân sự (ví dụ x2 người trực)
         String note;                     // Ghi chú chiến dịch
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class AcademicCalendarConfig {
-        SemesterTerm term1;
-        SemesterTerm term2;
-
-        @Data
-        public static class SemesterTerm {
-            LocalDate start;
-            LocalDate end;
-        }
     }
 
     @Data

@@ -4,6 +4,7 @@ import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
 import com.sp26se041.edubridgehcm.models.Counsellor;
+import com.sp26se041.edubridgehcm.models.ConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.models.CounsellorSlot;
 import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.utils.SchoolConfigUtil;
@@ -19,7 +20,8 @@ public class CounsellorSlotValidation {
             Campus campus,
             CampusScheduleTemplate template,
             List<Counsellor> counsellors,
-            List<CounsellorSlot> allCurrentSlots) {
+            List<CounsellorSlot> allCurrentSlots,
+            Integer assignmentCampaignId) {
 
         if (request.getCounsellorIds() == null || request.getCounsellorIds().isEmpty()) {
             return "Danh sách chuyên viên tư vấn (counsellorIds) không được để trống.";
@@ -41,16 +43,6 @@ public class CounsellorSlotValidation {
         }
         boolean isAssign = "ASSIGN".equals(normalizedAction);
 
-        if (isAssign) {
-            if (!SchoolConfigUtil.isWithinAcademicTerms(request.getStartDate(), operatingSettings)) {
-                return "Ngày bắt đầu gán lịch (" + request.getStartDate() + ") nằm ngoài phạm vi học kỳ.";
-            }
-
-            if (!SchoolConfigUtil.isWithinAcademicTerms(request.getEndDate(), operatingSettings)) {
-                return "Ngày kết thúc gán lịch (" + request.getEndDate() + ") nằm ngoài phạm vi học kỳ.";
-            }
-        }
-
         Map<String, Integer> policy = SchoolConfigUtil.getNumericPolicyFromOperationMap(operatingSettings);
 
         if (isAssign) {
@@ -64,12 +56,19 @@ public class CounsellorSlotValidation {
                         maxCap, minRequired);
             }
 
-            // Lấy danh sách chuyên viên ĐÃ CÓ trong ca này (cùng mẫu lịch, cùng ngày); bỏ qua SLOT_UNASSIGNED (đã gỡ khỏi lịch)
+            // Cùng khung theo template + khoảng ngày + (nếu có) cùng chiến dịch — nhiều CV được phép cùng khung.
             List<Integer> existingCounsellorIds = allCurrentSlots.stream()
                     .filter(s -> s.getStatus() != Status.SLOT_UNASSIGNED
                             && s.getCampusScheduleTemplate().getId().equals(template.getId())
                             && s.getStartDate().equals(request.getStartDate())
                             && s.getEndDate().equals(request.getEndDate()))
+                    .filter(s -> {
+                        if (assignmentCampaignId == null) {
+                            return true;
+                        }
+                        Integer cid = s.getAdmissionCampaign() == null ? null : s.getAdmissionCampaign().getId();
+                        return cid == null || cid.equals(assignmentCampaignId);
+                    })
                     .map(s -> s.getCounsellor().getId())
                     .toList();
 
@@ -111,22 +110,51 @@ public class CounsellorSlotValidation {
         return null;
     }
 
-    public static void validateNoActiveConsultation(CounsellorSlot slot) {
-        // Danh sách các trạng thái "đang bận" không được phép xóa/gỡ lịch
-        List<Status> activeStatuses = List.of(
-                Status.CONSULTATION_PENDING,
-                Status.CONSULTATION_CONFIRMED,
-                Status.CONSULTATION_IN_PROGRESS
-        );
+    /**
+     * Trạng thái coi là đã cam kết với phụ huynh: không xóa slot / hủy gán trực tiếp;
+     * cần điều chuyển (re-assign) hoặc xử lý nghiệp vụ khác trước.
+     */
+    public static final List<Status> BLOCKING_CONSULTATION_STATUSES_FOR_UNASSIGN = List.of(
+            Status.CONSULTATION_PENDING,
+            Status.CONSULTATION_CONFIRMED,
+            Status.CONSULTATION_IN_PROGRESS
+    );
 
-        // Kiểm tra trong danh sách đăng ký của Slot đó
-        boolean hasActiveRequests = slot.getConsultationOfflineRequests().stream()
-                .anyMatch(req -> activeStatuses.contains(req.getStatus()));
-
-        if (hasActiveRequests) {
-            throw new IllegalArgumentException(
-                    String.format("Không thể gỡ lịch của %s. Hiện vẫn còn các lịch hẹn đang ở trạng thái Chờ, Đã xác nhận hoặc Đang tiến hành.",
-                            slot.getCounsellor().getName()));
+    public static boolean hasBlockingConsultationRequests(CounsellorSlot slot) {
+        List<ConsultationOfflineRequest> reqs = slot.getConsultationOfflineRequests();
+        if (reqs == null || reqs.isEmpty()) {
+            return false;
         }
+        return reqs.stream().anyMatch(req -> BLOCKING_CONSULTATION_STATUSES_FOR_UNASSIGN.contains(req.getStatus()));
+    }
+
+    /**
+     * Hủy gán / xóa slot: chặn khi đã có phụ huynh đăng ký ở trạng thái chờ, đã xác nhận hoặc đang diễn ra — cần điều chuyển (re-assign) trước.
+     */
+    public static void assertNoBlockingConsultationForUnassignDelete(CounsellorSlot slot) {
+        if (hasBlockingConsultationRequests(slot)) {
+            throw new IllegalArgumentException(
+                    "Không thể hủy lịch vì đã có phụ huynh đăng ký. Vui lòng dời lịch cho phụ huynh trước.");
+        }
+    }
+
+    /**
+     * Khi sửa khung mẫu (template), slot đã gán hoặc lịch hẹn đang xử lý không được đồng bộ tự động — chặn cập nhật.
+     */
+    public static String reasonTemplateUpdateBlocked(List<CounsellorSlot> slotsLinkedToTemplate) {
+        if (slotsLinkedToTemplate == null || slotsLinkedToTemplate.isEmpty()) {
+            return null;
+        }
+        for (CounsellorSlot slot : slotsLinkedToTemplate) {
+            if (slot.getStatus() != null && slot.getStatus() != Status.SLOT_UNASSIGNED) {
+                return "Không thể sửa khung lịch khi đã có slot gán theo khung này (slot không còn trạng thái chưa gán). "
+                        + "Hãy gỡ slot hoặc xử lý xong lịch trước khi chỉnh khung mẫu.";
+            }
+            List<ConsultationOfflineRequest> reqs = slot.getConsultationOfflineRequests();
+            if (reqs != null && reqs.stream().anyMatch(r -> BLOCKING_CONSULTATION_STATUSES_FOR_UNASSIGN.contains(r.getStatus()))) {
+                return "Không thể sửa khung lịch khi còn lịch hẹn ở trạng thái Chờ xác nhận, Đã xác nhận hoặc Đang diễn ra gắn với slot của khung này.";
+            }
+        }
+        return null;
     }
 }

@@ -18,13 +18,9 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class SchoolConfigUtil {
-
-    /** Khoảng ngày gán mặc định suy ra từ academicCalendar (gộp các học kỳ đã cấu hình đủ start/end). */
-    public record AcademicAssignmentDateRange(LocalDate start, LocalDate end) {}
 
     private static final DateTimeFormatter SLOT_WINDOW_TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
 
@@ -312,11 +308,6 @@ public class SchoolConfigUtil {
         // Lưu ý: Dùng hàm getEffectivePolicy mà mình đã nâng cấp ở trên để lấy toàn bộ Map
         Map<String, Object> effectivePolicy = getEffectiveWorkingConfig(targetDate, operationSettingsData);
 
-        // KIỂM TRA HỌC KỲ (ACADEMIC SEMESTER)
-        if (!isWithinAcademicTerms(targetDate, effectivePolicy)) {
-            return "Ngày " + targetDate + " nằm ngoài học kỳ chính thức.";
-        }
-
         // KIỂM TRA NGÀY NGHỈ/LỄ (SCHOOL HOLIDAYS)
         if (holidays != null) {
             for (SchoolHoliday holiday : holidays) {
@@ -388,87 +379,6 @@ public class SchoolConfigUtil {
         effectivePolicy.put("activeSeasonName", activeSeason.get("seasonName")); // Để hiển thị cho UI
 
         return effectivePolicy;
-    }
-
-    // Học kỳ tùy chọn: chỉ siết khi ít nhất một term có đủ start+end; thiếu thì không chặn.
-    public static boolean isWithinAcademicTerms(LocalDate targetDate, Map<String, Object> operationSettingsData) {
-        if (operationSettingsData == null) return true;
-
-        Object calendarObj = operationSettingsData.get("academicCalendar");
-        if (!(calendarObj instanceof Map)) return true; // Không có lịch → không bắt buộc kiểm tra học kỳ
-
-        Map<String, Object> calendar = (Map<String, Object>) calendarObj;
-
-        @SuppressWarnings("unchecked")
-        Map<String, Object> term1 = (Map<String, Object>) calendar.get("term1");
-        @SuppressWarnings("unchecked")
-        Map<String, Object> term2 = (Map<String, Object>) calendar.get("term2");
-
-        if (!isTermWindowConfigured(term1) && !isTermWindowConfigured(term2)) {
-            return true; // Chưa bật phạm vi học kỳ (thiếu start/end) → không chặn gán lịch
-        }
-
-        boolean inTerm1 = isDateInTerm(targetDate, term1);
-        boolean inTerm2 = isDateInTerm(targetDate, term2);
-
-        return inTerm1 || inTerm2;
-    }
-
-    private static boolean isTermWindowConfigured(Map<String, Object> term) {
-        return term != null && term.get("start") != null && term.get("end") != null;
-    }
-
-    /**
-     * Khi ít nhất một học kỳ có đủ start/end, trả về khoảng gán mặc định: ngày bắt đầu sớm nhất tới ngày kết thúc muộn nhất
-     * trong các học kỳ đã cấu hình (để ASSIGN không cần nhập tay).
-     */
-    public static Optional<AcademicAssignmentDateRange> resolveAssignmentDateRangeFromAcademicCalendar(
-            Map<String, Object> operationSettingsData) {
-        if (operationSettingsData == null) {
-            return Optional.empty();
-        }
-        Object calendarObj = operationSettingsData.get("academicCalendar");
-        if (!(calendarObj instanceof Map)) {
-            return Optional.empty();
-        }
-        Map<String, Object> calendar = (Map<String, Object>) calendarObj;
-        @SuppressWarnings("unchecked")
-        Map<String, Object> term1 = (Map<String, Object>) calendar.get("term1");
-        @SuppressWarnings("unchecked")
-        Map<String, Object> term2 = (Map<String, Object>) calendar.get("term2");
-
-        if (!isTermWindowConfigured(term1) && !isTermWindowConfigured(term2)) {
-            return Optional.empty();
-        }
-
-        LocalDate minStart = null;
-        LocalDate maxEnd = null;
-        for (Map<String, Object> term : List.of(term1, term2)) {
-            if (!isTermWindowConfigured(term)) {
-                continue;
-            }
-            LocalDate s;
-            LocalDate e;
-            try {
-                s = parseDate(term.get("start"));
-                e = parseDate(term.get("end"));
-            } catch (RuntimeException ex) {
-                continue;
-            }
-            if (s == null || e == null) {
-                continue;
-            }
-            if (minStart == null || s.isBefore(minStart)) {
-                minStart = s;
-            }
-            if (maxEnd == null || e.isAfter(maxEnd)) {
-                maxEnd = e;
-            }
-        }
-        if (minStart == null || maxEnd == null || minStart.isAfter(maxEnd)) {
-            return Optional.empty();
-        }
-        return Optional.of(new AcademicAssignmentDateRange(minStart, maxEnd));
     }
 
     public static String validateWithWorkingConfig(String dayOfWeek, LocalTime start, LocalTime end, String sessionTypeReq, Map<String, Object> workingConfig) {
@@ -615,19 +525,6 @@ public class SchoolConfigUtil {
         return Integer.parseInt(String.valueOf(o).trim());
     }
 
-    // check date in this semester
-    private static boolean isDateInTerm(LocalDate date, Map<String, Object> term) {
-        if (term == null || term.get("start") == null || term.get("end") == null) return false;
-
-        LocalDate start = parseDate(term.get("start"));
-        LocalDate end = parseDate(term.get("end"));
-        if (start == null || end == null) {
-            return false;
-        }
-
-        return !date.isBefore(start) && !date.isAfter(end);
-    }
-
     private static boolean isSessionMatched(String shiftName, String sessionValue) {
         WorkShiftKind kind = WorkShiftKind.resolve(shiftName);
         if (kind != null) {
@@ -710,7 +607,11 @@ public class SchoolConfigUtil {
                 base.put(key, policy.get(key));
             }
         }
-        
+        Object campusWorkingConfig = policy.get("workingConfig");
+        if (campusWorkingConfig instanceof Map<?, ?>) {
+            base.put("workingConfig", campusWorkingConfig);
+        }
+
         return base;
     }
 
