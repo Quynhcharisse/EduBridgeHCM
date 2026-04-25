@@ -43,10 +43,6 @@ public class CampusProgramOfferingValidation {
             return "Phương thức học tập đã chọn không được hỗ trợ cho suất tuyển sinh này";
         }
 
-        if (request.getQuota() <= 0) {
-            return "Chỉ tiêu tuyển sinh phải lớn hơn 0";
-        }
-
         AdmissionCampaign campaign = admissionCampaignRepo.findById(request.getAdmissionCampaignId()).orElse(null);
         if (campaign == null || !campaign.getSchool().getId().equals(actorCampus.getSchool().getId())) {
             return "Chiến dịch tuyển sinh không nằm trong phạm vi quản lý của trường bạn";

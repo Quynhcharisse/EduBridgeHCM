@@ -25,8 +25,6 @@ public class UpdateCampusProgramOfferingRequest {
 
     Integer programId;
 
-    Integer quota;
-
     LearningMode learningMode;
 
     Float priceAdjustmentPercentage;

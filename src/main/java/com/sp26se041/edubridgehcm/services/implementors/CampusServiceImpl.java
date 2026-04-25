@@ -191,9 +191,21 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy chương trình đào tạo.", null);
         }
 
+        Campus targetCampus = CampusProgramOfferingValidation.resolveTargetCampus(actorCampus, request.getCampusId(), campusRepo);
+        if (targetCampus == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không xác định được cơ sở áp dụng offering.", null);
+        }
+
+        Integer configuredQuota = resolveConfiguredCampusQuota(actorCampus.getSchool().getId(), targetCampus.getId(), campaign.getYear());
+        if (configuredQuota == null || configuredQuota <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Chưa cấu hình quota hợp lệ cho cơ sở này trong School Config (quotaConfigData).", null);
+        }
+
         BigDecimal basePrice = program.getBaseTuitionFee();
 
         float adjustmentPercent = (request.getPriceAdjustmentPercentage() != null) ? request.getPriceAdjustmentPercentage() : 0.0f;
+        float adjustmentRatio = toStoredRatio(adjustmentPercent);
         String createPricePolicyError = validateAdjustmentPercentAgainstSchoolPolicy(actorCampus.getSchool().getId(), adjustmentPercent);
         if (createPricePolicyError != null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, createPricePolicyError, null);
@@ -204,21 +216,21 @@ public class CampusServiceImpl implements CampusService {
 
         // 3. Calculate Final Tuition
         // Formula: Final = Base * (1 + % / 100)
-        BigDecimal multiplier = BigDecimal.valueOf(1 + (adjustmentPercent / 100));
+        BigDecimal multiplier = BigDecimal.valueOf(1 + adjustmentRatio);
         BigDecimal finalTuition = basePrice.multiply(multiplier).setScale(0, RoundingMode.HALF_UP); // Rounding for VND/Currency
         Status initialApplicationStatus = deriveApplicationStatusByDateWindow(effectiveOpenDate, effectiveCloseDate);
 
         campusProgramOfferingRepo.save(CampusProgramOffering.builder()
-                .campus(actorCampus)
+                .campus(targetCampus)
                 .admissionCampaign(campaign)
                 .program(program)
                 .programNameSnapshot(program.getName())
                 .baseTuitionSnapshot(basePrice)
                 .admissionMethod(resolveDefaultAdmissionMethod(campaign))
-                .quota(request.getQuota())
-                .remainingQuota(request.getQuota())
+                .quota(configuredQuota)
+                .remainingQuota(configuredQuota)
                 .learningMode(request.getLearningMode())
-                .priceAdjustmentPercentage(adjustmentPercent)
+                .priceAdjustmentPercentage(adjustmentRatio)
                 .finalTuitionFee(finalTuition)
                 .applicationStatus(initialApplicationStatus)
                 .openDate(effectiveOpenDate)
@@ -314,7 +326,29 @@ public class CampusServiceImpl implements CampusService {
             targetProgram = programRepo.findByIdAndCurriculum_School_Id(request.getProgramId(), actorCampus.getSchool().getId());
         }
 
-        String error = CampusProgramOfferingValidation.validateUpdateCampusProgramOffering(request, actorCampus, offering, targetCampaign, targetCampus, targetProgram, usedQuota, offering.getApplicationStatus(), request.getQuota() != null ? request.getQuota() : offering.getQuota(), request.getOpenDate() != null ? request.getOpenDate() : offering.getOpenDate(), request.getCloseDate() != null ? request.getCloseDate() : offering.getCloseDate(), request.getLearningMode() != null ? request.getLearningMode() : offering.getLearningMode(), campusProgramOfferingRepo);
+        Integer configuredQuota = targetCampaign != null
+                ? resolveConfiguredCampusQuota(actorCampus.getSchool().getId(), targetCampus.getId(), targetCampaign.getYear())
+                : offering.getQuota();
+        if (configuredQuota == null || configuredQuota <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Chưa cấu hình quota hợp lệ cho cơ sở này trong School Config (quotaConfigData).", null);
+        }
+
+        String error = CampusProgramOfferingValidation.validateUpdateCampusProgramOffering(
+                request,
+                actorCampus,
+                offering,
+                targetCampaign,
+                targetCampus,
+                targetProgram,
+                usedQuota,
+                offering.getApplicationStatus(),
+                configuredQuota,
+                request.getOpenDate() != null ? request.getOpenDate() : offering.getOpenDate(),
+                request.getCloseDate() != null ? request.getCloseDate() : offering.getCloseDate(),
+                request.getLearningMode() != null ? request.getLearningMode() : offering.getLearningMode(),
+                campusProgramOfferingRepo
+        );
 
         if (error != null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
@@ -325,7 +359,11 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ được cập nhật khi chương trình đang ở trạng thái tạm dừng (PAUSED).", null);
         }
 
-        int targetRemainingQuota = request.getQuota() != null ? request.getQuota() : offering.getQuota() - usedQuota;
+        int targetRemainingQuota = configuredQuota - usedQuota;
+        if (targetRemainingQuota < 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Quota cấu hình hiện tại nhỏ hơn số hồ sơ đã sử dụng. Vui lòng tăng quota ở School Config.", null);
+        }
 
         assert targetCampaign != null;
         offering.setAdmissionCampaign(targetCampaign);
@@ -333,7 +371,7 @@ public class CampusServiceImpl implements CampusService {
         offering.setCampus(targetCampus);
         offering.setProgram(targetProgram);
         offering.setLearningMode(request.getLearningMode() != null ? request.getLearningMode() : offering.getLearningMode());
-        offering.setQuota(request.getQuota() != null ? request.getQuota() : offering.getQuota());
+        offering.setQuota(configuredQuota);
         offering.setRemainingQuota(targetRemainingQuota);
 
         BigDecimal pricingBase = offering.getBaseTuitionSnapshot() != null
@@ -344,10 +382,12 @@ public class CampusServiceImpl implements CampusService {
         }
 
         float derivedPercent;
+        float storedAdjustmentRatio;
         BigDecimal targetFinalTuition;
         if (request.getPriceAdjustmentPercentage() != null) {
             derivedPercent = request.getPriceAdjustmentPercentage();
-            BigDecimal multiplier = BigDecimal.valueOf(1 + (derivedPercent / 100.0f));
+            storedAdjustmentRatio = toStoredRatio(derivedPercent);
+            BigDecimal multiplier = BigDecimal.valueOf(1 + storedAdjustmentRatio);
             targetFinalTuition = pricingBase.multiply(multiplier).setScale(0, RoundingMode.HALF_UP);
         } else {
             targetFinalTuition = request.getTuitionFee() != null ? request.getTuitionFee() : offering.getFinalTuitionFee();
@@ -355,6 +395,7 @@ public class CampusServiceImpl implements CampusService {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Học phí phải lớn hơn hoặc bằng 0.", null);
             }
             derivedPercent = deriveAdjustmentPercent(pricingBase, targetFinalTuition);
+            storedAdjustmentRatio = toStoredRatio(derivedPercent);
         }
 
         String updatePricePolicyError = validateAdjustmentPercentAgainstSchoolPolicy(actorCampus.getSchool().getId(), derivedPercent);
@@ -362,7 +403,7 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, updatePricePolicyError, null);
         }
 
-        offering.setPriceAdjustmentPercentage(derivedPercent);
+        offering.setPriceAdjustmentPercentage(storedAdjustmentRatio);
         offering.setFinalTuitionFee(targetFinalTuition.setScale(0, RoundingMode.HALF_UP));
         offering.setOpenDate(request.getOpenDate() != null ? request.getOpenDate() : offering.getOpenDate());
         offering.setCloseDate(request.getCloseDate() != null ? request.getCloseDate() : offering.getCloseDate());
@@ -541,6 +582,36 @@ public class CampusServiceImpl implements CampusService {
         return new PriceAdjustmentRange(min, max);
     }
 
+    private Integer resolveConfiguredCampusQuota(Integer schoolId, Integer campusId, int campaignYear) {
+        SchoolConfig quotaConfig = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "quotaConfigData").orElse(null);
+        if (quotaConfig == null || !(quotaConfig.getValue() instanceof Map<?, ?> cfg)) {
+            return null;
+        }
+
+        Integer configYear = readYear(cfg.get("academicYear"));
+        if (configYear != null && configYear != campaignYear) {
+            return null;
+        }
+
+        Object assignmentsRaw = cfg.get("campusAssignments");
+        if (!(assignmentsRaw instanceof List<?> assignments)) {
+            return null;
+        }
+
+        for (Object item : assignments) {
+            if (!(item instanceof Map<?, ?> m)) {
+                continue;
+            }
+            Integer cid = readInteger(m.get("campusId"));
+            if (cid == null || !cid.equals(campusId)) {
+                continue;
+            }
+            Integer allocated = readInteger(m.get("allocatedQuota"));
+            return (allocated != null && allocated > 0) ? allocated : null;
+        }
+        return null;
+    }
+
     private String validateAdjustmentPercentAgainstSchoolPolicy(Integer schoolId, float percent) {
         PriceAdjustmentRange range = resolveSchoolPriceAdjustmentRange(schoolId);
         if (range.minPercent != null && percent < range.minPercent) {
@@ -572,6 +643,35 @@ public class CampusServiceImpl implements CampusService {
         }
     }
 
+    private static Integer readInteger(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number n) {
+            return n.intValue();
+        }
+        try {
+            return Integer.parseInt(String.valueOf(value).trim());
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private static Integer readYear(Object value) {
+        if (value == null) {
+            return null;
+        }
+        String s = String.valueOf(value).trim();
+        if (s.isEmpty()) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(s.replaceAll("[^0-9]", "").substring(0, 4));
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
     /**
      * Suy ngược % điều chỉnh từ giá gốc và giá cuối.
      */
@@ -581,6 +681,15 @@ public class CampusServiceImpl implements CampusService {
                 .subtract(BigDecimal.ONE)
                 .multiply(BigDecimal.valueOf(100));
         return ratio.setScale(2, RoundingMode.HALF_UP).floatValue();
+    }
+
+    /**
+     * FE gửi theo % (vd 10), DB lưu dạng ratio (vd 0.1).
+     */
+    private static float toStoredRatio(float percent) {
+        return BigDecimal.valueOf(percent)
+                .divide(BigDecimal.valueOf(100), 8, RoundingMode.HALF_UP)
+                .floatValue();
     }
 
     /**
@@ -1292,16 +1401,9 @@ public class CampusServiceImpl implements CampusService {
         boolean isAssign = "ASSIGN".equals(actionInput);
         List<Integer> unassignSlotIds = resolveUnassignSlotIds(request);
         AdmissionCampaign matchedCampaign = null;
+        AssignCounsellorIntoSlotsRequest effectiveRequest = request;
 
         if (isAssign) {
-            if (request.getStartDate() == null && request.getEndDate() == null) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                        "Gán lịch: vui lòng nhập đầy đủ Từ ngày và Đến ngày.", null);
-            } else if (request.getStartDate() == null || request.getEndDate() == null) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                        "Ngày bắt đầu và ngày kết thúc phải cùng điền hoặc cùng để trống khi gán.", null);
-            }
-
             if (request.getCampaignId() == null || request.getCampaignId() <= 0) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
                         "Gán lịch: vui lòng gửi campaignId (chiến dịch tuyển sinh đang thao tác).", null);
@@ -1322,16 +1424,17 @@ public class CampusServiceImpl implements CampusService {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
                         "Chiến dịch chưa cấu hình đủ khoảng ngày (startDate / endDate).", null);
             }
-            if (request.getStartDate().isBefore(matchedCampaign.getStartDate())
-                    || request.getEndDate().isAfter(matchedCampaign.getEndDate())) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, String.format(
-                        "Khoảng ngày gán lịch (%s → %s) phải nằm trong chiến dịch \"%s\" (%s → %s).",
-                        request.getStartDate(),
-                        request.getEndDate(),
-                        matchedCampaign.getName(),
-                        matchedCampaign.getStartDate(),
-                        matchedCampaign.getEndDate()), null);
-            }
+
+            // ASSIGN: luôn lấy khoảng ngày theo campaign, FE không cần gửi startDate/endDate.
+            effectiveRequest = AssignCounsellorIntoSlotsRequest.builder()
+                    .templateIds(request.getTemplateIds())
+                    .counsellorIds(request.getCounsellorIds())
+                    .slotIds(request.getSlotIds())
+                    .campaignId(request.getCampaignId())
+                    .action(request.getAction())
+                    .startDate(matchedCampaign.getStartDate())
+                    .endDate(matchedCampaign.getEndDate())
+                    .build();
         } else {
             if (unassignSlotIds.isEmpty() && (request.getStartDate() == null || request.getEndDate() == null)) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
@@ -1384,7 +1487,7 @@ public class CampusServiceImpl implements CampusService {
 
             Integer assignmentCampaignId = isAssign && matchedCampaign != null ? matchedCampaign.getId() : null;
             String error = CounsellorSlotValidation.validateAssignRequest(
-                    effectiveOperationSettings, request, actorCampus, template, counsellors, allCurrentSlots, assignmentCampaignId);
+                    effectiveOperationSettings, effectiveRequest, actorCampus, template, counsellors, allCurrentSlots, assignmentCampaignId);
             if (error != null) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
             }
@@ -1392,9 +1495,9 @@ public class CampusServiceImpl implements CampusService {
 
         List<SchoolHoliday> holidayList = mergeSchoolHolidaysForCampus(actorCampus.getSchool().getId(), actorCampus.getId());
 
-        if (isAssign && request.getStartDate() != null && request.getEndDate() != null) {
+        if (isAssign && effectiveRequest.getStartDate() != null && effectiveRequest.getEndDate() != null) {
             String holidayBlock = SchoolConfigUtil.validateAssignmentRangeAgainstBlockingHolidays(
-                    request.getStartDate(), request.getEndDate(), holidayList, actorCampus.getId());
+                    effectiveRequest.getStartDate(), effectiveRequest.getEndDate(), holidayList, actorCampus.getId());
             if (holidayBlock != null) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, holidayBlock, null);
             }
@@ -1415,7 +1518,7 @@ public class CampusServiceImpl implements CampusService {
                             .toList();
 
                     if (isAssign) {
-                        handleAssignAction(counsellor, template, request, counsellorSlots, matchedCampaign);
+                        handleAssignAction(counsellor, template, effectiveRequest, counsellorSlots, matchedCampaign);
                     } else {
                         handleUnassignAction(template, request, counsellorSlots, counsellor);
                     }
