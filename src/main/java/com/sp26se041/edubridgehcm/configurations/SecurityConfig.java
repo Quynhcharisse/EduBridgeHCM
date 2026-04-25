@@ -67,7 +67,8 @@ public class SecurityConfig {
                                         "/api/v1/school/*/public/detail/**",
                                         "/api/v1/post/list/**",
                                         "/api/v1/campus/counsellor/slots/assigned/**",
-                                        "/api/v1/system/config/key/**"
+                                        "/api/v1/system/config/key/**",
+                                        "/api/v1/school/*/campaign/template/**"
                                 ).permitAll()
                                 .anyRequest().authenticated()
                 )

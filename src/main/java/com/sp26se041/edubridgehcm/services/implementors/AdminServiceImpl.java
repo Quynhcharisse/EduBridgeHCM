@@ -63,6 +63,7 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -1394,13 +1395,87 @@ public class AdminServiceImpl implements AdminService {
         data.put("year", year);
         data.put("month", month);
         data.put("packageType", normalizedPackageType);
-        data.put("schoolId", null);
-        data.put("schoolName", null);
         data.put("scope", scope);
         data.put("totals", totals);
         data.put("trend", trend);
 
         return ResponseBuilder.build(HttpStatus.OK, "Lấy thống kê doanh thu thành công", data);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getDashboardOverview(Integer year) {
+        if (year == null || year < 2000 || year > 3000) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Năm không hợp lệ", null);
+        }
+
+        long activeSchools = schoolRepo.count();
+
+        Map<String, Long> usersByRole = new LinkedHashMap<>();
+        usersByRole.put(Role.PARENT.name(), 0L);
+        usersByRole.put(Role.COUNSELLOR.name(), 0L);
+        usersByRole.put(Role.SCHOOL.name(), 0L);
+
+        for (Account account : accountRepo.findAll()) {
+            if (account == null || account.getRole() == null) {
+                continue;
+            }
+            String roleName = account.getRole().name();
+            if (usersByRole.containsKey(roleName)) {
+                usersByRole.put(roleName, usersByRole.get(roleName) + 1);
+            }
+        }
+
+        List<SchoolRegistrationRequest> registrationRequests = schoolRegistrationRequestRepo.findAll();
+
+        Map<Integer, Long> growthByMonth = new HashMap<>();
+        long verifiedCount = 0;
+        long unverifiedCount = 0;
+
+        for (SchoolRegistrationRequest request : registrationRequests) {
+            if (request == null) {
+                continue;
+            }
+
+            LocalDateTime createdAt = request.getCreatedAt();
+            if (createdAt != null && createdAt.getYear() == year) {
+                int month = createdAt.getMonthValue();
+                growthByMonth.put(month, growthByMonth.getOrDefault(month, 0L) + 1);
+            }
+
+            if (request.getStatus() == Status.VERIFIED) {
+                verifiedCount++;
+            } else {
+                unverifiedCount++;
+            }
+        }
+
+        List<Map<String, Object>> schoolGrowthByMonth = new ArrayList<>();
+        for (int month = 1; month <= 12; month++) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("month", String.format("%d-%02d", year, month));
+            item.put("newSchools", growthByMonth.getOrDefault(month, 0L));
+            schoolGrowthByMonth.add(item);
+        }
+
+        long totalVerification = verifiedCount + unverifiedCount;
+        BigDecimal verifiedRate = totalVerification == 0
+                ? BigDecimal.ZERO
+                : BigDecimal.valueOf(verifiedCount)
+                .divide(BigDecimal.valueOf(totalVerification), 4, RoundingMode.HALF_UP);
+
+        Map<String, Object> verificationStatus = new LinkedHashMap<>();
+        verificationStatus.put("verified", verifiedCount);
+        verificationStatus.put("unverified", unverifiedCount);
+        verificationStatus.put("verifiedRate", verifiedRate);
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("year", year);
+        data.put("activeSchools", activeSchools);
+        data.put("usersByRole", usersByRole);
+        data.put("schoolGrowthByMonth", schoolGrowthByMonth);
+        data.put("verificationStatus", verificationStatus);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy thống kê tổng quát thành công", data);
     }
 
     private Specification<PaymentTransaction> buildRevenueSpecification(LocalDateTime fromAt,

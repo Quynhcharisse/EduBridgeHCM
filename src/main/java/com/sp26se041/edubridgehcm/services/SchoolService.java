@@ -34,6 +34,8 @@ public interface SchoolService {
 
     ResponseEntity<ResponseObject> viewAdmissionCampaignTemplate(int year);
 
+    ResponseEntity<ResponseObject> viewAdmissionCampaignTemplatePublic(int schoolId, int year);
+
     ResponseEntity<ResponseObject> upsertCurriculum(CurriculumRequest request);
 
     ResponseEntity<ResponseObject> handleCurriculumAction(int id, String action);
@@ -64,7 +66,7 @@ public interface SchoolService {
 
     ResponseEntity<ResponseObject> viewCurrentSubscription();
 
-    ResponseEntity<ResponseObject> createSubscription(CreateSubscriptionRequest request, HttpServletRequest httpRequest);
+    ResponseEntity<ResponseObject> createSchoolSubscription(CreateSubscriptionRequest request, HttpServletRequest httpRequest);
 
     ResponseEntity<ResponseObject> previewSubscription(SubscriptionPreviewRequest request);
 
