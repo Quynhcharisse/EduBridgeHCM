@@ -8,7 +8,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Data
@@ -28,8 +27,6 @@ public class UpdateCampusProgramOfferingRequest {
     LearningMode learningMode;
 
     Float priceAdjustmentPercentage;
-
-    BigDecimal tuitionFee;
 
     LocalDate openDate;
 
