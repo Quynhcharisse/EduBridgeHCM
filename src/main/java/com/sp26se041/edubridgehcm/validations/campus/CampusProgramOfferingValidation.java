@@ -88,8 +88,9 @@ public class CampusProgramOfferingValidation {
             }
         }
 
-        LocalDate openDate = request.getOpenDate() != null ? request.getOpenDate() : campaign.getStartDate();
-        LocalDate closeDate = request.getCloseDate() != null ? request.getCloseDate() : campaign.getEndDate();
+        // Offering luôn lấy theo khung chiến dịch, không dùng ngày nhập riêng.
+        LocalDate openDate = campaign.getStartDate();
+        LocalDate closeDate = campaign.getEndDate();
 
         if (closeDate.isBefore(LocalDate.now())) {
             return "Ngày đóng nhận hồ sơ không được ở trong quá khứ";
