@@ -1,6 +1,6 @@
 package com.sp26se041.edubridgehcm.controllers;
 
-import com.sp26se041.edubridgehcm.enums.Status;
+import com.sp26se041.edubridgehcm.enums.OfferingProgramAction;
 import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.ReassignConsultationsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
@@ -60,8 +60,8 @@ public class CampusController {
 
     @PutMapping("/{offeringId}/offering/status")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(@PathVariable int offeringId, @RequestParam Status targetStatus) {
-        return campusService.changeCampusProgramOfferingStatus(offeringId, targetStatus);
+    public ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(@PathVariable int offeringId, @RequestParam OfferingProgramAction action) {
+        return campusService.changeCampusProgramOfferingStatus(offeringId, action);
     }
 
     @PutMapping("/{offeringId}/offering/close")

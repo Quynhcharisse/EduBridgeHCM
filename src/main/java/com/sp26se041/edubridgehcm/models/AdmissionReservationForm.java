@@ -1,6 +1,10 @@
 package com.sp26se041.edubridgehcm.models;
 
+import com.sp26se041.edubridgehcm.enums.Status;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -32,4 +36,8 @@ public class AdmissionReservationForm {
     @ManyToOne
     @JoinColumn(name = "campus_program_offering_id")
     CampusProgramOffering campusProgramOffering;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
+    Status status;
 }

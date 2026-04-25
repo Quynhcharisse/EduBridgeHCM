@@ -720,7 +720,12 @@ public class SchoolServiceImpl implements SchoolService {
 
         // 3. Kiểm tra xem có hồ sơ nào đang bám vào các Offering của Campaign này không
         // Bạn nên đếm các hồ sơ CHƯA HOÀN THÀNH (Ví dụ: PENDING, PROCESSING)
-        long activeProfilesCount = admissionReservationFormRepo.countByCampusProgramOffering_AdmissionCampaign_Id(id);
+        long activeProfilesCount =
+                admissionReservationFormRepo.countByCampusProgramOffering_AdmissionCampaign_IdAndStatusIn(
+                        id,
+                        Status.activeReservationStatuses()
+                )
+                        + admissionReservationFormRepo.countByCampusProgramOffering_AdmissionCampaign_IdAndStatusIsNull(id);
 
         if (activeProfilesCount > 0) {
             return ResponseBuilder.build(
@@ -1574,7 +1579,65 @@ public class SchoolServiceImpl implements SchoolService {
 
         data.put("admissionMethodDetails", methodDetails);
         data.put("mandatoryAll", mandatoryAll);
+        data.put("campusProgramOfferings", buildCampaignOfferingDetails(campaign.getId()));
         return data;
+    }
+
+    private List<Map<String, Object>> buildCampaignOfferingDetails(Integer campaignId) {
+        List<CampusProgramOffering> offerings = campusProgramOfferingRepo.findByAdmissionCampaignId(campaignId);
+        if (offerings == null || offerings.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return offerings.stream().map(offering -> {
+            Program program = offering.getProgram();
+            Curriculum curriculum = program.getCurriculum();
+
+            Map<String, Object> curriculumData = new LinkedHashMap<>();
+            curriculumData.put("id", curriculum.getId());
+            curriculumData.put("name", curriculum.getName());
+            curriculumData.put("description", curriculum.getDescription());
+            curriculumData.put("curriculumType", curriculum.getCurriculumType());
+            curriculumData.put("applicationYear", curriculum.getApplicationYear());
+            curriculumData.put("groupCode", curriculum.getGroupCode());
+            curriculumData.put("status", curriculum.getCurriculumStatus());
+            curriculumData.put("subjectOptions", curriculum.getSubjectsJsonb());
+            curriculumData.put("methodLearnings", curriculum.getLearningMethodList());
+
+            Map<String, Object> programData = new LinkedHashMap<>();
+            programData.put("id", program.getId());
+            programData.put("name", offering.getProgramNameSnapshot() != null ? offering.getProgramNameSnapshot() : program.getName());
+            programData.put("graduationStandard", program.getGraduationStandard());
+            programData.put("languageOfInstructionList", program.getLanguageOfInstructionList());
+            programData.put("targetStudentDescription", program.getTargetStudentDescription());
+            programData.put("baseTuitionFee", offering.getBaseTuitionSnapshot() != null ? offering.getBaseTuitionSnapshot() : program.getBaseTuitionFee());
+            programData.put("feeUnit", program.getFeeUnit());
+            programData.put("extraSubjectList", program.getExtraSubjectsJsonb());
+            programData.put("status", program.getStatus());
+            programData.put("curriculum", curriculumData);
+
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", offering.getId());
+            item.put("campusId", offering.getCampus().getId());
+            item.put("campusName", offering.getCampus().getName());
+            item.put("city", offering.getCampus().getCity());
+            item.put("district", offering.getCampus().getDistrict());
+            item.put("boardingType", offering.getCampus().getBoardingType());
+            item.put("learningMode", offering.getLearningMode());
+            item.put("quota", offering.getQuota());
+            item.put("remainingQuota", offering.getRemainingQuota());
+            item.put("tuitionFee", offering.getFinalTuitionFee());
+            item.put("baseTuitionFee", offering.getBaseTuitionSnapshot() != null ? offering.getBaseTuitionSnapshot() : program.getBaseTuitionFee());
+            item.put("priceAdjustmentPercentage", offering.getPriceAdjustmentPercentage());
+            item.put("admissionMethod", offering.getAdmissionMethod());
+            item.put("openDate", offering.getOpenDate());
+            item.put("closeDate", offering.getCloseDate());
+            item.put("applicationStatus", offering.getApplicationStatus());
+            item.put("status", offering.getStatus());
+            item.put("program", programData);
+            item.put("curriculum", curriculumData);
+            return item;
+        }).toList();
     }
 
     private Map<String, Object> resolveAdmissionConfigForCampaignView(int schoolId) {
@@ -1703,6 +1766,7 @@ public class SchoolServiceImpl implements SchoolService {
 
             LocalDate methodStartDate = timelineRequest.getStartDate();
             LocalDate methodEndDate = timelineRequest.getEndDate();
+            boolean allowReservationSubmission = !Boolean.FALSE.equals(timelineRequest.getAllowReservationSubmission());
             if (methodStartDate == null || methodEndDate == null) {
                 throw new IllegalArgumentException("Mỗi phương thức tuyển sinh phải có ngày bắt đầu và ngày kết thúc");
             }
@@ -1721,6 +1785,7 @@ public class SchoolServiceImpl implements SchoolService {
             timeline.put("description", configuredMethod.get("description"));
             timeline.put("startDate", methodStartDate);
             timeline.put("endDate", methodEndDate);
+            timeline.put("allowReservationSubmission", allowReservationSubmission);
             resolved.add(timeline);
         }
 
@@ -1741,6 +1806,7 @@ public class SchoolServiceImpl implements SchoolService {
             String methodCode = normalize(Objects.toString(map.get("methodCode"), null));
             LocalDate startDate = parseLocalDateSafe(map.get("startDate"));
             LocalDate endDate = parseLocalDateSafe(map.get("endDate"));
+            Boolean allowReservationSubmission = parseBooleanSafe(map.get("allowReservationSubmission"));
             if (methodCode == null || startDate == null || endDate == null) {
                 continue;
             }
@@ -1749,6 +1815,7 @@ public class SchoolServiceImpl implements SchoolService {
                     .methodCode(methodCode)
                     .startDate(startDate)
                     .endDate(endDate)
+                    .allowReservationSubmission(allowReservationSubmission == null ? Boolean.TRUE : allowReservationSubmission)
                     .build());
         }
         return requests;
@@ -1766,6 +1833,23 @@ public class SchoolServiceImpl implements SchoolService {
         } catch (Exception ignored) {
             return null;
         }
+    }
+
+    private Boolean parseBooleanSafe(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Boolean b) {
+            return b;
+        }
+        String s = String.valueOf(value).trim();
+        if (s.equalsIgnoreCase("true")) {
+            return Boolean.TRUE;
+        }
+        if (s.equalsIgnoreCase("false")) {
+            return Boolean.FALSE;
+        }
+        return null;
     }
 
     private Map<String, Object> buildProgramData(Program program) {

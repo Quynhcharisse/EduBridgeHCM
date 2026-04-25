@@ -38,6 +38,7 @@ public class CreateAdmissionCampaignTemplateRequest {
         String methodCode;
         LocalDate startDate;
         LocalDate endDate;
+        Boolean allowReservationSubmission;
     }
 }
 

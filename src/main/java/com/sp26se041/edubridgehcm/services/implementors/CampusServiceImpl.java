@@ -2,6 +2,7 @@ package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.CategoryTemplate;
+import com.sp26se041.edubridgehcm.enums.OfferingProgramAction;
 import com.sp26se041.edubridgehcm.enums.ResourceType;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.SessionType;
@@ -93,10 +94,12 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -191,13 +194,37 @@ public class CampusServiceImpl implements CampusService {
         BigDecimal basePrice = program.getBaseTuitionFee();
 
         float adjustmentPercent = (request.getPriceAdjustmentPercentage() != null) ? request.getPriceAdjustmentPercentage() : 0.0f;
+        String createPricePolicyError = validateAdjustmentPercentAgainstSchoolPolicy(actorCampus.getSchool().getId(), adjustmentPercent);
+        if (createPricePolicyError != null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, createPricePolicyError, null);
+        }
+
+        LocalDate effectiveOpenDate = (request.getOpenDate() != null) ? request.getOpenDate() : campaign.getStartDate();
+        LocalDate effectiveCloseDate = (request.getCloseDate() != null) ? request.getCloseDate() : campaign.getEndDate();
 
         // 3. Calculate Final Tuition
         // Formula: Final = Base * (1 + % / 100)
         BigDecimal multiplier = BigDecimal.valueOf(1 + (adjustmentPercent / 100));
         BigDecimal finalTuition = basePrice.multiply(multiplier).setScale(0, RoundingMode.HALF_UP); // Rounding for VND/Currency
+        Status initialApplicationStatus = deriveApplicationStatusByDateWindow(effectiveOpenDate, effectiveCloseDate);
 
-        campusProgramOfferingRepo.save(CampusProgramOffering.builder().campus(actorCampus).admissionCampaign(campaign).program(program).quota(request.getQuota()).remainingQuota(request.getQuota()).learningMode(request.getLearningMode()).priceAdjustmentPercentage(adjustmentPercent).finalTuitionFee(finalTuition).applicationStatus(Status.OPEN).openDate((request.getOpenDate() != null) ? request.getOpenDate() : campaign.getStartDate()).closeDate((request.getCloseDate() != null) ? request.getCloseDate() : campaign.getEndDate()).status(Status.OPEN_ADMISSION_CAMPAIGN).build());
+        campusProgramOfferingRepo.save(CampusProgramOffering.builder()
+                .campus(actorCampus)
+                .admissionCampaign(campaign)
+                .program(program)
+                .programNameSnapshot(program.getName())
+                .baseTuitionSnapshot(basePrice)
+                .admissionMethod(resolveDefaultAdmissionMethod(campaign))
+                .quota(request.getQuota())
+                .remainingQuota(request.getQuota())
+                .learningMode(request.getLearningMode())
+                .priceAdjustmentPercentage(adjustmentPercent)
+                .finalTuitionFee(finalTuition)
+                .applicationStatus(initialApplicationStatus)
+                .openDate(effectiveOpenDate)
+                .closeDate(effectiveCloseDate)
+                .status(Status.OPEN_ADMISSION_CAMPAIGN)
+                .build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Tạo chương trình tuyển sinh tại cơ sở thành công.", null);
     }
@@ -308,7 +335,35 @@ public class CampusServiceImpl implements CampusService {
         offering.setLearningMode(request.getLearningMode() != null ? request.getLearningMode() : offering.getLearningMode());
         offering.setQuota(request.getQuota() != null ? request.getQuota() : offering.getQuota());
         offering.setRemainingQuota(targetRemainingQuota);
-        offering.setFinalTuitionFee(request.getTuitionFee() != null ? request.getTuitionFee() : offering.getFinalTuitionFee());
+
+        BigDecimal pricingBase = offering.getBaseTuitionSnapshot() != null
+                ? offering.getBaseTuitionSnapshot()
+                : (targetProgram != null ? targetProgram.getBaseTuitionFee() : null);
+        if (pricingBase == null || pricingBase.compareTo(BigDecimal.ZERO) <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không thể cập nhật học phí vì thiếu giá gốc hợp lệ của chương trình.", null);
+        }
+
+        float derivedPercent;
+        BigDecimal targetFinalTuition;
+        if (request.getPriceAdjustmentPercentage() != null) {
+            derivedPercent = request.getPriceAdjustmentPercentage();
+            BigDecimal multiplier = BigDecimal.valueOf(1 + (derivedPercent / 100.0f));
+            targetFinalTuition = pricingBase.multiply(multiplier).setScale(0, RoundingMode.HALF_UP);
+        } else {
+            targetFinalTuition = request.getTuitionFee() != null ? request.getTuitionFee() : offering.getFinalTuitionFee();
+            if (targetFinalTuition == null || targetFinalTuition.compareTo(BigDecimal.ZERO) < 0) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Học phí phải lớn hơn hoặc bằng 0.", null);
+            }
+            derivedPercent = deriveAdjustmentPercent(pricingBase, targetFinalTuition);
+        }
+
+        String updatePricePolicyError = validateAdjustmentPercentAgainstSchoolPolicy(actorCampus.getSchool().getId(), derivedPercent);
+        if (updatePricePolicyError != null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, updatePricePolicyError, null);
+        }
+
+        offering.setPriceAdjustmentPercentage(derivedPercent);
+        offering.setFinalTuitionFee(targetFinalTuition.setScale(0, RoundingMode.HALF_UP));
         offering.setOpenDate(request.getOpenDate() != null ? request.getOpenDate() : offering.getOpenDate());
         offering.setCloseDate(request.getCloseDate() != null ? request.getCloseDate() : offering.getCloseDate());
 
@@ -320,50 +375,12 @@ public class CampusServiceImpl implements CampusService {
     @Override
     @Transactional
     public ResponseEntity<ResponseObject> closeCampusProgramOffering(Integer offeringId) {
-
-        if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế, không thể thực hiện thao tác này.", null);
-        }
-
-        Campus actorCampus = extractActorCampus();
-        if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
-        }
-
-        CampusProgramOffering offering = campusProgramOfferingRepo.findById(offeringId).orElse(null);
-
-        if (offering == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy chương trình tuyển sinh cơ sở (offering).", null);
-        }
-
-        if (!offering.getCampus().getId().equals(actorCampus.getId())) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền đóng chương trình tuyển sinh của cơ sở khác.", null);
-        }
-
-        if (offering.getStatus() == Status.CLOSED) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chương trình này đã được đóng trước đó.", null);
-        }
-
-        int formCount = admissionReservationFormRepo.countByCampusProgramOfferingId(offeringId);
-
-        if (formCount >= offering.getQuota()) {
-            // Nếu đóng khi đã đủ hoặc vượt chỉ tiêu -> Hiển thị là FULL (Hết chỗ)
-            offering.setApplicationStatus(Status.FULL);
-        } else {
-            // Nếu đóng khi chưa đủ chỉ tiêu (do Admin chủ động hoặc hết hạn) -> Hiển thị là CLOSED (Đóng)
-            offering.setApplicationStatus(Status.CLOSED);
-        }
-
-        offering.setStatus(Status.CLOSED);
-        offering.setRemainingQuota(0);
-        campusProgramOfferingRepo.save(offering);
-
-        return ResponseBuilder.build(HttpStatus.OK, (formCount >= offering.getQuota()) ? "Chương trình đã đạt chỉ tiêu và được đóng tự động." : "Chương trình đã được quản trị viên đóng thành công.", null);
+        return changeCampusProgramOfferingStatus(offeringId, OfferingProgramAction.CLOSE);
     }
 
     @Override
     @Transactional
-    public ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(int offeringId, Status targetStatus) {
+    public ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(int offeringId, OfferingProgramAction action) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế, không thể thực hiện thao tác này.", null);
@@ -384,11 +401,34 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền cập nhật trạng thái chương trình của cơ sở khác.", null);
         }
 
+        if (action == OfferingProgramAction.CLOSE) {
+            if (offering.getStatus() == Status.CLOSED) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chương trình này đã được đóng trước đó.", null);
+            }
+
+            int formCount = admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIn(offeringId, Status.activeReservationStatuses())
+                    + admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIsNull(offeringId);
+
+            if (formCount >= offering.getQuota()) {
+                // Nếu đóng khi đã đủ hoặc vượt chỉ tiêu -> Hiển thị là FULL (Hết chỗ)
+                offering.setApplicationStatus(Status.FULL);
+            } else {
+                // Nếu đóng khi chưa đủ chỉ tiêu (do Admin chủ động hoặc hết hạn) -> Hiển thị là CLOSED (Đóng)
+                offering.setApplicationStatus(Status.CLOSED);
+            }
+
+            offering.setStatus(Status.CLOSED);
+            offering.setRemainingQuota(0);
+            campusProgramOfferingRepo.save(offering);
+
+            return ResponseBuilder.build(HttpStatus.OK, (formCount >= offering.getQuota()) ? "Chương trình đã đạt chỉ tiêu và được đóng tự động." : "Chương trình đã được quản trị viên đóng thành công.", null);
+        }
+
         if (offering.getStatus().equals(Status.CLOSED) || offering.getApplicationStatus().equals(Status.FULL)) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chương trình đã đóng hoặc đã đủ chỉ tiêu, không thể đổi trạng thái.", null);
         }
 
-        if (targetStatus.equals(Status.PAUSED)) {
+        if (action == OfferingProgramAction.PAUSE) {
 
             if (offering.getApplicationStatus().equals(Status.PAUSED)) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chương trình đã ở trạng thái tạm dừng, không thể tạm dừng lại.", null);
@@ -396,13 +436,14 @@ public class CampusServiceImpl implements CampusService {
 
             offering.setApplicationStatus(Status.PAUSED);
 
-        } else if (targetStatus == Status.OPEN) {
+        } else if (action == OfferingProgramAction.PUBLISH) {
 
             if (offering.getApplicationStatus() != Status.PAUSED) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ có thể mở lại chương trình khi đang ở trạng thái tạm dừng (PAUSED).", null);
             }
 
-            int formCount = admissionReservationFormRepo.countByCampusProgramOfferingId(offeringId);
+            int formCount = admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIn(offeringId, Status.activeReservationStatuses())
+                    + admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIsNull(offeringId);
 
             if (formCount >= offering.getQuota()) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không thể mở lại vì đã đủ chỉ tiêu.", null);
@@ -411,7 +452,7 @@ public class CampusServiceImpl implements CampusService {
             offering.setApplicationStatus(Status.OPEN);
 
         } else {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ hỗ trợ chuyển sang trạng thái mở (OPEN) hoặc tạm dừng (PAUSED).", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Hành động không hợp lệ. Chỉ hỗ trợ PUBLISH, PAUSE hoặc CLOSE.", null);
         }
 
         campusProgramOfferingRepo.save(offering);
@@ -421,6 +462,8 @@ public class CampusServiceImpl implements CampusService {
 
     private Map<String, Object> buildOfferingData(CampusProgramOffering offering) {
         Map<String, Object> data = new HashMap<>();
+        Program program = offering.getProgram();
+        var curriculum = program.getCurriculum();
         data.put("id", offering.getId());
         data.put("campusId", offering.getCampus().getId());
         data.put("campusName", offering.getCampus().getName());
@@ -432,23 +475,166 @@ public class CampusServiceImpl implements CampusService {
         data.put("campaignId", offering.getAdmissionCampaign().getId());
         data.put("campaignName", offering.getAdmissionCampaign().getName());
         data.put("campaignYear", offering.getAdmissionCampaign().getYear());
-        data.put("programId", offering.getProgram().getId());
-        data.put("programName", offering.getProgram().getName());
-        data.put("curriculumId", offering.getProgram().getCurriculum().getId());
-        data.put("curriculumType", offering.getProgram().getCurriculum().getCurriculumType());
-        data.put("applicationYear", offering.getProgram().getCurriculum().getApplicationYear());
+        data.put("programId", program.getId());
+        data.put("programName", offering.getProgramNameSnapshot() != null ? offering.getProgramNameSnapshot() : program.getName());
+        data.put("curriculumId", curriculum.getId());
+        data.put("curriculumType", curriculum.getCurriculumType());
+        data.put("applicationYear", curriculum.getApplicationYear());
         data.put("quota", offering.getQuota());
         data.put("remainingQuota", offering.getRemainingQuota());
         data.put("learningMode", offering.getLearningMode());
         data.put("tuitionFee", offering.getFinalTuitionFee());
-        data.put("baseTuitionFee", offering.getProgram().getBaseTuitionFee());
+        data.put("baseTuitionFee", offering.getBaseTuitionSnapshot() != null ? offering.getBaseTuitionSnapshot() : program.getBaseTuitionFee());
+        data.put("admissionMethod", offering.getAdmissionMethod());
         data.put("priceAdjustmentPercentage", offering.getPriceAdjustmentPercentage());
         data.put("applicationStatus", offering.getApplicationStatus());
         data.put("openDate", offering.getOpenDate());
         data.put("closeDate", offering.getCloseDate());
         data.put("status", offering.getStatus());
         data.put("schoolId", offering.getAdmissionCampaign().getSchool().getId());
+
+        // Trả block chi tiết để FE không cần gọi thêm API khi mở detail từ list offering.
+        Map<String, Object> curriculumData = new LinkedHashMap<>();
+        curriculumData.put("id", curriculum.getId());
+        curriculumData.put("name", curriculum.getName());
+        curriculumData.put("description", curriculum.getDescription());
+        curriculumData.put("curriculumType", curriculum.getCurriculumType());
+        curriculumData.put("applicationYear", curriculum.getApplicationYear());
+        curriculumData.put("groupCode", curriculum.getGroupCode());
+        curriculumData.put("status", curriculum.getCurriculumStatus());
+        curriculumData.put("subjectOptions", curriculum.getSubjectsJsonb());
+        curriculumData.put("methodLearnings", curriculum.getLearningMethodList());
+
+        Map<String, Object> programData = new LinkedHashMap<>();
+        programData.put("id", program.getId());
+        programData.put("name", offering.getProgramNameSnapshot() != null ? offering.getProgramNameSnapshot() : program.getName());
+        programData.put("graduationStandard", program.getGraduationStandard());
+        programData.put("languageOfInstructionList", program.getLanguageOfInstructionList());
+        programData.put("targetStudentDescription", program.getTargetStudentDescription());
+        programData.put("baseTuitionFee", offering.getBaseTuitionSnapshot() != null ? offering.getBaseTuitionSnapshot() : program.getBaseTuitionFee());
+        programData.put("feeUnit", program.getFeeUnit());
+        programData.put("extraSubjectList", program.getExtraSubjectsJsonb());
+        programData.put("status", program.getStatus());
+        programData.put("curriculum", curriculumData);
+
+        data.put("program", programData);
+        data.put("curriculum", curriculumData);
         return data;
+    }
+
+    /**
+     * Lấy min/max % điều chỉnh từ financePolicyData.priceAdjustment của trường.
+     */
+    private PriceAdjustmentRange resolveSchoolPriceAdjustmentRange(Integer schoolId) {
+        SchoolConfig financePolicyConfig = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "financePolicyData").orElse(null);
+        if (financePolicyConfig == null || !(financePolicyConfig.getValue() instanceof Map<?, ?> financeMap)) {
+            return PriceAdjustmentRange.unbounded();
+        }
+
+        Object adjustmentRaw = financeMap.get("priceAdjustment");
+        if (!(adjustmentRaw instanceof Map<?, ?> adjustmentMap)) {
+            return PriceAdjustmentRange.unbounded();
+        }
+
+        Double min = readDouble(adjustmentMap.get("minPercent"));
+        Double max = readDouble(adjustmentMap.get("maxPercent"));
+        return new PriceAdjustmentRange(min, max);
+    }
+
+    private String validateAdjustmentPercentAgainstSchoolPolicy(Integer schoolId, float percent) {
+        PriceAdjustmentRange range = resolveSchoolPriceAdjustmentRange(schoolId);
+        if (range.minPercent != null && percent < range.minPercent) {
+            return String.format(
+                    "Phần trăm điều chỉnh %.2f%% nhỏ hơn mức tối thiểu theo cấu hình trường (%.2f%%).",
+                    percent, range.minPercent
+            );
+        }
+        if (range.maxPercent != null && percent > range.maxPercent) {
+            return String.format(
+                    "Phần trăm điều chỉnh %.2f%% vượt mức tối đa theo cấu hình trường (%.2f%%).",
+                    percent, range.maxPercent
+            );
+        }
+        return null;
+    }
+
+    private static Double readDouble(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number n) {
+            return n.doubleValue();
+        }
+        try {
+            return Double.parseDouble(String.valueOf(value).trim());
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    /**
+     * Suy ngược % điều chỉnh từ giá gốc và giá cuối.
+     */
+    private static float deriveAdjustmentPercent(BigDecimal basePrice, BigDecimal finalTuition) {
+        BigDecimal ratio = finalTuition
+                .divide(basePrice, 8, RoundingMode.HALF_UP)
+                .subtract(BigDecimal.ONE)
+                .multiply(BigDecimal.valueOf(100));
+        return ratio.setScale(2, RoundingMode.HALF_UP).floatValue();
+    }
+
+    /**
+     * Suy ra trạng thái nhận hồ sơ theo thời gian hiệu lực.
+     * - Chưa tới ngày mở: PAUSED (chưa mở nhận hồ sơ)
+     * - Quá ngày đóng: CLOSED
+     * - Trong khoảng mở: OPEN
+     */
+    private static Status deriveApplicationStatusByDateWindow(LocalDate openDate, LocalDate closeDate) {
+        LocalDate today = LocalDate.now();
+        if (today.isBefore(openDate)) {
+            return Status.PAUSED;
+        }
+        if (today.isAfter(closeDate)) {
+            return Status.CLOSED;
+        }
+        return Status.OPEN;
+    }
+
+    private static final class PriceAdjustmentRange {
+        private final Double minPercent;
+        private final Double maxPercent;
+
+        private PriceAdjustmentRange(Double minPercent, Double maxPercent) {
+            this.minPercent = minPercent;
+            this.maxPercent = maxPercent;
+        }
+
+        private static PriceAdjustmentRange unbounded() {
+            return new PriceAdjustmentRange(null, null);
+        }
+    }
+
+    /**
+     * Nếu chiến dịch chỉ có một phương thức thì snapshot vào offering.
+     * Khi chiến dịch chứa nhiều phương thức, để null để FE chọn/tách theo nghiệp vụ riêng.
+     */
+    private String resolveDefaultAdmissionMethod(AdmissionCampaign campaign) {
+        if (!(campaign.getAdmissionMethodTimelines() instanceof List<?> timelines) || timelines.isEmpty()) {
+            return null;
+        }
+
+        Set<String> codes = new LinkedHashSet<>();
+        for (Object item : timelines) {
+            if (!(item instanceof Map<?, ?> timelineMap)) {
+                continue;
+            }
+            String methodCode = normalize(Objects.toString(timelineMap.get("methodCode"), null));
+            if (methodCode != null) {
+                codes.add(methodCode);
+            }
+        }
+
+        return codes.size() == 1 ? codes.iterator().next() : null;
     }
 
     @Override
