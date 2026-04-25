@@ -20,8 +20,6 @@ public class CreateCampusProgramOfferingRequest {
 
     Integer programId;
 
-    int quota;
-
     LearningMode learningMode;
 
     BigDecimal tuitionFee;
