@@ -13,7 +13,6 @@ import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public class CampusProgramOfferingValidation {
@@ -71,10 +70,6 @@ public class CampusProgramOfferingValidation {
             return "Năm của chiến dịch phải khớp với năm áp dụng của khung chương trình";
         }
 
-        if (program.getBaseTuitionFee() == null) {
-            return "Chương trình đã chọn chưa được quy định mức học phí cơ bản bởi cơ sở chính";
-        }
-
         Campus targetCampus = resolveTargetCampus(actorCampus, request.getCampusId(), campusRepo);
 
         if (targetCampus == null) {
@@ -88,9 +83,9 @@ public class CampusProgramOfferingValidation {
             }
         }
 
-        // Offering luôn lấy theo khung chiến dịch, không dùng ngày nhập riêng.
-        LocalDate openDate = campaign.getStartDate();
-        LocalDate closeDate = campaign.getEndDate();
+        // Campus có thể chọn ngày mở/đóng riêng, nhưng vẫn phải nằm trong khung chiến dịch.
+        LocalDate openDate = request.getOpenDate() != null ? request.getOpenDate() : campaign.getStartDate();
+        LocalDate closeDate = request.getCloseDate() != null ? request.getCloseDate() : campaign.getEndDate();
 
         if (closeDate.isBefore(LocalDate.now())) {
             return "Ngày đóng nhận hồ sơ không được ở trong quá khứ";
@@ -163,6 +158,11 @@ public class CampusProgramOfferingValidation {
             return "Không thể thay đổi chiến dịch/cơ sở/chương trình/phương thức sau khi đã có hồ sơ đăng ký";
         }
 
+        // Khi đã có hồ sơ, không cho thay đổi học phí để tránh xung đột giữa hồ sơ cũ và mới.
+        if (usedQuota > 0 && request.getPriceAdjustmentPercentage() != null) {
+            return "Không thể thay đổi học phí sau khi đã có hồ sơ đăng ký";
+        }
+
         if (targetQuota == null || targetQuota <= 0) {
             return "Chỉ tiêu tuyển sinh phải lớn hơn 0";
         }
@@ -216,10 +216,6 @@ public class CampusProgramOfferingValidation {
 
         if (request.getPriceAdjustmentPercentage() != null && request.getPriceAdjustmentPercentage() < -100) {
             return "Phần trăm điều chỉnh không thể làm học phí trở thành số âm";
-        }
-
-        if (request.getTuitionFee() != null && request.getTuitionFee().signum() < 0) {
-            return "Học phí phải lớn hơn hoặc bằng 0";
         }
 
         return null;

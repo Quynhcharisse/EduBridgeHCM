@@ -124,13 +124,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -743,12 +743,12 @@ public class SchoolServiceImpl implements SchoolService {
         campaign.setReason(normalize(reason));
         admissionCampaignRepo.save(campaign);
 
-        //Hủy toàn bộ Offering con ==> cha bị hủy thì con của nó cũng phải ăn theo
-        // 5. Cập nhật toàn bộ Offering con sang trạng thái CANCELLED
+        // Hủy toàn bộ Offering con: AdmissionCampaign.status giữ CANCELLED_*; offering dùng lifecycle OFFERING_* + application CLOSED.
         List<CampusProgramOffering> offerings = campusProgramOfferingRepo.findByAdmissionCampaignId(id);
         if (!offerings.isEmpty()) {
             for (CampusProgramOffering offering : offerings) {
-                offering.setApplicationStatus(Status.CANCELLED_ADMISSION_CAMPAIGN);
+                offering.setApplicationStatus(Status.CLOSED);
+                offering.setStatus(Status.OFFERING_INACTIVE);
             }
             campusProgramOfferingRepo.saveAll(offerings);
         }
@@ -798,14 +798,16 @@ public class SchoolServiceImpl implements SchoolService {
             admissionCampaignRepo.save(admissionCampaign);
         }
 
-        //Cập nhật tất cả các ngành học (Offerings) của chiến dịch này
+        // Chiến dịch hết hạn: campaign = EXPIRED; mọi offering lifecycle = OFFERING_INACTIVE
         List<CampusProgramOffering> offerings = campusProgramOfferingRepo.findByAdmissionCampaignId(admissionCampaign.getId());
         if (offerings != null && !offerings.isEmpty()) {
             for (CampusProgramOffering offering : offerings) {
-                // Chỉ đóng những cái đang mở hoặc tạm dừng, không chạm vào cái đã FULL/CLOSED thủ công
-                if (offering.getApplicationStatus() == Status.OPEN_ADMISSION_CAMPAIGN || offering.getApplicationStatus() == Status.PAUSED) {
-                    offering.setApplicationStatus(Status.EXPIRED);
+                if (offering.getApplicationStatus() == Status.OPEN
+                        || offering.getApplicationStatus() == Status.PAUSED
+                        || offering.getApplicationStatus() == Status.UPCOMING_OFFERING) {
+                    offering.setApplicationStatus(Status.CLOSED);
                 }
+                offering.setStatus(Status.OFFERING_INACTIVE);
             }
             campusProgramOfferingRepo.saveAll(offerings);
         }
@@ -1482,10 +1484,11 @@ public class SchoolServiceImpl implements SchoolService {
                 program.setStatus(Status.PRO_INACTIVE);
 
                 List<CampusProgramOffering> activeOfferings =
-                        campusProgramOfferingRepo.findByProgramIdAndStatus(id, Status.OPEN);
+                        campusProgramOfferingRepo.findByProgramIdAndStatus(id, Status.OFFERING_ACTIVE);
 
                 for (CampusProgramOffering off : activeOfferings) {
-                    off.setStatus(Status.CLOSED); // Chặn người mới nộp vào
+                    off.setStatus(Status.OFFERING_INACTIVE);
+                    off.setApplicationStatus(Status.CLOSED);
                     campusProgramOfferingRepo.save(off);
                 }
 
@@ -1592,6 +1595,7 @@ public class SchoolServiceImpl implements SchoolService {
         return offerings.stream().map(offering -> {
             Program program = offering.getProgram();
             Curriculum curriculum = program.getCurriculum();
+            Status effectiveOperationalStatus = resolveEffectiveOperationalStatus(offering);
 
             Map<String, Object> curriculumData = new LinkedHashMap<>();
             curriculumData.put("id", curriculum.getId());
@@ -1606,11 +1610,11 @@ public class SchoolServiceImpl implements SchoolService {
 
             Map<String, Object> programData = new LinkedHashMap<>();
             programData.put("id", program.getId());
-            programData.put("name", offering.getProgramNameSnapshot() != null ? offering.getProgramNameSnapshot() : program.getName());
+            programData.put("name", offering.getProgramNameSnapshot());
             programData.put("graduationStandard", program.getGraduationStandard());
             programData.put("languageOfInstructionList", program.getLanguageOfInstructionList());
             programData.put("targetStudentDescription", program.getTargetStudentDescription());
-            programData.put("baseTuitionFee", offering.getBaseTuitionSnapshot() != null ? offering.getBaseTuitionSnapshot() : program.getBaseTuitionFee());
+            programData.put("baseTuitionFee", offering.getBaseTuitionSnapshot());
             programData.put("feeUnit", program.getFeeUnit());
             programData.put("extraSubjectList", program.getExtraSubjectsJsonb());
             programData.put("status", program.getStatus());
@@ -1620,20 +1624,16 @@ public class SchoolServiceImpl implements SchoolService {
             item.put("id", offering.getId());
             item.put("campusId", offering.getCampus().getId());
             item.put("campusName", offering.getCampus().getName());
-            item.put("city", offering.getCampus().getCity());
-            item.put("district", offering.getCampus().getDistrict());
-            item.put("boardingType", offering.getCampus().getBoardingType());
             item.put("learningMode", offering.getLearningMode());
             item.put("quota", offering.getQuota());
             item.put("remainingQuota", offering.getRemainingQuota());
             item.put("tuitionFee", offering.getFinalTuitionFee());
-            item.put("baseTuitionFee", offering.getBaseTuitionSnapshot() != null ? offering.getBaseTuitionSnapshot() : program.getBaseTuitionFee());
-            item.put("priceAdjustmentPercentage", offering.getPriceAdjustmentPercentage());
             item.put("admissionMethod", offering.getAdmissionMethod());
             item.put("openDate", offering.getOpenDate());
             item.put("closeDate", offering.getCloseDate());
-            item.put("applicationStatus", offering.getApplicationStatus());
+            item.put("applicationStatus", effectiveOperationalStatus);
             item.put("status", offering.getStatus());
+            item.put("statusContext", buildOfferingStatusContext(offering));
             item.put("program", programData);
             item.put("curriculum", curriculumData);
             return item;
@@ -2076,14 +2076,58 @@ public class SchoolServiceImpl implements SchoolService {
 
         return campusProgramOfferingList.stream().map(campusProgramOffering -> {
             Map<String, Object> data = new HashMap<>();
+            Status effectiveOperationalStatus = resolveEffectiveOperationalStatus(campusProgramOffering);
             data.put("learningMode", campusProgramOffering.getLearningMode());
             data.put("quota", campusProgramOffering.getQuota());
             data.put("tuitionFee", campusProgramOffering.getFinalTuitionFee());
             data.put("openDate", campusProgramOffering.getOpenDate());
             data.put("closeDate", campusProgramOffering.getCloseDate());
-            data.put("status", campusProgramOffering.getStatus());
+            data.put("applicationStatus", effectiveOperationalStatus); // backward-compatible semantic
+            data.put("operationalStatus", effectiveOperationalStatus);
+            data.put("status", campusProgramOffering.getStatus()); // backward-compatible key
+            data.put("lifecycleStatus", campusProgramOffering.getStatus());
+            data.put("statusContext", buildOfferingStatusContext(campusProgramOffering));
             return data;
         }).toList();
+    }
+
+    private Map<String, Object> buildOfferingStatusContext(CampusProgramOffering offering) {
+        Map<String, Object> ctx = new LinkedHashMap<>();
+        Status lifecycle = offering.getStatus();
+        Status operational = resolveEffectiveOperationalStatus(offering);
+        boolean lifecycleActive = lifecycle == Status.OFFERING_ACTIVE;
+        boolean canReceiveApplications = lifecycleActive && operational == Status.OPEN;
+
+        ctx.put("lifecycleStatus", lifecycle);
+        ctx.put("operationalStatus", operational);
+        ctx.put("lifecycleActive", lifecycleActive);
+        ctx.put("canReceiveApplications", canReceiveApplications);
+        ctx.put("isTerminal", operational == Status.CLOSED || operational == Status.FULL || lifecycle == Status.OFFERING_INACTIVE);
+        return ctx;
+    }
+
+    private Status resolveEffectiveOperationalStatus(CampusProgramOffering offering) {
+        Status current = offering.getApplicationStatus();
+        if (current == Status.PAUSED || current == Status.CLOSED || current == Status.FULL) {
+            return current;
+        }
+
+        int activeReservationCount = admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIn(
+                offering.getId(), Status.activeReservationStatuses())
+                + admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIsNull(offering.getId());
+
+        if (activeReservationCount >= offering.getQuota() || offering.getRemainingQuota() <= 0) {
+            return Status.FULL;
+        }
+
+        LocalDate today = LocalDate.now();
+        if (today.isBefore(offering.getOpenDate())) {
+            return Status.UPCOMING_OFFERING;
+        }
+        if (today.isAfter(offering.getCloseDate())) {
+            return Status.CLOSED;
+        }
+        return Status.OPEN;
     }
 
     @Override

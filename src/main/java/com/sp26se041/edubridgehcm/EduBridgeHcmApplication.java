@@ -86,7 +86,6 @@ public class EduBridgeHcmApplication {
         }
     }
 
-
     private void initConfigSystem() {
 
         if (platformConfigRepo.count() > 0) {

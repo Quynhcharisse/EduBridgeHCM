@@ -29,11 +29,16 @@ public enum Status {
     DRAFT_ADMISSION_CAMPAIGN("draft"), //tạo mới ban đầu admission campaign
 
     OPEN("open"),
+    UPCOMING_OFFERING("upcoming"),
     DRAFT("draft"),
     CLOSED("closed"), //schoo admin pause thu cong
-    PAUSED("paused"), //school admin dong thu cong
+    PAUSED("paused"),
     FULL("fulled"), //offering het quota
     EXPIRED("expired"),//campaign qua enddate
+
+    OFFERING_DRAFT("offering_draft"),
+    OFFERING_ACTIVE("offering_active"),
+    OFFERING_INACTIVE("offering_inactive"),
 
     //With status for curriculum
     CUR_DRAFT("draft"),      // Bản nháp, chưa được dùng để tuyển sinh
@@ -96,7 +101,6 @@ public enum Status {
     DISABLED("disabled"),
     SLOT_UNASSIGNED("slot_unassigned"),
 
-    //With status for admission reservation form (đơn giữ chỗ)
     RESERVATION_OPEN("reservation_open"),
     RESERVATION_DRAFT("reservation_draft"),
     RESERVATION_PAYMENT_PENDING("reservation_payment_pending"),
