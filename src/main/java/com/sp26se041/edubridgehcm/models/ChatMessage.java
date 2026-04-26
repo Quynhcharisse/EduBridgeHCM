@@ -33,17 +33,22 @@ public class ChatMessage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "sender_name")
     private String senderName;
 
+    @Column(name = "receiver_name")
     private String receiverName;
 
+    @Column(name = "campus_id")
     private int campusId;
 
+    @Column(name = "message")
     private String message;
 
+    @Column(name = "conversation_id")
     private Long conversationId;
 
-    @Column(nullable = false)
+    @Column(name = "timestamp",nullable = false)
     private LocalDateTime timestamp;
 
     @Enumerated(EnumType.STRING)
