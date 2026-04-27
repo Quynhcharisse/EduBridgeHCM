@@ -60,7 +60,8 @@ public class CampusController {
 
     @PutMapping("/{offeringId}/offering/status")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(@PathVariable int offeringId, @RequestParam OfferingProgramAction action) {
+    public ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(@PathVariable int offeringId,
+                                                                            @RequestParam OfferingProgramAction action) {
         return campusService.changeCampusProgramOfferingStatus(offeringId, action);
     }
 

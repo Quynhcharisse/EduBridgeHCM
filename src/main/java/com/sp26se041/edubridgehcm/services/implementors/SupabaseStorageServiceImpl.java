@@ -42,6 +42,23 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
+    private String normalizeExtension(String ext) {
+        if (ext == null) {
+            return "";
+        }
+        String normalized = ext.trim().toLowerCase();
+        if (normalized.startsWith(".")) {
+            normalized = normalized.substring(1);
+        }
+        return normalized;
+    }
+
+    private boolean fileNameAlreadyHasExtension(String fileName, String ext) {
+        if (fileName == null || ext == null) {
+            return false;
+        }
+        return fileName.toLowerCase().endsWith("." + ext.toLowerCase());
+    }
 
     @Override
     public Map<String, String> uploadDocument(MultipartFile file, String folderName, String fileName,
@@ -58,17 +75,24 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
         }
 
         // ✅ lấy extension
-        String ext = originalFilename.substring(originalFilename.lastIndexOf(".") + 1).toLowerCase();
+        String ext = normalizeExtension(originalFilename.substring(originalFilename.lastIndexOf(".") + 1));
 
-        if (!allowedExt.contains(ext)) {
+        if (allowedExt != null && !allowedExt.isEmpty()) {
+            List<String> normalizedAllowedExt = allowedExt.stream()
+                    .map(this::normalizeExtension)
+                    .toList();
+            if (!normalizedAllowedExt.contains(ext)) {
             throw new IllegalArgumentException(
-                    "Chỉ cho các định dạng file: " + String.join(", ", allowedExt)
+                    "Chỉ cho các định dạng file: " + String.join(", ", normalizedAllowedExt)
             );
+            }
         }
 
         fileName = fileName.replaceAll("\\s+", "_");
 
-        fileName = fileName + "." + ext;
+        if (!fileNameAlreadyHasExtension(fileName, ext)) {
+            fileName = fileName + "." + ext;
+        }
 
         String url = supabaseUrl + "/storage/v1/object/" + bucketName + "/" + folderName + "/" + fileName;
 

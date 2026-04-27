@@ -13,6 +13,17 @@ import java.util.Map;
 
 public class ConfigSystemUtil {
 
+    private static String normalizeExtension(String ext) {
+        if (ext == null) {
+            return "";
+        }
+        String normalized = ext.trim().toLowerCase();
+        if (normalized.startsWith(".")) {
+            normalized = normalized.substring(1);
+        }
+        return normalized;
+    }
+
     public static String validateUrlFormat(Map<String, Object> mediaConfig, String url, boolean isImage) {
         if (url == null || url.isBlank()) {
             return null;
@@ -39,9 +50,11 @@ public class ConfigSystemUtil {
                 return "Đường dẫn " + typeLabel + " không chứa định dạng file hợp lệ";
             }
 
-            String fileExt = cleanUrl.substring(cleanUrl.lastIndexOf("."));
+            String fileExt = normalizeExtension(cleanUrl.substring(cleanUrl.lastIndexOf(".") + 1));
 
-            boolean isValid = allowedFormats.stream().anyMatch(f -> fileExt.equals(f.get("format").toLowerCase()));
+            boolean isValid = allowedFormats.stream()
+                    .map(f -> normalizeExtension(f.get("format")))
+                    .anyMatch(ext -> ext.equals(fileExt));
 
             if (!isValid) {
                 return "Định dạng file " + fileExt + " không được hỗ trợ cho " + typeLabel;
@@ -91,20 +104,23 @@ public class ConfigSystemUtil {
 
         List<Map<String, String>> allowedFormats = (List<Map<String, String>>) mediaConfig.get(formatKey);
 
-        if (allowedFormats.isEmpty()) {
+        if (allowedFormats == null || allowedFormats.isEmpty()) {
             throw new RuntimeException("Chưa cấu hình định dạng cho phép!");
         }
 
-        List<String> formatList = allowedFormats.stream().map(m -> m.get("format")).toList();
+        List<String> formatList = allowedFormats.stream()
+                .map(m -> normalizeExtension(m.get("format")))
+                .toList();
 
         String originalName = file.getOriginalFilename();
         if (originalName == null || !originalName.contains(".")) {
             throw new RuntimeException("Tên file không hợp lệ!");
         }
 
-        String fileExt = originalName.substring(originalName.lastIndexOf(".")).toLowerCase();
+        String fileExt = normalizeExtension(originalName.substring(originalName.lastIndexOf(".") + 1));
 
-        boolean isValid = formatList.contains(fileExt);
+        boolean isValid = formatList.stream()
+                .anyMatch(ext -> ext.equals(fileExt));
 
         if (!isValid) {
             throw new RuntimeException("Định dạng " + fileExt + " không được hỗ trợ cho " + (isImage ? "ảnh" : "tài liệu"));

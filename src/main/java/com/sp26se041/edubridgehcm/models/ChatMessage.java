@@ -31,25 +31,25 @@ public class ChatMessage {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    Long id;
 
     @Column(name = "sender_name")
-    private String senderName;
+    String senderName;
 
     @Column(name = "receiver_name")
-    private String receiverName;
+    String receiverName;
 
     @Column(name = "campus_id")
-    private int campusId;
+    int campusId;
 
     @Column(name = "message")
-    private String message;
+    String message;
 
     @Column(name = "conversation_id")
-    private Long conversationId;
+    Long conversationId;
 
     @Column(name = "timestamp",nullable = false)
-    private LocalDateTime timestamp;
+    LocalDateTime timestamp;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status")

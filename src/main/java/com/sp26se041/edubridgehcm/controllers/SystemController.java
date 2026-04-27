@@ -1,6 +1,8 @@
 package com.sp26se041.edubridgehcm.controllers;
 
+import com.sp26se041.edubridgehcm.enums.ImportType;
 import com.sp26se041.edubridgehcm.requests.CreateConfigDataRequest;
+import com.sp26se041.edubridgehcm.requests.ImportConfirmRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SystemService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -42,11 +44,26 @@ public class SystemController {
         return systemService.updateConfigData(request);
     }
 
-    @PostMapping(value = "/config/admission/template/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/config/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> importAdmissionTemplate(@RequestParam("file") MultipartFile file) {
-        return systemService.importAdmissionTemplate(file);
+    public ResponseEntity<ResponseObject> importPreview(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("type") ImportType type) {
+        return systemService.importPreview(file, type);
     }
 
+    @PostMapping("/config/confirm")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ResponseObject> importConfirm(
+            @RequestBody ImportConfirmRequest request,
+            @RequestParam("type") ImportType type) {
+        return systemService.importConfirm(request, type);
+    }
 
+    @PostMapping("/config/validate-row")
+    public ResponseEntity<ResponseObject> validateRow(
+            @RequestBody ImportConfirmRequest request,
+            @RequestParam("type") ImportType type) {
+        return systemService.validateSingleRow(request, type);
+    }
 }

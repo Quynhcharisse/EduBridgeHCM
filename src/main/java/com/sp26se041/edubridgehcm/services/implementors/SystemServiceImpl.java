@@ -1,17 +1,18 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sp26se041.edubridgehcm.enums.ImportType;
 import com.sp26se041.edubridgehcm.models.PlatformConfig;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.requests.CreateConfigDataRequest;
+import com.sp26se041.edubridgehcm.requests.ImportConfirmRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SystemService;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -23,12 +24,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,8 +42,6 @@ public class SystemServiceImpl implements SystemService {
     private final PlatformConfigRepo platformConfigRepo;
 
     private final SchoolRepo schoolRepo;
-
-    private final ObjectMapper objectMapper;
 
     @Override
     public ResponseEntity<ResponseObject> getConfigData() {
@@ -89,6 +88,7 @@ public class SystemServiceImpl implements SystemService {
         return data;
     }
 
+
     @Override
     @Transactional
     public ResponseEntity<ResponseObject> updateConfigData(CreateConfigDataRequest request) {
@@ -132,216 +132,6 @@ public class SystemServiceImpl implements SystemService {
                 "Cập nhật thành công",
                 null
         );
-    }
-
-    @Override
-    @Transactional
-    public ResponseEntity<ResponseObject> importAdmissionTemplate(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "File không được để trống", null);
-        }
-
-        String originalName = file.getOriginalFilename();
-        if (originalName == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tên file không hợp lệ", null);
-        }
-
-        try {
-            String lowerName = originalName.toLowerCase();
-            Map<String, Object> admissionTemplate;
-
-            if (lowerName.endsWith(".xlsx")) {
-                admissionTemplate = buildAdmissionTemplateFromExcel(file);
-            } else {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ hỗ trợ file .xlsx", null);
-            }
-
-            PlatformConfig config = platformConfigRepo.findByKey("admissionSettingsData").orElse(
-                    PlatformConfig.builder()
-                            .key("admissionSettingsData")
-                            .creationDate(LocalDateTime.now())
-                            .build()
-            );
-
-            config.setValue(admissionTemplate);
-            config.setModifiedDate(LocalDateTime.now());
-            platformConfigRepo.save(config);
-
-            return ResponseBuilder.build(HttpStatus.OK, "Import template tuyển sinh thành công", admissionTemplate);
-        } catch (IllegalArgumentException e) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
-        } catch (IOException e) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không đọc được file import", null);
-        } catch (Exception e) {
-            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi hệ thống khi import template", null);
-        }
-    }
-
-    private Map<String, Object> buildAdmissionTemplateFromExcel(MultipartFile file) throws IOException {
-        try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
-            List<Map<String, Object>> allowedMethods = parseAllowedMethodsSheet(workbook.getSheet("allowedMethods"));
-            Set<String> validMethodCodes = allowedMethods.stream()
-                    .map(m -> String.valueOf(m.get("code")).trim())
-                    .collect(Collectors.toCollection(HashSet::new));
-
-            List<Map<String, Object>> admissionProcesses = parseAdmissionProcessesSheet(
-                    workbook.getSheet("admissionProcesses"),
-                    validMethodCodes
-            );
-            List<Map<String, Object>> byMethod = parseByMethodDocumentsSheet(
-                    workbook.getSheet("byMethod"),
-                    validMethodCodes
-            );
-
-            Map<String, Object> documentRequirementsData = new HashMap<>();
-            documentRequirementsData.put("byMethod", byMethod);
-
-            Map<String, Object> admissionTemplate = new HashMap<>();
-            admissionTemplate.put("allowedMethods", allowedMethods);
-            admissionTemplate.put("admissionProcesses", admissionProcesses);
-            admissionTemplate.put("documentRequirementsData", documentRequirementsData);
-            admissionTemplate.put("byMethod", byMethod);
-            admissionTemplate.put("methodDocumentRequirements", byMethod);
-            return admissionTemplate;
-        }
-    }
-
-    private List<Map<String, Object>> parseAllowedMethodsSheet(Sheet sheet) {
-        if (sheet == null) {
-            throw new IllegalArgumentException("Thiếu sheet allowedMethods");
-        }
-
-        DataFormatter formatter = new DataFormatter();
-        List<Map<String, Object>> methods = new ArrayList<>();
-        Set<String> seenCodes = new HashSet<>();
-
-        for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-            Row row = sheet.getRow(i);
-            if (row == null) continue;
-
-            String code = cellText(row.getCell(0), formatter);
-            String displayName = cellText(row.getCell(1), formatter);
-            String description = cellText(row.getCell(2), formatter);
-
-            if (code.isBlank() && displayName.isBlank() && description.isBlank()) continue;
-            if (code.isBlank() || displayName.isBlank()) {
-                throw new IllegalArgumentException("Sheet allowedMethods thiếu code/displayName tại dòng " + (i + 1));
-            }
-            if (!seenCodes.add(code.toLowerCase())) {
-                throw new IllegalArgumentException("Phương thức tuyển sinh bị trùng: " + code);
-            }
-
-            Map<String, Object> item = new HashMap<>();
-            item.put("code", code);
-            item.put("displayName", displayName);
-            item.put("description", description);
-            methods.add(item);
-        }
-
-        if (methods.isEmpty()) {
-            throw new IllegalArgumentException("Sheet allowedMethods không có dữ liệu");
-        }
-        return methods;
-    }
-
-    private List<Map<String, Object>> parseAdmissionProcessesSheet(Sheet sheet, Set<String> validMethodCodes) {
-        if (sheet == null) return Collections.emptyList();
-
-        DataFormatter formatter = new DataFormatter();
-        Map<String, List<Map<String, Object>>> grouped = new HashMap<>();
-
-        for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-            Row row = sheet.getRow(i);
-            if (row == null) continue;
-
-            String methodCode = cellText(row.getCell(0), formatter);
-            String stepOrderRaw = cellText(row.getCell(1), formatter);
-            String stepName = cellText(row.getCell(2), formatter);
-            String description = cellText(row.getCell(3), formatter);
-
-            if (methodCode.isBlank() && stepOrderRaw.isBlank() && stepName.isBlank() && description.isBlank()) continue;
-            if (methodCode.isBlank() || stepOrderRaw.isBlank() || stepName.isBlank()) {
-                throw new IllegalArgumentException("Sheet admissionProcesses thiếu dữ liệu tại dòng " + (i + 1));
-            }
-            if (!validMethodCodes.contains(methodCode)) {
-                throw new IllegalArgumentException("methodCode không tồn tại trong allowedMethods: " + methodCode);
-            }
-
-            int stepOrder;
-            try {
-                stepOrder = Integer.parseInt(stepOrderRaw);
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException("stepOrder không hợp lệ tại dòng " + (i + 1));
-            }
-
-            Map<String, Object> step = new HashMap<>();
-            step.put("stepOrder", stepOrder);
-            step.put("stepName", stepName);
-            step.put("description", description);
-
-            grouped.computeIfAbsent(methodCode, k -> new ArrayList<>()).add(step);
-        }
-
-        List<Map<String, Object>> processes = new ArrayList<>();
-        for (Map.Entry<String, List<Map<String, Object>>> entry : grouped.entrySet()) {
-            Map<String, Object> process = new HashMap<>();
-            process.put("methodCode", entry.getKey());
-            process.put("steps", entry.getValue());
-            processes.add(process);
-        }
-
-        return processes;
-    }
-
-    private List<Map<String, Object>> parseByMethodDocumentsSheet(Sheet sheet, Set<String> validMethodCodes) {
-        if (sheet == null) return Collections.emptyList();
-
-        DataFormatter formatter = new DataFormatter();
-        Map<String, List<Map<String, Object>>> grouped = new HashMap<>();
-
-        for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-            Row row = sheet.getRow(i);
-            if (row == null) continue;
-
-            String methodCode = cellText(row.getCell(0), formatter);
-            String code = cellText(row.getCell(1), formatter);
-            String name = cellText(row.getCell(2), formatter);
-            String requiredRaw = cellText(row.getCell(3), formatter);
-
-            if (methodCode.isBlank() && code.isBlank() && name.isBlank() && requiredRaw.isBlank()) continue;
-            if (methodCode.isBlank() || code.isBlank() || name.isBlank()) {
-                throw new IllegalArgumentException("Sheet byMethod thiếu methodCode/code/name tại dòng " + (i + 1));
-            }
-            if (!validMethodCodes.contains(methodCode)) {
-                throw new IllegalArgumentException("methodCode không tồn tại trong allowedMethods: " + methodCode);
-            }
-
-            Map<String, Object> doc = new HashMap<>();
-            doc.put("code", code);
-            doc.put("name", name);
-            doc.put("required", parseBoolean(requiredRaw));
-            grouped.computeIfAbsent(methodCode, k -> new ArrayList<>()).add(doc);
-        }
-
-        List<Map<String, Object>> byMethod = new ArrayList<>();
-        for (Map.Entry<String, List<Map<String, Object>>> entry : grouped.entrySet()) {
-            Map<String, Object> item = new HashMap<>();
-            item.put("methodCode", entry.getKey());
-            item.put("documents", entry.getValue());
-            byMethod.add(item);
-        }
-        return byMethod;
-    }
-
-    private String cellText(Cell cell, DataFormatter formatter) {
-        if (cell == null) return "";
-        return formatter.formatCellValue(cell).trim();
-    }
-
-    private boolean parseBoolean(String raw) {
-        if (raw == null || raw.isBlank()) return false;
-        String value = raw.trim().toLowerCase();
-        return value.equals("true") || value.equals("1") || value.equals("yes") || value.equals("y");
     }
 
     @Transactional
@@ -605,11 +395,178 @@ public class SystemServiceImpl implements SystemService {
         platformConfigRepo.save(config);
     }
 
-    private String text(JsonNode node, String fieldName, String pathLabel) {
-        JsonNode value = node.get(fieldName);
-        if (value == null || value.asText("").trim().isEmpty()) {
-            throw new IllegalArgumentException(pathLabel + " không được để trống");
+    @Override
+    public ResponseEntity<ResponseObject> importPreview(MultipartFile file, ImportType type) {
+        try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
+            Sheet sheet = workbook.getSheet(type.getSheetName());
+            if (sheet == null) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy sheet: " + type.getSheetName(), null);
+            }
+
+            DataFormatter formatter = new DataFormatter();
+            List<ImportConfirmRequest.ImportRow> resultRows = new ArrayList<>();
+
+            // Lấy mã code đã tồn tại để validate reference cho các step sau
+            Set<String> validCodes = (type == ImportType.ALLOWED_METHODS) ? new HashSet<>() : getExistingMethodCodes();
+
+            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                Row row = sheet.getRow(i);
+                if (row == null || isRowEmpty(row)) continue;
+
+                // 1. Map row thành RowData tương ứng
+                Map<String, Object> rowData = mapRowToMap(row, type, formatter, i + 1);
+
+                // 2. Validate RowData
+                ImportConfirmRequest.Error error = validateRowData(rowData, type, validCodes);
+
+                // 3. Đóng gói vào ImportRow
+                resultRows.add(ImportConfirmRequest.ImportRow.builder()
+                        .rowData(rowData)
+                        .error(error)
+                        .isError(error != null)
+                        .build());
+            }
+
+            return ResponseBuilder.build(HttpStatus.OK, "Xem trước thành công", resultRows);
+        } catch (Exception e) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi: " + e.getMessage(), null);
         }
-        return value.asText().trim();
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> importConfirm(ImportConfirmRequest request, ImportType type) {
+        try {
+            PlatformConfig config = platformConfigRepo.findByKey("admissionSettingsData")
+                    .orElse(PlatformConfig.builder().key("admissionSettingsData").value(new HashMap<>()).build());
+
+            Map<String, Object> configValue = (Map<String, Object>) config.getValue();
+
+            List<Object> cleanData = request.getRows().stream()
+                    .map(ImportConfirmRequest.ImportRow::getRowData)
+                    .collect(Collectors.toList());
+
+            configValue.put(type.getSheetName(), cleanData);
+
+            config.setValue(configValue);
+            config.setModifiedDate(LocalDateTime.now());
+            platformConfigRepo.save(config);
+
+            return ResponseBuilder.build(HttpStatus.OK, "Lưu dữ liệu " + type + " thành công", null);
+        } catch (Exception e) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi lưu dữ liệu: " + e.getMessage(), null);
+        }
+    }
+
+    //bạn cần lấy row đầu tiên từ list để xử lý (vì Debounce thường gửi 1 row lên).
+    @Override
+    public ResponseEntity<ResponseObject> validateSingleRow(ImportConfirmRequest request, ImportType type) {
+        if (request.getRows() == null || request.getRows().isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Dữ liệu trống", null);
+        }
+
+        ImportConfirmRequest.ImportRow row = request.getRows().get(0);
+
+        Set<String> validCodes = (type == ImportType.ALLOWED_METHODS) ? new HashSet<>() : getExistingMethodCodes();
+
+        ImportConfirmRequest.Error error = validateRowData(row.getRowData(), type, validCodes);
+
+        row.setError(error);
+        row.setIsError(error != null);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Validate thành công", row);
+    }
+
+    private Map<String, Object> mapRowToMap(Row row, ImportType type, DataFormatter formatter, int index) {
+        Map<String, Object> rowData = new LinkedHashMap<>();
+        rowData.put("index", index);
+        switch (type) {
+            case ALLOWED_METHODS:
+                rowData.put("code", cellText(row.getCell(0), formatter));
+                rowData.put("displayName", cellText(row.getCell(1), formatter));
+                rowData.put("description", cellText(row.getCell(2), formatter));
+                break;
+
+            case ADMISSION_PROCESSES:
+                rowData.put("methodCode", cellText(row.getCell(0), formatter));
+                rowData.put("stepOrder", cellText(row.getCell(1), formatter));
+                rowData.put("stepName", cellText(row.getCell(2), formatter));
+                rowData.put("description", cellText(row.getCell(3), formatter));
+                break;
+            case METHOD_DOCUMENTS:
+                rowData.put("methodCode", cellText(row.getCell(0), formatter));
+                rowData.put("code", cellText(row.getCell(1), formatter));
+                rowData.put("name", cellText(row.getCell(2), formatter));
+                rowData.put("required", parseBoolean(cellText(row.getCell(3), formatter)));
+                break;
+        }
+        return rowData;
+    }
+
+    //hàm check method code nếu đã import rồi ==> sau đấy check cho các key khác
+    // ==> list mã phương thức đã nộp từ DB (phục vụ validate các sheet sau)
+    private Set<String> getExistingMethodCodes() {
+        return platformConfigRepo.findByKey("admissionSettingsData")
+                .map(config -> {
+                    Map<String, Object> val = (Map<String, Object>) config.getValue();
+                    List<Map<String, Object>> methods = (List<Map<String, Object>>) val.get("allowedMethods");
+                    if (methods == null) return new HashSet<String>();
+                    return methods.stream()
+                            .map(m -> String.valueOf(m.get("code")).toLowerCase())
+                            .collect(Collectors.toSet());
+                }).orElse(new HashSet<>());
+    }
+
+    private ImportConfirmRequest.Error validateRowData(Map<String, Object> rowData, ImportType type, Set<String> validCodes) {
+
+        List<ImportConfirmRequest.Fields> fieldErrors = new ArrayList<>();
+
+        rowData.forEach((key, value) -> {
+            if (key.equals("description") || key.equals("index")) return;
+            if (value == null || String.valueOf(value).isBlank()) {
+                fieldErrors.add(new ImportConfirmRequest.Fields(key, "Trường này không được để trống"));
+            }
+        });
+
+        // 2. Validate nghiệp vụ riêng
+        String mCode = String.valueOf(rowData.get("methodCode")).toLowerCase();
+        if (type != ImportType.ALLOWED_METHODS && !mCode.isBlank() && !validCodes.contains(mCode)) {
+            fieldErrors.add(new ImportConfirmRequest.Fields("methodCode", "Mã phương thức không tồn tại"));
+        }
+
+        // Check định dạng số cho stepOrder
+        if (type == ImportType.ADMISSION_PROCESSES) {
+            try {
+                Integer.parseInt(String.valueOf(rowData.get("stepOrder")));
+            } catch (NumberFormatException e) {
+                fieldErrors.add(new ImportConfirmRequest.Fields("stepOrder", "Thứ tự bước phải là số"));
+            }
+        }
+
+        return fieldErrors.isEmpty() ? null : new ImportConfirmRequest.Error(fieldErrors);
+    }
+
+    //Lấy text từ cell bất kể kiểu dữ liệu là gì (Numeric, String, Formula...)
+    private String cellText(Cell cell, DataFormatter formatter) {
+        if (cell == null) return "";
+        return formatter.formatCellValue(cell).trim();
+    }
+
+    //Chuyển đổi linh hoạt các giá trị đánh dấu trong Excel sang Boolean
+    private boolean parseBoolean(String raw) {
+        if (raw == null) return false;
+        String v = raw.trim().toLowerCase();
+        return List.of("true", "1", "yes", "y", "x").contains(v);
+    }
+
+    //Kiểm tra xem một dòng có hoàn toàn trống hay không
+    private boolean isRowEmpty(Row row) {
+        if (row == null) return true;
+        for (int cellNum = row.getFirstCellNum(); cellNum < row.getLastCellNum(); cellNum++) {
+            Cell cell = row.getCell(cellNum);
+            if (cell != null && cell.getCellType() != CellType.BLANK && !cell.toString().isBlank()) {
+                return false;
+            }
+        }
+        return true;
     }
 }

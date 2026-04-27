@@ -60,13 +60,15 @@ public class PostValidation {
         }
 
         if (isBlank(request.getThumbnail())) return "Ảnh đại diện (Thumbnail) bài viết là bắt buộc.";
+
         String thumbnailErr = ConfigSystemUtil.validateUrlFormat(mediaConfig, request.getThumbnail(), true);
+
         if (thumbnailErr != null) return "Ảnh đại diện: " + thumbnailErr;
 
-        if (request.getTypeFile() == null || request.getTypeFile().isBlank()) return "Loại tệp không được để trống.";
-
         if (isBlank(request.getTypeFile())) return "Loại tệp không được để trống.";
+
         String typeFileErr = ConfigSystemUtil.validateUrlFormat(mediaConfig, request.getTypeFile(), false);
+
         if (typeFileErr != null) return typeFileErr;
 
         if (parseCategoryPost(request.getCategoryPost()) == null)
