@@ -397,6 +397,7 @@ public class SystemServiceImpl implements SystemService {
 
     @Override
     public ResponseEntity<ResponseObject> importPreview(MultipartFile file, ImportType type) {
+        validateImportType(type);
         try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
             Sheet sheet = workbook.getSheet(type.getSheetName());
             if (sheet == null) {
@@ -430,6 +431,17 @@ public class SystemServiceImpl implements SystemService {
             return ResponseBuilder.build(HttpStatus.OK, "Xem trước thành công", resultRows);
         } catch (Exception e) {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi: " + e.getMessage(), null);
+        }
+    }
+
+    private void validateImportType(ImportType type) {
+        List<ImportType> allowedTypes = List.of(
+                ImportType.ALLOWED_METHODS,
+                ImportType.ADMISSION_PROCESSES,
+                ImportType.METHOD_DOCUMENTS
+        );
+        if (!allowedTypes.contains(type)) {
+            throw new IllegalArgumentException("Loại import không hợp lệ hoặc không được hỗ trợ.");
         }
     }
 

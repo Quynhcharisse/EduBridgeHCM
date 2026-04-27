@@ -9,7 +9,8 @@ public enum ImportType {
 
     ALLOWED_METHODS("allowedMethods"),
     ADMISSION_PROCESSES("admissionProcesses"),
-    METHOD_DOCUMENTS("byMethod");
+    METHOD_DOCUMENTS("byMethod"),
+    MANDATORY_ALL("mandatoryAll");
 
     private final String sheetName;
 }
