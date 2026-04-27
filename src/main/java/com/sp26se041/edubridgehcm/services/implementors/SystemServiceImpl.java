@@ -448,6 +448,24 @@ public class SystemServiceImpl implements SystemService {
     @Override
     public ResponseEntity<ResponseObject> importConfirm(ImportConfirmRequest request, ImportType type) {
         try {
+            validateImportType(type);
+            if (request.getRows() == null || request.getRows().isEmpty()) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Dữ liệu trống", null);
+            }
+
+            Set<String> validCodes = getExistingMethodCodes();
+            List<ImportConfirmRequest.ImportRow> rows = request.getRows();
+            rows.forEach(row -> {
+                ImportConfirmRequest.Error error = validateRowData(row.getRowData(), type, validCodes);
+                row.setError(error);
+                row.setIsError(error != null);
+            });
+
+            boolean hasError = rows.stream().anyMatch(r -> Boolean.TRUE.equals(r.getIsError()));
+            if (hasError) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Dữ liệu không hợp lệ", rows);
+            }
+
             PlatformConfig config = platformConfigRepo.findByKey("admissionSettingsData")
                     .orElse(PlatformConfig.builder().key("admissionSettingsData").value(new HashMap<>()).build());
 
@@ -455,7 +473,7 @@ public class SystemServiceImpl implements SystemService {
                     ? (Map<String, Object>) raw
                     : new HashMap<>();
 
-            List<Object> cleanData = request.getRows().stream()
+            List<Object> cleanData = rows.stream()
                     .map(ImportConfirmRequest.ImportRow::getRowData)
                     .collect(Collectors.toList());
 
@@ -551,6 +569,10 @@ public class SystemServiceImpl implements SystemService {
     private ImportConfirmRequest.Error validateRowData(Map<String, Object> rowData, ImportType type, Set<String> validCodes) {
 
         List<ImportConfirmRequest.Fields> fieldErrors = new ArrayList<>();
+        if (rowData == null) {
+            fieldErrors.add(new ImportConfirmRequest.Fields("rowData", "Dữ liệu dòng không hợp lệ"));
+            return new ImportConfirmRequest.Error(fieldErrors);
+        }
 
         rowData.forEach((key, value) -> {
             if (key.equals("description") || key.equals("index")) return;
