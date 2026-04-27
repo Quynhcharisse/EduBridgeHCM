@@ -34,17 +34,19 @@ public class SchoolConfigController {
     }
 
     @PostMapping(value = "/import/mandatory/docs/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('SCHOOL')")
     public ResponseEntity<ResponseObject> importMandatoryDocs(@RequestParam("file") MultipartFile file) {
         return schoolConfigService.importMandatoryDocs(file, ImportType.MANDATORY_ALL);
     }
 
     @PostMapping("/confirm")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('SCHOOL')")
     public ResponseEntity<ResponseObject> importConfirm(@RequestBody ImportConfirmRequest request) {
         return schoolConfigService.importConfirm(request, ImportType.MANDATORY_ALL);
     }
 
     @PostMapping("/validate-row")
+    @PreAuthorize("hasAnyRole('SCHOOL')")
     public ResponseEntity<ResponseObject> validateRow(@RequestBody ImportConfirmRequest request) {
         return schoolConfigService.validateSingleRow(request, ImportType.MANDATORY_ALL);
     }
