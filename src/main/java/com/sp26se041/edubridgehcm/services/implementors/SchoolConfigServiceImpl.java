@@ -834,7 +834,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         };
     }
 
-    public static ResourceType parseReso urceType(String value) {
+    public static ResourceType parseResourceType(String value) {
         String normalizedValue = normalize(value);
         if (normalizedValue == null) {
             return null;
