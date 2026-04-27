@@ -5,6 +5,8 @@ import com.sp26se041.edubridgehcm.requests.CreateConfigDataRequest;
 import com.sp26se041.edubridgehcm.requests.ImportConfirmRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SystemService;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -48,6 +50,12 @@ public class SystemController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ResponseObject> importPreview(
             @RequestParam("file") MultipartFile file,
+            @Parameter(
+                    description = "Loại dữ liệu import cấu hình",
+                    schema = @Schema(
+                            allowableValues = {"ALLOWED_METHODS", "ADMISSION_PROCESSES", "METHOD_DOCUMENTS"}
+                    )
+            )
             @RequestParam("type") ImportType type) {
         return systemService.importPreview(file, type);
     }
@@ -56,6 +64,12 @@ public class SystemController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ResponseObject> importConfirm(
             @RequestBody ImportConfirmRequest request,
+            @Parameter(
+                    description = "Loại dữ liệu import cấu hình",
+                    schema = @Schema(
+                            allowableValues = {"ALLOWED_METHODS", "ADMISSION_PROCESSES", "METHOD_DOCUMENTS"}
+                    )
+            )
             @RequestParam("type") ImportType type) {
         return systemService.importConfirm(request, type);
     }
@@ -63,6 +77,12 @@ public class SystemController {
     @PostMapping("/config/validate-row")
     public ResponseEntity<ResponseObject> validateRow(
             @RequestBody ImportConfirmRequest request,
+            @Parameter(
+                    description = "Loại dữ liệu import cấu hình",
+                    schema = @Schema(
+                            allowableValues = {"ALLOWED_METHODS", "ADMISSION_PROCESSES", "METHOD_DOCUMENTS"}
+                    )
+            )
             @RequestParam("type") ImportType type) {
         return systemService.validateSingleRow(request, type);
     }

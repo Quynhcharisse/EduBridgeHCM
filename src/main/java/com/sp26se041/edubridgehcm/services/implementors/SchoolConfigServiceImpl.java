@@ -3,6 +3,7 @@ package com.sp26se041.edubridgehcm.services.implementors;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.CategoryTemplate;
+import com.sp26se041.edubridgehcm.enums.ImportType;
 import com.sp26se041.edubridgehcm.enums.ResourceType;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.models.Account;
@@ -20,6 +21,7 @@ import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolSubscriptionRepo;
 import com.sp26se041.edubridgehcm.repositories.TemplateDocxRepo;
+import com.sp26se041.edubridgehcm.requests.ImportConfirmRequest;
 import com.sp26se041.edubridgehcm.requests.SchoolConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -30,11 +32,12 @@ import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.utils.WorkShiftConfigValidator;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -46,7 +49,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -55,7 +57,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -265,73 +266,149 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
 
     //dành cho import hồ sơ bắt buộc chung
     @Override
-    public ResponseEntity<ResponseObject> importMandatoryDocs(MultipartFile file) {
+    public ResponseEntity<ResponseObject> importMandatoryDocs(MultipartFile file, ImportType type) {
+
+        validateImportType(type);
         try {
             if (file.isEmpty()) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "File không được để trống", null);
             }
 
-            String fileName = file.getOriginalFilename();
-            if (fileName == null || (!fileName.endsWith(".xlsx") && !fileName.endsWith(".xls"))) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Định dạng file không hỗ trợ (chỉ chấp nhận .xlsx, .xls)", null);
-            }
+            List<ImportConfirmRequest.ImportRow> resultRows = new ArrayList<>();
+            DataFormatter formatter = new DataFormatter();
 
-            List<Map<String, Object>> mandatoryAllJson = new ArrayList<>();
-
-            // 2. Đọc file Excel bằng Apache POI
             try (InputStream is = file.getInputStream();
-                 Workbook workbook = new XSSFWorkbook(is)) {
+                 Workbook workbook = WorkbookFactory.create(is)) {
 
                 Sheet sheet = workbook.getSheetAt(0);
-                Iterator<Row> rows = sheet.iterator();
 
-                // Bỏ qua dòng tiêu đề
-                if (rows.hasNext()) rows.next();
+                // Duyệt từ dòng 1 (bỏ qua header ở dòng 0)
+                for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                    Row row = sheet.getRow(i);
+                    if (row == null || isRowEmpty(row)) continue;
 
-                while (rows.hasNext()) {
-                    Row currentRow = rows.next();
+                    // 1. Map dữ liệu từ Excel vào Map
+                    Map<String, Object> rowData = new LinkedHashMap<>();
+                    rowData.put("index", i + 1);
+                    rowData.put("code", cellText(row.getCell(0), formatter));
+                    rowData.put("name", cellText(row.getCell(1), formatter));
+                    rowData.put("required", true); // Mặc định true cho hồ sơ chung
 
-                    // Đọc Cell (Cột 0: Mã, Cột 1: Tên)
-                    String code = getCellValueAsString(currentRow.getCell(0));
-                    String name = getCellValueAsString(currentRow.getCell(1));
+                    // 2. Validate dữ liệu
+                    ImportConfirmRequest.Error error = validateMandatoryRow(rowData);
 
-                    // Bỏ qua dòng nếu cả mã và tên đều trống
-                    if (code.isEmpty() && name.isEmpty()) continue;
-
-                    // Build Map theo format yêu cầu
-                    Map<String, Object> docMap = new HashMap<>();
-                    docMap.put("code", code);
-                    docMap.put("name", name);
-                    docMap.put("required", true); // Luôn là true cho hồ sơ bắt buộc chung
-
-                    mandatoryAllJson.add(docMap);
+                    // 3. Đóng gói vào cấu trúc chuẩn
+                    resultRows.add(ImportConfirmRequest.ImportRow.builder()
+                            .rowData(rowData)
+                            .error(error)
+                            .isError(error != null)
+                            .build());
                 }
             }
 
-            return ResponseBuilder.build(HttpStatus.OK, "Đọc file hồ sơ thành công", mandatoryAllJson);
+            return ResponseBuilder.build(HttpStatus.OK, "Đọc file hồ sơ thành công", resultRows);
 
-        } catch (IOException e) {
-            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi đọc file", null);
         } catch (Exception e) {
-            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Hệ thống gặp lỗi khi xử lý", null);
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi xử lý file: " + e.getMessage(), null);
         }
     }
 
-    private String getCellValueAsString(Cell cell) {
-        if (cell == null) return "";
-        switch (cell.getCellType()) {
-            case STRING:
-                return cell.getStringCellValue().trim();
-            case NUMERIC:
-                if (DateUtil.isCellDateFormatted(cell)) return cell.getDateCellValue().toString();
-                return String.valueOf((int) cell.getNumericCellValue());
-            case BOOLEAN:
-                return String.valueOf(cell.getBooleanCellValue());
-            case FORMULA:
-                return cell.getCellFormula();
-            default:
-                return "";
+    private void validateImportType(ImportType type) {
+        List<ImportType> allowedTypes = List.of(
+                ImportType.MANDATORY_ALL
+        );
+        if (!allowedTypes.contains(type)) {
+            throw new IllegalArgumentException("Loại import không hợp lệ hoặc không được hỗ trợ.");
         }
+    }
+
+    private boolean isRowEmpty(Row row) {
+        if (row == null) return true;
+        for (int cellNum = row.getFirstCellNum(); cellNum < row.getLastCellNum(); cellNum++) {
+            Cell cell = row.getCell(cellNum);
+            if (cell != null && cell.getCellType() != CellType.BLANK && !cell.toString().trim().isEmpty()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Dùng hàm này cho đồng bộ với các type khác
+    private String cellText(Cell cell, DataFormatter formatter) {
+        if (cell == null) return "";
+        return formatter.formatCellValue(cell).trim();
+    }
+
+    //Hàm này sẽ được dùng cho cả lúc Preview và lúc Validate Single Row
+    private ImportConfirmRequest.Error validateMandatoryRow(Map<String, Object> rowData) {
+        List<ImportConfirmRequest.Fields> fieldErrors = new ArrayList<>();
+
+        // Kiểm tra mã hồ sơ
+        if (String.valueOf(rowData.get("code")).isBlank()) {
+            fieldErrors.add(new ImportConfirmRequest.Fields("code", "Mã hồ sơ không được để trống"));
+        }
+
+        // Kiểm tra tên hồ sơ
+        if (String.valueOf(rowData.get("name")).isBlank()) {
+            fieldErrors.add(new ImportConfirmRequest.Fields("name", "Tên hồ sơ không được để trống"));
+        }
+
+        return fieldErrors.isEmpty() ? null : new ImportConfirmRequest.Error(fieldErrors);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> importConfirm(ImportConfirmRequest request, ImportType type) {
+        try {
+            SchoolConfig config = schoolConfigRepo.findByKey("documentRequirementsData")
+                    .orElse(SchoolConfig.builder()
+                            .key("documentRequirementsData")
+                            .value(new HashMap<String, Object>())
+                            .build());
+
+            Map<String, Object> configValue = (Map<String, Object>) config.getValue();
+
+            // 2. Trích xuất rowData sạch (chỉ lấy code, name, required)
+            List<Map<String, Object>> cleanData = request.getRows().stream()
+                    .map(row -> {
+                        Map<String, Object> data = row.getRowData();
+                        Map<String, Object> doc = new HashMap<>();
+                        doc.put("code", data.get("code"));
+                        doc.put("name", data.get("name"));
+                        doc.put("required", true); // Luôn là true cho hồ sơ bắt buộc chung
+                        return doc;
+                    })
+                    .collect(Collectors.toList());
+
+            // 3. Lưu vào key "mandatoryAll" để khớp với logic hàm updateDocumentRequirements
+            configValue.put("mandatoryAll", cleanData);
+
+            config.setValue(configValue);
+            config.setUpdatedAt(LocalDateTime.now()); // Dùng updatedAt cho đồng bộ
+            schoolConfigRepo.save(config);
+
+            return ResponseBuilder.build(HttpStatus.OK, "Lưu danh mục hồ sơ bắt buộc thành công", null);
+        } catch (Exception e) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi khi lưu: " + e.getMessage(), null);
+        }
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> validateSingleRow(ImportConfirmRequest request, ImportType type) {
+        if (request.getRows() == null || request.getRows().isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Dữ liệu trống", null);
+        }
+
+        // Lấy dòng đầu tiên (vì Frontend gửi dòng đang được edit lên)
+        ImportConfirmRequest.ImportRow row = request.getRows().get(0);
+
+        // Gọi hàm validate chung đã viết ở trên
+        ImportConfirmRequest.Error error = validateMandatoryRow(row.getRowData());
+
+        // Cập nhật lại trạng thái lỗi cho row
+        row.setError(error);
+        row.setIsError(error != null);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Validate dòng thành công", row);
     }
 
     @Transactional
