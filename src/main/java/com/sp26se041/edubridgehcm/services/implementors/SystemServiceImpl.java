@@ -439,13 +439,25 @@ public class SystemServiceImpl implements SystemService {
             PlatformConfig config = platformConfigRepo.findByKey("admissionSettingsData")
                     .orElse(PlatformConfig.builder().key("admissionSettingsData").value(new HashMap<>()).build());
 
-            Map<String, Object> configValue = (Map<String, Object>) config.getValue();
+            Map<String, Object> configValue = config.getValue() instanceof Map<?, ?> raw
+                    ? (Map<String, Object>) raw
+                    : new HashMap<>();
 
             List<Object> cleanData = request.getRows().stream()
                     .map(ImportConfirmRequest.ImportRow::getRowData)
                     .collect(Collectors.toList());
 
             configValue.put(type.getSheetName(), cleanData);
+
+            // Keep legacy/current keys synchronized so all readers get consistent data.
+            if (type == ImportType.METHOD_DOCUMENTS) {
+                configValue.put("methodDocumentRequirements", cleanData);
+                Map<String, Object> documentRequirementsData = configValue.get("documentRequirementsData") instanceof Map<?, ?> rawDocReq
+                        ? (Map<String, Object>) rawDocReq
+                        : new HashMap<>();
+                documentRequirementsData.put("byMethod", cleanData);
+                configValue.put("documentRequirementsData", documentRequirementsData);
+            }
 
             config.setValue(configValue);
             config.setModifiedDate(LocalDateTime.now());
