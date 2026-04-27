@@ -15,6 +15,7 @@ import java.util.List;
 
 public interface ParentService {
     ResponseEntity<ResponseObject> getConversations(Long cursorId);
+
     ResponseEntity<ResponseObject> getChatHistory(String parentEmail, int campusId, int studentProfileId, Long cursorId);
     //Personality types
     ResponseEntity<ResponseObject> getPersonalityTypes();
@@ -25,7 +26,9 @@ public interface ParentService {
     ResponseEntity<ResponseObject> getAllSubjects();
 
     ResponseEntity<ResponseObject> addStudentInfo(AddStudentInfoRequest request);
+
     ResponseEntity<ResponseObject> updateStudentInfo(UpdateStudentInfoRequest request);
+
     ResponseEntity<ResponseObject> getStudents();
 
     ResponseEntity<ResponseObject> autoFillTranscript(AutoFillTranscriptRequest request);
@@ -33,13 +36,13 @@ public interface ParentService {
     ResponseEntity<ResponseObject> getStudentInfo(int studentProfileId);
 
     //Favourite school
-
     ResponseEntity<ResponseObject> addFavouriteSchool(AddFavouriteSchoolRequest request);
+
     ResponseEntity<ResponseObject> getFavouriteSchools(int page, int size);
+
     ResponseEntity<ResponseObject> removeFavouriteSchool(long favouriteSchoolId);
 
 //    ResponseEntity<ResponseObject> createFolder();
-
     ResponseEntity<ResponseObject> createConversation(CreateConversationRequest request);
 
     List<String> findCounsellorEmailsByCampusId(int campusId);

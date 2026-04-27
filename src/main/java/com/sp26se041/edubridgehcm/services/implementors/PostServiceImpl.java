@@ -27,6 +27,7 @@ import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.validations.post.PostValidation;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -44,6 +45,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PostServiceImpl implements PostService {
 
     private final JWTService jwtService;
@@ -189,11 +191,15 @@ public class PostServiceImpl implements PostService {
         }
 
         PlatformConfig media = platformConfigRepo.findByKey("media").orElse(null);
+
         if (media == null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy cấu hình media", null);
         }
 
         try {
+            if (file == null || file.isEmpty()) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "File không được để trống", null);
+            }
             ConfigSystemUtil.validateFileSize(media, file, false);
             ConfigSystemUtil.validateFileFormat(media, file, false);
         } catch (RuntimeException ex) {
@@ -202,8 +208,6 @@ public class PostServiceImpl implements PostService {
 
         // 5. Thực hiện Upload
         try {
-            List<String> allowedExtensions = List.of("docx", "xlsx", "pdf");
-
             String originalFilename = file.getOriginalFilename();
             // Làm sạch tên file gốc trước khi gắn UUID để tránh lỗi ký tự đặc biệt trên Cloud
             String safeOriginalName = toSafeObjectKey(StringUtils.stripFilenameExtension(originalFilename));
@@ -218,7 +222,7 @@ public class PostServiceImpl implements PostService {
                     file,
                     finalPath,
                     fileName,
-                    allowedExtensions
+                    null
             );
 
             // 6. Trả về kết quả
@@ -233,7 +237,9 @@ public class PostServiceImpl implements PostService {
         } catch (IllegalArgumentException ex) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
         } catch (Exception ex) {
-            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Tải tệp thất bại: " + ex.getMessage(), null);
+            log.error("Upload document failed", ex);
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Tải tệp thất bại", null);
         }
     }
 
@@ -384,9 +390,9 @@ public class PostServiceImpl implements PostService {
                 .contains(category);
     }
 
-//check
+    //check
     private String validateSchoolPostQuota(Integer schoolId) {
-        
+
         Optional<SchoolSubscription> activeSubOpt = schoolSubscriptionRepo
                 .findBySchoolIdAndEndDateGreaterThanEqualAndIsSelectedTrue(schoolId, java.time.LocalDate.now());
 
@@ -395,9 +401,9 @@ public class PostServiceImpl implements PostService {
         }
 
         SchoolSubscription activeSub = activeSubOpt.get();
+
         Integer postLimit = resolvePostLimitFromConfig(activeSub.getSubscription().getPackageType());
 
-        // -1 nghĩa là không giới hạn
         if (postLimit == null || postLimit < 0) {
             return null;
         }
@@ -418,7 +424,6 @@ public class PostServiceImpl implements PostService {
         return null;
     }
 
-//check
     @SuppressWarnings("unchecked")
     private Integer resolvePostLimitFromConfig(PackageType packageType) {
         PlatformConfig businessConfig = platformConfigRepo.findByKey("business").orElse(null);
