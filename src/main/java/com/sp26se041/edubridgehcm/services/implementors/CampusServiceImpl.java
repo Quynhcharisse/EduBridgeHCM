@@ -89,6 +89,7 @@ import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -584,8 +585,8 @@ public class CampusServiceImpl implements CampusService {
     private Status resolveEffectiveOperationalStatus(CampusProgramOffering offering) {
         Status current = offering.getApplicationStatus();
 
-        if (current == Status.PAUSED || current == Status.CLOSED || current == Status.FULL) {
-            return current;
+        if (current == Status.PAUSED) {
+            return current; // campus chủ động paused
         }
 
         int activeReservationCount = admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIn(
@@ -708,17 +709,6 @@ public class CampusServiceImpl implements CampusService {
     }
 
     /**
-     * Suy ngược % điều chỉnh từ giá gốc và giá cuối.
-     */
-    private static float deriveAdjustmentPercent(BigDecimal basePrice, BigDecimal finalTuition) {
-        BigDecimal ratio = finalTuition
-                .divide(basePrice, 8, RoundingMode.HALF_UP)
-                .subtract(BigDecimal.ONE)
-                .multiply(BigDecimal.valueOf(100));
-        return ratio.setScale(2, RoundingMode.HALF_UP).floatValue();
-    }
-
-    /**
      * FE gửi theo % (vd 10), DB lưu dạng ratio (vd 0.1).
      */
     private static float toStoredRatio(float percent) {
@@ -728,7 +718,7 @@ public class CampusServiceImpl implements CampusService {
     }
 
     private static Status deriveApplicationStatusByDateWindow(LocalDate openDate, LocalDate closeDate) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
 
         if (today.isBefore(openDate)) {
             return Status.UPCOMING_OFFERING;
@@ -747,9 +737,9 @@ public class CampusServiceImpl implements CampusService {
                                                                   int remainingQuota,
                                                                   int activeReservationCount) {
         if (activeReservationCount >= quota || remainingQuota <= 0) {
-            return Status.FULL;
+            return Status.FULL; // Kiểm tra hết chỗ trước
         }
-        return deriveApplicationStatusByDateWindow(openDate, closeDate);
+        return deriveApplicationStatusByDateWindow(openDate, closeDate); // Nếu còn chỗ mới xét đến ngày tháng
     }
 
     private static final class PriceAdjustmentRange {
