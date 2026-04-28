@@ -18,6 +18,8 @@ public class CampusScheduleTemplateRequest {
 
     Integer templateId;
 
+    Integer admissionCampaignId;
+
     List<String> dayOfWeek;
 
     String sessionType;

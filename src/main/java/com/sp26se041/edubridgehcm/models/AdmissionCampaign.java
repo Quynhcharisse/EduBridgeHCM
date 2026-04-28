@@ -67,7 +67,7 @@ public class AdmissionCampaign {
     LocalDate endDate;
 
     @Type(JsonBinaryType.class)
-    @Column(columnDefinition = "jsonb")
+    @Column(name = "admission_method_timelines" ,columnDefinition = "jsonb")
     Object admissionMethodTimelines;
 
     @Enumerated(EnumType.STRING)

@@ -75,6 +75,7 @@ public class CampusProgramOffering {
     int remainingQuota; //(Chỉ tiêu còn lại)
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "learning_mode")
     LearningMode learningMode;
 
     @Column(name = "price_adjustment_percentage")

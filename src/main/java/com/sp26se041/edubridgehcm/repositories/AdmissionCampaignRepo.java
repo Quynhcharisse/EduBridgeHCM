@@ -5,6 +5,7 @@ import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface AdmissionCampaignRepo extends JpaRepository<AdmissionCampaign, Integer> {
 
@@ -20,4 +21,8 @@ public interface AdmissionCampaignRepo extends JpaRepository<AdmissionCampaign, 
     boolean existsBySchoolIdAndYearAndStatus(int id, int year, Status status);
 
     List<AdmissionCampaign> findBySchoolIdAndYear(int schoolId, int year);
+
+    Optional<AdmissionCampaign> findBySchoolIdAndStatus(Integer schoolId, Status status);
+
+    Optional<AdmissionCampaign> findBySchoolIdAndYearAndStatus(Integer schoolId, int year, Status status);
 }

@@ -43,6 +43,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.sp26se041.edubridgehcm.utils.ConfigSystemUtil.normalizeExtension;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -215,6 +217,19 @@ public class PostServiceImpl implements PostService {
 
             String fileName = UUID.randomUUID().toString() + "_" + safeOriginalName + "." + extension;
 
+            Map<String, Object> mediaConfig = (Map<String, Object>) media.getValue();
+
+            List<Map<String, String>> allowedFormats = (List<Map<String, String>>) mediaConfig.get("docFormat");
+
+            if (allowedFormats == null || allowedFormats.isEmpty()) {
+                throw new RuntimeException("Chưa cấu hình định dạng cho phép!");
+            }
+
+            List<String> formatList = allowedFormats.stream()
+                    .map(m -> normalizeExtension(m.get("format")))
+                    .toList();
+
+
             // Cấu trúc đường dẫn cuối cùng
             String finalPath = rootFolder + "/" + subFolder;
 
@@ -222,12 +237,12 @@ public class PostServiceImpl implements PostService {
                     file,
                     finalPath,
                     fileName,
-                    null
+                    formatList
             );
 
             // 6. Trả về kết quả
             Map<String, Object> responseData = new HashMap<>();
-            responseData.put("fileUrl", uploadResult.get("url"));
+            responseData.put("fileUrl", uploadResult.get("fileUrl"));
             responseData.put("fileName", fileName);
             responseData.put("category", categoryTemplate);
             responseData.put("storagePath", finalPath);
