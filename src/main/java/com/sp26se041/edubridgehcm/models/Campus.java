@@ -82,7 +82,7 @@ public class Campus {
     String fileName;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "boarding_type")
+        @Column(name = "boarding_type")
     BoardingType boardingType;
 
     @Enumerated(EnumType.STRING)
