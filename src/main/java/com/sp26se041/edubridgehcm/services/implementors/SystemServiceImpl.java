@@ -397,6 +397,7 @@ public class SystemServiceImpl implements SystemService {
 
     @Override
     public ResponseEntity<ResponseObject> importPreview(MultipartFile file, ImportType type) {
+        validateImportType(type);
         try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
             Sheet sheet = workbook.getSheet(type.getSheetName());
             if (sheet == null) {
@@ -433,19 +434,60 @@ public class SystemServiceImpl implements SystemService {
         }
     }
 
+    private void validateImportType(ImportType type) {
+        List<ImportType> allowedTypes = List.of(
+                ImportType.ALLOWED_METHODS,
+                ImportType.ADMISSION_PROCESSES,
+                ImportType.METHOD_DOCUMENTS
+        );
+        if (!allowedTypes.contains(type)) {
+            throw new IllegalArgumentException("Loại import không hợp lệ hoặc không được hỗ trợ.");
+        }
+    }
+
     @Override
     public ResponseEntity<ResponseObject> importConfirm(ImportConfirmRequest request, ImportType type) {
         try {
+            validateImportType(type);
+            if (request.getRows() == null || request.getRows().isEmpty()) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Dữ liệu trống", null);
+            }
+
+            Set<String> validCodes = getExistingMethodCodes();
+            List<ImportConfirmRequest.ImportRow> rows = request.getRows();
+            rows.forEach(row -> {
+                ImportConfirmRequest.Error error = validateRowData(row.getRowData(), type, validCodes);
+                row.setError(error);
+                row.setIsError(error != null);
+            });
+
+            boolean hasError = rows.stream().anyMatch(r -> Boolean.TRUE.equals(r.getIsError()));
+            if (hasError) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Dữ liệu không hợp lệ", rows);
+            }
+
             PlatformConfig config = platformConfigRepo.findByKey("admissionSettingsData")
                     .orElse(PlatformConfig.builder().key("admissionSettingsData").value(new HashMap<>()).build());
 
-            Map<String, Object> configValue = (Map<String, Object>) config.getValue();
+            Map<String, Object> configValue = config.getValue() instanceof Map<?, ?> raw
+                    ? (Map<String, Object>) raw
+                    : new HashMap<>();
 
-            List<Object> cleanData = request.getRows().stream()
+            List<Object> cleanData = rows.stream()
                     .map(ImportConfirmRequest.ImportRow::getRowData)
                     .collect(Collectors.toList());
 
             configValue.put(type.getSheetName(), cleanData);
+
+            // Keep legacy/current keys synchronized so all readers get consistent data.
+            if (type == ImportType.METHOD_DOCUMENTS) {
+                configValue.put("methodDocumentRequirements", cleanData);
+                Map<String, Object> documentRequirementsData = configValue.get("documentRequirementsData") instanceof Map<?, ?> rawDocReq
+                        ? (Map<String, Object>) rawDocReq
+                        : new HashMap<>();
+                documentRequirementsData.put("byMethod", cleanData);
+                configValue.put("documentRequirementsData", documentRequirementsData);
+            }
 
             config.setValue(configValue);
             config.setModifiedDate(LocalDateTime.now());
@@ -457,23 +499,26 @@ public class SystemServiceImpl implements SystemService {
         }
     }
 
-    //bạn cần lấy row đầu tiên từ list để xử lý (vì Debounce thường gửi 1 row lên).
     @Override
     public ResponseEntity<ResponseObject> validateSingleRow(ImportConfirmRequest request, ImportType type) {
         if (request.getRows() == null || request.getRows().isEmpty()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Dữ liệu trống", null);
         }
 
-        ImportConfirmRequest.ImportRow row = request.getRows().get(0);
+        validateImportType(type);
 
-        Set<String> validCodes = (type == ImportType.ALLOWED_METHODS) ? new HashSet<>() : getExistingMethodCodes();
+        // ALLOWED_METHODS cần kiểm tra trùng code với dữ liệu hiện có + trong chính payload.
+        // 2 type còn lại cần danh sách methodCode hợp lệ để đối chiếu.
+        Set<String> validCodes = getExistingMethodCodes();
+        List<ImportConfirmRequest.ImportRow> rows = request.getRows();
 
-        ImportConfirmRequest.Error error = validateRowData(row.getRowData(), type, validCodes);
+        rows.forEach(row -> {
+            ImportConfirmRequest.Error error = validateRowData(row.getRowData(), type, validCodes);
+            row.setError(error);
+            row.setIsError(error != null);
+        });
 
-        row.setError(error);
-        row.setIsError(error != null);
-
-        return ResponseBuilder.build(HttpStatus.OK, "Validate thành công", row);
+        return ResponseBuilder.build(HttpStatus.OK, "Validate thành công", rows);
     }
 
     private Map<String, Object> mapRowToMap(Row row, ImportType type, DataFormatter formatter, int index) {
@@ -507,11 +552,16 @@ public class SystemServiceImpl implements SystemService {
     private Set<String> getExistingMethodCodes() {
         return platformConfigRepo.findByKey("admissionSettingsData")
                 .map(config -> {
-                    Map<String, Object> val = (Map<String, Object>) config.getValue();
+                    if (!(config.getValue() instanceof Map<?, ?> rawVal)) {
+                        return new HashSet<String>();
+                    }
+                    Map<String, Object> val = (Map<String, Object>) rawVal;
                     List<Map<String, Object>> methods = (List<Map<String, Object>>) val.get("allowedMethods");
                     if (methods == null) return new HashSet<String>();
                     return methods.stream()
-                            .map(m -> String.valueOf(m.get("code")).toLowerCase())
+                            .filter(m -> m != null && m.get("code") != null)
+                            .map(m -> String.valueOf(m.get("code")).trim().toLowerCase())
+                            .filter(code -> !code.isBlank())
                             .collect(Collectors.toSet());
                 }).orElse(new HashSet<>());
     }
@@ -519,6 +569,10 @@ public class SystemServiceImpl implements SystemService {
     private ImportConfirmRequest.Error validateRowData(Map<String, Object> rowData, ImportType type, Set<String> validCodes) {
 
         List<ImportConfirmRequest.Fields> fieldErrors = new ArrayList<>();
+        if (rowData == null) {
+            fieldErrors.add(new ImportConfirmRequest.Fields("rowData", "Dữ liệu dòng không hợp lệ"));
+            return new ImportConfirmRequest.Error(fieldErrors);
+        }
 
         rowData.forEach((key, value) -> {
             if (key.equals("description") || key.equals("index")) return;
@@ -526,6 +580,18 @@ public class SystemServiceImpl implements SystemService {
                 fieldErrors.add(new ImportConfirmRequest.Fields(key, "Trường này không được để trống"));
             }
         });
+
+        if (type == ImportType.ALLOWED_METHODS) {
+            String code = String.valueOf(rowData.get("code")).trim().toLowerCase();
+            if (!code.isBlank()) {
+                if (validCodes.contains(code)) {
+                    fieldErrors.add(new ImportConfirmRequest.Fields("code", "Mã phương thức đã tồn tại"));
+                } else {
+                    // Thêm vào tập hợp để chặn trùng trong cùng request validate nhiều dòng.
+                    validCodes.add(code);
+                }
+            }
+        }
 
         // 2. Validate nghiệp vụ riêng
         String mCode = String.valueOf(rowData.get("methodCode")).toLowerCase();

@@ -1,5 +1,7 @@
 package com.sp26se041.edubridgehcm.controllers;
 
+import com.sp26se041.edubridgehcm.enums.ImportType;
+import com.sp26se041.edubridgehcm.requests.ImportConfirmRequest;
 import com.sp26se041.edubridgehcm.requests.SchoolConfigRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolConfigService;
@@ -31,9 +33,22 @@ public class SchoolConfigController {
         return schoolConfigService.getSchoolConfigList(schoolId);
     }
 
-    @PostMapping(value = "/import/mandatory/docs", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/import/mandatory/docs/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('SCHOOL')")
     public ResponseEntity<ResponseObject> importMandatoryDocs(@RequestParam("file") MultipartFile file) {
-        return schoolConfigService.importMandatoryDocs(file);
+        return schoolConfigService.importMandatoryDocs(file, ImportType.MANDATORY_ALL);
+    }
+
+    @PostMapping("/confirm")
+    @PreAuthorize("hasAnyRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> importConfirm(@RequestBody ImportConfirmRequest request) {
+        return schoolConfigService.importConfirm(request, ImportType.MANDATORY_ALL);
+    }
+
+    @PostMapping("/validate-row")
+    @PreAuthorize("hasAnyRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> validateRow(@RequestBody ImportConfirmRequest request) {
+        return schoolConfigService.validateSingleRow(request, ImportType.MANDATORY_ALL);
     }
 
     @GetMapping("/key")
