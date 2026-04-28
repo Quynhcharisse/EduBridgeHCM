@@ -13,7 +13,7 @@ import java.util.Map;
 
 public class ConfigSystemUtil {
 
-    private static String normalizeExtension(String ext) {
+    public static String normalizeExtension(String ext) {
         if (ext == null) {
             return "";
         }

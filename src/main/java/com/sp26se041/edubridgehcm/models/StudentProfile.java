@@ -64,7 +64,7 @@ public class StudentProfile {
     String favouriteJob;
 
     @Type(JsonBinaryType.class)
-    @Column(columnDefinition = "jsonb")
+    @Column(name = "transcript_images",columnDefinition = "jsonb")
     Object transcriptImages;
 
     @OneToMany(mappedBy = "studentProfile", cascade = CascadeType.ALL, fetch = FetchType.EAGER)

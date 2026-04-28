@@ -52,6 +52,7 @@ public class Post {
 
     String thumbnail;
 
+    @Column(name = "total_position")
     int totalPosition; // vị trí của hiển thị
     // ==> như là :FE sẽ cho người nhập post cho lựa trọn hiển thị vị trí
 

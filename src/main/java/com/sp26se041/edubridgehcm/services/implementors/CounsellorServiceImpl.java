@@ -62,8 +62,10 @@ public class CounsellorServiceImpl implements CounsellorService {
     private final CounsellorRepo counsellorRepo;
 
     private final SubjectRepo subjectRepo;
+
     private final CounsellorSlotRepo counsellorSlotRepo;
     private final CampusScheduleTemplateRepo campusScheduleTemplateRepo;
+
 
     @Override
     public ResponseEntity<ResponseObject> getCounsellorCalendar(LocalDate startDate, LocalDate endDate) {
@@ -141,6 +143,8 @@ public class CounsellorServiceImpl implements CounsellorService {
 
         return ResponseBuilder.build(HttpStatus.OK, "", result);
     }
+
+
 
     private LocalDate getDateByDayOfWeek(LocalDate startDate, LocalDate endDate, String dayOfWeek) {
         LocalDate date = startDate;
@@ -367,6 +371,67 @@ public class CounsellorServiceImpl implements CounsellorService {
         }
         return ResponseBuilder.build(HttpStatus.OK, "", buildHistoryMessages(conversation, studentProfile.get(), messages, hasMore, nextCursorId));
     }
+
+    @Override
+    public ResponseEntity<ResponseObject> getCampusSlots(int campusId, LocalDate startDate, LocalDate endDate) {
+
+        if (startDate.getDayOfWeek() != DayOfWeek.MONDAY) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "startDate phải là Thứ 2", null);
+        }
+
+        if (endDate.getDayOfWeek() != DayOfWeek.SUNDAY) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "endDate phải là Chủ nhật", null);
+        }
+
+        if (endDate.isBefore(startDate)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "endDate phải > startDate", null);
+        }
+
+        if (!startDate.plusDays(6).equals(endDate)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Phải chọn đúng 1 tuần (7 ngày)", null);
+        }
+
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        List<CampusScheduleTemplate> campusScheduleTemplates = campusScheduleTemplateRepo.findByCampusIdAndActiveTrueOrderByStartTimeAsc(campusId);
+
+        for (CampusScheduleTemplate campusScheduleTemplate : campusScheduleTemplates) {
+
+            LocalDate slotDate = getDateByDayOfWeek(
+                    startDate,
+                    endDate,
+                    campusScheduleTemplate.getDayOfWeek()
+            );
+            if (slotDate == null) continue;
+
+            Status status = getSlotStatus(
+                    slotDate,
+                    campusScheduleTemplate.getStartTime(),
+                    campusScheduleTemplate.getEndTime()
+            );
+
+            Map<String, Object> slotMap = new HashMap<>();
+
+            slotMap.put("campusScheduleTemplateId", campusScheduleTemplate.getId());
+            slotMap.put("date", slotDate);
+            slotMap.put("dayOfWeek", campusScheduleTemplate.getDayOfWeek());
+            slotMap.put("startTime", campusScheduleTemplate.getStartTime());
+            slotMap.put("endTime", campusScheduleTemplate.getEndTime());
+            slotMap.put("status", status);
+            slotMap.put("statusLabel", status.getValue());
+
+            result.add(slotMap);
+
+        }
+        result.sort(
+                Comparator
+                        .comparing((Map<String, Object> m) -> (LocalDate) m.get("date"))
+                        .thenComparing(m -> (LocalTime) m.get("startTime"))
+        );
+
+        return ResponseBuilder.build(HttpStatus.OK, "", result);
+    }
+
     private Map<String, Object> buildHistoryMessages(Conversation conversation, StudentProfile childProfile, List<ChatMessage> messages, boolean hasMore, Long nextCursorId) {
 
         Optional<PersonalityType> personalityType =

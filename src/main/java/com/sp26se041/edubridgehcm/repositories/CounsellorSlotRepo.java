@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.repositories;
 
 import com.sp26se041.edubridgehcm.enums.Status;
+import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
 import com.sp26se041.edubridgehcm.models.CounsellorSlot;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -49,4 +50,6 @@ public interface CounsellorSlotRepo extends JpaRepository<CounsellorSlot, Intege
     );
 
     List<CounsellorSlot> findByCounsellorIdAndStartDateLessThanEqualAndEndDateGreaterThanEqual(Integer counsellorId, LocalDate startDateIsLessThan, LocalDate endDateIsGreaterThan);
+
+    boolean existsByCampusScheduleTemplate(CampusScheduleTemplate campusScheduleTemplate);
 }
