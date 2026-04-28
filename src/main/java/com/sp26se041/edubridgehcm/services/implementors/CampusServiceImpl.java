@@ -1223,6 +1223,7 @@ public class CampusServiceImpl implements CampusService {
         if (request.getSessionType() == null || request.getSessionType().isBlank()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Loại buổi (sessionType) không được để trống.", null);
         }
+
         final SessionType normalizedSessionType;
         try {
             normalizedSessionType = SessionType.valueOf(request.getSessionType().trim().toUpperCase());
@@ -1250,8 +1251,7 @@ public class CampusServiceImpl implements CampusService {
 
             if (request.getDayOfWeek().size() != 1) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                        "Khi cập nhật khung lịch, chỉ được gửi đúng một thứ trong dayOfWeek. "
-                                + "Để thêm khung cho nhiều ngày, hãy tạo khung mới (không gửi templateId) hoặc gọi API lần lượt cho từng ngày.",
+                        "Khi cập nhật khung lịch, chỉ được gửi đúng một thứ trong dayOfWeek. ",
                         null);
             }
         }
@@ -1370,6 +1370,7 @@ public class CampusServiceImpl implements CampusService {
         template.setSessionType(sessionType);
         template.setUpdatedDate(LocalDate.now());
         template.setActive(true);
+        template.setCreatedDate(LocalDate.now());
 
         campusScheduleTemplateRepo.save(template);
     }
@@ -1425,6 +1426,7 @@ public class CampusServiceImpl implements CampusService {
         }
 
         Campus actorCampus = extractActorCampus();
+
         if (actorCampus == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
         }

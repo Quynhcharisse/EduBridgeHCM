@@ -7,6 +7,10 @@ import java.time.LocalDate;
 
 public interface CounsellorService {
     ResponseEntity<ResponseObject> getCounsellorCalendar(LocalDate startDate, LocalDate endDate);
+
     ResponseEntity<ResponseObject> getConversations(String status, Long cursorId);
+
     ResponseEntity<ResponseObject> getChatHistory(String parentEmail, String counsellorEmail, int studentProfileId, Long cursorId);
+
+    ResponseEntity<ResponseObject> getCampusSlots(int campusId, LocalDate startDate, LocalDate endDate);
 }
