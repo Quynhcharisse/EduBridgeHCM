@@ -206,12 +206,50 @@ public class CampusServiceImpl implements CampusService {
 
         BigDecimal basePrice = program.getBaseTuitionFee();
 
-        float adjustmentPercent = (request.getPriceAdjustmentPercentage() != null) ? request.getPriceAdjustmentPercentage() : 0.0f;
+        float adjustmentPercent = request.getPriceAdjustmentPercentage() != null
+                ? request.getPriceAdjustmentPercentage()
+                : 0.0f;
 
-        String createPricePolicyError = validateAdjustmentPercentAgainstSchoolPolicy(actorCampus.getSchool().getId(), adjustmentPercent);
+        BigDecimal finalFee = basePrice
+                .multiply(BigDecimal.ONE.add(BigDecimal.valueOf(adjustmentPercent)))
+                .setScale(0, RoundingMode.HALF_UP);
 
-        if (createPricePolicyError != null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, createPricePolicyError, null);
+        SchoolConfig financePolicyConfig = schoolConfigRepo
+                .findBySchoolIdAndKey(actorCampus.getSchool().getId(), "financePolicyData")
+                .orElse(null);
+
+        if (financePolicyConfig != null && financePolicyConfig.getValue() instanceof Map<?, ?> financeMap) {
+
+            Object adjustmentRaw = financeMap.get("priceAdjustment");
+
+            if (adjustmentRaw instanceof Map<?, ?> adjustmentMap) {
+
+                Double min = adjustmentMap.get("minPercent") != null
+                        ? Double.valueOf(adjustmentMap.get("minPercent").toString())
+                        : null;
+
+                Double max = adjustmentMap.get("maxPercent") != null
+                        ? Double.valueOf(adjustmentMap.get("maxPercent").toString())
+                        : null;
+
+                if (min != null && adjustmentPercent < min) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            String.format("Phần trăm %.2f%% nhỏ hơn mức tối thiểu %.2f%%",
+                                    adjustmentPercent * 100, min * 100),
+                            null
+                    );
+                }
+
+                if (max != null && adjustmentPercent > max) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            String.format("Phần trăm %.2f%% vượt mức tối đa %.2f%%",
+                                    adjustmentPercent * 100, max * 100),
+                            null
+                    );
+                }
+            }
         }
 
         LocalDate targetOpenDate = request.getOpenDate() != null ? request.getOpenDate() : campaign.getStartDate();
@@ -230,17 +268,55 @@ public class CampusServiceImpl implements CampusService {
                 .quota(configuredQuota)
                 .remainingQuota(configuredQuota)
                 .learningMode(request.getLearningMode())
-                .priceAdjustmentPercentage(request.getPriceAdjustmentPercentage())
-                .finalTuitionFee(basePrice
-                        .multiply(BigDecimal.ONE.add(BigDecimal.valueOf(request.getPriceAdjustmentPercentage())))
-                        .setScale(0, RoundingMode.HALF_UP))
-                .applicationStatus(initialApplicationStatus) //
+                .priceAdjustmentPercentage(adjustmentPercent)
+                .finalTuitionFee(finalFee)
+                .applicationStatus(initialApplicationStatus)
                 .openDate(targetOpenDate)
                 .closeDate(targetCloseDate)
                 .status(Status.OFFERING_ACTIVE)
                 .build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Tạo chương trình tuyển sinh tại cơ sở thành công.", null);
+    }
+
+    private Integer resolveConfiguredCampusQuota(Integer schoolId, Integer campusId, int campaignYear) {
+        SchoolConfig quotaConfig = schoolConfigRepo
+                .findBySchoolIdAndKey(schoolId, "quotaConfigData")
+                .orElse(null);
+
+        if (quotaConfig == null || !(quotaConfig.getValue() instanceof Map<?, ?> cfg)) {
+            return null;
+        }
+
+        // parse year trực tiếp
+        Object yearObj = cfg.get("academicYear");
+        Integer configYear = null;
+        if (yearObj != null) {
+            try {
+                configYear = Integer.parseInt(yearObj.toString().replaceAll("[^0-9]", "").substring(0, 4));
+            } catch (Exception ignored) {
+            }
+        }
+
+        if (configYear != null && !configYear.equals(campaignYear)) {
+            return null;
+        }
+
+        if (!(cfg.get("campusAssignments") instanceof List<?> assignments)) {
+            return null;
+        }
+
+        for (Object item : assignments) {
+            if (!(item instanceof Map<?, ?> m)) continue;
+
+            Integer cid = m.get("campusId") != null ? Integer.parseInt(m.get("campusId").toString()) : null;
+            if (cid == null || !cid.equals(campusId)) continue;
+
+            Integer quota = m.get("allocatedQuota") != null ? Integer.parseInt(m.get("allocatedQuota").toString()) : null;
+            return (quota != null && quota > 0) ? quota : null;
+        }
+
+        return null;
     }
 
     @Override
@@ -341,8 +417,11 @@ public class CampusServiceImpl implements CampusService {
         }
 
         assert targetCampaign != null;
+
         LocalDate targetOpenDate = request.getOpenDate() != null ? request.getOpenDate() : offering.getOpenDate();
+
         LocalDate targetCloseDate = request.getCloseDate() != null ? request.getCloseDate() : offering.getCloseDate();
+
         String error = CampusProgramOfferingValidation.validateUpdateCampusProgramOffering(
                 request,
                 actorCampus,
@@ -369,6 +448,7 @@ public class CampusServiceImpl implements CampusService {
         }
 
         int targetRemainingQuota = configuredQuota - usedQuota;
+
         if (targetRemainingQuota < 0) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
                     "Quota cấu hình hiện tại nhỏ hơn số hồ sơ đã sử dụng. Vui lòng tăng quota ở School Config.", null);
@@ -383,34 +463,50 @@ public class CampusServiceImpl implements CampusService {
         offering.setRemainingQuota(targetRemainingQuota);
 
         BigDecimal pricingBase = offering.getBaseTuitionSnapshot();
+
         if (pricingBase.compareTo(BigDecimal.ZERO) <= 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không thể cập nhật học phí vì thiếu giá gốc hợp lệ của chương trình.", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Không thể cập nhật học phí vì thiếu giá gốc hợp lệ.", null);
         }
 
-        BigDecimal targetFinalTuition;
-        // Rule cập nhật học phí:
-        // - Chỉ cho phép cập nhật qua priceAdjustmentPercentage.
-        // - Nếu không gửi %, giữ nguyên giá hiện tại.
         if (request.getPriceAdjustmentPercentage() != null) {
 
-            BigDecimal adjustment = BigDecimal.valueOf(request.getPriceAdjustmentPercentage());
+            float adjustmentPercent = request.getPriceAdjustmentPercentage();
 
-            String err = validateAdjustmentPercentAgainstSchoolPolicy(
-                    actorCampus.getSchool().getId(),
-                    adjustment.floatValue()
-            );
-            if (err != null) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, err, null);
+            // validate config
+            SchoolConfig financePolicyConfig = schoolConfigRepo
+                    .findBySchoolIdAndKey(actorCampus.getSchool().getId(), "financePolicyData")
+                    .orElse(null);
+
+            if (financePolicyConfig != null && financePolicyConfig.getValue() instanceof Map<?, ?> financeMap) {
+
+                if (financeMap.get("priceAdjustment") instanceof Map<?, ?> adj) {
+
+                    Double min = adj.get("minPercent") != null ? Double.valueOf(adj.get("minPercent").toString()) : null;
+                    Double max = adj.get("maxPercent") != null ? Double.valueOf(adj.get("maxPercent").toString()) : null;
+
+                    if (min != null && adjustmentPercent < min) {
+                        return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                                String.format("Phần trăm %.2f%% nhỏ hơn tối thiểu %.2f%%",
+                                        adjustmentPercent * 100, min * 100),
+                                null);
+                    }
+
+                    if (max != null && adjustmentPercent > max) {
+                        return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                                String.format("Phần trăm %.2f%% vượt tối đa %.2f%%",
+                                        adjustmentPercent * 100, max * 100),
+                                null);
+                    }
+                }
             }
 
-            BigDecimal multiplier = BigDecimal.ONE.add(adjustment);
-
-            targetFinalTuition = pricingBase
-                    .multiply(multiplier)
+            BigDecimal finalFee = pricingBase
+                    .multiply(BigDecimal.ONE.add(BigDecimal.valueOf(adjustmentPercent)))
                     .setScale(0, RoundingMode.HALF_UP);
 
-            offering.setPriceAdjustmentPercentage(adjustment.floatValue());
-            offering.setFinalTuitionFee(targetFinalTuition);
+            offering.setPriceAdjustmentPercentage(adjustmentPercent);
+            offering.setFinalTuitionFee(finalFee);
         }
 
         offering.setOpenDate(targetOpenDate);
@@ -553,11 +649,11 @@ public class CampusServiceImpl implements CampusService {
 
         Map<String, Object> programData = new LinkedHashMap<>();
         programData.put("id", program.getId());
-        programData.put("name", offering.getProgramNameSnapshot() != null ? offering.getProgramNameSnapshot() : program.getName());
+        programData.put("name", offering.getProgramNameSnapshot());
         programData.put("graduationStandard", program.getGraduationStandard());
         programData.put("languageOfInstructionList", program.getLanguageOfInstructionList());
         programData.put("targetStudentDescription", program.getTargetStudentDescription());
-        programData.put("baseTuitionFee", offering.getBaseTuitionSnapshot() != null ? offering.getBaseTuitionSnapshot() : program.getBaseTuitionFee());
+        programData.put("baseTuitionFee", offering.getBaseTuitionSnapshot());
         programData.put("feeUnit", program.getFeeUnit());
         programData.put("extraSubjectList", program.getExtraSubjectsJsonb());
         programData.put("status", program.getStatus());
@@ -603,112 +699,6 @@ public class CampusServiceImpl implements CampusService {
         );
     }
 
-    private PriceAdjustmentRange resolveSchoolPriceAdjustmentRange(Integer schoolId) {
-        SchoolConfig financePolicyConfig = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "financePolicyData").orElse(null);
-        if (financePolicyConfig == null || !(financePolicyConfig.getValue() instanceof Map<?, ?> financeMap)) {
-            return PriceAdjustmentRange.unbounded();
-        }
-
-        Object adjustmentRaw = financeMap.get("priceAdjustment");
-        if (!(adjustmentRaw instanceof Map<?, ?> adjustmentMap)) {
-            return PriceAdjustmentRange.unbounded();
-        }
-
-        Double min = readDouble(adjustmentMap.get("minPercent"));
-        Double max = readDouble(adjustmentMap.get("maxPercent"));
-        return new PriceAdjustmentRange(min, max);
-    }
-
-    private Integer resolveConfiguredCampusQuota(Integer schoolId, Integer campusId, int campaignYear) {
-        SchoolConfig quotaConfig = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "quotaConfigData").orElse(null);
-        if (quotaConfig == null || !(quotaConfig.getValue() instanceof Map<?, ?> cfg)) {
-            return null;
-        }
-
-        Integer configYear = readYear(cfg.get("academicYear"));
-        if (configYear != null && configYear != campaignYear) {
-            return null;
-        }
-
-        Object assignmentsRaw = cfg.get("campusAssignments");
-        if (!(assignmentsRaw instanceof List<?> assignments)) {
-            return null;
-        }
-
-        for (Object item : assignments) {
-            if (!(item instanceof Map<?, ?> m)) {
-                continue;
-            }
-            Integer cid = readInteger(m.get("campusId"));
-            if (cid == null || !cid.equals(campusId)) {
-                continue;
-            }
-            Integer allocated = readInteger(m.get("allocatedQuota"));
-            return (allocated != null && allocated > 0) ? allocated : null;
-        }
-        return null;
-    }
-
-    private String validateAdjustmentPercentAgainstSchoolPolicy(Integer schoolId, float percent) {
-        PriceAdjustmentRange range = resolveSchoolPriceAdjustmentRange(schoolId);
-        if (range.minPercent != null && percent < range.minPercent) {
-            return String.format(
-                    "Phần trăm điều chỉnh %.2f%% nhỏ hơn mức tối thiểu theo cấu hình trường (%.2f%%).",
-                    percent, range.minPercent
-            );
-        }
-        if (range.maxPercent != null && percent > range.maxPercent) {
-            return String.format(
-                    "Phần trăm điều chỉnh %.2f%% vượt mức tối đa theo cấu hình trường (%.2f%%).",
-                    percent, range.maxPercent
-            );
-        }
-        return null;
-    }
-
-    private static Double readDouble(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Number n) {
-            return n.doubleValue();
-        }
-        try {
-            return Double.parseDouble(String.valueOf(value).trim());
-        } catch (Exception ex) {
-            return null;
-        }
-    }
-
-    private static Integer readInteger(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Number n) {
-            return n.intValue();
-        }
-        try {
-            return Integer.parseInt(String.valueOf(value).trim());
-        } catch (Exception ex) {
-            return null;
-        }
-    }
-
-    private static Integer readYear(Object value) {
-        if (value == null) {
-            return null;
-        }
-        String s = String.valueOf(value).trim();
-        if (s.isEmpty()) {
-            return null;
-        }
-        try {
-            return Integer.parseInt(s.replaceAll("[^0-9]", "").substring(0, 4));
-        } catch (Exception ex) {
-            return null;
-        }
-    }
-
     private static Status deriveApplicationStatusByDateWindow(LocalDate openDate, LocalDate closeDate) {
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
 
@@ -732,20 +722,6 @@ public class CampusServiceImpl implements CampusService {
             return Status.FULL; // Kiểm tra hết chỗ trước
         }
         return deriveApplicationStatusByDateWindow(openDate, closeDate); // Nếu còn chỗ mới xét đến ngày tháng
-    }
-
-    private static final class PriceAdjustmentRange {
-        private final Double minPercent;
-        private final Double maxPercent;
-
-        private PriceAdjustmentRange(Double minPercent, Double maxPercent) {
-            this.minPercent = minPercent;
-            this.maxPercent = maxPercent;
-        }
-
-        private static PriceAdjustmentRange unbounded() {
-            return new PriceAdjustmentRange(null, null);
-        }
     }
 
     /**
