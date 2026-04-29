@@ -111,7 +111,11 @@ public enum Status {
 
     UPCOMING("Sắp diễn ra"),
     ONGOING("Đang diễn ra"),
-    PAST("Đã qua");
+    PAST("Đã qua"),
+
+    NOTIFICATION_PENDING(""),
+    NOTIFICATION_SENT("sent"),
+    NOTIFICATION_FAILED("failed");
 
 
     private final String value;
