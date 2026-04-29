@@ -50,4 +50,7 @@ public interface ParentService {
     ResponseEntity<ResponseObject> getSlots(int campusId, LocalDate startDate, LocalDate endDate);
 
     ResponseEntity<ResponseObject> createConsultationOfflineRequest(CreateConsultationOfflineRequest request);
+
+    ResponseEntity<ResponseObject> getConsultationOfflineRequests(String status, int page, int size);
+
 }

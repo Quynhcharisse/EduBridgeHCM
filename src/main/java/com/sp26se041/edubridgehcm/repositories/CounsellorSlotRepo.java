@@ -6,6 +6,7 @@ import com.sp26se041.edubridgehcm.models.CounsellorSlot;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 
 public interface CounsellorSlotRepo extends JpaRepository<CounsellorSlot, Integer> {
@@ -52,4 +53,6 @@ public interface CounsellorSlotRepo extends JpaRepository<CounsellorSlot, Intege
     List<CounsellorSlot> findByCounsellorIdAndStartDateLessThanEqualAndEndDateGreaterThanEqual(Integer counsellorId, LocalDate startDateIsLessThan, LocalDate endDateIsGreaterThan);
 
     boolean existsByCampusScheduleTemplate(CampusScheduleTemplate campusScheduleTemplate);
+
+    List<CounsellorSlot> findByCampusScheduleTemplateInAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatus(Collection<CampusScheduleTemplate> campusScheduleTemplates, LocalDate startDateIsLessThan, LocalDate endDateIsGreaterThan, Status status);
 }

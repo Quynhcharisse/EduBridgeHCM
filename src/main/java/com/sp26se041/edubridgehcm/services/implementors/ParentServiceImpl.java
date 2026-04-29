@@ -17,6 +17,7 @@ import com.sp26se041.edubridgehcm.models.Major;
 import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.PersonalityType;
 import com.sp26se041.edubridgehcm.models.School;
+import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.StudentProfile;
 import com.sp26se041.edubridgehcm.models.Subject;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
@@ -27,11 +28,11 @@ import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
 import com.sp26se041.edubridgehcm.repositories.ConsultationOfflineRequestRepo;
 import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
-import com.sp26se041.edubridgehcm.repositories.CounsellorSlotRepo;
 import com.sp26se041.edubridgehcm.repositories.FavouriteSchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.MajorRepo;
 import com.sp26se041.edubridgehcm.repositories.ParentRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.StudentInfoRepo;
 import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
@@ -51,6 +52,7 @@ import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -82,6 +84,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_CANCELLED;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_COMPLETED;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_CONFIRMED;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_IN_PROGRESS;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_NO_SHOW;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_PENDING;
 
 @Service
 @RequiredArgsConstructor
@@ -117,6 +126,7 @@ public class ParentServiceImpl implements ParentService {
 
     private final ConsultationOfflineRequestRepo consultationOfflineRequestRepo;
     private final AdmissionCampaignRepo admissionCampaignRepo;
+    private final SchoolConfigRepo schoolConfigRepo;
 
     @Override
     public  ResponseEntity<ResponseObject> getConversations(Long cursorId) {
@@ -1545,6 +1555,16 @@ public class ParentServiceImpl implements ParentService {
             return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "Tài khoản phụ huynh không tồn tại", null);
         }
 
+        if (AccountRestrictionUtil.isRestricted(parent.get().getAccount())) {
+            return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "Tài khoản của bạn hiện tại đang bị cấm", null);
+        }
+
+        Optional<Campus> campus = campusRepo.findById(request.getCampusId());
+
+        if (campus.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cơ sở không tồn tại", null);
+        }
+
         if (request.getPhone() == null || request.getPhone().isBlank()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Số điện thoại không được để trống", null);
         }
@@ -1578,6 +1598,92 @@ public class ParentServiceImpl implements ParentService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Thời gian hẹn phải lớn hơn thời gian hiện tại", null);
         }
 
+        LocalDateTime now = LocalDateTime.now();
+
+        if (appointmentDateTime.isBefore(now)) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Thời gian hẹn không được ở quá khứ",
+                    null
+            );
+        }
+
+        boolean hasActive =
+                consultationOfflineRequestRepo.existsByParentAndCampusAndAppointmentDateAndStatusIn(
+                        parent.get(),
+                        campus.get(),
+                        request.getAppointmentDate(),
+                        List.of(
+                                CONSULTATION_PENDING,
+                                Status.CONSULTATION_CONFIRMED
+                        )
+                );
+
+        if (hasActive) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Bạn đã có lịch tư vấn cùng ngày tại cơ sở này",
+                    null
+            );
+        }
+
+        if (campus.get().getPolicyDetail() == null) {
+
+            Optional<SchoolConfig> schoolConfig = schoolConfigRepo.findBySchoolIdAndKey(campus.get().getSchool().getId(), "operationSettingsData");
+
+            if (schoolConfig.isEmpty()) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy cấu hình vận hành của trường", null);
+            }
+
+            SchoolConfig schoolConfigData = schoolConfig.get();
+
+            Map<String, Object> operationSettingsData = (Map<String, Object>) schoolConfigData.getValue();
+
+            int maxBookingPerSlot = (int) operationSettingsData.get("maxBookingPerSlot");
+            int allowBookingBeforeHour =
+                    ((Number) operationSettingsData.get("allowBookingBeforeHours")).intValue();
+
+            LocalDateTime latestAllowedBookingTime =
+                    appointmentDateTime.minusHours(allowBookingBeforeHour);
+
+            if (consultationOfflineRequestRepo.countByAppointmentDateAndAppointmentTimeAndCampus(request.getAppointmentDate(), request.getAppointmentTime(), campus.get()) == maxBookingPerSlot) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Đã quá số lượng đặt lịch tối đa trong một slot", null);
+            }
+
+            if (LocalDateTime.now().isAfter(latestAllowedBookingTime)) {
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_REQUEST,
+                        "Phải đặt lịch trước ít nhất " + allowBookingBeforeHour + " giờ",
+                        null
+                );
+            }
+        }
+
+        Map<String, Object> policyDetail = (Map<String, Object>) campus.get().getPolicyDetail();
+
+        if (policyDetail != null && policyDetail.get("maxBookingPerSlot") != null) {
+
+            int maxBookingPerSlot = (int) policyDetail.get("maxBookingPerSlot");
+            int allowBookingBeforeHour =
+                    ((Number) policyDetail.get("allowBookingBeforeHours")).intValue();
+
+            if (consultationOfflineRequestRepo.countByAppointmentDateAndAppointmentTimeAndCampus(request.getAppointmentDate(), request.getAppointmentTime(), campus.get()) == maxBookingPerSlot) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Đã quá số lượng đặt lịch tối đa trong một slot", null);
+            }
+
+            LocalDateTime latestAllowedBookingTime =
+                    appointmentDateTime.minusHours(allowBookingBeforeHour);
+
+            if (LocalDateTime.now().isAfter(latestAllowedBookingTime)) {
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_REQUEST,
+                        "Phải đặt lịch trước ít nhất " + allowBookingBeforeHour + " giờ",
+                        null
+                );
+            }
+
+        }
+
         ConsultationOfflineRequest consultationOfflineRequest = ConsultationOfflineRequest.builder()
                 .appointmentDate(request.getAppointmentDate())
                 .parent(parent.get())
@@ -1585,14 +1691,111 @@ public class ParentServiceImpl implements ParentService {
                 .question(request.getQuestion().trim())
                 .appointmentTime(request.getAppointmentTime())
                 .appointmentDate(request.getAppointmentDate())
+                .campus(campus.get())
                 .createdDate(LocalDate.now())
-                .status(Status.CONSULTATION_PENDING)
+                .status(CONSULTATION_PENDING)
                 .build();
 
         consultationOfflineRequestRepo.save(consultationOfflineRequest);
 
         return ResponseBuilder.build(HttpStatus.CREATED, "", null);
 
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getConsultationOfflineRequests(String status, int page, int size) {
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        Optional<Parent> parent = parentRepo.findByAccount_Email(email);
+
+        if (parent.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "Tài khoản phụ huynh không tồn tại", null);
+        }
+
+        Status parsedStatus;
+
+        try {
+            parsedStatus = fromConsultationValue(status);
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    e.getMessage(),
+                    null
+            );
+        }
+
+        Sort sort = buildConsultationSort(parsedStatus);
+
+        Pageable pageable = PaginationUtil.buildPageRequest(page, size, sort);
+
+        Page<ConsultationOfflineRequest> consultationOfflineRequests = consultationOfflineRequestRepo.findAllByParentAndStatus(parent.get(), parsedStatus, pageable);
+
+        PageResponse<Map<String, Object>> pageResponse = PaginationUtil.buildPageResponse(consultationOfflineRequests, this::buildConsultationOfflineRequest);
+
+        return ResponseBuilder.build(
+                HttpStatus.OK,
+                "Lấy danh sách lịch tư vấn thành công",
+                pageResponse
+        );
+    }
+
+    private Sort buildConsultationSort(Status status) {
+
+        boolean isUpcomingStatus = List.of(
+                Status.CONSULTATION_PENDING,
+                Status.CONSULTATION_CONFIRMED
+        ).contains(status);
+
+        if (isUpcomingStatus) {
+            return Sort.by(
+                    Sort.Order.asc("appointmentDate"),
+                    Sort.Order.asc("appointmentTime")
+            );
+        }
+
+        return Sort.by(
+                Sort.Order.desc("appointmentDate"),
+                Sort.Order.desc("appointmentTime")
+        );
+    }
+
+    private Map<String, Object> buildConsultationOfflineRequest(ConsultationOfflineRequest consultationOfflineRequest) {
+        Map<String, Object> result = new HashMap<>();
+
+        result.put("id", consultationOfflineRequest.getId());
+        result.put("phone", consultationOfflineRequest.getPhone());
+        result.put("question", consultationOfflineRequest.getQuestion());
+        result.put("appointmentDate", consultationOfflineRequest.getAppointmentDate());
+        result.put("appointmentTime", consultationOfflineRequest.getAppointmentTime());
+        result.put("status", consultationOfflineRequest.getStatus().getValue());
+
+        return result;
+    }
+
+    private Set<Status> consultationStatuses() {
+        return Set.of(
+                CONSULTATION_PENDING,
+                CONSULTATION_CONFIRMED,
+                CONSULTATION_IN_PROGRESS,
+                CONSULTATION_COMPLETED,
+                CONSULTATION_CANCELLED,
+                CONSULTATION_NO_SHOW
+        );
+    }
+
+    private Status fromConsultationValue(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        String normalizedValue = value.trim().toLowerCase();
+
+        return consultationStatuses()
+                .stream()
+                .filter(status -> status.getValue().equalsIgnoreCase(normalizedValue))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Trạng thái lịch tư vấn cung cấp không hợp lệ"));
     }
 
 }

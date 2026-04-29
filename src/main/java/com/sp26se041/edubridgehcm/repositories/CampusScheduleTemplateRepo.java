@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalTime;
 import java.util.List;
 
 public interface CampusScheduleTemplateRepo extends JpaRepository<CampusScheduleTemplate, Integer> {
@@ -14,4 +15,6 @@ public interface CampusScheduleTemplateRepo extends JpaRepository<CampusSchedule
     List<CampusScheduleTemplate> findByCampusIdAndActiveTrueOrderByStartTimeAsc(Integer campusId);
 
     Page<CampusScheduleTemplate> findAllByActiveTrue(Pageable pageable);
+
+    List<CampusScheduleTemplate> findByDayOfWeekAndStartTimeAndActiveTrue(String dayOfWeek, LocalTime startTime, boolean active);
 }

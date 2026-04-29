@@ -37,7 +37,6 @@ import java.util.List;
 @Entity
 @Table(name = "campus")
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@NullMarked
 public class Campus {
 
     @Id
@@ -102,6 +101,11 @@ public class Campus {
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb", name = "policy_detail")
     Object policyDetail; //quy định riêng của từng cơ sở (open time, close time)
+
+    @OneToMany(mappedBy = "campus")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<ConsultationOfflineRequest> consultationOfflineRequests;
 
     @OneToMany(mappedBy = "campus")
     @ToString.Exclude

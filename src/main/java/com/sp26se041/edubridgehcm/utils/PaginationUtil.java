@@ -3,6 +3,7 @@ package com.sp26se041.edubridgehcm.utils;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.util.Collections;
 import java.util.List;
@@ -17,6 +18,14 @@ public class PaginationUtil {
             throw new IllegalArgumentException("Invalid page or size");
         }
         return PageRequest.of(page, size);
+    }
+
+    // 👉 Build Pageable (with sort)
+    public static PageRequest buildPageRequest(int page, int size, Sort sort) {
+        if (page < 0 || size <= 0) {
+            throw new IllegalArgumentException("Invalid page or size");
+        }
+        return PageRequest.of(page, size, sort);
     }
 
     // 👉 Có mapper
