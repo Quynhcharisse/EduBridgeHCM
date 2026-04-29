@@ -258,13 +258,23 @@ public class CampusServiceImpl implements CampusService {
         // applicationStatus: trạng thái vận hành nhận hồ sơ theo khung thời gian campus chọn.
         Status initialApplicationStatus = deriveApplicationStatusByDateWindow(targetOpenDate, targetCloseDate);
 
+        String method = resolveDefaultAdmissionMethod(campaign);
+
+        if (method == null) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Không xác định được phương thức tuyển sinh mặc định (chiến dịch tuyển sinh có nhiều hoặc không có phương thức).",
+                    null
+            );
+        }
+
         campusProgramOfferingRepo.save(CampusProgramOffering.builder()
                 .campus(targetCampus)
                 .admissionCampaign(campaign)
                 .program(program)
                 .programNameSnapshot(program.getName())
                 .baseTuitionSnapshot(basePrice)
-                .admissionMethod(Objects.requireNonNull(resolveDefaultAdmissionMethod(campaign)))
+                .admissionMethod(Objects.requireNonNull(method))
                 .quota(configuredQuota)
                 .remainingQuota(configuredQuota)
                 .learningMode(request.getLearningMode())
