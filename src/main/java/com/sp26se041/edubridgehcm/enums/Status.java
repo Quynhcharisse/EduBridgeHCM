@@ -70,6 +70,7 @@ public enum Status {
     CONSULTATION_IN_PROGRESS("in-progress"),
     CONSULTATION_COMPLETED("completed"),
     CONSULTATION_CANCELLED("cancelled"),
+    CONSULTATION_NO_SHOW("no-show"),
 
     //With status conservation
     CONVERSATION_ACTIVE("active"),

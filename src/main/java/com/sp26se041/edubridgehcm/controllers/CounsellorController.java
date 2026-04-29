@@ -59,4 +59,10 @@ public class CounsellorController {
     public ResponseEntity<ResponseObject> getStudentInfoById(@PathVariable int id) {
         return parentService.getStudentInfo(id);
     }
+
+    @GetMapping("/consultation/offline")
+    @PreAuthorize("hasAnyRole('COUNSELLOR')")
+    public ResponseEntity<ResponseObject> getConsultationOfflineRequests(@RequestParam String status ,@RequestParam int page, @RequestParam int pageSize) {
+        return counsellorService.getConsultationOfflineRequests(status, page, pageSize);
+    }
 }

@@ -12,5 +12,5 @@ public interface CounsellorService {
 
     ResponseEntity<ResponseObject> getChatHistory(String parentEmail, String counsellorEmail, int studentProfileId, Long cursorId);
 
-    ResponseEntity<ResponseObject> getCampusSlots(int campusId, LocalDate startDate, LocalDate endDate);
+    ResponseEntity<ResponseObject> getConsultationOfflineRequests(String status, int page, int size);
 }

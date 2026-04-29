@@ -1,31 +1,34 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.Status;
-import com.sp26se041.edubridgehcm.enums.SubjectType;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
+import com.sp26se041.edubridgehcm.models.ConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.models.Conversation;
 import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.CounsellorSlot;
 import com.sp26se041.edubridgehcm.models.Parent;
-import com.sp26se041.edubridgehcm.models.PersonalityType;
 import com.sp26se041.edubridgehcm.models.StudentProfile;
-import com.sp26se041.edubridgehcm.models.Subject;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
-import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
 import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
+import com.sp26se041.edubridgehcm.repositories.ConsultationOfflineRequestRepo;
 import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorSlotRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
 import com.sp26se041.edubridgehcm.repositories.StudentInfoRepo;
 import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
+import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.CounsellorService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
+import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -38,12 +41,18 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.Set;
+
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_CANCELLED;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_COMPLETED;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_CONFIRMED;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_IN_PROGRESS;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_NO_SHOW;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_PENDING;
 
 @Service
 @RequiredArgsConstructor
@@ -57,14 +66,11 @@ public class CounsellorServiceImpl implements CounsellorService {
 
     private final StudentInfoRepo studentInfoRepo;
 
-    private final PersonalityTypeRepo personalityTypeRepo;
-
     private final CounsellorRepo counsellorRepo;
 
-    private final SubjectRepo subjectRepo;
-
     private final CounsellorSlotRepo counsellorSlotRepo;
-    private final CampusScheduleTemplateRepo campusScheduleTemplateRepo;
+
+    private final ConsultationOfflineRequestRepo consultationOfflineRequestRepo;
 
 
     @Override
@@ -373,69 +379,103 @@ public class CounsellorServiceImpl implements CounsellorService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> getCampusSlots(int campusId, LocalDate startDate, LocalDate endDate) {
+    public ResponseEntity<ResponseObject> getConsultationOfflineRequests(String status, int page, int size) {
 
-        if (startDate.getDayOfWeek() != DayOfWeek.MONDAY) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "startDate phải là Thứ 2", null);
-        }
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        if (endDate.getDayOfWeek() != DayOfWeek.SUNDAY) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "endDate phải là Chủ nhật", null);
-        }
+        Counsellor counsellor = counsellorRepo.findByAccountId(accountRepo.findByEmail(email).get().getId());
 
-        if (endDate.isBefore(startDate)) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "endDate phải > startDate", null);
-        }
+        Status parsedStatus;
 
-        if (!startDate.plusDays(6).equals(endDate)) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Phải chọn đúng 1 tuần (7 ngày)", null);
-        }
-
-        List<Map<String, Object>> result = new ArrayList<>();
-
-        List<CampusScheduleTemplate> campusScheduleTemplates = campusScheduleTemplateRepo.findByCampusIdAndActiveTrueOrderByStartTimeAsc(campusId);
-
-        for (CampusScheduleTemplate campusScheduleTemplate : campusScheduleTemplates) {
-
-            LocalDate slotDate = getDateByDayOfWeek(
-                    startDate,
-                    endDate,
-                    campusScheduleTemplate.getDayOfWeek()
+        try {
+            parsedStatus = fromConsultationValue(status);
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    e.getMessage(),
+                    null
             );
-            if (slotDate == null) continue;
-
-            Status status = getSlotStatus(
-                    slotDate,
-                    campusScheduleTemplate.getStartTime(),
-                    campusScheduleTemplate.getEndTime()
-            );
-
-            Map<String, Object> slotMap = new HashMap<>();
-
-            slotMap.put("campusScheduleTemplateId", campusScheduleTemplate.getId());
-            slotMap.put("date", slotDate);
-            slotMap.put("dayOfWeek", campusScheduleTemplate.getDayOfWeek());
-            slotMap.put("startTime", campusScheduleTemplate.getStartTime());
-            slotMap.put("endTime", campusScheduleTemplate.getEndTime());
-            slotMap.put("status", status);
-            slotMap.put("statusLabel", status.getValue());
-
-            result.add(slotMap);
-
         }
-        result.sort(
-                Comparator
-                        .comparing((Map<String, Object> m) -> (LocalDate) m.get("date"))
-                        .thenComparing(m -> (LocalTime) m.get("startTime"))
+
+        Sort sort = buildConsultationSort(parsedStatus);
+
+        Pageable pageable = PaginationUtil.buildPageRequest(page, size, sort);
+
+        Page<ConsultationOfflineRequest> consultationOfflineRequests = consultationOfflineRequestRepo.findAllByCampusAndStatus(counsellor.getCampus(), parsedStatus, pageable);
+
+        PageResponse<Map<String, Object>> pageResponse = PaginationUtil.buildPageResponse(consultationOfflineRequests, this::buildConsultationOfflineRequest);
+
+        return ResponseBuilder.build(
+                HttpStatus.OK,
+                "Lấy danh sách lịch tư vấn thành công",
+                pageResponse
         );
+    }
 
-        return ResponseBuilder.build(HttpStatus.OK, "", result);
+    private Map<String, Object> buildConsultationOfflineRequest(
+            ConsultationOfflineRequest request
+    ) {
+        Map<String, Object> map = new HashMap<>();
+
+        map.put("id", request.getId());
+        map.put("phone", request.getPhone());
+        map.put("question", request.getQuestion());
+        map.put("note", request.getNote());
+        map.put("appointmentDate", request.getAppointmentDate());
+        map.put("appointmentTime", request.getAppointmentTime());
+        map.put("status", request.getStatus());
+        map.put("parentId", request.getParent().getId());
+        map.put("parentName", request.getParent().getName());
+
+        return map;
+    }
+
+    private Sort buildConsultationSort(Status status) {
+
+        boolean isUpcomingStatus = List.of(
+                Status.CONSULTATION_PENDING,
+                Status.CONSULTATION_CONFIRMED
+        ).contains(status);
+
+        if (isUpcomingStatus) {
+            return Sort.by(
+                    Sort.Order.asc("appointmentDate"),
+                    Sort.Order.asc("appointmentTime")
+            );
+        }
+
+        return Sort.by(
+                Sort.Order.desc("appointmentDate"),
+                Sort.Order.desc("appointmentTime")
+        );
+    }
+
+    private Set<Status> consultationStatuses() {
+        return Set.of(
+                CONSULTATION_PENDING,
+                CONSULTATION_CONFIRMED,
+                CONSULTATION_IN_PROGRESS,
+                CONSULTATION_COMPLETED,
+                CONSULTATION_CANCELLED,
+                CONSULTATION_NO_SHOW
+        );
+    }
+
+    private Status fromConsultationValue(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        String normalizedValue = value.trim().toLowerCase();
+
+        return consultationStatuses()
+                .stream()
+                .filter(status -> status.getValue().equalsIgnoreCase(normalizedValue))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Trạng thái lịch tư vấn cung cấp không hợp lệ"));
     }
 
     private Map<String, Object> buildHistoryMessages(Conversation conversation, StudentProfile childProfile, List<ChatMessage> messages, boolean hasMore, Long nextCursorId) {
-
-        Optional<PersonalityType> personalityType =
-                personalityTypeRepo.findByCode(childProfile.getPersonalityTypeName());
 
         Map<String, Object> response = new HashMap<>();
 
@@ -448,116 +488,6 @@ public class CounsellorServiceImpl implements CounsellorService {
         response.put("nextCursorId", nextCursorId);
 
         return response;
-    }
-
-    private List<Map<String, Object>> getSubjects() {
-        List<Subject> subjects = subjectRepo.findAllByTypeIn(
-                List.of(SubjectType.REGULAR_SUBJECT, SubjectType.FOREIGN_LANGUAGE_SUBJECT)
-        );
-        return subjects.stream()
-                .collect(Collectors.groupingBy(Subject::getType))
-                .entrySet()
-                .stream()
-                .map(entry -> {
-                    Map<String, Object> groupMap = new HashMap<>();
-
-                    // 🔥 dùng value thay vì name()
-                    groupMap.put("type", entry.getKey().getValue());
-
-                    String label = switch (entry.getKey()) {
-                        case REGULAR_SUBJECT -> "Môn học chính";
-                        case FOREIGN_LANGUAGE_SUBJECT -> "Ngoại ngữ";
-                        case THPT_SUBJECT -> "Môn học THPT";
-                    };
-
-                    groupMap.put("label", label);
-
-                    List<Map<String, Object>> subjectList = entry.getValue().stream()
-                            .map(s -> {
-                                Map<String, Object> item = new HashMap<>();
-                                item.put("id", s.getId());
-                                item.put("name", s.getName());
-                                return item;
-                            })
-                            .toList();
-
-                    groupMap.put("subjects", subjectList);
-
-                    return groupMap;
-                })
-                .toList();
-    }
-
-    private List<Map<String, Object>> buildAcademicProfileMetadata(StudentProfile studentProfile) {
-
-        List<Map<String, Object>> storedAcademicProfiles =
-                (List<Map<String, Object>>) studentProfile.getAcademicProfileMetadata();
-
-        if (storedAcademicProfiles == null || storedAcademicProfiles.isEmpty()) {
-            return new ArrayList<>();
-        }
-
-        List<Map<String, Object>> result = new ArrayList<>();
-
-        for (Map<String, Object> academicItem : storedAcademicProfiles) {
-            if (academicItem == null) {
-                continue;
-            }
-
-            String gradeLevel = academicItem.get("gradeLevel") == null
-                    ? null
-                    : academicItem.get("gradeLevel").toString();
-
-            List<Map<String, Object>> storedSubjectResults =
-                    (List<Map<String, Object>>) academicItem.get("subjectResults");
-
-            List<Map<String, Object>> subjectResults = new ArrayList<>();
-
-            if (storedSubjectResults != null) {
-                for (Map<String, Object> subjectItem : storedSubjectResults) {
-                    if (subjectItem == null) {
-                        continue;
-                    }
-
-                    Object subjectNameObj = subjectItem.get("subjectName");
-                    if (subjectNameObj == null) {
-                        continue;
-                    }
-
-                    String subjectName = subjectNameObj.toString().trim();
-                    if (subjectName.isEmpty()) {
-                        continue;
-                    }
-
-                    Optional<Subject> subjectOpt = subjectRepo.findByNameAndType(subjectName, SubjectType.REGULAR_SUBJECT);
-
-                    Map<String, Object> subjectMap = new HashMap<>();
-                    subjectMap.put("id", subjectItem.get("id"));
-                    subjectMap.put("subjectName", subjectName);
-                    subjectMap.put("type", subjectItem.get("type"));
-                    subjectMap.put("score", subjectItem.get("score"));
-                    subjectMap.put("isAvailable", subjectOpt.isPresent());
-
-                    // Nếu subject còn trong hệ thống thì cập nhật lại thông tin mới nhất
-                    if (subjectOpt.isPresent()) {
-                        Subject subject = subjectOpt.get();
-                        subjectMap.put("id", subject.getId());
-                        subjectMap.put("subjectName", subject.getName());
-                        subjectMap.put("type", subject.getType().getValue());
-                    }
-
-                    subjectResults.add(subjectMap);
-                }
-            }
-
-            Map<String, Object> academicMap = new HashMap<>();
-            academicMap.put("gradeLevel", gradeLevel);
-            academicMap.put("subjectResults", subjectResults);
-
-            result.add(academicMap);
-        }
-
-        return result;
     }
 
     private List<Map<String, Object>> buildMessages(List<ChatMessage> messages) {
