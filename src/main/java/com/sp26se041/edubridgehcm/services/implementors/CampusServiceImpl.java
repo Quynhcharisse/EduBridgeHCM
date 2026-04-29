@@ -208,8 +208,6 @@ public class CampusServiceImpl implements CampusService {
 
         float adjustmentPercent = (request.getPriceAdjustmentPercentage() != null) ? request.getPriceAdjustmentPercentage() : 0.0f;
 
-        float adjustmentRatio = toStoredRatio(adjustmentPercent);
-
         String createPricePolicyError = validateAdjustmentPercentAgainstSchoolPolicy(actorCampus.getSchool().getId(), adjustmentPercent);
 
         if (createPricePolicyError != null) {
@@ -232,8 +230,10 @@ public class CampusServiceImpl implements CampusService {
                 .quota(configuredQuota)
                 .remainingQuota(configuredQuota)
                 .learningMode(request.getLearningMode())
-                .priceAdjustmentPercentage(adjustmentRatio)
-                .finalTuitionFee(basePrice.multiply(BigDecimal.valueOf(1 + adjustmentRatio)).setScale(0, RoundingMode.HALF_UP))
+                .priceAdjustmentPercentage(request.getPriceAdjustmentPercentage())
+                .finalTuitionFee(basePrice
+                        .multiply(BigDecimal.ONE.add(BigDecimal.valueOf(request.getPriceAdjustmentPercentage())))
+                        .setScale(0, RoundingMode.HALF_UP))
                 .applicationStatus(initialApplicationStatus) //
                 .openDate(targetOpenDate)
                 .closeDate(targetCloseDate)
@@ -382,36 +382,37 @@ public class CampusServiceImpl implements CampusService {
         offering.setQuota(configuredQuota);
         offering.setRemainingQuota(targetRemainingQuota);
 
-        BigDecimal pricingBase = offering.getBaseTuitionSnapshot() != null
-                ? offering.getBaseTuitionSnapshot()
-                : (targetProgram != null ? targetProgram.getBaseTuitionFee() : null);
-        if (pricingBase == null || pricingBase.compareTo(BigDecimal.ZERO) <= 0) {
+        BigDecimal pricingBase = offering.getBaseTuitionSnapshot();
+        if (pricingBase.compareTo(BigDecimal.ZERO) <= 0) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không thể cập nhật học phí vì thiếu giá gốc hợp lệ của chương trình.", null);
         }
 
-        float derivedPercent;
-        float storedAdjustmentRatio;
         BigDecimal targetFinalTuition;
         // Rule cập nhật học phí:
         // - Chỉ cho phép cập nhật qua priceAdjustmentPercentage.
         // - Nếu không gửi %, giữ nguyên giá hiện tại.
         if (request.getPriceAdjustmentPercentage() != null) {
-            derivedPercent = request.getPriceAdjustmentPercentage();
-            storedAdjustmentRatio = toStoredRatio(derivedPercent);
-            BigDecimal multiplier = BigDecimal.valueOf(1 + storedAdjustmentRatio);
-            targetFinalTuition = pricingBase.multiply(multiplier).setScale(0, RoundingMode.HALF_UP);
-            String updatePricePolicyError = validateAdjustmentPercentAgainstSchoolPolicy(actorCampus.getSchool().getId(), derivedPercent);
-            if (updatePricePolicyError != null) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, updatePricePolicyError, null);
+
+            BigDecimal adjustment = BigDecimal.valueOf(request.getPriceAdjustmentPercentage());
+
+            String err = validateAdjustmentPercentAgainstSchoolPolicy(
+                    actorCampus.getSchool().getId(),
+                    adjustment.floatValue()
+            );
+            if (err != null) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, err, null);
             }
-        } else {
-            storedAdjustmentRatio = offering.getPriceAdjustmentPercentage() != null ? offering.getPriceAdjustmentPercentage() : 0.0f;
-            derivedPercent = storedAdjustmentRatio * 100;
-            targetFinalTuition = offering.getFinalTuitionFee();
+
+            BigDecimal multiplier = BigDecimal.ONE.add(adjustment);
+
+            targetFinalTuition = pricingBase
+                    .multiply(multiplier)
+                    .setScale(0, RoundingMode.HALF_UP);
+
+            offering.setPriceAdjustmentPercentage(adjustment.floatValue());
+            offering.setFinalTuitionFee(targetFinalTuition);
         }
 
-        offering.setPriceAdjustmentPercentage(storedAdjustmentRatio);
-        offering.setFinalTuitionFee(targetFinalTuition.setScale(0, RoundingMode.HALF_UP));
         offering.setOpenDate(targetOpenDate);
         offering.setCloseDate(targetCloseDate);
 
@@ -706,15 +707,6 @@ public class CampusServiceImpl implements CampusService {
         } catch (Exception ex) {
             return null;
         }
-    }
-
-    /**
-     * FE gửi theo % (vd 10), DB lưu dạng ratio (vd 0.1).
-     */
-    private static float toStoredRatio(float percent) {
-        return BigDecimal.valueOf(percent)
-                .divide(BigDecimal.valueOf(100), 8, RoundingMode.HALF_UP)
-                .floatValue();
     }
 
     private static Status deriveApplicationStatusByDateWindow(LocalDate openDate, LocalDate closeDate) {
