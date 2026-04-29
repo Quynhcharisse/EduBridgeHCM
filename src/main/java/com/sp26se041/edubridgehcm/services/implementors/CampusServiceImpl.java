@@ -737,26 +737,25 @@ public class CampusServiceImpl implements CampusService {
     }
 
     /**
-     * Nếu chiến dịch chỉ có một phương thức thì snapshot vào offering.
-     * Khi chiến dịch chứa nhiều phương thức, để null để FE chọn/tách theo nghiệp vụ riêng.
+     * Lấy phương thức tuyển sinh mặc định từ campaign để snapshot vào offering.
+     * Nếu có nhiều phương thức, ưu tiên phương thức hợp lệ đầu tiên.
      */
     private String resolveDefaultAdmissionMethod(AdmissionCampaign campaign) {
         if (!(campaign.getAdmissionMethodTimelines() instanceof List<?> timelines) || timelines.isEmpty()) {
             return null;
         }
 
-        Set<String> codes = new LinkedHashSet<>();
         for (Object item : timelines) {
             if (!(item instanceof Map<?, ?> timelineMap)) {
                 continue;
             }
             String methodCode = normalize(Objects.toString(timelineMap.get("methodCode"), null));
             if (methodCode != null) {
-                codes.add(methodCode);
+                return methodCode;
             }
         }
 
-        return codes.size() == 1 ? codes.iterator().next() : null;
+        return null;
     }
 
     @Override
