@@ -11,7 +11,7 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateConsultationOfflineRequest {
-    int id;
+    Long id;
     int counsellorSlotId;
     String action;
 }

@@ -11,6 +11,7 @@ import com.sp26se041.edubridgehcm.models.CounsellorSlot;
 import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.StudentProfile;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
 import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
 import com.sp26se041.edubridgehcm.repositories.ConsultationOfflineRequestRepo;
 import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
@@ -19,6 +20,7 @@ import com.sp26se041.edubridgehcm.repositories.CounsellorSlotRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
 import com.sp26se041.edubridgehcm.repositories.StudentInfoRepo;
 import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
+import com.sp26se041.edubridgehcm.requests.UpdateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.CounsellorService;
@@ -71,6 +73,7 @@ public class CounsellorServiceImpl implements CounsellorService {
     private final CounsellorSlotRepo counsellorSlotRepo;
 
     private final ConsultationOfflineRequestRepo consultationOfflineRequestRepo;
+    private final CampusScheduleTemplateRepo campusScheduleTemplateRepo;
 
 
     @Override
@@ -410,6 +413,99 @@ public class CounsellorServiceImpl implements CounsellorService {
                 "Lấy danh sách lịch tư vấn thành công",
                 pageResponse
         );
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> updateConsultationOfflineRequest(UpdateConsultationOfflineRequest request) {
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        Counsellor counsellor = counsellorRepo.findByAccountId(accountRepo.findByEmail(email).get().getId());
+
+        Optional<ConsultationOfflineRequest> consultationOfflineRequest =  consultationOfflineRequestRepo.findById(request.getId());
+
+        if (consultationOfflineRequest.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Lịch hẹn không tồn tại", null);
+        }
+
+        ConsultationOfflineRequest offlineRequest = consultationOfflineRequest.get();
+
+
+
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getCounsellorsInSlot(LocalTime appointmentTime, LocalDate appointmentDate) {
+
+        if (appointmentDate == null) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Ngày hẹn tư vấn không được để trống",
+                    null
+            );
+        }
+
+        if (appointmentTime == null) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Giờ hẹn tư vấn không được để trống",
+                    null
+            );
+        }
+
+        String dayOfWeek = appointmentDate.getDayOfWeek().name().substring(0, 3);
+        // MON, TUE, WED, THU, FRI, SAT, SUN
+
+        List<CampusScheduleTemplate> templates =
+                campusScheduleTemplateRepo.findByDayOfWeekAndStartTimeAndActiveTrue(
+                        dayOfWeek,
+                        appointmentTime,
+                        true
+                );
+
+        if (templates.isEmpty()) {
+            return ResponseBuilder.build(
+                    HttpStatus.OK,
+                    "",
+                    List.of()
+            );
+        }
+
+        List<CounsellorSlot> counsellorSlots =
+                counsellorSlotRepo
+                        .findByCampusScheduleTemplateInAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatus(
+                                templates,
+                                appointmentDate,
+                                appointmentDate,
+                                Status.AVAILABLE
+                        );
+
+        List<Map<String, Object>> result = counsellorSlots.stream()
+                .map(this::buildCounsellorInSlot)
+                .toList();
+
+        return ResponseBuilder.build(
+                HttpStatus.OK,
+                "Lấy danh sách tư vấn viên trong slot thành công",
+                result
+        );
+    }
+
+    private Map<String, Object> buildCounsellorInSlot(CounsellorSlot slot) {
+        Map<String, Object> map = new HashMap<>();
+
+        Counsellor counsellor = slot.getCounsellor();
+        CampusScheduleTemplate template = slot.getCampusScheduleTemplate();
+
+        map.put("counsellorSlotId", slot.getId());
+        map.put("counsellorName", counsellor.getName());
+        map.put("email", counsellor.getAccount().getEmail());
+        map.put("avatarUrl", counsellor.getAvatar());
+        map.put("startTime", template.getStartTime());
+        map.put("endTime", template.getEndTime());
+
+        return map;
     }
 
     private Map<String, Object> buildConsultationOfflineRequest(
