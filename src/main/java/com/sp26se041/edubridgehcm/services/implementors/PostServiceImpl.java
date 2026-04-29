@@ -193,7 +193,7 @@ public class PostServiceImpl implements PostService {
             rootFolder = "ADMIN_POSTS";
             subFolder = categoryTemplate.name().toUpperCase();
 
-        } else if (acc.getRole() == Role.SCHOOL) {
+        } else if (acc.getRole() == Role.SCHOOL)  {
             Campus actorCampus = acc.getCampus();
             if (actorCampus == null || actorCampus.getSchool() == null) {
                 return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy thông tin trường học/cơ sở", null);
@@ -241,7 +241,11 @@ public class PostServiceImpl implements PostService {
 
             String fileName = UUID.randomUUID().toString() + "_" + safeOriginalName + "." + extension;
 
-            Map<String, Object> mediaConfig = (Map<String, Object>) media.getValue();
+            Object configValue = media.getValue();
+            if (!(configValue instanceof Map)) {
+                return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Cấu hình media không hợp lệ", null);
+            }
+            Map<String, Object> mediaConfig = (Map<String, Object>) configValue;
 
             List<Map<String, String>> allowedFormats = (List<Map<String, String>>) mediaConfig.get("docFormat");
 

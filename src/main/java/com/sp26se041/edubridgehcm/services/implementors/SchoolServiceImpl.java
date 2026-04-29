@@ -67,6 +67,7 @@ import com.sp26se041.edubridgehcm.services.SchoolService;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
+import com.sp26se041.edubridgehcm.utils.CheckCampusOfferingStatus;
 import com.sp26se041.edubridgehcm.utils.ConfigSystemUtil;
 import com.sp26se041.edubridgehcm.utils.CurriculumNamingUtil;
 import com.sp26se041.edubridgehcm.utils.ExcelUtil;
@@ -1632,7 +1633,7 @@ public class SchoolServiceImpl implements SchoolService {
             item.put("openDate", offering.getOpenDate());
             item.put("closeDate", offering.getCloseDate());
             item.put("applicationStatus", effectiveOperationalStatus);
-            item.put("status", offering.getStatus());
+            item.put("status", CheckCampusOfferingStatus.checkOfferingStatus(offering, campusProgramOfferingRepo).getStatus());
             item.put("statusContext", buildOfferingStatusContext(offering));
             item.put("program", programData);
             item.put("curriculum", curriculumData);
@@ -2108,8 +2109,9 @@ public class SchoolServiceImpl implements SchoolService {
 
     private Status resolveEffectiveOperationalStatus(CampusProgramOffering offering) {
         Status current = offering.getApplicationStatus();
-        if (current == Status.PAUSED || current == Status.CLOSED || current == Status.FULL) {
-            return current;
+
+        if (current == Status.PAUSED) {
+            return current; // campus chủ động paused
         }
 
         int activeReservationCount = admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIn(

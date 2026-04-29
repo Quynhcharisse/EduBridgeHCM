@@ -59,13 +59,15 @@ public class PostValidation {
             if (urlErr != null) return "Hình ảnh thứ " + (i + 1) + ": " + urlErr;
         }
 
-        if (request.getThumbnail() != null && !request.getThumbnail().trim().isEmpty()) {
-            String thumbnailErr = ConfigSystemUtil.validateUrlFormat(mediaConfig, request.getThumbnail(), true);
+        String thumbnail = normalizeOptional(request.getThumbnail());
+        if (thumbnail != null) {
+            String thumbnailErr = ConfigSystemUtil.validateUrlFormat(mediaConfig, thumbnail, true);
             if (thumbnailErr != null) return "Ảnh đại diện: " + thumbnailErr;
         }
 
-        if (request.getTypeFile() != null && !request.getTypeFile().trim().isEmpty()) {
-            String typeFileErr = ConfigSystemUtil.validateUrlFormat(mediaConfig, request.getTypeFile(), false);
+        String typeFile = normalizeOptional(request.getTypeFile());
+        if (typeFile != null && shouldValidateFilePath(typeFile)) {
+            String typeFileErr = ConfigSystemUtil.validateUrlFormat(mediaConfig, typeFile, false);
             if (typeFileErr != null) return "Loại tệp: " + typeFileErr;
         }
 
@@ -93,5 +95,33 @@ public class PostValidation {
 
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private static String normalizeOptional(String value) {
+        String normalized = normalize(value);
+        if (normalized == null) {
+            return null;
+        }
+
+        if ("null".equalsIgnoreCase(normalized) || "undefined".equalsIgnoreCase(normalized)) {
+            return null;
+        }
+        return normalized;
+    }
+
+    private static boolean shouldValidateFilePath(String value) {
+        String normalized = value.trim();
+        String lower = normalized.toLowerCase();
+
+        // Ignore MIME-like values (e.g., application/pdf) for optional file path field.
+        if (lower.startsWith("application/") || lower.startsWith("image/") || lower.startsWith("video/")) {
+            return false;
+        }
+
+        // Validate only when it looks like a URL/path AND has a file extension.
+        boolean hasPathHint = normalized.contains("/") || normalized.contains("\\") || normalized.contains("://");
+        int lastDotIndex = normalized.lastIndexOf('.');
+        boolean hasExtension = lastDotIndex > normalized.lastIndexOf('/') && lastDotIndex < normalized.length() - 1;
+        return hasPathHint && hasExtension;
     }
 }

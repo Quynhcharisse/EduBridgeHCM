@@ -6,7 +6,6 @@ import com.sp26se041.edubridgehcm.requests.RegisterDeviceTokenRequest;
 import com.sp26se041.edubridgehcm.requests.RemoveDeviceTokenRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import org.springframework.http.ResponseEntity;
-
 import java.util.Map;
 
 public interface NotificationService {
