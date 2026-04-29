@@ -1,7 +1,7 @@
 package com.sp26se041.edubridgehcm.services;
 
 import com.sp26se041.edubridgehcm.enums.NotificationEventType;
-import com.sp26se041.edubridgehcm.models.Post;
+import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.requests.RegisterDeviceTokenRequest;
 import com.sp26se041.edubridgehcm.requests.RemoveDeviceTokenRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -19,5 +19,5 @@ public interface NotificationService {
 
     ResponseEntity<ResponseObject> markAsRead(Integer recipientId);
 
-    void publish(NotificationEventType eventType, Post post, Map<String, Object> extraData);
+    void publish(NotificationEventType eventType, Account actor, Map<String, Object> contextData);
 }

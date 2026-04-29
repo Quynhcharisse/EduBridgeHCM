@@ -148,9 +148,19 @@ public class PostServiceImpl implements PostService {
 
         if (acc.getRole() == Role.SCHOOL) {
             try {
-                notificationService.publish(NotificationEventType.SCHOOL_POST_PUBLISHED, savedPost, null);
+                Map<String, Object> contextData = new HashMap<>();
+                contextData.put("postId", savedPost.getId());
+                notificationService.publish(NotificationEventType.SCHOOL_POST_PUBLISHED, acc, contextData);
             } catch (Exception ex) {
-                log.error("Failed to publish SCHOOL_POST_PUBLISHED notification for postId={}", savedPost.getId(), ex);
+                log.error("Gửi thông báo thất bại cho bài viết id={}", savedPost.getId(), ex);
+            }
+        } else {
+            try {
+                Map<String, Object> contextData = new HashMap<>();
+                contextData.put("postId", savedPost.getId());
+                notificationService.publish(NotificationEventType.ADMIN_POST_PUBLISHED, acc, contextData);
+            } catch (Exception ex) {
+                log.error("Gửi thông báo thất bại cho bài viết id={}", savedPost.getId(), ex);
             }
         }
 
@@ -193,7 +203,7 @@ public class PostServiceImpl implements PostService {
             rootFolder = "ADMIN_POSTS";
             subFolder = categoryTemplate.name().toUpperCase();
 
-        } else if (acc.getRole() == Role.SCHOOL)  {
+        } else if (acc.getRole() == Role.SCHOOL) {
             Campus actorCampus = acc.getCampus();
             if (actorCampus == null || actorCampus.getSchool() == null) {
                 return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy thông tin trường học/cơ sở", null);
@@ -341,9 +351,8 @@ public class PostServiceImpl implements PostService {
     @Override
     public ResponseEntity<ResponseObject> viewPostList(HttpServletRequest httpRequest) {
 
-        List<Post> postList = postRepo.findAll();
+        List<Post> postList = postRepo.findAllByStatusOrderByPublishedDateDesc(Status.POST_ACTIVE);
         List<Map<String, Object>> data = postList.stream()
-                .filter(s -> s.getStatus().equals(Status.POST_ACTIVE))
                 .map(this::buildPostData)
                 .toList();
 

@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.sp26se041.edubridgehcm.enums.NotificationEventType;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
@@ -16,6 +17,7 @@ import com.sp26se041.edubridgehcm.requests.RegisterRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AuthService;
 import com.sp26se041.edubridgehcm.services.JWTService;
+import com.sp26se041.edubridgehcm.services.NotificationService;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.ConfigSystemUtil;
@@ -25,6 +27,7 @@ import com.sp26se041.edubridgehcm.validations.auth.RegisterValidation;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -41,9 +44,11 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthServiceImpl implements AuthService {
 
     private static final String TOKEN_TYPE = "Bearer";
+    private final NotificationService notificationService;
 
     @Value("${jwt.expiration.access-token}")
     private long accessExpiration;
@@ -159,6 +164,20 @@ public class AuthServiceImpl implements AuthService {
                     .account(account)
                     .avatar(request.getAvatar())
                     .build()));
+
+         if (Role.valueOf(request.getRole().toUpperCase()).equals(Role.PARENT)) {
+                try {
+                    Map<String, Object> contextData = new HashMap<>();
+                    contextData.put("parentId", account.getParent().getId());
+                    contextData.put("actorName", account.getEmail());
+                    contextData.put("subjectType", "PARENT");
+                    contextData.put("route", "/admin/users");
+                    notificationService.publish(NotificationEventType.NEW_USER_REGISTERED, null, contextData);
+                } catch (Exception ex) {
+                    log.error("Gửi thông báo thất bại cho đăng kí tài khoản phụ huynh id={}", account.getParent().getId(), ex);
+                }
+            }
+
             return ResponseBuilder.build(HttpStatus.OK, "Đăng ký tài khoản thành công", buildAccountData(account));
         }
 
@@ -179,11 +198,26 @@ public class AuthServiceImpl implements AuthService {
                     .status(Status.ACCOUNT_PENDING_VERIFY) // trạng thái chờ Admin duyệt
                     .createdAt(LocalDateTime.now())
                     .build());
+
+            if (Role.valueOf(request.getRole().toUpperCase()).equals(Role.SCHOOL)) {
+                try {
+                    Map<String, Object> contextData = new HashMap<>();
+                    contextData.put("schoolRequestId", schoolRegistrationRequest.getId());
+                    contextData.put("actorName", schoolRegistrationRequest.getSchoolName());
+                    contextData.put("subjectType", "SCHOOL");
+                    contextData.put("route", "/admin/school-requests");
+                    notificationService.publish(NotificationEventType.NEW_USER_REGISTERED, null, contextData);
+                } catch (Exception ex) {
+                    log.error("Gửi thông báo thất bại cho đăng kí trường id={}", schoolRegistrationRequest.getId(), ex);
+                }
+            }
+
             return ResponseBuilder.build(HttpStatus.OK, "Yêu cầu đăng ký đã được gửi. Vui lòng chờ quản trị viên phê duyệt.", buildSchoolRegistrationData(schoolRegistrationRequest));
         }
 
         return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Vai trò này không được phép tự đăng ký", null);
     }
+
 
     private Map<String, Object> buildAccountData(Account account) {
         Map<String, Object> accountData = new HashMap<>();
