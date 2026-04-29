@@ -206,12 +206,12 @@ public class CampusServiceImpl implements CampusService {
 
         BigDecimal basePrice = program.getBaseTuitionFee();
 
-        float adjustmentPercent = request.getPriceAdjustmentPercentage() != null
-                ? request.getPriceAdjustmentPercentage()
-                : 0.0f;
+        BigDecimal adjustmentPercent = request.getPriceAdjustmentPercentage() != null
+                ? new BigDecimal(request.getPriceAdjustmentPercentage().toString())
+                : BigDecimal.ZERO;
 
         BigDecimal finalFee = basePrice
-                .multiply(BigDecimal.ONE.add(BigDecimal.valueOf(adjustmentPercent)))
+                .multiply(BigDecimal.ONE.add(adjustmentPercent))
                 .setScale(0, RoundingMode.HALF_UP);
 
         SchoolConfig financePolicyConfig = schoolConfigRepo
@@ -224,28 +224,30 @@ public class CampusServiceImpl implements CampusService {
 
             if (adjustmentRaw instanceof Map<?, ?> adjustmentMap) {
 
-                Double min = adjustmentMap.get("minPercent") != null
-                        ? Double.valueOf(adjustmentMap.get("minPercent").toString())
+                BigDecimal min = adjustmentMap.get("minPercent") != null
+                        ? new BigDecimal(adjustmentMap.get("minPercent").toString())
                         : null;
 
-                Double max = adjustmentMap.get("maxPercent") != null
-                        ? Double.valueOf(adjustmentMap.get("maxPercent").toString())
+                BigDecimal max = adjustmentMap.get("maxPercent") != null
+                        ? new BigDecimal(adjustmentMap.get("maxPercent").toString())
                         : null;
 
-                if (min != null && adjustmentPercent < min) {
+                if (min != null && adjustmentPercent.compareTo(min) < 0) {
                     return ResponseBuilder.build(
                             HttpStatus.BAD_REQUEST,
                             String.format("Phần trăm %.2f%% nhỏ hơn mức tối thiểu %.2f%%",
-                                    adjustmentPercent * 100, min * 100),
+                                    adjustmentPercent.multiply(BigDecimal.valueOf(100)).doubleValue(),
+                                    min.multiply(BigDecimal.valueOf(100)).doubleValue()),
                             null
                     );
                 }
 
-                if (max != null && adjustmentPercent > max) {
+                if (max != null && adjustmentPercent.compareTo(max) > 0) {
                     return ResponseBuilder.build(
                             HttpStatus.BAD_REQUEST,
                             String.format("Phần trăm %.2f%% vượt mức tối đa %.2f%%",
-                                    adjustmentPercent * 100, max * 100),
+                                    adjustmentPercent.multiply(BigDecimal.valueOf(100)).doubleValue(),
+                                    max.multiply(BigDecimal.valueOf(100)).doubleValue()),
                             null
                     );
                 }
@@ -278,7 +280,7 @@ public class CampusServiceImpl implements CampusService {
                 .quota(configuredQuota)
                 .remainingQuota(configuredQuota)
                 .learningMode(request.getLearningMode())
-                .priceAdjustmentPercentage(adjustmentPercent)
+                .priceAdjustmentPercentage(adjustmentPercent.floatValue())
                 .finalTuitionFee(finalFee)
                 .applicationStatus(initialApplicationStatus)
                 .openDate(targetOpenDate)
