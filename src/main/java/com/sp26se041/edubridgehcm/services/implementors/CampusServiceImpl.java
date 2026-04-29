@@ -53,6 +53,7 @@ import com.sp26se041.edubridgehcm.services.CampusService;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
+import com.sp26se041.edubridgehcm.utils.CheckCampusOfferingStatus;
 import com.sp26se041.edubridgehcm.utils.ExcelUtil;
 import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResourceCheckerUtil;
@@ -88,6 +89,7 @@ import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -232,7 +234,7 @@ public class CampusServiceImpl implements CampusService {
                 .learningMode(request.getLearningMode())
                 .priceAdjustmentPercentage(adjustmentRatio)
                 .finalTuitionFee(basePrice.multiply(BigDecimal.valueOf(1 + adjustmentRatio)).setScale(0, RoundingMode.HALF_UP))
-                .applicationStatus(initialApplicationStatus)
+                .applicationStatus(initialApplicationStatus) //
                 .openDate(targetOpenDate)
                 .closeDate(targetCloseDate)
                 .status(Status.OFFERING_ACTIVE)
@@ -520,7 +522,9 @@ public class CampusServiceImpl implements CampusService {
         Map<String, Object> data = new HashMap<>();
         Program program = offering.getProgram();
         var curriculum = program.getCurriculum();
+
         Status effectiveOperationalStatus = resolveEffectiveOperationalStatus(offering);
+
         data.put("id", offering.getId());
         data.put("campusName", offering.getCampus().getName());
         data.put("learningMode", offering.getLearningMode());
@@ -531,7 +535,7 @@ public class CampusServiceImpl implements CampusService {
         data.put("closeDate", offering.getCloseDate());
         data.put("applicationStatus", effectiveOperationalStatus);
         data.put("admissionMethod", offering.getAdmissionMethod());
-        data.put("status", offering.getStatus());
+        data.put("status", CheckCampusOfferingStatus.checkOfferingStatus(offering, campusProgramOfferingRepo).getStatus());
         data.put("statusContext", buildOfferingStatusContext(offering));
 
         // Trả block chi tiết để FE không cần gọi thêm API khi mở detail từ list offering.
@@ -580,8 +584,9 @@ public class CampusServiceImpl implements CampusService {
 
     private Status resolveEffectiveOperationalStatus(CampusProgramOffering offering) {
         Status current = offering.getApplicationStatus();
-        if (current == Status.PAUSED || current == Status.CLOSED || current == Status.FULL) {
-            return current;
+
+        if (current == Status.PAUSED) {
+            return current; // campus chủ động paused
         }
 
         int activeReservationCount = admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIn(
@@ -704,17 +709,6 @@ public class CampusServiceImpl implements CampusService {
     }
 
     /**
-     * Suy ngược % điều chỉnh từ giá gốc và giá cuối.
-     */
-    private static float deriveAdjustmentPercent(BigDecimal basePrice, BigDecimal finalTuition) {
-        BigDecimal ratio = finalTuition
-                .divide(basePrice, 8, RoundingMode.HALF_UP)
-                .subtract(BigDecimal.ONE)
-                .multiply(BigDecimal.valueOf(100));
-        return ratio.setScale(2, RoundingMode.HALF_UP).floatValue();
-    }
-
-    /**
      * FE gửi theo % (vd 10), DB lưu dạng ratio (vd 0.1).
      */
     private static float toStoredRatio(float percent) {
@@ -724,7 +718,7 @@ public class CampusServiceImpl implements CampusService {
     }
 
     private static Status deriveApplicationStatusByDateWindow(LocalDate openDate, LocalDate closeDate) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
 
         if (today.isBefore(openDate)) {
             return Status.UPCOMING_OFFERING;
@@ -743,9 +737,9 @@ public class CampusServiceImpl implements CampusService {
                                                                   int remainingQuota,
                                                                   int activeReservationCount) {
         if (activeReservationCount >= quota || remainingQuota <= 0) {
-            return Status.FULL;
+            return Status.FULL; // Kiểm tra hết chỗ trước
         }
-        return deriveApplicationStatusByDateWindow(openDate, closeDate);
+        return deriveApplicationStatusByDateWindow(openDate, closeDate); // Nếu còn chỗ mới xét đến ngày tháng
     }
 
     private static final class PriceAdjustmentRange {

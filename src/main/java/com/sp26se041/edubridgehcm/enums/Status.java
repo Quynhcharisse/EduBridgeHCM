@@ -130,9 +130,7 @@ public enum Status {
         };
     }
 
-    /**
-     * Trạng thái đơn giữ chỗ còn hiệu lực để tính quota.
-     */
+  //Trạng thái đơn giữ chỗ còn hiệu lực để tính quota. ==> liên quan đến hàm xử lý hồ sơ ==> Trí dựa trên đây điều chỉnh status phù hợp
     public static Set<Status> activeReservationStatuses() {
         return Set.of(
                 RESERVATION_OPEN,
