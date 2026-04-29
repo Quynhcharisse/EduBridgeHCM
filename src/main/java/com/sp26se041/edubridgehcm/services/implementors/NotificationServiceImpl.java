@@ -8,7 +8,6 @@ import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.DeviceTokens;
 import com.sp26se041.edubridgehcm.models.NotificationRecipients;
 import com.sp26se041.edubridgehcm.models.Notifications;
-import com.sp26se041.edubridgehcm.models.Post;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.DeviceTokensRepo;
 import com.sp26se041.edubridgehcm.repositories.NotificationRecipientsRepo;
@@ -28,14 +27,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
 public class NotificationServiceImpl implements NotificationService {
+    private static final Map<NotificationEventType, EventTemplateConfig> EVENT_TEMPLATE_CONFIGS =
+            buildEventTemplateConfigs();
+
 
     private final AccountRepo accountRepo;
 
@@ -163,25 +166,30 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     @Transactional
-    public void publish(NotificationEventType eventType, Post post, Map<String, Object> extraData) {
-        if (eventType == null || post == null || post.getAuthor() == null) {
+    public void publish(NotificationEventType eventType, Account actor, Map<String, Object> contextData) {
+        if (eventType == null) {
             return;
         }
 
         LocalDateTime now = LocalDateTime.now();
-        NotificationTemplate template = buildTemplate(eventType, post, extraData);
+        EventTemplateConfig config = EVENT_TEMPLATE_CONFIGS.get(eventType);
+        if (config == null) {
+            return;
+        }
+
+        NotificationTemplate template = buildTemplate(config, eventType, actor, contextData);
         if (template == null) {
             return;
         }
 
-        List<Role> recipientRoles = resolveRecipientRoles(eventType);
+        List<Role> recipientRoles = config.recipientRoles();
         if (recipientRoles.isEmpty()) {
             return;
         }
 
         Notifications notification = Notifications.builder()
                 .eventType(eventType)
-                .actorUser(post.getAuthor())
+                .actorUser(actor)
                 .title(template.title())
                 .body(template.body())
                 .data(template.payload())
@@ -219,40 +227,96 @@ public class NotificationServiceImpl implements NotificationService {
         }
     }
 
-    private String resolveSchoolName(Post post) {
-        if (post.getAuthor().getCampus() != null && post.getAuthor().getCampus().getSchool() != null) {
-            return post.getAuthor().getCampus().getSchool().getName();
+    private NotificationTemplate buildTemplate(EventTemplateConfig config,
+                                               NotificationEventType eventType,
+                                               Account actor,
+                                               Map<String, Object> contextData) {
+        String actorName = resolveActorName(eventType, actor, contextData);
+        String title = config.titleTemplate().replace("{actorName}", actorName);
+        String body = config.bodyTemplate().replace("{actorName}", actorName);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("eventType", eventType.name());
+        payload.put("route", config.route());
+        payload.put("actorName", actorName);
+        if (contextData != null && !contextData.isEmpty()) {
+            payload.putAll(contextData);
         }
-        return "Truong hoc";
+
+        return new NotificationTemplate(title, body, payload);
     }
 
-    private List<Role> resolveRecipientRoles(NotificationEventType eventType) {
-        List<Role> roles = new ArrayList<>();
-        switch (eventType) {
-            case SCHOOL_POST_PUBLISHED -> {
-                roles.add(Role.ADMIN);
-                roles.add(Role.PARENT);
-            }
-            default -> {
-            }
+    private String resolveSchoolName(Account actor) {
+        if (actor != null && actor.getCampus() != null && actor.getCampus().getSchool() != null) {
+            return actor.getCampus().getSchool().getName();
         }
-        return roles;
+        return "Trường học";
     }
 
-    private NotificationTemplate buildTemplate(NotificationEventType eventType, Post post, Map<String, Object> extraData) {
+    private String resolveAdminName(Account actor) {
+        if (actor != null && Role.ADMIN.equals(actor.getRole())) {
+            return "Hệ thống EduBridge";
+        }
+        return "Quản trị viên";
+    }
+
+    private String resolveActorName(NotificationEventType eventType, Account actor, Map<String, Object> contextData) {
+        if (contextData != null) {
+            Object actorName = contextData.get("actorName");
+            if (actorName != null && !actorName.toString().isBlank()) {
+                return actorName.toString().trim();
+            }
+        }
+
         if (eventType == NotificationEventType.SCHOOL_POST_PUBLISHED) {
-            String schoolName = resolveSchoolName(post);
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("eventType", NotificationEventType.SCHOOL_POST_PUBLISHED.name());
-            payload.put("route", "/posts");
-            payload.put("postId", post.getId());
-            payload.put("schoolName", schoolName);
-            if (extraData != null && !extraData.isEmpty()) {
-                payload.putAll(extraData);
-            }
-            return new NotificationTemplate("Bai viet moi tu truong", schoolName + " vua dang bai moi", payload);
+            return resolveSchoolName(actor);
         }
-        return null;
+
+        if (eventType == NotificationEventType.ADMIN_POST_PUBLISHED) {
+            return resolveAdminName(actor);
+        }
+
+        if (eventType == NotificationEventType.NEW_USER_REGISTERED) {
+            return resolveAdminName(actor);
+        }
+
+        return "Hệ thống EduBridge";
+    }
+
+    private static Map<NotificationEventType, EventTemplateConfig> buildEventTemplateConfigs() {
+        Map<NotificationEventType, EventTemplateConfig> configs = new EnumMap<>(NotificationEventType.class);
+        configs.put(
+                NotificationEventType.SCHOOL_POST_PUBLISHED,
+                new EventTemplateConfig(
+                        "Bài viết mới từ {actorName}",
+                        "{actorName} vừa đăng bài mới",
+                        "/posts",
+                        List.of(Role.ADMIN, Role.PARENT)
+                )
+        );
+        configs.put(
+                NotificationEventType.ADMIN_POST_PUBLISHED,
+                new EventTemplateConfig(
+                        "Bài viết mới từ {actorName}",
+                        "{actorName} vừa đăng bài mới",
+                        "/posts",
+                        List.of(Role.SCHOOL, Role.PARENT)
+                )
+        );
+        configs.put(
+                NotificationEventType.NEW_USER_REGISTERED,
+                new EventTemplateConfig(
+                        "Người dùng mới đăng ký",
+                        "{actorName} vừa đăng ký tài khoản mới",
+                        "/admin/users",
+                        List.of(Role.ADMIN)
+                )
+        );
+        return configs;
+    }
+
+    private record EventTemplateConfig(String titleTemplate, String bodyTemplate, String route,
+                                       List<Role> recipientRoles) {
     }
 
     private record NotificationTemplate(String title, String body, Map<String, Object> payload) {
