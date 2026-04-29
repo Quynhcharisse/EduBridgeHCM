@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.CategoryPost;
+import com.sp26se041.edubridgehcm.enums.NotificationEventType;
 import com.sp26se041.edubridgehcm.enums.PackageType;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
@@ -17,6 +18,7 @@ import com.sp26se041.edubridgehcm.requests.CreatePostRequest;
 import com.sp26se041.edubridgehcm.requests.DisablePostRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.JWTService;
+import com.sp26se041.edubridgehcm.services.NotificationService;
 import com.sp26se041.edubridgehcm.services.PostService;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
@@ -61,6 +63,8 @@ public class PostServiceImpl implements PostService {
     private final PlatformConfigRepo platformConfigRepo;
 
     private final SchoolSubscriptionRepo schoolSubscriptionRepo;
+
+    private final NotificationService notificationService;
 
     @Override
     public ResponseEntity<ResponseObject> createPost(CreatePostRequest request, HttpServletRequest httpRequest) {
@@ -126,9 +130,29 @@ public class PostServiceImpl implements PostService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
-        Post post = Post.builder().hashTag(request.getHashTagList()).content(buildContentJson(request.getContent())).imageJson(buildImageJson(request.getImage())).thumbnail(request.getThumbnail()).totalPosition(request.getTotalPosition()).typeFile(request.getTypeFile()).categoryPost(category).status(Status.POST_ACTIVE).publishedDate(LocalDateTime.now()).author(acc).build();
+        Post post = Post
+                .builder()
+                .hashTag(request.getHashTagList())
+                .content(buildContentJson(request.getContent()))
+                .imageJson(buildImageJson(request.getImage()))
+                .thumbnail(request.getThumbnail())
+                .totalPosition(request.getTotalPosition())
+                .typeFile(request.getTypeFile())
+                .categoryPost(category)
+                .status(Status.POST_ACTIVE)
+                .publishedDate(LocalDateTime.now())
+                .author(acc)
+                .build();
 
-        postRepo.save(post);
+        Post savedPost = postRepo.save(post);
+
+        if (acc.getRole() == Role.SCHOOL) {
+            try {
+                notificationService.publish(NotificationEventType.SCHOOL_POST_PUBLISHED, savedPost, null);
+            } catch (Exception ex) {
+                log.error("Failed to publish SCHOOL_POST_PUBLISHED notification for postId={}", savedPost.getId(), ex);
+            }
+        }
 
         return ResponseBuilder.build(HttpStatus.CREATED, "Đăng bài viết thành công", null);
     }

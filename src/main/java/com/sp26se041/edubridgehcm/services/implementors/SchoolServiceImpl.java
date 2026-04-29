@@ -3179,7 +3179,6 @@ public class SchoolServiceImpl implements SchoolService {
                     targetDetails.put("newExpiryDate", baseDate.plusDays(durationDays));
                     warnings.put("message", "Gia hạn giúp cộng dồn thời gian sử dụng.");
                 }
-
             }
 
             // Step 5: Build financial breakdown and response

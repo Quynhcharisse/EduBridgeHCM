@@ -59,17 +59,15 @@ public class PostValidation {
             if (urlErr != null) return "Hình ảnh thứ " + (i + 1) + ": " + urlErr;
         }
 
-        if (isBlank(request.getThumbnail())) return "Ảnh đại diện (Thumbnail) bài viết là bắt buộc.";
+        if (request.getThumbnail() != null && !request.getThumbnail().trim().isEmpty()) {
+            String thumbnailErr = ConfigSystemUtil.validateUrlFormat(mediaConfig, request.getThumbnail(), true);
+            if (thumbnailErr != null) return "Ảnh đại diện: " + thumbnailErr;
+        }
 
-        String thumbnailErr = ConfigSystemUtil.validateUrlFormat(mediaConfig, request.getThumbnail(), true);
-
-        if (thumbnailErr != null) return "Ảnh đại diện: " + thumbnailErr;
-
-        if (isBlank(request.getTypeFile())) return "Loại tệp không được để trống.";
-
-        String typeFileErr = ConfigSystemUtil.validateUrlFormat(mediaConfig, request.getTypeFile(), false);
-
-        if (typeFileErr != null) return typeFileErr;
+        if (request.getTypeFile() != null && !request.getTypeFile().trim().isEmpty()) {
+            String typeFileErr = ConfigSystemUtil.validateUrlFormat(mediaConfig, request.getTypeFile(), false);
+            if (typeFileErr != null) return "Loại tệp: " + typeFileErr;
+        }
 
         if (parseCategoryPost(request.getCategoryPost()) == null)
             return "Danh mục bài viết không hợp lệ. Vui lòng chọn một danh mục hợp lệ.";
@@ -95,9 +93,5 @@ public class PostValidation {
 
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
-    }
-
-    private static boolean isBlank(String str) {
-        return str == null || str.trim().isEmpty();
     }
 }
