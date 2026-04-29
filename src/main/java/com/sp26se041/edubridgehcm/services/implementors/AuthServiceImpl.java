@@ -205,7 +205,7 @@ public class AuthServiceImpl implements AuthService {
                     contextData.put("schoolRequestId", schoolRegistrationRequest.getId());
                     contextData.put("actorName", schoolRegistrationRequest.getSchoolName());
                     contextData.put("subjectType", "SCHOOL");
-                    contextData.put("route", "/admin/school-requests");
+                    contextData.put("route", "/admin/schools/verification");
                     notificationService.publish(NotificationEventType.NEW_USER_REGISTERED, null, contextData);
                 } catch (Exception ex) {
                     log.error("Gửi thông báo thất bại cho đăng kí trường id={}", schoolRegistrationRequest.getId(), ex);
