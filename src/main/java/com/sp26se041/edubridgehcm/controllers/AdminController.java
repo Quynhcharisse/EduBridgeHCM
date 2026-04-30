@@ -82,6 +82,12 @@ public class AdminController {
         return adminService.getAllActiveSchools();
     }
 
+    @GetMapping("/transaction/list")
+    @PreAuthorize("hasAnyRole('ADMIN')")
+    public ResponseEntity<ResponseObject> getAllTransaction() {
+        return adminService.getAllTransaction();
+    }
+
     @PostMapping("/personality/type")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ResponseObject> createPersonalityType(@RequestBody CreatePersonalityTypeRequest request) {

@@ -47,4 +47,6 @@ public interface AdminService {
     ResponseEntity<ResponseObject> getRevenuesSummary(Integer year, Integer month, String packageType);
 
     ResponseEntity<ResponseObject> getAllActiveSchools();
+
+    ResponseEntity<ResponseObject> getAllTransaction();
 }
