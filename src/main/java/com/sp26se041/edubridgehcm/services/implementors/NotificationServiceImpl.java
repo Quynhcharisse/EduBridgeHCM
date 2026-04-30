@@ -320,10 +320,10 @@ public class NotificationServiceImpl implements NotificationService {
         configs.put(
                 NotificationEventType.BUY_PACKAGE_FEE,
                 new EventTemplateConfig(
-                        "Người dùng mới đăng ký",
-                        "{actorName} vừa đăng ký tài khoản mới",
-                        "/admin/users",
-                        List.of(Role.ADMIN)
+                        "Giao dịch gói dịch vụ mới",
+                        "{actorName} vừa thanh toán đăng ký gói dịch vụ.",
+                        "/admin/transactions",
+                        List.of(Role.ADMIN) // Người nhận
                 )
         );
         return configs;
