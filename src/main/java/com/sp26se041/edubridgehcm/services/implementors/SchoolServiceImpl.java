@@ -7,6 +7,7 @@ import com.sp26se041.edubridgehcm.enums.CurriculumType;
 import com.sp26se041.edubridgehcm.enums.FeeUnit;
 import com.sp26se041.edubridgehcm.enums.LanguageInstruction;
 import com.sp26se041.edubridgehcm.enums.LearningMethod;
+import com.sp26se041.edubridgehcm.enums.NotificationEventType;
 import com.sp26se041.edubridgehcm.enums.PackageType;
 import com.sp26se041.edubridgehcm.enums.ResourceType;
 import com.sp26se041.edubridgehcm.enums.Role;
@@ -64,6 +65,7 @@ import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateReques
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SchoolService;
+import com.sp26se041.edubridgehcm.services.NotificationService;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
@@ -184,6 +186,8 @@ public class SchoolServiceImpl implements SchoolService {
     private final CampusResourceQuotaRepo campusResourceQuotaRepo;
 
     private final TemplateDocxRepo templateDocxRepo;
+
+    private final NotificationService notificationService;
 
     private final SupabaseStorageService supabaseStorageService;
 
@@ -2680,6 +2684,11 @@ public class SchoolServiceImpl implements SchoolService {
 
                 //Hủy kích hoạt tất cả các gói isSelected=true hiện tại của School này
                 activateSchoolSubscription(schoolSub);
+                notificationService.publish(
+                        NotificationEventType.BUY_PACKAGE_FEE,
+                        null,
+                        buildBuyPackageNotificationContext(schoolSub)
+                );
 
                 log.info("Payment success for txnRef: {}", vnp_TxnRef);
                 return ResponseBuilder.build(
@@ -2733,6 +2742,24 @@ public class SchoolServiceImpl implements SchoolService {
         distributeResourceQuotas(schoolId, packageInfo);
 
         log.info("School ID {} activated package: {} (License: {})", schoolId, newSubscription.getSubscription().getName(), newSubscription.getLicenseKey());
+    }
+
+    private Map<String, Object> buildBuyPackageNotificationContext(SchoolSubscription schoolSubscription) {
+        Map<String, Object> contextData = new HashMap<>();
+        if (schoolSubscription == null) {
+            return contextData;
+        }
+
+        School school = schoolSubscription.getSchool();
+        Subscription subscription = schoolSubscription.getSubscription();
+
+        if (school != null && school.getName() != null && !school.getName().isBlank()) {
+            contextData.put("actorName", school.getName().trim());
+        }
+        if (subscription != null && subscription.getName() != null && !subscription.getName().isBlank()) {
+            contextData.put("packageName", subscription.getName().trim());
+        }
+        return contextData;
     }
 
     private void distributeResourceQuotas(Integer schoolId, Subscription packageBought) {

@@ -31,7 +31,6 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -232,8 +231,13 @@ public class NotificationServiceImpl implements NotificationService {
                                                Account actor,
                                                Map<String, Object> contextData) {
         String actorName = resolveActorName(eventType, actor, contextData);
-        String title = config.titleTemplate().replace("{actorName}", actorName);
-        String body = config.bodyTemplate().replace("{actorName}", actorName);
+        String packageName = resolvePackageName(contextData);
+        String title = config.titleTemplate()
+                .replace("{actorName}", actorName)
+                .replace("{packageName}", packageName);
+        String body = config.bodyTemplate()
+                .replace("{actorName}", actorName)
+                .replace("{packageName}", packageName);
 
         Map<String, Object> payload = new HashMap<>();
         payload.put("eventType", eventType.name());
@@ -260,6 +264,17 @@ public class NotificationServiceImpl implements NotificationService {
         return "Quản trị viên";
     }
 
+    private String resolvePackageName(Map<String, Object> contextData) {
+        if (contextData == null || contextData.isEmpty()) {
+            return "gói dịch vụ";
+        }
+        Object packageName = contextData.get("packageName");
+        if (packageName == null || packageName.toString().isBlank()) {
+            return "gói dịch vụ";
+        }
+        return packageName.toString().trim();
+    }
+
     private String resolveActorName(NotificationEventType eventType, Account actor, Map<String, Object> contextData) {
         if (contextData != null) {
             Object actorName = contextData.get("actorName");
@@ -282,6 +297,10 @@ public class NotificationServiceImpl implements NotificationService {
 
         if (eventType == NotificationEventType.BUY_PACKAGE_FEE) {
             return resolveSchoolName(actor);
+        }
+
+        if (eventType == NotificationEventType.CREATE_PACKAGE_FEE) {
+            return resolveAdminName(actor);
         }
 
         return "Hệ thống EduBridge";
@@ -321,9 +340,19 @@ public class NotificationServiceImpl implements NotificationService {
                 NotificationEventType.BUY_PACKAGE_FEE,
                 new EventTemplateConfig(
                         "Giao dịch gói dịch vụ mới",
-                        "{actorName} vừa thanh toán đăng ký gói dịch vụ.",
-                        "/admin/transactions",
-                        List.of(Role.ADMIN) // Người nhận
+                        "{actorName} vừa thanh toán đăng ký gói {packageName}.",
+                        "/admin/transaction-statistics",
+                        List.of(Role.ADMIN)
+                )
+        );
+
+        configs.put(
+                NotificationEventType.CREATE_PACKAGE_FEE,
+                new EventTemplateConfig(
+                        "Tạo gói doanh nghiệp",
+                        "{actorName} vừa tạo gói doanh nghiệp mới {packageName}.",
+                        "/admin/package-fees",
+                        List.of(Role.SCHOOL)
                 )
         );
         return configs;

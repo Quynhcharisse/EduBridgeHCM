@@ -21,9 +21,4 @@ public interface SchoolSubscriptionRepo extends JpaRepository<SchoolSubscription
 
     // 1. Dành cho Admin: Lấy toàn bộ gói đang có hiệu lực trên toàn hệ thống
     List<SchoolSubscription> findAllByIsSelectedTrueAndEndDateGreaterThanEqualOrderByEndDateAsc(LocalDate today);
-
-    // 4. Tìm các gói đã hết hạn (Dành cho báo cáo thống kê)
-    List<SchoolSubscription> findAllByEndDateBefore(LocalDate day);
-
-    Optional<SchoolSubscription> findTopBySchoolIdAndIdNotOrderByEndDateDesc(Integer schoolId, Integer schoolSubscriptionId);
 }

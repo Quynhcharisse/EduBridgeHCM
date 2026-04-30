@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.CategoryTemplate;
+import com.sp26se041.edubridgehcm.enums.NotificationEventType;
 import com.sp26se041.edubridgehcm.enums.PackageType;
 import com.sp26se041.edubridgehcm.enums.PersonalityTypeGroup;
 import com.sp26se041.edubridgehcm.enums.Role;
@@ -39,6 +40,7 @@ import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
 import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AdminService;
+import com.sp26se041.edubridgehcm.services.NotificationService;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
@@ -90,6 +92,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AdminServiceImpl implements AdminService {
 
+    private final NotificationService notificationService;
     @Value("${AI_SERVICE_N8N}")
     private String n8nUrl;
 
@@ -929,7 +932,25 @@ public class AdminServiceImpl implements AdminService {
         subscription.setPackageStatus(Status.PACKAGE_ACTIVE);
         subscriptionRepo.save(subscription);
 
+        notificationService.publish(
+                NotificationEventType.CREATE_PACKAGE_FEE,
+                null,
+                buildCreatePackageNotificationContext(subscription)
+        );
+
+
         return ResponseBuilder.build(HttpStatus.OK, "Phát hành gói đăng ký thành công", null);
+    }
+
+    private Map<String, Object> buildCreatePackageNotificationContext(Subscription sub) {
+        Map<String, Object> contextData = new HashMap<>();
+        if (sub == null) {
+            return contextData;
+        }
+        contextData.put("packageName", sub.getName().trim());
+        contextData.put("price", sub.getPrice());
+        contextData.put("duration", sub.getDurationDays());
+        return contextData;
     }
 
     @Override
