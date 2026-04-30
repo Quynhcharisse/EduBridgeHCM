@@ -799,7 +799,6 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public ResponseEntity<ResponseObject> getAllActiveSchools() {
-
         List<SchoolSubscription> activeList = schoolSubscriptionRepo.findAllByIsSelectedTrueAndEndDateGreaterThanEqualOrderByEndDateAsc(LocalDate.now());
         List<Map<String, Object>> response = activeList.stream()
                 .map(a -> {
@@ -819,6 +818,65 @@ public class AdminServiceImpl implements AdminService {
                     return data;
                 })
                 .collect(Collectors.toList());
+
+        return ResponseBuilder.build(HttpStatus.OK, "", response);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getAllTransaction() {
+        List<PaymentTransaction> transactions = paymentTransactionRepo.findAllByOrderByCreatedAtAsc();
+
+        List<Map<String, Object>> tableData = transactions.stream().map(t -> {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("transactionId", t.getId());
+            row.put("schoolName", t.getSchool().getName());
+            String packageName = "N/A";
+            if (t.getSchoolSubscription().getSubscription() != null) {
+                packageName = t.getSchoolSubscription().getSubscription().getName();
+            }
+            row.put("packageName", packageName);
+            row.put("txnRef", t.getVnpTxnRef());
+            row.put("vnpTransactionNo", t.getVnpTransactionNo());
+            row.put("orderInfo", t.getVnpOrderInfo());
+            row.put("bankCode", t.getVnpBankCode());
+            row.put("cardType", t.getVnpCardType());
+            row.put("amount", t.getVnpAmount() / 100.0);
+            row.put("status", t.getStatus());
+            row.put("createdAt", t.getCreatedAt());
+            row.put("notes", t.getNotes());
+            return row;
+        }).toList();
+
+        //Doanh thu thành công theo ngày
+        Map<String, Double> dailyRevenue = transactions.stream()
+                .filter(t -> t.getStatus().equals(Status.PAYMENT_SUCCESS))
+                .collect(Collectors.groupingBy(
+                        t -> t.getCreatedAt().toLocalDate().toString(),
+                        TreeMap::new,
+                        Collectors.summingDouble(t -> t.getVnpAmount() / 100.0)
+                ));
+
+        List<Map<String, Object>> chartData = dailyRevenue.entrySet().stream().map(entry -> {
+            Map<String, Object> point = new LinkedHashMap<>();
+            point.put("date", entry.getKey());
+            point.put("value", entry.getValue());
+            return point;
+        }).toList();
+
+        long totalSuccess = transactions.stream()
+                .filter(t -> t.getStatus() == Status.PAYMENT_SUCCESS)
+                .count();
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("totalTransactions", transactions.size());
+        summary.put("successTransactions", totalSuccess);
+        summary.put("failedTransactions", transactions.size() - totalSuccess);
+        summary.put("totalRevenue", dailyRevenue.values().stream().mapToDouble(Double::doubleValue).sum());
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("summary", summary);
+        response.put("chart", chartData);
+        response.put("table", tableData);
 
         return ResponseBuilder.build(HttpStatus.OK, "", response);
     }
