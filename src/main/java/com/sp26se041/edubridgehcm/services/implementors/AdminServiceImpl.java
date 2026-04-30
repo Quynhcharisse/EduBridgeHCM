@@ -11,11 +11,12 @@ import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.models.Conversation;
+import com.sp26se041.edubridgehcm.models.PaymentTransaction;
 import com.sp26se041.edubridgehcm.models.PersonalityType;
 import com.sp26se041.edubridgehcm.models.PlatformConfig;
-import com.sp26se041.edubridgehcm.models.PaymentTransaction;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolRegistrationRequest;
+import com.sp26se041.edubridgehcm.models.SchoolSubscription;
 import com.sp26se041.edubridgehcm.models.Subject;
 import com.sp26se041.edubridgehcm.models.Subscription;
 import com.sp26se041.edubridgehcm.models.TemplateDocx;
@@ -23,8 +24,8 @@ import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
 import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
-import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
 import com.sp26se041.edubridgehcm.repositories.PaymentTransactionRepo;
+import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
 import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRegistrationRequestRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
@@ -45,8 +46,11 @@ import com.sp26se041.edubridgehcm.utils.ConfigSystemUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.validations.admin.SubscriptionValidation;
 import com.sp26se041.edubridgehcm.validations.admin.VerifyRegistrationValidation;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -81,9 +85,6 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import org.springframework.data.jpa.domain.Specification;
-import jakarta.persistence.criteria.JoinType;
-import jakarta.persistence.criteria.Predicate;
 
 @Service
 @RequiredArgsConstructor
@@ -796,6 +797,32 @@ public class AdminServiceImpl implements AdminService {
         return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách phí gói thành công", data);
     }
 
+    @Override
+    public ResponseEntity<ResponseObject> getAllActiveSchools() {
+
+        List<SchoolSubscription> activeList = schoolSubscriptionRepo.findAllByIsSelectedTrueAndEndDateGreaterThanEqualOrderByEndDateAsc(LocalDate.now());
+        List<Map<String, Object>> response = activeList.stream()
+                .map(a -> {
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("id", a.getId());
+                    data.put("schoolName", a.getSchool().getName());
+                    data.put("subscriptionName", a.getSubscription().getName());
+                    data.put("startDate", a.getStartDate());
+                    data.put("endDate", a.getEndDate());
+
+                    long daysRemaining = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), a.getEndDate());
+                    data.put("daysRemaining", daysRemaining);
+
+                    data.put("licenseKey", a.getLicenseKey());
+                    data.put("isExpiringSoon", daysRemaining <= 7);
+
+                    return data;
+                })
+                .collect(Collectors.toList());
+
+        return ResponseBuilder.build(HttpStatus.OK, "", response);
+    }
+
     private Map<String, Object> buildSubscriptionData(Subscription subscription) {
         Map<String, Object> data = new HashMap<>();
         data.put("id", subscription.getId());
@@ -1174,7 +1201,7 @@ public class AdminServiceImpl implements AdminService {
         }
     }
 
-    private PersonalityTypeGroup parsePersonalityTypeGroup(String group){
+    private PersonalityTypeGroup parsePersonalityTypeGroup(String group) {
         if (group == null || group.isBlank()) {
             throw new IllegalArgumentException("Nhóm loại tính cách không được để trống.");
         }
@@ -1289,7 +1316,7 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public ResponseEntity<ResponseObject> getRevenuesSummary(Integer year, Integer month, String packageType) {
-        
+
         if (year == null || year < 2000 || year > 2100) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Năm không hợp lệ. Vui lòng nhập từ 2000 đến 2100.", null);
         }

@@ -71,9 +71,15 @@ public class AdminController {
     }
 
     @GetMapping("/service/package/fee/list")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SCHOOL')")
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<ResponseObject> viewServicePackageFeeList() {
         return adminService.viewServicePackageFeeList();
+    }
+
+    @GetMapping("/active/school/list")
+    @PreAuthorize("hasAnyRole('ADMIN')")
+    public ResponseEntity<ResponseObject> getAllActiveSchools() {
+        return adminService.getAllActiveSchools();
     }
 
     @PostMapping("/personality/type")

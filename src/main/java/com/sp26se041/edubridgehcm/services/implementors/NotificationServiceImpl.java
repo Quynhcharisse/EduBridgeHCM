@@ -280,6 +280,10 @@ public class NotificationServiceImpl implements NotificationService {
             return resolveAdminName(actor);
         }
 
+        if (eventType == NotificationEventType.BUY_PACKAGE_FEE) {
+            return resolveSchoolName(actor);
+        }
+
         return "Hệ thống EduBridge";
     }
 
@@ -305,6 +309,16 @@ public class NotificationServiceImpl implements NotificationService {
         );
         configs.put(
                 NotificationEventType.NEW_USER_REGISTERED,
+                new EventTemplateConfig(
+                        "Người dùng mới đăng ký",
+                        "{actorName} vừa đăng ký tài khoản mới",
+                        "/admin/users",
+                        List.of(Role.ADMIN)
+                )
+        );
+
+        configs.put(
+                NotificationEventType.BUY_PACKAGE_FEE,
                 new EventTemplateConfig(
                         "Người dùng mới đăng ký",
                         "{actorName} vừa đăng ký tài khoản mới",
