@@ -4,4 +4,5 @@ public enum NotificationEventType {
     SCHOOL_POST_PUBLISHED,
     ADMIN_POST_PUBLISHED,
     NEW_USER_REGISTERED,
+    BUY_PACKAGE_FEE
 }

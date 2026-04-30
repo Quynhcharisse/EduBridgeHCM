@@ -45,4 +45,6 @@ public interface AdminService {
     ResponseEntity<ResponseObject> getDashboardOverview(Integer year);
 
     ResponseEntity<ResponseObject> getRevenuesSummary(Integer year, Integer month, String packageType);
+
+    ResponseEntity<ResponseObject> getAllActiveSchools();
 }

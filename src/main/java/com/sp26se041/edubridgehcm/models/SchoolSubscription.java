@@ -67,7 +67,4 @@ public class SchoolSubscription {
 
     @Column(name = "current_period_end")
     LocalDateTime currentPeriodEnd;   // Chính là mốc để so với purchaseDate
-
-    @Column(name = "extra_counsellor_qty")
-    Integer extraCounsellorQty;       // Số lượng slot mua thêm riêng của trường này
 }
