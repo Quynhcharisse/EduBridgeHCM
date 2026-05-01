@@ -1,14 +1,20 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.ImportType;
+import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.PlatformConfig;
 import com.sp26se041.edubridgehcm.models.School;
+import com.sp26se041.edubridgehcm.models.Subscription;
 import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolSubscriptionRepo;
+import com.sp26se041.edubridgehcm.repositories.SubscriptionRepo;
 import com.sp26se041.edubridgehcm.requests.CreateConfigDataRequest;
 import com.sp26se041.edubridgehcm.requests.ImportConfirmRequest;
+import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SystemService;
+import com.sp26se041.edubridgehcm.utils.ConfigSystemUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Cell;
@@ -24,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -42,6 +49,10 @@ public class SystemServiceImpl implements SystemService {
     private final PlatformConfigRepo platformConfigRepo;
 
     private final SchoolRepo schoolRepo;
+
+    private final SubscriptionRepo subscriptionRepo;
+
+    private final SchoolSubscriptionRepo schoolSubscriptionRepo;
 
     @Override
     public ResponseEntity<ResponseObject> getConfigData() {
@@ -158,24 +169,86 @@ public class SystemServiceImpl implements SystemService {
         basePrices.put("enterprise", business.getSubscriptionPricing().getBasePrices().getEnterprise());
 
         Map<String, Object> featureUnitPrices = new HashMap<>();
-        featureUnitPrices.put("extraPostFee", business.getSubscriptionPricing().getFeatureUnitPrices().getExtraPostFee());
         featureUnitPrices.put("aiChatbotMonthlyFee", business.getSubscriptionPricing().getFeatureUnitPrices().getAiChatbotMonthlyFee());
         featureUnitPrices.put("premiumSupportFee", business.getSubscriptionPricing().getFeatureUnitPrices().getPremiumSupportFee());
         featureUnitPrices.put("topRankingFee", business.getSubscriptionPricing().getFeatureUnitPrices().getTopRankingFee());
 
+        var quotas = business.getSubscriptionPricing().getPackageQuotas();
+        if (quotas == null) {
+            throw new RuntimeException("Thiếu cấu hình định mức trong phần định giá gói dịch vụ.");
+        }
+
+        // Lấy tỉ lệ giới hạn Dùng thử do Admin cấu hình
+        double trialRatioCap = business.getSubscriptionPricing().getTrialRatioCap();
+        if (trialRatioCap <= 0 || trialRatioCap >= 1) {
+            throw new RuntimeException("Tỉ lệ giới hạn gói Dùng thử phải nằm trong khoảng từ 0 đến 1 (ví dụ: 0.3 cho 30%).");
+        }
+
+        int durationDays = quotas.getDurationDays();
+        Integer trialCounsellor = quotas.getTrialCounsellor();
+        Integer standardCounsellor = quotas.getStandardCounsellor();
+        Integer enterpriseCounsellor = quotas.getEnterpriseCounsellor();
+        Integer trialPostLimit = quotas.getTrialPostLimit();
+        Integer standardPostLimit = quotas.getStandardPostLimit();
+        Integer enterprisePostLimit = quotas.getEnterprisePostLimit();
+
+        if (durationDays <= 0) {
+            throw new RuntimeException("Thời hạn gói phải lớn hơn 0.");
+        }
+
+        if (trialCounsellor == null || standardCounsellor == null || enterpriseCounsellor == null) {
+            throw new RuntimeException("Số lượng tư vấn viên phải tăng dần theo cấp độ: Dùng thử <= Tiêu chuẩn <= Doanh nghiệp. Vui lòng cung cấp đầy đủ số lượng tư vấn viên cho cả 3 cấp độ.");
+        }
+        if (trialCounsellor < 0 || standardCounsellor < 0 || enterpriseCounsellor < 0) {
+            throw new RuntimeException("Giới hạn bài đăng phải tăng dần theo cấp độ: Dùng thử <= Tiêu chuẩn <= Doanh nghiệp. Vui lòng đảm bảo số lượng tư vấn viên là số nguyên dương hoặc bằng 0.");
+        }
+        if (!(trialCounsellor <= standardCounsellor && standardCounsellor <= enterpriseCounsellor)) {
+            throw new RuntimeException("Các giá trị counsellor phải không giảm theo thứ tự các cấp: trial <= standard <= enterprise");
+        }
+
+        if (trialPostLimit == null || standardPostLimit == null || enterprisePostLimit == null) {
+            throw new RuntimeException("Các giá trị postLimit trong packageQuotas (trial/standard/enterprise) phải được cung cấp");
+        }
+        if (trialPostLimit < 0 || standardPostLimit < 0 || enterprisePostLimit < 0) {
+            throw new RuntimeException("Các giá trị postLimit phải lớn hơn hoặc bằng 0");
+        }
+        if (!(trialPostLimit <= standardPostLimit && standardPostLimit <= enterprisePostLimit)) {
+            throw new RuntimeException("Các giá trị postLimit phải không giảm theo thứ tự các cấp: trial <= standard <= enterprise");
+        }
+
+        // Kiểm tra ràng buộc tỉ lệ với tỉ lệ Admin vừa nhập
+        int maxTrialCounsellorByRatio = (int) Math.floor(standardCounsellor * trialRatioCap);
+        if (trialCounsellor > maxTrialCounsellorByRatio) {
+            throw new RuntimeException(String.format(
+                    "Với tỉ lệ cấu hình là %d%%, số tư vấn viên dùng thử không được vượt quá %d.",
+                    (int) (trialRatioCap * 100),
+                    maxTrialCounsellorByRatio
+            ));
+        }
+
+        int maxTrialPostLimitByRatio = (int) Math.floor(standardPostLimit * trialRatioCap);
+        if (trialPostLimit > maxTrialPostLimitByRatio) {
+            throw new RuntimeException(String.format(
+                    "Với tỉ lệ cấu hình là %d%%, giới hạn bài đăng dùng thử không được vượt quá %d.",
+                    (int) (trialRatioCap * 100),
+                    maxTrialPostLimitByRatio
+            ));
+        }
+
         Map<String, Object> packageQuotas = new HashMap<>();
-        packageQuotas.put("durationDays", business.getSubscriptionPricing().getPackageQuotas().getDurationDays());
-        packageQuotas.put("trialCounsellor", business.getSubscriptionPricing().getPackageQuotas().getTrialCounsellor());
-        packageQuotas.put("standardCounsellor", business.getSubscriptionPricing().getPackageQuotas().getStandardCounsellor());
-        packageQuotas.put("enterpriseCounsellor", business.getSubscriptionPricing().getPackageQuotas().getEnterpriseCounsellor());
-        packageQuotas.put("trialPostLimit", business.getSubscriptionPricing().getPackageQuotas().getTrialPostLimit());
-        packageQuotas.put("standardPostLimit", business.getSubscriptionPricing().getPackageQuotas().getStandardPostLimit());
-        packageQuotas.put("enterprisePostLimit", business.getSubscriptionPricing().getPackageQuotas().getEnterprisePostLimit());
+        packageQuotas.put("durationDays", durationDays);
+        packageQuotas.put("trialCounsellor", trialCounsellor);
+        packageQuotas.put("standardCounsellor", standardCounsellor);
+        packageQuotas.put("enterpriseCounsellor", enterpriseCounsellor);
+        packageQuotas.put("trialPostLimit", trialPostLimit);
+        packageQuotas.put("standardPostLimit", standardPostLimit);
+        packageQuotas.put("enterprisePostLimit", enterprisePostLimit);
 
         Map<String, Object> subscriptionPricing = new HashMap<>();
         subscriptionPricing.put("basePrices", basePrices);
         subscriptionPricing.put("featureUnitPrices", featureUnitPrices);
         subscriptionPricing.put("packageQuotas", packageQuotas);
+        subscriptionPricing.put("trialRatioCap", trialRatioCap);
 
         businessJson.put("subscriptionPricing", subscriptionPricing);
 
@@ -189,6 +262,57 @@ public class SystemServiceImpl implements SystemService {
         config.setValue(businessJson);
         config.setModifiedDate(LocalDateTime.now());
         platformConfigRepo.save(config);
+
+        List<Subscription> activeSubscriptions = subscriptionRepo.findAllByPackageStatus(Status.PACKAGE_ACTIVE);
+
+        for (Subscription sub : activeSubscriptions) {
+
+            UpsertServicePackageFeeRequest tempRequest = convertToRequest(sub);
+
+            ConfigSystemUtil.SubscriptionPriceBreakdown newBreakdown = ConfigSystemUtil.calculateSubscriptionPriceBreakdown(tempRequest, businessJson);
+            // Chỉ xử lý nếu giá thực sự thay đổi
+            if (sub.getFinalPrice().compareTo(newBreakdown.finalPrice()) != 0) {
+
+                // Kiểm tra xem đã có School nào mua/đang dùng gói này chưa
+                boolean hasPurchased = schoolSubscriptionRepo.existsBySubscriptionAndEndDateAfter(sub, LocalDate.now());
+
+                if (hasPurchased) {
+                    // TH1: Đang có người dùng -> Chuyển sang PENDING để "Lock", không cho mua mới/gia hạn
+                    sub.setPackageStatus(Status.PACKAGE_INACTIVE_PENDING);
+                    // Lưu vết giá mới vào trường new_price để Admin biết tại sao gói này bị deactive
+                    sub.setNewPrice(newBreakdown.finalPrice());
+                } else {
+                    // TH2: Chưa ai dùng -> chuyển deactive 
+                    sub.setPackageStatus(Status.PACKAGE_DEACTIVATED);
+                }
+            }
+        }
+        subscriptionRepo.saveAll(activeSubscriptions);
+    }
+
+    private UpsertServicePackageFeeRequest convertToRequest(Subscription sub) {
+        UpsertServicePackageFeeRequest request = new UpsertServicePackageFeeRequest();
+        request.setPackageType(sub.getPackageType().name());
+        request.setName(sub.getName());
+        request.setDurationDays(sub.getDurationDays());
+
+        if (sub.getFeatures() != null) {
+            Map<String, Object> featureMap = (Map<String, Object>) sub.getFeatures();
+
+            UpsertServicePackageFeeRequest.FeatureData featureData = new UpsertServicePackageFeeRequest.FeatureData();
+
+            featureData.setMaxCounsellors(featureMap.get("maxCounsellors") != null ? ((Number) featureMap.get("maxCounsellors")).intValue() : null);
+            featureData.setPostLimit(featureMap.get("postLimit") != null ? ((Number) featureMap.get("postLimit")).intValue() : null);
+            featureData.setTopRanking(featureMap.get("topRanking") != null ? ((Number) featureMap.get("topRanking")).intValue() : null);
+
+            featureData.setHasAiAssistant((Boolean) featureMap.get("hasAiAssistant"));
+            featureData.setParentPostPermission((String) featureMap.get("parentPostPermission"));
+            featureData.setIsFeatured((Boolean) featureMap.get("isFeatured"));
+            featureData.setSupportLevel((String) featureMap.get("supportLevel"));
+
+            request.setFeatureData(featureData);
+        }
+        return request;
     }
 
     @Transactional

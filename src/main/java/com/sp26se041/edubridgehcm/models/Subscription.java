@@ -25,6 +25,8 @@ import org.hibernate.annotations.Type;
 import org.jspecify.annotations.NullMarked;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -61,6 +63,12 @@ public class Subscription {
 
     @Column(name = "price")
     BigDecimal price;
+
+    @Column(name = "new_price")
+    BigDecimal newPrice;
+
+    @Column(name = "price_apply_date")
+    LocalDate priceApplyDate;
 
     @Column(name = "final_price")
     BigDecimal finalPrice; // giá cuối cùng bao gồm thuế/phí
