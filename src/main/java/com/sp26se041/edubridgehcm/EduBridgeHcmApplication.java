@@ -92,38 +92,38 @@ public class EduBridgeHcmApplication {
             return;
         }
 
-        Map<String, Object> business = new HashMap<>();
-        business.put("taxRate", 0.05);
-        business.put("serviceRate", 0.05);
-        business.put("minPay", 100000);
-        business.put("maxPay", 200000000);
+      Map<String, Object> business = new HashMap<>();
+business.put("taxRate", 0.05);
+business.put("serviceRate", 0.05);
+business.put("minPay", 100000);
+business.put("maxPay", 200000000);
 
-        Map<String, Object> basePrices = new HashMap<>();
-        basePrices.put("trial", 0);
-        basePrices.put("standard", 500000);
-        basePrices.put("enterprise", 2000000);
+Map<String, Object> basePrices = new HashMap<>();
+basePrices.put("trial", 0);
+basePrices.put("standard", 500000);
+basePrices.put("enterprise", 2000000);
 
-        Map<String, Object> featureUnitPrices = new HashMap<>();
-        featureUnitPrices.put("extraPostFee", 10000);
-        featureUnitPrices.put("aiChatbotMonthlyFee", 300000);
-        featureUnitPrices.put("premiumSupportFee", 200000);
-        featureUnitPrices.put("topRankingFee", 150000);
+Map<String, Object> featureUnitPrices = new HashMap<>();
+featureUnitPrices.put("aiChatbotMonthlyFee", 300000);
+featureUnitPrices.put("premiumSupportFee", 200000);
+featureUnitPrices.put("topRankingFee", 150000);
 
-        Map<String, Object> packageQuotas = new HashMap<>();
-        packageQuotas.put("durationDays", 7);
-        packageQuotas.put("trialCounsellor", 2);
-        packageQuotas.put("standardCounsellor", 20);
-        packageQuotas.put("enterpriseCounsellor", 200);
-        packageQuotas.put("trialPostLimit", 0);
-        packageQuotas.put("standardPostLimit", 50);
-        packageQuotas.put("enterprisePostLimit", -1);
+Map<String, Object> packageQuotas = new HashMap<>();
+packageQuotas.put("durationDays", 30);
+packageQuotas.put("trialCounsellor", 3);
+packageQuotas.put("standardCounsellor", 20);
+packageQuotas.put("enterpriseCounsellor", 80);
+packageQuotas.put("trialPostLimit", 6);
+packageQuotas.put("standardPostLimit", 20);
+packageQuotas.put("enterprisePostLimit", 80);
 
-        Map<String, Object> subscriptionPricing = new HashMap<>();
-        subscriptionPricing.put("basePrices", basePrices);
-        subscriptionPricing.put("featureUnitPrices", featureUnitPrices);
-        subscriptionPricing.put("packageQuotas", packageQuotas);
+Map<String, Object> subscriptionPricing = new HashMap<>();
+subscriptionPricing.put("basePrices", basePrices);
+subscriptionPricing.put("featureUnitPrices", featureUnitPrices);
+subscriptionPricing.put("packageQuotas", packageQuotas);
+subscriptionPricing.put("trialRatioCap", 0.3);
 
-        business.put("subscriptionPricing", subscriptionPricing);
+business.put("subscriptionPricing", subscriptionPricing);
 
         Map<String, Object> media = new HashMap<>();
         media.put("maxImgSize", 10);

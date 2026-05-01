@@ -130,7 +130,8 @@ public class ConfigSystemUtil {
     }
 
     //Tách kết quả tính giá để lưu đủ net / phí dịch vụ / thuế / giá cuối lên DB.
-    public record SubscriptionPriceBreakdown(BigDecimal netPrice, BigDecimal serviceFee, BigDecimal taxFee,
+    public record SubscriptionPriceBreakdown(BigDecimal basePrice, BigDecimal netPrice, BigDecimal serviceFee,
+                                             BigDecimal taxFee,
                                              BigDecimal finalPrice) {
     }
 
@@ -153,9 +154,6 @@ public class ConfigSystemUtil {
 
         //bước xác định giá nền (gốc) của từng gói
         BigDecimal basePrice = resolveBasePrice(basePricing, packageType);
-
-        // lấy con số counsellor mà admin sẽ thiết lập = số lượng mục tiêu tư vấn viên cho gói dịch vụ đang tạo
-        int requestedCounsellors = request.getFeatureData().getMaxCounsellors() == null ? 0 : request.getFeatureData().getMaxCounsellors();
 
         int requestedPosts = request.getFeatureData().getPostLimit() == null ? 0 : request.getFeatureData().getPostLimit();
 
@@ -202,6 +200,7 @@ public class ConfigSystemUtil {
                 .multiply(new BigDecimal("1000"));
 
         return new SubscriptionPriceBreakdown(
+                basePrice.setScale(0, RoundingMode.HALF_UP),
                 netPrice.setScale(0, RoundingMode.HALF_UP),
                 serviceFee.setScale(0, RoundingMode.HALF_UP),
                 taxAmount.setScale(0, RoundingMode.HALF_UP),

@@ -44,6 +44,7 @@ public class CreateConfigDataRequest {
         BasePrices basePrices;
         FeatureUnitPrices featureUnitPrices;
         PackageQuotas packageQuotas;
+        double trialRatioCap;
     }
 
     @Data
@@ -61,7 +62,6 @@ public class CreateConfigDataRequest {
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class FeatureUnitPrices {
-        double extraPostFee;
         double aiChatbotMonthlyFee;
         double premiumSupportFee;
         double topRankingFee;
@@ -73,10 +73,10 @@ public class CreateConfigDataRequest {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class PackageQuotas {
         int durationDays;
-        int trialCounsellor;
-        int standardCounsellor;
+        int trialCounsellor;  //Max value admin nhập
+        int standardCounsellor; 
         int enterpriseCounsellor;
-        int trialPostLimit;
+        int trialPostLimit;  //Max value admin nhập
         int standardPostLimit;
         int enterprisePostLimit;
     }
@@ -120,10 +120,10 @@ public class CreateConfigDataRequest {
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class Source {
-           String sourceName;
-           String sourceUrl;
-           String sourceType;
-           String year;
+        String sourceName;
+        String sourceUrl;
+        String sourceType;
+        String year;
     }
 
     @Data

@@ -3241,7 +3241,7 @@ public class SchoolServiceImpl implements SchoolService {
                 .divide(new BigDecimal("1000"), 0, RoundingMode.CEILING)
                 .multiply(new BigDecimal("1000"));
 
-        return new ConfigSystemUtil.SubscriptionPriceBreakdown(normalizedNet, serviceFee, taxFee, finalPrice);
+        return new ConfigSystemUtil.SubscriptionPriceBreakdown(normalizedNet, normalizedNet, serviceFee, taxFee, finalPrice);
     }
 
     @SuppressWarnings("unchecked")
