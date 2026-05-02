@@ -760,6 +760,7 @@ public class AdminServiceImpl implements AdminService {
         }
 
         subscription.setName(request.getName());
+        assert packageType != null;
         subscription.setPackageType(packageType);
         subscription.setDescription(request.getDescription());
         subscription.setDurationDays(request.getDurationDays());
