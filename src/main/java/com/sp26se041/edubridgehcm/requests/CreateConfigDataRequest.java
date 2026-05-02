@@ -64,7 +64,6 @@ public class CreateConfigDataRequest {
     public static class FeatureUnitPrices {
         double aiChatbotMonthlyFee;
         double premiumSupportFee;
-        double topRankingFee;
     }
 
     @Data

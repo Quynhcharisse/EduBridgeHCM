@@ -695,8 +695,6 @@ public class AdminServiceImpl implements AdminService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế.", null);
         }
 
-        Subscription subscription;
-
         String error = SubscriptionValidation.upsertSubscriptionValidation(request);
 
         if (error != null) {
@@ -704,6 +702,47 @@ public class AdminServiceImpl implements AdminService {
         }
 
         boolean isCreate = (request.getPackageId() == null);
+
+        // Pre-fetch business config before transaction-heavy operations
+        PlatformConfig businessConfig = platformConfigRepo.findByKey("business").orElse(null);
+
+        if (businessConfig == null || businessConfig.getValue() == null) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Chưa cấu hình doanh nghiệp.", null);
+        }
+
+        if (!(businessConfig.getValue() instanceof Map<?, ?> businessRaw)) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Cấu hình doanh nghiệp không hợp lệ.", null);
+        }
+
+        Map<String, Object> businessMap = (Map<String, Object>) businessRaw;
+
+        // Apply defaults based on package type (mutates request featureData)
+        applyPackageTypeDefaults(request, businessMap);
+
+        PackageType packageType = SubscriptionValidation.parsePackageType(request.getPackageType());
+        SupportLevel supportLevel = SubscriptionValidation.parseSupportLevel(request.getFeatureData().getSupportLevel());
+
+        if (packageType == null || supportLevel == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Loại gói hoặc mức hỗ trợ không hợp lệ.", null);
+        }
+
+        // Validate trial package constraints
+        if (packageType == PackageType.TRIAL) {
+            String trialError = SubscriptionValidation.validateTrialPackage(request, businessMap);
+            if (trialError != null) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, trialError, null);
+            }
+        }
+
+        // Calculate pricing before saving (outside transaction where possible)
+        ConfigSystemUtil.SubscriptionPriceBreakdown breakdown;
+        try {
+            breakdown = previewServicePackagePricing(request, businessMap);
+        } catch (RuntimeException ex) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không thể tính giá: " + ex.getMessage(), null);
+        }
+
+        Subscription subscription;
 
         if (!isCreate) {
             subscription = subscriptionRepo.findById(request.getPackageId()).orElse(null);
@@ -720,48 +759,14 @@ public class AdminServiceImpl implements AdminService {
             subscription.setPackageStatus(Status.PACKAGE_DRAFT);
         }
 
-        PackageType packageType = SubscriptionValidation.parsePackageType(request.getPackageType());
-        SupportLevel supportLevel = SubscriptionValidation.parseSupportLevel(request.getFeatureData().getSupportLevel());
-
         subscription.setName(request.getName());
         assert packageType != null;
         subscription.setPackageType(packageType);
         subscription.setDescription(request.getDescription());
         subscription.setDurationDays(request.getDurationDays());
 
-        // Tính giá từ platform_config "business", gán price / phí / thuế / finalPrice
-        PlatformConfig businessConfig = platformConfigRepo.findByKey("business").orElse(null);
-
-        if (businessConfig == null || businessConfig.getValue() == null) {
-            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Chưa cấu hình doanh nghiệp.", null);
-        }
-
-        if (!(businessConfig.getValue() instanceof Map<?, ?> businessRaw)) {
-            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Cấu hình doanh nghiệp không hợp lệ.", null);
-        }
-
-        Map<String, Object> businessMap = (Map<String, Object>) businessRaw;
-
-        //áp mặc định theo package type (nếu admin không nhập) trước khi gán features và tính giá
-        applyPackageTypeDefaults(request, businessMap);
-
-        if (packageType == PackageType.TRIAL) {
-            String trialError = validateTrialPackage(request, businessMap);
-            if (trialError != null) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, trialError, null);
-            }
-        }
-
         if (request.getFeatureData() != null) {
             subscription.setFeatures(buildFeatureJson(request.getFeatureData(), supportLevel));
-        }
-
-        ConfigSystemUtil.SubscriptionPriceBreakdown breakdown;
-
-        try {
-            breakdown = previewServicePackagePricing(request, businessMap);
-        } catch (RuntimeException ex) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
         }
 
         subscription.setPrice(breakdown.netPrice());
@@ -771,78 +776,45 @@ public class AdminServiceImpl implements AdminService {
 
         subscriptionRepo.save(subscription);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("subscription", buildSubscriptionData(subscription));
-        response.put("pricing", Map.of(
-            "basePrice", breakdown.basePrice(),
-            "netPrice", breakdown.netPrice(),
-            "serviceFee", breakdown.serviceFee(),
-            "taxFee", breakdown.taxFee(),
-            "finalPrice", breakdown.finalPrice()
-        ));
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("subscription", buildSubscriptionData(subscription, true, businessMap));
 
-        // Tính chi tiết đóng góp của từng feature (đơn giá lấy từ business config)
-        try {
-            Map<String, Object> subscriptionPricing = (Map<String, Object>) businessMap.get("subscriptionPricing");
-            Map<String, Object> featureUnitPrices = subscriptionPricing != null ? (Map<String, Object>) subscriptionPricing.get("featureUnitPrices") : null;
+        // Bảng kê tài chính chi tiết cho Admin
+        Map<String, Object> pricing = new LinkedHashMap<>();
+        pricing.put("basePrice", Map.of("amount", breakdown.basePrice(), "description", "Giá nền của gói"));
+        pricing.put("totalFeatureAmount", Map.of("amount", breakdown.totalFeatureAmount(), "description", "Tổng phí tính năng bổ sung"));
+        pricing.put("netPrice", Map.of("amount", breakdown.netPrice(), "description", "Giá gốc = Giá nền + Phí tính năng (chưa phí dịch vụ + thuế)"));
+        pricing.put("serviceFee", Map.of("amount", breakdown.serviceFee(), "description", "Phí dịch vụ hệ thống"));
+        pricing.put("taxFee", Map.of("amount", breakdown.taxFee(), "description", "Thuế VAT"));
+        pricing.put("finalPrice", Map.of("amount", breakdown.finalPrice(), "description", "Tổng tiền khách hàng thanh toán"));
+        response.put("pricing", pricing);
 
-            Map<String, Object> featureContributions = new LinkedHashMap<>();
+        buildFeatureContributions(request, businessMap, breakdown, response);
 
-            UpsertServicePackageFeeRequest.FeatureData fd = request.getFeatureData();
+        return ResponseBuilder.build(isCreate ? HttpStatus.CREATED : HttpStatus.OK,
+                isCreate ? "Tạo gói nháp thành công" : "Cập nhật gói nháp thành công", response);
+    }
 
-            if (featureUnitPrices != null && fd != null) {
-                // helper to parse numeric values
-                java.util.function.Function<Object, java.math.BigDecimal> toBd = obj -> {
-                    if (obj == null) return java.math.BigDecimal.ZERO;
-                    if (obj instanceof Number) return new java.math.BigDecimal(obj.toString());
-                    try { return new java.math.BigDecimal(obj.toString()); } catch (Exception e) { return java.math.BigDecimal.ZERO; }
-                };
+    private void buildFeatureContributions(UpsertServicePackageFeeRequest request,
+                                           Map<String, Object> businessMap,
+                                           ConfigSystemUtil.SubscriptionPriceBreakdown breakdown,
+                                           Map<String, Object> response) {
 
-                if (Boolean.TRUE.equals(fd.getHasAiAssistant())) {
-                    java.math.BigDecimal aiFee = toBd.apply(featureUnitPrices.get("aiChatbotMonthlyFee"));
-                    featureContributions.put("aiAssistant", aiFee);
-                }
+        Map<String, Object> featureDetails = new LinkedHashMap<>();
+        UpsertServicePackageFeeRequest.FeatureData featureData = request.getFeatureData();
 
-                if (Boolean.TRUE.equals(fd.getIsFeatured())) {
-                    java.math.BigDecimal featuredFee = toBd.apply(featureUnitPrices.get("premiumSupportFee"));
-                    featureContributions.put("featured", featuredFee);
-                }
+        Map<String, Object> subscriptionPricing = (Map<String, Object>) businessMap.get("subscriptionPricing");
+        Map<String, Object> unitPrices = (Map<String, Object>) subscriptionPricing.get("featureUnitPrices");
 
-                Object topRankingVal = fd.getTopRanking();
-                if (topRankingVal instanceof Number) {
-                    int level = ((Number) topRankingVal).intValue();
-                    if (level > 0) {
-                        java.math.BigDecimal perLevel = toBd.apply(featureUnitPrices.get("topRankingFee"));
-                        featureContributions.put("topRanking", perLevel.multiply(new java.math.BigDecimal(level)));
-                    }
-                }
-
-                // include unit prices for display even if feature not selected
-                Map<String, Object> unitPriceDisplay = new LinkedHashMap<>();
-                if (featureUnitPrices != null) {
-                    unitPriceDisplay.put("aiChatbotMonthlyFee", featureUnitPrices.get("aiChatbotMonthlyFee"));
-                    unitPriceDisplay.put("premiumSupportFee", featureUnitPrices.get("premiumSupportFee"));
-                    unitPriceDisplay.put("topRankingFee", featureUnitPrices.get("topRankingFee"));
-                    unitPriceDisplay.put("extraPostFee", featureUnitPrices.get("extraPostFee"));
-                }
-
-                Map<String, Object> pricingDetails = new LinkedHashMap<>();
-                pricingDetails.put("featureContributions", featureContributions);
-                pricingDetails.put("unitPrices", unitPriceDisplay);
-                pricingDetails.put("breakdown", Map.of(
-                    "basePrice", breakdown.basePrice(),
-                    "netPrice", breakdown.netPrice(),
-                    "serviceFee", breakdown.serviceFee(),
-                    "taxFee", breakdown.taxFee(),
-                    "finalPrice", breakdown.finalPrice()
-                ));
-
-                response.put("pricingDetails", pricingDetails);
-            }
-        } catch (Exception ignore) {
-            // ignore - optional display only
+        if (Boolean.TRUE.equals(featureData.getHasAiAssistant())) {
+            featureDetails.put("aiAssistantFee", unitPrices.get("aiChatbotMonthlyFee"));
         }
-        return ResponseBuilder.build(isCreate ? HttpStatus.CREATED : HttpStatus.OK, isCreate ? "Tạo gói nháp thành công" : "Cập nhật gói nháp thành công", response);
+
+        if (SupportLevel.PREMIUM_SUPPORT.name().equals(featureData.getSupportLevel())) {
+            featureDetails.put("premiumSupportFee", unitPrices.getOrDefault("premiumSupportFee", 0));
+        }
+
+        response.put("featureContributions", featureDetails);
     }
 
     private Map<String, Object> buildFeatureJson(UpsertServicePackageFeeRequest.FeatureData request, SupportLevel supportLevel) {
@@ -851,8 +823,6 @@ public class AdminServiceImpl implements AdminService {
         data.put("postLimit", request.getPostLimit());
         data.put("hasAiAssistant", request.getHasAiAssistant());
         data.put("parentPostPermission", request.getParentPostPermission());
-        data.put("isFeatured", request.getIsFeatured());
-        data.put("topRanking", request.getTopRanking());
         data.put("supportLevel", supportLevel);
         return data;
     }
@@ -868,7 +838,6 @@ public class AdminServiceImpl implements AdminService {
 
         if (subscriptionPricing == null) return;
 
-
         Map<String, Object> packageQuota = (Map<String, Object>) subscriptionPricing.get("packageQuotas");
 
         if (packageQuota == null) return;
@@ -878,10 +847,11 @@ public class AdminServiceImpl implements AdminService {
         }
 
         UpsertServicePackageFeeRequest.FeatureData featureData = request.getFeatureData();
+
         switch (packageType) {
             case TRIAL -> {
-                Integer trialCounsellor = getIntFromMap(packageQuota, "trialCounsellor");
-                Integer trialPostLimit = getIntFromMap(packageQuota, "trialPostLimit");
+                Integer trialCounsellor = SubscriptionValidation.getIntFromMap(packageQuota, "trialCounsellor");
+                Integer trialPostLimit = SubscriptionValidation.getIntFromMap(packageQuota, "trialPostLimit");
 
                 if (featureData.getMaxCounsellors() == null && trialCounsellor != null) {
                     featureData.setMaxCounsellors(trialCounsellor);
@@ -895,43 +865,32 @@ public class AdminServiceImpl implements AdminService {
                 featureData.setParentPostPermission(ParentPostPermission.CREATE_POST.name());
             }
             case STANDARD -> {
-                Integer standardCounsellor = getIntFromMap(packageQuota, "standardCounsellor");
-                Integer standardPostLimit = getIntFromMap(packageQuota, "standardPostLimit");
+                Integer standardCounsellor = SubscriptionValidation.getIntFromMap(packageQuota, "standardCounsellor");
+                Integer standardPostLimit = SubscriptionValidation.getIntFromMap(packageQuota, "standardPostLimit");
 
                 if (featureData.getMaxCounsellors() == null && standardCounsellor != null)
                     featureData.setMaxCounsellors(standardCounsellor);
+
                 if (featureData.getPostLimit() == null && standardPostLimit != null)
                     featureData.setPostLimit(standardPostLimit);
+
                 if (featureData.getParentPostPermission() == null)
                     featureData.setParentPostPermission(ParentPostPermission.CREATE_POST.name());
             }
             case ENTERPRISE -> {
-                Integer enterpriseCounsellor = getIntFromMap(packageQuota, "enterpriseCounsellor");
-                Integer enterprisePostLimit = getIntFromMap(packageQuota, "enterprisePostLimit");
+                Integer enterpriseCounsellor = SubscriptionValidation.getIntFromMap(packageQuota, "enterpriseCounsellor");
+                Integer enterprisePostLimit = SubscriptionValidation.getIntFromMap(packageQuota, "enterprisePostLimit");
 
                 if (featureData.getMaxCounsellors() == null && enterpriseCounsellor != null)
                     featureData.setMaxCounsellors(enterpriseCounsellor);
+
                 if (featureData.getPostLimit() == null && enterprisePostLimit != null)
                     featureData.setPostLimit(enterprisePostLimit);
+
                 if (featureData.getParentPostPermission() == null)
                     featureData.setParentPostPermission(ParentPostPermission.CREATE_POST.name());
             }
         }
-    }
-
-    private Integer getIntFromMap(Map<String, Object> map, String key) {
-        if (map == null || key == null) return null;
-        Object raw = map.get(key);
-        if (raw == null) return null;
-        if (raw instanceof Number) return ((Number) raw).intValue();
-        if (raw instanceof String) {
-            try {
-                return Integer.parseInt(((String) raw).trim());
-            } catch (NumberFormatException ignored) {
-                return null;
-            }
-        }
-        return null;
     }
 
     private ConfigSystemUtil.SubscriptionPriceBreakdown previewServicePackagePricing(
@@ -943,197 +902,161 @@ public class AdminServiceImpl implements AdminService {
         }
     }
 
-    private String validateTrialPackage(UpsertServicePackageFeeRequest request, Map<String, Object> businessMap) {
-        if (request.getFeatureData() == null) {
-            return "Gói dùng thử phải có dữ liệu tính năng.";
-        }
-
-        UpsertServicePackageFeeRequest.FeatureData features = request.getFeatureData();
-        Integer maxCounsellors = features.getMaxCounsellors();
-        Integer postLimit = features.getPostLimit();
-
-        // Null checks
-        if (maxCounsellors == null) {
-            return "Gói dùng thử phải xác định số lượng tư vấn viên.";
-        }
-        if (postLimit == null) {
-            return "Gói dùng thử phải xác định giới hạn bài đăng.";
-        }
-
-        // Non-negative checks
-        if (maxCounsellors < 0 || postLimit < 0) {
-            return "Gói dùng thử: Số lượng tư vấn viên và giới hạn bài đăng phải lớn hơn hoặc bằng 0.";
-        }
-
-        // Lấy giá trị tiêu chuẩn và tỉ lệ từ businessMap
-        Map<String, Object> subscriptionPricing = (Map<String, Object>) businessMap.get("subscriptionPricing");
-        if (subscriptionPricing == null) {
-            return "Không tìm thấy cấu hình định giá.";
-        }
-
-        double trialRatioCap = (Double) subscriptionPricing.getOrDefault("trialRatioCap", 0.3);
-        Map<String, Object> packageQuotas = (Map<String, Object>) subscriptionPricing.get("packageQuotas");
-
-        if (packageQuotas == null) {
-            return "tìm thấy cấu hình định mức gói.";
-        }
-
-        Integer standardCounsellor = getIntFromMap(packageQuotas, "standardCounsellor");
-        Integer standardPostLimit = getIntFromMap(packageQuotas, "standardPostLimit");
-
-        if (standardCounsellor == null || standardPostLimit == null) {
-            return "Thiếu cấu hình định mức gói Tiêu chuẩn trong hệ thống.";
-        }
-
-        // Ràng buộc tỉ lệ với standard tier
-        int maxTrialCounsellorByRatio = (int) Math.floor(standardCounsellor * trialRatioCap);
-        if (maxCounsellors > maxTrialCounsellorByRatio) {
-            return String.format(
-                    "Với tỉ lệ cấu hình là %d%%, số lượng tư vấn viên dùng thử không được vượt quá %d.",
-                    (int) (trialRatioCap * 100), maxTrialCounsellorByRatio
-            );
-        }
-
-        int maxTrialPostLimitByRatio = (int) Math.floor(standardPostLimit * trialRatioCap);
-        if (postLimit > maxTrialPostLimitByRatio) {
-            return String.format(
-                    "Với tỉ lệ cấu hình là %d%%, giới hạn bài đăng dùng thử không được vượt quá %d.",
-                    (int) (trialRatioCap * 100), maxTrialPostLimitByRatio
-            );
-        }
-
-        // Không được có tính năng trả phí
-        if (Boolean.TRUE.equals(features.getHasAiAssistant())) {
-            return "Gói dùng thử không được phép bao gồm trợ lý AI.";
-        }
-        if (Boolean.TRUE.equals(features.getIsFeatured())) {
-            return "Gói dùng thử không được có tính năng Nổi bật.";
-        }
-
-        if (features.getTopRanking() != null && features.getTopRanking() > 0) {
-            return "Gói dùng thử không được có tính năng xếp hạng cao.";
-        }
-
-        // parentPostPermission is optional for trial:
-        // - If CREATE_POST: user can create posts with postLimit constraint
-        // - If null or VIEW_ONLY: user can only view posts (read-only)
-        String parentPermission = features.getParentPostPermission();
-        if (parentPermission != null &&
-                !parentPermission.equals(ParentPostPermission.CREATE_POST.name()) &&
-                !parentPermission.equals(ParentPostPermission.VIEW_ONLY.name())) {
-            return "Gói dùng thử: Quyền hạn bài đăng phải là CREATE_POST hoặc VIEW_ONLY.";
-        }
-
-        if (parentPermission == null) {
-            features.setParentPostPermission(ParentPostPermission.VIEW_ONLY.name());
-        }
-
-        return null;
-    }
-
     @Override
     public ResponseEntity<ResponseObject> viewServicePackageFeeList() {
 
         Account currentAccount = AuthRequestUtil.extractAuthenticatedAccount();
+        boolean isAdmin = currentAccount != null && Role.ADMIN.equals(currentAccount.getRole());
 
-        List<Subscription> subscriptions;
-
-        if (currentAccount != null && Role.ADMIN == currentAccount.getRole()) {
-            subscriptions = subscriptionRepo.findAll();
-        } else {
-            subscriptions = subscriptionRepo.findAllByPackageStatus(Status.PACKAGE_ACTIVE);
-        }
+        List<Subscription> subscriptions = isAdmin
+                ? subscriptionRepo.findAll() :
+                subscriptionRepo.findAllByPackageStatus(Status.PACKAGE_ACTIVE);
 
         if (subscriptions.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.OK, "Không có gói dịch vụ nào", Collections.emptyList());
         }
 
+        Map<String, Object> businessMap = isAdmin ? getBusinessConfigMap() : null;
+
         List<Map<String, Object>> data = subscriptions.stream()
-                .map(this::buildSubscriptionData)
+                .map(sub -> buildSubscriptionData(sub, isAdmin, businessMap, isAdmin))
                 .collect(Collectors.toList());
 
         return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách phí gói thành công", data);
     }
 
-    private Map<String, Object> buildSubscriptionData(Subscription subscription) {
-        Map<String, Object> data = new HashMap<>();
+    private Map<String, Object> getBusinessConfigMap() {
+        try {
+            PlatformConfig businessConfig = platformConfigRepo.findByKey("business").orElse(null);
+            if (businessConfig != null && businessConfig.getValue() instanceof Map<?, ?> businessRaw) {
+                return (Map<String, Object>) businessRaw;
+            }
+        } catch (Exception ignored) {
+            // best-effort read only
+        }
+        return null;
+    }
+
+    private Map<String, Object> buildSubscriptionData(Subscription subscription,
+                                                      boolean isAdmin,
+                                                      Map<String, Object> businessMap) {
+        return buildSubscriptionData(subscription, isAdmin, businessMap, false);
+    }
+
+    private Map<String, Object> buildSubscriptionData(Subscription subscription,
+                                                      boolean isAdmin,
+                                                      Map<String, Object> businessMap,
+                                                      boolean includeBillingDetails) {
+        Map<String, Object> data = new LinkedHashMap<>();
         data.put("id", subscription.getId());
         data.put("name", subscription.getName());
         data.put("description", subscription.getDescription());
         data.put("packageType", subscription.getPackageType());
-        data.put("price", subscription.getPrice());
-        data.put("serviceFee", subscription.getServiceFee());
-        data.put("taxFee", subscription.getTaxFee());
         data.put("finalPrice", subscription.getFinalPrice());
         data.put("durationDays", subscription.getDurationDays());
-        data.put("status", subscription.getPackageStatus());
 
-        if (subscription.getFeatures() instanceof Map<?, ?>) {
-            Map<String, Object> features = (Map<String, Object>) subscription.getFeatures();
+        if (subscription.getFeatures() instanceof Map<?, ?> features) {
             data.put("maxCounsellors", features.get("maxCounsellors"));
             data.put("postLimit", features.get("postLimit"));
             data.put("hasAiAssistant", features.get("hasAiAssistant"));
             data.put("parentPostPermission", features.get("parentPostPermission"));
-            data.put("isFeatured", features.get("isFeatured"));
-            data.put("topRanking", features.get("topRanking"));
             data.put("supportLevel", features.get("supportLevel"));
 
-            try {
-                PlatformConfig businessConfig = platformConfigRepo.findByKey("business").orElse(null);
-                if (businessConfig != null && businessConfig.getValue() instanceof Map<?, ?> businessRaw) {
-                    Map<String, Object> businessMap = (Map<String, Object>) businessRaw;
-                    Map<String, Object> subscriptionPricing = (Map<String, Object>) businessMap.get("subscriptionPricing");
-                    Map<String, Object> featureUnitPrices = subscriptionPricing != null ? (Map<String, Object>) subscriptionPricing.get("featureUnitPrices") : null;
+            if (isAdmin) {
+                data.put("netPrice", subscription.getPrice());  // Giá gốc = Giá nền + Tính năng
+                data.put("serviceFee", subscription.getServiceFee());  // Phí dịch vụ hệ thống
+                data.put("taxFee", subscription.getTaxFee());  // Thuế VAT
+                data.put("status", subscription.getPackageStatus());
+                data.put("fullFeatures", subscription.getFeatures());
 
-                    java.util.function.Function<Object, java.math.BigDecimal> toBd = obj -> {
-                        if (obj == null) return java.math.BigDecimal.ZERO;
-                        if (obj instanceof Number) return new java.math.BigDecimal(obj.toString());
-                        try { return new java.math.BigDecimal(obj.toString()); } catch (Exception e) { return java.math.BigDecimal.ZERO; }
-                    };
-
-                    Map<String, Object> featureContributions = new LinkedHashMap<>();
-                    Map<String, Object> unitPriceDisplay = new LinkedHashMap<>();
-
-                    if (featureUnitPrices != null) {
-                        unitPriceDisplay.put("aiChatbotMonthlyFee", featureUnitPrices.get("aiChatbotMonthlyFee"));
-                        unitPriceDisplay.put("premiumSupportFee", featureUnitPrices.get("premiumSupportFee"));
-                        unitPriceDisplay.put("topRankingFee", featureUnitPrices.get("topRankingFee"));
-                    }
-
-                    if (Boolean.TRUE.equals(features.get("hasAiAssistant"))) {
-                        java.math.BigDecimal v = toBd.apply(featureUnitPrices != null ? featureUnitPrices.get("aiChatbotMonthlyFee") : null);
-                        featureContributions.put("aiAssistant", v);
-                    }
-
-                    if (Boolean.TRUE.equals(features.get("isFeatured"))) {
-                        java.math.BigDecimal v = toBd.apply(featureUnitPrices != null ? featureUnitPrices.get("premiumSupportFee") : null);
-                        featureContributions.put("featured", v);
-                    }
-
-                    Object tr = features.get("topRanking");
-                    if (tr instanceof Number) {
-                        int level = ((Number) tr).intValue();
-                        if (level > 0) {
-                            java.math.BigDecimal perLevel = toBd.apply(featureUnitPrices != null ? featureUnitPrices.get("topRankingFee") : null);
-                            featureContributions.put("topRanking", perLevel.multiply(new java.math.BigDecimal(level)));
-                        }
-                    }
-
-                    if (!featureContributions.isEmpty()) {
-                        data.put("featurePriceBreakdown", featureContributions);
-                    }
-
-                    if (!unitPriceDisplay.isEmpty()) {
-                        data.put("featureUnitPrices", unitPriceDisplay);
-                    }
+                // Tính toán breakdown kiểu hóa đơn nếu có config
+                if (includeBillingDetails && businessMap != null) {
+                    appendPriceBreakdown(subscription, data, (Map<String, Object>) features, businessMap);
                 }
-            } catch (Exception ignored) {
-                // best-effort display only
             }
         }
-
-        data.put("features", subscription.getFeatures());
         return data;
+    }
+
+    private void appendPriceBreakdown(Subscription subscription,
+                                      Map<String, Object> data,
+                                      Map<String, Object> features,
+                                      Map<String, Object> businessMap) {
+        try {
+            Map<String, Object> pricingConfigs = ConfigSystemUtil.getPricingConfig(businessMap);
+            Map<String, Object> basePrices = (Map<String, Object>) pricingConfigs.get("basePricing");
+            Map<String, Object> unitPrices = (Map<String, Object>) pricingConfigs.get("featureUnitPricing");
+
+            if (unitPrices == null) return;
+
+            PackageType packageType = subscription.getPackageType();
+
+            // DÙNG CHUNG: Gọi hàm resolveBasePrice thay vì viết switch-case thủ công
+            BigDecimal basePrice = ConfigSystemUtil.resolveBasePrice(basePrices, packageType);
+            data.put("basePrice", basePrice);
+
+            Map<String, BigDecimal> breakdown = new LinkedHashMap<>();
+            BigDecimal totalFeatureAmount = BigDecimal.ZERO;
+
+            // Tiền AI Assistant
+            if (Boolean.TRUE.equals(features.get("hasAiAssistant"))) {
+                BigDecimal fee = toBigDecimal(unitPrices.get("aiChatbotMonthlyFee"));
+                breakdown.put("aiAssistantFee", fee);
+                totalFeatureAmount = totalFeatureAmount.add(fee);
+            }
+
+            // Tiền Premium Support
+            if (features.get("supportLevel") != null &&
+                    SupportLevel.PREMIUM_SUPPORT.name().equals(features.get("supportLevel").toString())) {
+                BigDecimal supportFee = toBigDecimal(unitPrices.getOrDefault("premiumSupportFee", 0));
+                breakdown.put("premiumSupportFee", supportFee);
+                totalFeatureAmount = totalFeatureAmount.add(supportFee);
+            }
+
+            // Đóng gói kết quả hiển thị với mô tả rõ ràng cho từng thành phần giá
+            Map<String, Object> pricingBreakdown = new LinkedHashMap<>();
+            
+            Map<String, Object> basePriceObj = new LinkedHashMap<>();
+            basePriceObj.put("amount", basePrice);
+            basePriceObj.put("description", "Giá nền của gói (Base Price)");
+            pricingBreakdown.put("basePrice", basePriceObj);
+            
+            Map<String, Object> featuresObj = new LinkedHashMap<>();
+            featuresObj.put("amount", totalFeatureAmount);
+            featuresObj.put("description", "Phí tính năng bổ sung (AI Assistant, Premium Support, v.v.)");
+            featuresObj.put("details", breakdown);
+            pricingBreakdown.put("features", featuresObj);
+            
+            Map<String, Object> netPriceObj = new LinkedHashMap<>();
+            netPriceObj.put("amount", subscription.getPrice());
+            netPriceObj.put("description", "Giá gốc = Giá nền + Phí tính năng (chưa tính phí dịch vụ + thuế)");
+            pricingBreakdown.put("netPrice", netPriceObj);
+            
+            Map<String, Object> serviceFeeObj = new LinkedHashMap<>();
+            serviceFeeObj.put("amount", subscription.getServiceFee());
+            serviceFeeObj.put("description", "Phí dịch vụ hệ thống = Giá gốc × tỷ lệ phí dịch vụ");
+            pricingBreakdown.put("serviceFee", serviceFeeObj);
+            
+            Map<String, Object> taxFeeObj = new LinkedHashMap<>();
+            taxFeeObj.put("amount", subscription.getTaxFee());
+            taxFeeObj.put("description", "Thuế VAT = (Giá gốc + Phí dịch vụ) × tỷ lệ thuế");
+            pricingBreakdown.put("taxFee", taxFeeObj);
+            
+            Map<String, Object> finalPriceObj = new LinkedHashMap<>();
+            finalPriceObj.put("amount", subscription.getFinalPrice());
+            finalPriceObj.put("description", "Tổng tiền khách hàng thanh toán = Giá gốc + Phí dịch vụ + Thuế");
+            pricingBreakdown.put("finalPrice", finalPriceObj);
+
+            data.put("pricingBreakdown", pricingBreakdown);
+
+        } catch (Exception e) {
+            // Log lỗi nếu cần thiết để debug cấu hình
+        }
+    }
+
+    private BigDecimal toBigDecimal(Object obj) {
+        if (obj instanceof Number n) return java.math.BigDecimal.valueOf(n.doubleValue());
+        return java.math.BigDecimal.ZERO;
     }
 
     @Override

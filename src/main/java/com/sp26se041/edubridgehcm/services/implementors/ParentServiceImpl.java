@@ -424,10 +424,10 @@ public class ParentServiceImpl implements ParentService {
 
         favouriteSchoolRepo.save(favouriteSchool);
 
+        //notification when parent click add favorite for school
+
         return ResponseBuilder.build(HttpStatus.OK, "", null);
     }
-
-
 
     @Override
     public ResponseEntity<ResponseObject> getFavouriteSchools(int page, int size) {

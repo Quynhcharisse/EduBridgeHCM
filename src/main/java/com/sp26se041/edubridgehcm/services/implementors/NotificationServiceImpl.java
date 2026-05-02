@@ -17,6 +17,7 @@ import com.sp26se041.edubridgehcm.requests.RemoveDeviceTokenRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.NotificationService;
+import com.sp26se041.edubridgehcm.services.PushService;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
@@ -29,15 +30,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class NotificationServiceImpl implements NotificationService {
-    private static final Map<NotificationEventType, EventTemplateConfig> EVENT_TEMPLATE_CONFIGS =
-            buildEventTemplateConfigs();
 
+    private static final Map<NotificationEventType, EventTemplateConfig> EVENT_TEMPLATE_CONFIGS = buildEventTemplateConfigs();
 
     private final AccountRepo accountRepo;
 
@@ -46,6 +48,8 @@ public class NotificationServiceImpl implements NotificationService {
     private final NotificationsRepo notificationsRepo;
 
     private final NotificationRecipientsRepo notificationRecipientsRepo;
+
+    private final PushService pushService;
 
     @Override
     @Transactional
@@ -97,7 +101,7 @@ public class NotificationServiceImpl implements NotificationService {
 
         String token = request.getToken().trim();
         DeviceTokens deviceToken = deviceTokensRepo.findByTokenAndIsActiveTrue(token).orElse(null);
-        if (deviceToken != null && deviceToken.getUser() != null && actor.getId().equals(deviceToken.getUser().getId())) {
+        if (deviceToken != null && actor.getId().equals(deviceToken.getUser().getId())) {
             deviceToken.setActive(false);
             deviceToken.setUpdatedAt(LocalDateTime.now());
             deviceTokensRepo.save(deviceToken);
@@ -177,14 +181,14 @@ public class NotificationServiceImpl implements NotificationService {
         }
 
         NotificationTemplate template = buildTemplate(config, eventType, actor, contextData);
-        if (template == null) {
-            return;
+
+        Set<Account> recipients = new HashSet<>();
+
+        for (Role role : config.recipientRoles()) {
+            recipients.addAll(accountRepo.findByRole(role));
         }
 
-        List<Role> recipientRoles = config.recipientRoles();
-        if (recipientRoles.isEmpty()) {
-            return;
-        }
+        if (recipients.isEmpty()) return;
 
         Notifications notification = Notifications.builder()
                 .eventType(eventType)
@@ -194,10 +198,32 @@ public class NotificationServiceImpl implements NotificationService {
                 .data(template.payload())
                 .createdAt(now)
                 .build();
+
         notificationsRepo.save(notification);
 
-        for (Role role : recipientRoles) {
-            createRecipientsForRole(notification, role, now);
+        for (Account recipient : recipients) {
+            // 1. lưu DB
+            NotificationRecipients item = NotificationRecipients.builder()
+                    .notification(notification)
+                    .recipientUser(recipient)
+                    .deliveryStatus(Status.NOTIFICATION_PENDING)
+                    .isRead(false)
+                    .createdAt(now)
+                    .build();
+
+            notificationRecipientsRepo.save(item);
+
+            try {
+                pushService.sendToUser(recipient, notification);
+
+                item.setDeliveryStatus(Status.NOTIFICATION_SENT);
+                item.setDeliveredAt(LocalDateTime.now());
+
+            } catch (Exception e) {
+                item.setDeliveryStatus(Status.NOTIFICATION_FAILED);
+            }
+
+            notificationRecipientsRepo.save(item);
         }
     }
 
@@ -209,20 +235,6 @@ public class NotificationServiceImpl implements NotificationService {
             return DevicePlatform.valueOf(platformRaw.trim().toUpperCase());
         } catch (IllegalArgumentException ex) {
             return null;
-        }
-    }
-
-    private void createRecipientsForRole(Notifications notification, Role role, LocalDateTime now) {
-        for (Account recipient : accountRepo.findByRole(role)) {
-            NotificationRecipients item = NotificationRecipients.builder()
-                    .notification(notification)
-                    .recipientUser(recipient)
-                    .deliveryStatus(Status.NOTIFICATION_SENT)
-                    .deliveredAt(now)
-                    .isRead(false)
-                    .createdAt(now)
-                    .build();
-            notificationRecipientsRepo.save(item);
         }
     }
 
@@ -275,6 +287,15 @@ public class NotificationServiceImpl implements NotificationService {
         return packageName.toString().trim();
     }
 
+//
+//    private String resolveParentName(Account actor) {
+//        if (actor != null && Role.PARENT.equals(actor.getRole())) {
+//            return "Phụ huynh";
+//        }
+//        return "Phụ huynh";
+//    }
+
+
     private String resolveActorName(NotificationEventType eventType, Account actor, Map<String, Object> contextData) {
         if (contextData != null) {
             Object actorName = contextData.get("actorName");
@@ -302,6 +323,10 @@ public class NotificationServiceImpl implements NotificationService {
         if (eventType == NotificationEventType.CREATE_PACKAGE_FEE) {
             return resolveAdminName(actor);
         }
+
+//        if (eventType == NotificationEventType.FAVORITE_SCHOOL) {
+//            return resolveParentName(actor);
+//        }
 
         return "Hệ thống EduBridge";
     }
@@ -355,6 +380,16 @@ public class NotificationServiceImpl implements NotificationService {
                         List.of(Role.SCHOOL)
                 )
         );
+
+//        configs.put(
+//                NotificationEventType.FAVORITE_SCHOOL,
+//                new EventTemplateConfig(
+//                        "Thêm trường yêu thích",
+//                        "{actorName} vừa tạo gói doanh nghiệp mới {packageName}.",
+//                        "/saved-schools",
+//                        List.of(Role.SCHOOL)
+//                )
+//        );
         return configs;
     }
 

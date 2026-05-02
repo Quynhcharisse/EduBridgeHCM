@@ -64,8 +64,8 @@ import com.sp26se041.edubridgehcm.requests.SubscriptionPreviewRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
-import com.sp26se041.edubridgehcm.services.SchoolService;
 import com.sp26se041.edubridgehcm.services.NotificationService;
+import com.sp26se041.edubridgehcm.services.SchoolService;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
@@ -3241,7 +3241,13 @@ public class SchoolServiceImpl implements SchoolService {
                 .divide(new BigDecimal("1000"), 0, RoundingMode.CEILING)
                 .multiply(new BigDecimal("1000"));
 
-        return new ConfigSystemUtil.SubscriptionPriceBreakdown(normalizedNet, normalizedNet, serviceFee, taxFee, finalPrice);
+        return new ConfigSystemUtil.SubscriptionPriceBreakdown(
+                normalizedNet,    // basePrice: Coi netAmount là giá gốc của giao dịch này
+                BigDecimal.ZERO,  // totalFeatureAmount: Ở preview ta không bóc tách chi tiết add-on nữa
+                normalizedNet,    // netPrice: Tổng giá trị thuần
+                serviceFee,       // serviceFee
+                taxFee,           // taxFee
+                finalPrice);        // finalPrice
     }
 
     @SuppressWarnings("unchecked")

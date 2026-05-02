@@ -36,8 +36,6 @@ public class UpsertServicePackageFeeRequest {
         Integer postLimit;
         Boolean hasAiAssistant;
         String parentPostPermission; // NONE, VIEW_ONLY, CREATE_POST
-        Boolean isFeatured; // Hiện nhãn nổi bật
-        Integer topRanking;
         String supportLevel;
     }
 
