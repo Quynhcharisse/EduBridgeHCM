@@ -781,12 +781,12 @@ public class AdminServiceImpl implements AdminService {
 
         // Bảng kê tài chính chi tiết cho Admin
         Map<String, Object> pricing = new LinkedHashMap<>();
-        pricing.put("basePrice", Map.of("amount", breakdown.basePrice(), "description", "Giá nền của gói"));
-        pricing.put("totalFeatureAmount", Map.of("amount", breakdown.totalFeatureAmount(), "description", "Tổng phí tính năng bổ sung"));
-        pricing.put("netPrice", Map.of("amount", breakdown.netPrice(), "description", "Giá gốc = Giá nền + Phí tính năng (chưa phí dịch vụ + thuế)"));
-        pricing.put("serviceFee", Map.of("amount", breakdown.serviceFee(), "description", "Phí dịch vụ hệ thống"));
-        pricing.put("taxFee", Map.of("amount", breakdown.taxFee(), "description", "Thuế VAT"));
-        pricing.put("finalPrice", Map.of("amount", breakdown.finalPrice(), "description", "Tổng tiền khách hàng thanh toán"));
+        pricing.put("basePrice", Map.of("amount", breakdown.basePrice()));
+        pricing.put("totalFeatureAmount", Map.of("amount", breakdown.totalFeatureAmount()));
+        pricing.put("netPrice", Map.of("amount", breakdown.netPrice()));
+        pricing.put("serviceFee", Map.of("amount", breakdown.serviceFee()));
+        pricing.put("taxFee", Map.of("amount", breakdown.taxFee()));
+        pricing.put("finalPrice", Map.of("amount", breakdown.finalPrice()));
         response.put("pricing", pricing);
 
         buildFeatureContributions(request, businessMap, breakdown, response);
@@ -1018,33 +1018,27 @@ public class AdminServiceImpl implements AdminService {
             
             Map<String, Object> basePriceObj = new LinkedHashMap<>();
             basePriceObj.put("amount", basePrice);
-            basePriceObj.put("description", "Giá nền của gói (Base Price)");
             pricingBreakdown.put("basePrice", basePriceObj);
             
             Map<String, Object> featuresObj = new LinkedHashMap<>();
             featuresObj.put("amount", totalFeatureAmount);
-            featuresObj.put("description", "Phí tính năng bổ sung (AI Assistant, Premium Support, v.v.)");
             featuresObj.put("details", breakdown);
             pricingBreakdown.put("features", featuresObj);
             
             Map<String, Object> netPriceObj = new LinkedHashMap<>();
             netPriceObj.put("amount", subscription.getPrice());
-            netPriceObj.put("description", "Giá gốc = Giá nền + Phí tính năng (chưa tính phí dịch vụ + thuế)");
             pricingBreakdown.put("netPrice", netPriceObj);
             
             Map<String, Object> serviceFeeObj = new LinkedHashMap<>();
             serviceFeeObj.put("amount", subscription.getServiceFee());
-            serviceFeeObj.put("description", "Phí dịch vụ hệ thống = Giá gốc × tỷ lệ phí dịch vụ");
             pricingBreakdown.put("serviceFee", serviceFeeObj);
             
             Map<String, Object> taxFeeObj = new LinkedHashMap<>();
             taxFeeObj.put("amount", subscription.getTaxFee());
-            taxFeeObj.put("description", "Thuế VAT = (Giá gốc + Phí dịch vụ) × tỷ lệ thuế");
             pricingBreakdown.put("taxFee", taxFeeObj);
             
             Map<String, Object> finalPriceObj = new LinkedHashMap<>();
             finalPriceObj.put("amount", subscription.getFinalPrice());
-            finalPriceObj.put("description", "Tổng tiền khách hàng thanh toán = Giá gốc + Phí dịch vụ + Thuế");
             pricingBreakdown.put("finalPrice", finalPriceObj);
 
             data.put("pricingBreakdown", pricingBreakdown);
