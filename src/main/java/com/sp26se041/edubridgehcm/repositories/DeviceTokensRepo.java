@@ -11,7 +11,5 @@ public interface DeviceTokensRepo extends JpaRepository<DeviceTokens, Integer> {
 
     Optional<DeviceTokens> findByTokenAndIsActiveTrue(String token);
 
-    List<DeviceTokens> findAllByUserIdAndIsActiveTrue(Integer userId);
-
-    List<DeviceTokens> findAllByUserIdInAndIsActiveTrue(List<Integer> userIds);
+    List<DeviceTokens> findByUserIdAndIsActiveTrue(Integer id);
 }

@@ -1035,10 +1035,11 @@ public class AdminServiceImpl implements AdminService {
     public ResponseEntity<ResponseObject> viewServicePackageFeeList() {
 
         Account currentAccount = AuthRequestUtil.extractAuthenticatedAccount();
+        boolean isAdmin = currentAccount != null && Role.ADMIN == currentAccount.getRole();
 
         List<Subscription> subscriptions;
 
-        if (currentAccount != null && Role.ADMIN == currentAccount.getRole()) {
+        if (isAdmin) {
             subscriptions = subscriptionRepo.findAll();
         } else {
             subscriptions = subscriptionRepo.findAllByPackageStatus(Status.PACKAGE_ACTIVE);
@@ -1048,25 +1049,48 @@ public class AdminServiceImpl implements AdminService {
             return ResponseBuilder.build(HttpStatus.OK, "Không có gói dịch vụ nào", Collections.emptyList());
         }
 
+        Map<String, Object> businessMap = isAdmin ? getBusinessConfigMap() : null;
+
         List<Map<String, Object>> data = subscriptions.stream()
-                .map(this::buildSubscriptionData)
+                .map(subscription -> buildSubscriptionData(subscription, isAdmin, businessMap))
                 .collect(Collectors.toList());
 
         return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách phí gói thành công", data);
     }
 
+    private Map<String, Object> getBusinessConfigMap() {
+        try {
+            PlatformConfig businessConfig = platformConfigRepo.findByKey("business").orElse(null);
+            if (businessConfig != null && businessConfig.getValue() instanceof Map<?, ?> businessRaw) {
+                return (Map<String, Object>) businessRaw;
+            }
+        } catch (Exception ignored) {
+            // best-effort read only
+        }
+        return null;
+    }
+
     private Map<String, Object> buildSubscriptionData(Subscription subscription) {
+        return buildSubscriptionData(subscription, true, getBusinessConfigMap());
+    }
+
+    private Map<String, Object> buildSubscriptionData(Subscription subscription,
+                                                      boolean includeAdminDetails,
+                                                      Map<String, Object> businessMap) {
         Map<String, Object> data = new HashMap<>();
         data.put("id", subscription.getId());
         data.put("name", subscription.getName());
         data.put("description", subscription.getDescription());
         data.put("packageType", subscription.getPackageType());
-        data.put("price", subscription.getPrice());
-        data.put("serviceFee", subscription.getServiceFee());
-        data.put("taxFee", subscription.getTaxFee());
         data.put("finalPrice", subscription.getFinalPrice());
         data.put("durationDays", subscription.getDurationDays());
-        data.put("status", subscription.getPackageStatus());
+
+        if (includeAdminDetails) {
+            data.put("price", subscription.getPrice());
+            data.put("serviceFee", subscription.getServiceFee());
+            data.put("taxFee", subscription.getTaxFee());
+            data.put("status", subscription.getPackageStatus());
+        }
 
         if (subscription.getFeatures() instanceof Map<?, ?>) {
             Map<String, Object> features = (Map<String, Object>) subscription.getFeatures();
@@ -1078,10 +1102,8 @@ public class AdminServiceImpl implements AdminService {
             data.put("topRanking", features.get("topRanking"));
             data.put("supportLevel", features.get("supportLevel"));
 
-            try {
-                PlatformConfig businessConfig = platformConfigRepo.findByKey("business").orElse(null);
-                if (businessConfig != null && businessConfig.getValue() instanceof Map<?, ?> businessRaw) {
-                    Map<String, Object> businessMap = (Map<String, Object>) businessRaw;
+            if (includeAdminDetails && businessMap != null) {
+                try {
                     Map<String, Object> subscriptionPricing = (Map<String, Object>) businessMap.get("subscriptionPricing");
                     Map<String, Object> featureUnitPrices = subscriptionPricing != null ? (Map<String, Object>) subscriptionPricing.get("featureUnitPrices") : null;
 
@@ -1126,13 +1148,15 @@ public class AdminServiceImpl implements AdminService {
                     if (!unitPriceDisplay.isEmpty()) {
                         data.put("featureUnitPrices", unitPriceDisplay);
                     }
+                } catch (Exception ignored) {
+                    // best-effort display only
                 }
-            } catch (Exception ignored) {
-                // best-effort display only
+            }
+
+            if (includeAdminDetails) {
+                data.put("features", subscription.getFeatures());
             }
         }
-
-        data.put("features", subscription.getFeatures());
         return data;
     }
 
