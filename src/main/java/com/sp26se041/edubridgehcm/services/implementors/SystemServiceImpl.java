@@ -184,20 +184,17 @@ public class SystemServiceImpl implements SystemService {
         }
 
         int durationDays = quotas.getDurationDays();
-        Integer trialCounsellor = quotas.getTrialCounsellor();
-        Integer standardCounsellor = quotas.getStandardCounsellor();
-        Integer enterpriseCounsellor = quotas.getEnterpriseCounsellor();
-        Integer trialPostLimit = quotas.getTrialPostLimit();
-        Integer standardPostLimit = quotas.getStandardPostLimit();
-        Integer enterprisePostLimit = quotas.getEnterprisePostLimit();
+        int trialCounsellor = quotas.getTrialCounsellor();
+        int standardCounsellor = quotas.getStandardCounsellor();
+        int enterpriseCounsellor = quotas.getEnterpriseCounsellor();
+        int trialPostLimit = quotas.getTrialPostLimit();
+        int standardPostLimit = quotas.getStandardPostLimit();
+        int enterprisePostLimit = quotas.getEnterprisePostLimit();
 
         if (durationDays <= 0) {
             throw new RuntimeException("Thời hạn gói phải lớn hơn 0.");
         }
 
-        if (trialCounsellor == null || standardCounsellor == null || enterpriseCounsellor == null) {
-            throw new RuntimeException("Số lượng tư vấn viên phải tăng dần theo cấp độ: Dùng thử <= Tiêu chuẩn <= Doanh nghiệp. Vui lòng cung cấp đầy đủ số lượng tư vấn viên cho cả 3 cấp độ.");
-        }
         if (trialCounsellor < 0 || standardCounsellor < 0 || enterpriseCounsellor < 0) {
             throw new RuntimeException("Giới hạn bài đăng phải tăng dần theo cấp độ: Dùng thử <= Tiêu chuẩn <= Doanh nghiệp. Vui lòng đảm bảo số lượng tư vấn viên là số nguyên dương hoặc bằng 0.");
         }
@@ -205,71 +202,6 @@ public class SystemServiceImpl implements SystemService {
             throw new RuntimeException("Các giá trị counsellor phải không giảm theo thứ tự các cấp: trial <= standard <= enterprise");
         }
 
-        if (trialPostLimit == null || standardPostLimit == null || enterprisePostLimit == null) {
-            throw new RuntimeException("Các giá trị postLimit trong packageQuotas (trial/standard/enterprise) phải được cung cấp");
-        }
-        if (trialPostLimit < 0 || standardPostLimit < 0 || enterprisePostLimit < 0) {
-            throw new RuntimeException("Các giá trị postLimit phải lớn hơn hoặc bằng 0");
-        }
-        if (!(trialPostLimit <= standardPostLimit && standardPostLimit <= enterprisePostLimit)) {
-            throw new RuntimeException("Các giá trị postLimit phải không giảm theo thứ tự các cấp: trial <= standard <= enterprise");
-        }
-
-        // Kiểm tra ràng buộc tỉ lệ với tỉ lệ Admin vừa nhập
-        int maxTrialCounsellorByRatio = (int) Math.floor(standardCounsellor * trialRatioCap);
-        if (trialCounsellor > maxTrialCounsellorByRatio) {
-            throw new RuntimeException(String.format(
-                    "Với tỉ lệ cấu hình là %d%%, số tư vấn viên dùng thử không được vượt quá %d.",
-                    (int) (trialRatioCap * 100),
-                    maxTrialCounsellorByRatio
-            ));
-        }
-
-        int maxTrialPostLimitByRatio = (int) Math.floor(standardPostLimit * trialRatioCap);
-        if (trialPostLimit > maxTrialPostLimitByRatio) {
-            throw new RuntimeException(String.format(
-                    "Với tỉ lệ cấu hình là %d%%, giới hạn bài đăng dùng thử không được vượt quá %d.",
-                    (int) (trialRatioCap * 100),
-                    maxTrialPostLimitByRatio
-            ));
-        }
-
-        var quotas = business.getSubscriptionPricing().getPackageQuotas();
-        if (quotas == null) {
-            throw new RuntimeException("Thiếu cấu hình định mức trong phần định giá gói dịch vụ.");
-        }
-
-        // Lấy tỉ lệ giới hạn Dùng thử do Admin cấu hình
-        double trialRatioCap = business.getSubscriptionPricing().getTrialRatioCap();
-        if (trialRatioCap <= 0 || trialRatioCap >= 1) {
-            throw new RuntimeException("Tỉ lệ giới hạn gói Dùng thử phải nằm trong khoảng từ 0 đến 1 (ví dụ: 0.3 cho 30%).");
-        }
-
-        int durationDays = quotas.getDurationDays();
-        Integer trialCounsellor = quotas.getTrialCounsellor();
-        Integer standardCounsellor = quotas.getStandardCounsellor();
-        Integer enterpriseCounsellor = quotas.getEnterpriseCounsellor();
-        Integer trialPostLimit = quotas.getTrialPostLimit();
-        Integer standardPostLimit = quotas.getStandardPostLimit();
-        Integer enterprisePostLimit = quotas.getEnterprisePostLimit();
-
-        if (durationDays <= 0) {
-            throw new RuntimeException("Thời hạn gói phải lớn hơn 0.");
-        }
-
-        if (trialCounsellor == null || standardCounsellor == null || enterpriseCounsellor == null) {
-            throw new RuntimeException("Số lượng tư vấn viên phải tăng dần theo cấp độ: Dùng thử <= Tiêu chuẩn <= Doanh nghiệp. Vui lòng cung cấp đầy đủ số lượng tư vấn viên cho cả 3 cấp độ.");
-        }
-        if (trialCounsellor < 0 || standardCounsellor < 0 || enterpriseCounsellor < 0) {
-            throw new RuntimeException("Giới hạn bài đăng phải tăng dần theo cấp độ: Dùng thử <= Tiêu chuẩn <= Doanh nghiệp. Vui lòng đảm bảo số lượng tư vấn viên là số nguyên dương hoặc bằng 0.");
-        }
-        if (!(trialCounsellor <= standardCounsellor && standardCounsellor <= enterpriseCounsellor)) {
-            throw new RuntimeException("Các giá trị counsellor phải không giảm theo thứ tự các cấp: trial <= standard <= enterprise");
-        }
-
-        if (trialPostLimit == null || standardPostLimit == null || enterprisePostLimit == null) {
-            throw new RuntimeException("Các giá trị postLimit trong packageQuotas (trial/standard/enterprise) phải được cung cấp");
-        }
         if (trialPostLimit < 0 || standardPostLimit < 0 || enterprisePostLimit < 0) {
             throw new RuntimeException("Các giá trị postLimit phải lớn hơn hoặc bằng 0");
         }
@@ -357,19 +289,17 @@ public class SystemServiceImpl implements SystemService {
         request.setName(sub.getName());
         request.setDurationDays(sub.getDurationDays());
 
-        if (sub.getFeatures() != null) {
-            Map<String, Object> featureMap = (Map<String, Object>) sub.getFeatures();
+        Map<String, Object> featureMap = (Map<String, Object>) sub.getFeatures();
 
-            UpsertServicePackageFeeRequest.FeatureData featureData = new UpsertServicePackageFeeRequest.FeatureData();
+        UpsertServicePackageFeeRequest.FeatureData featureData = new UpsertServicePackageFeeRequest.FeatureData();
 
-            featureData.setMaxCounsellors(featureMap.get("maxCounsellors") != null ? ((Number) featureMap.get("maxCounsellors")).intValue() : null);
-            featureData.setPostLimit(featureMap.get("postLimit") != null ? ((Number) featureMap.get("postLimit")).intValue() : null);
-            featureData.setHasAiAssistant((Boolean) featureMap.get("hasAiAssistant"));
-            featureData.setParentPostPermission((String) featureMap.get("parentPostPermission"));
-            featureData.setSupportLevel((String) featureMap.get("supportLevel"));
+        featureData.setMaxCounsellors(featureMap.get("maxCounsellors") != null ? ((Number) featureMap.get("maxCounsellors")).intValue() : null);
+        featureData.setPostLimit(featureMap.get("postLimit") != null ? ((Number) featureMap.get("postLimit")).intValue() : null);
+        featureData.setHasAiAssistant((Boolean) featureMap.get("hasAiAssistant"));
+        featureData.setParentPostPermission((String) featureMap.get("parentPostPermission"));
+        featureData.setSupportLevel((String) featureMap.get("supportLevel"));
 
-            request.setFeatureData(featureData);
-        }
+        request.setFeatureData(featureData);
         return request;
     }
 
@@ -505,7 +435,7 @@ public class SystemServiceImpl implements SystemService {
 
         List<String> validMethodCodes = allowedMethodsJson.stream()
                 .map(m -> m.get("code").toString())
-                .collect(Collectors.toList());
+                .toList();
 
         List<Map<String, Object>> admissionProcessesJson = new ArrayList<>();
         if (admissionSettingsData.getMethodAdmissionProcess() != null) {
