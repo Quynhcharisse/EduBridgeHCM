@@ -106,7 +106,6 @@ basePrices.put("enterprise", 2000000);
 Map<String, Object> featureUnitPrices = new HashMap<>();
 featureUnitPrices.put("aiChatbotMonthlyFee", 300000);
 featureUnitPrices.put("premiumSupportFee", 200000);
-featureUnitPrices.put("topRankingFee", 150000);
 
 Map<String, Object> packageQuotas = new HashMap<>();
 packageQuotas.put("durationDays", 30);

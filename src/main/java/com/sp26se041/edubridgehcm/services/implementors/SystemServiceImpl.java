@@ -171,7 +171,6 @@ public class SystemServiceImpl implements SystemService {
         Map<String, Object> featureUnitPrices = new HashMap<>();
         featureUnitPrices.put("aiChatbotMonthlyFee", business.getSubscriptionPricing().getFeatureUnitPrices().getAiChatbotMonthlyFee());
         featureUnitPrices.put("premiumSupportFee", business.getSubscriptionPricing().getFeatureUnitPrices().getPremiumSupportFee());
-        featureUnitPrices.put("topRankingFee", business.getSubscriptionPricing().getFeatureUnitPrices().getTopRankingFee());
 
         var quotas = business.getSubscriptionPricing().getPackageQuotas();
         if (quotas == null) {
@@ -303,11 +302,8 @@ public class SystemServiceImpl implements SystemService {
 
             featureData.setMaxCounsellors(featureMap.get("maxCounsellors") != null ? ((Number) featureMap.get("maxCounsellors")).intValue() : null);
             featureData.setPostLimit(featureMap.get("postLimit") != null ? ((Number) featureMap.get("postLimit")).intValue() : null);
-            featureData.setTopRanking(featureMap.get("topRanking") != null ? ((Number) featureMap.get("topRanking")).intValue() : null);
-
             featureData.setHasAiAssistant((Boolean) featureMap.get("hasAiAssistant"));
             featureData.setParentPostPermission((String) featureMap.get("parentPostPermission"));
-            featureData.setIsFeatured((Boolean) featureMap.get("isFeatured"));
             featureData.setSupportLevel((String) featureMap.get("supportLevel"));
 
             request.setFeatureData(featureData);
