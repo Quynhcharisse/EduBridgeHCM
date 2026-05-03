@@ -494,7 +494,7 @@ public class CounsellorServiceImpl implements CounsellorService {
                     );
                 }
                 offlineRequest.setAppointmentTime(counsellorSlotOpt.get().getCampusScheduleTemplate().getStartTime());
-                offlineRequest.setAppointmentDate();
+//                offlineRequest.setAppointmentDate();
                 offlineRequest.setCounsellor(counsellorSlotOpt.get().getCounsellor());
                 offlineRequest.setCounsellorSlot(counsellorSlotOpt.get());
                 offlineRequest.setStatus(Status.CONSULTATION_CONFIRMED);
