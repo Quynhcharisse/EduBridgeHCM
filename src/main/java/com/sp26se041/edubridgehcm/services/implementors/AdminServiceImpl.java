@@ -963,15 +963,36 @@ public class AdminServiceImpl implements AdminService {
             data.put("supportLevel", features.get("supportLevel"));
 
             if (isAdmin) {
-                data.put("netPrice", subscription.getPrice());  // Giá gốc = Giá nền + Tính năng
-                data.put("serviceFee", subscription.getServiceFee());  // Phí dịch vụ hệ thống
-                data.put("taxFee", subscription.getTaxFee());  // Thuế VAT
+                data.put("netPrice", subscription.getPrice());
+                data.put("serviceFee", subscription.getServiceFee());
+                data.put("taxFee", subscription.getTaxFee());
                 data.put("status", subscription.getPackageStatus());
                 data.put("fullFeatures", subscription.getFeatures());
 
                 // Tính toán breakdown kiểu hóa đơn nếu có config
                 if (includeBillingDetails && businessMap != null) {
                     appendPriceBreakdown(subscription, data, (Map<String, Object>) features, businessMap);
+                }
+
+                try {
+                    if (businessMap != null) {
+                        Map<String, Object> subscriptionPricing = (Map<String, Object>) businessMap.get("subscriptionPricing");
+                        if (subscriptionPricing != null) {
+                            Map<String, Object> unitPrices = (Map<String, Object>) subscriptionPricing.get("featureUnitPrices");
+                            if (unitPrices != null) {
+                                Map<String, Object> featureContributions = new LinkedHashMap<>();
+                                if (Boolean.TRUE.equals(((Map) subscription.getFeatures()).get("hasAiAssistant"))) {
+                                    featureContributions.put("aiAssistantFee", unitPrices.get("aiChatbotMonthlyFee"));
+                                }
+                                Object supportVal = ((Map) subscription.getFeatures()).get("supportLevel");
+                                if (supportVal != null && SupportLevel.PREMIUM_SUPPORT.name().equals(supportVal.toString())) {
+                                    featureContributions.put("premiumSupportFee", unitPrices.getOrDefault("premiumSupportFee", 0));
+                                }
+                                data.put("featureContributions", featureContributions);
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {
                 }
             }
         }

@@ -85,7 +85,6 @@ public class CreateConfigDataRequest {
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class MediaData {
-
         // Dung lượng (Size)
         int maxImgSize;
         int maxDocSize;

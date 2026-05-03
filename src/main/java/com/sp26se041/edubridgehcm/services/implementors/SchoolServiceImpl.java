@@ -2405,7 +2405,6 @@ public class SchoolServiceImpl implements SchoolService {
     @Override
     public ResponseEntity<ResponseObject> createSchoolSubscription(CreateSubscriptionRequest request, HttpServletRequest httpRequest) {
 
-        // step 1 : xác thực school - campus chính
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null)
@@ -2425,11 +2424,26 @@ public class SchoolServiceImpl implements SchoolService {
             );
         }
 
-        // step 2: lấy thông tin của gói cước
-        Subscription subscription = subscriptionRepo.findById(request.getPackageId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy gói dịch vụ trong hệ thống"));
+        Subscription subscription = subscriptionRepo.findById(request.getPackageId()).orElse(null);
 
-        if (subscription.getFinalPrice() == null || subscription.getFinalPrice().compareTo(BigDecimal.ZERO) <= 0) {
+        if (subscription == null) {
+            return ResponseBuilder.build(
+                HttpStatus.BAD_REQUEST,
+                "Không tìm thấy gói dịch vụ trong hệ thống",
+                null
+            );
+        }
+
+        // Chỉ cho phép thao tác với gói đang ở trạng thái active
+        if (subscription.getPackageStatus() != null && subscription.getPackageStatus() != Status.PACKAGE_ACTIVE) {
+            return ResponseBuilder.build(
+                HttpStatus.FORBIDDEN,
+                "Gói dịch vụ này không khả dụng để mua/gia hạn",
+                null
+            );
+        }
+
+        if (subscription.getFinalPrice().compareTo(BigDecimal.ZERO) <= 0) {
             return ResponseBuilder.build(
                     HttpStatus.BAD_REQUEST,
                     "Tổng tiền gói dịch vụ không hợp lệ",
@@ -2438,8 +2452,7 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         //ktra upgrade vs renew
-        List<SchoolSubscription> currentActiveSub =
-                schoolSubscriptionRepo.findBySchoolIdAndIsSelected(school.getId(), true);
+        List<SchoolSubscription> currentActiveSub = schoolSubscriptionRepo.findBySchoolIdAndIsSelected(school.getId(), true);
 
         LocalDate calculatedStartDate = LocalDate.now();
         LocalDate calculatedEndDate = calculatedStartDate.plusDays(subscription.getDurationDays());
@@ -2453,6 +2466,15 @@ public class SchoolServiceImpl implements SchoolService {
                     .get();
 
             if (current.getSubscription().getId().equals(request.getPackageId())) {
+                // Kiểm tra gói có bị pending deactive không
+                if (current.getSubscription().getPackageStatus().equals(Status.PACKAGE_INACTIVE_PENDING)) {
+                    return ResponseBuilder.build(
+                            HttpStatus.FORBIDDEN,
+                            "Gói này đã ngừng phát hành. Không thể gia hạn. Vui lòng chọn gói khác.",
+                            null
+                    );
+                }
+
                 // Nếu GIA HẠN (Renew) - Cùng loại gói
                 LocalDate baseDate = LocalDate.now().isAfter(current.getEndDate()) ? LocalDate.now() : current.getEndDate();
                 calculatedStartDate = baseDate;
@@ -3130,8 +3152,13 @@ public class SchoolServiceImpl implements SchoolService {
                         throw new RuntimeException("Thiếu gói đích để nâng cấp.");
                     }
 
-                    Subscription targetSub = subscriptionRepo.findById(request.getTargetPackageId())
+                        Subscription targetSub = subscriptionRepo.findById(request.getTargetPackageId())
                             .orElseThrow(() -> new RuntimeException("Gói đích không tồn tại"));
+
+                        // Chỉ cho phép preview/upgrade với gói active
+                        if (targetSub.getPackageStatus() != null && targetSub.getPackageStatus() != Status.PACKAGE_ACTIVE) {
+                        throw new RuntimeException("Gói đích không khả dụng để chọn (không còn phát hành)");
+                        }
 
                     if (targetSub.getId().equals(activeSub.getSubscription().getId())) {
                         throw new RuntimeException("Gói đích phải khác gói hiện tại.");
