@@ -6,6 +6,7 @@ import com.sp26se041.edubridgehcm.enums.SupportLevel;
 import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -166,6 +167,30 @@ public class SubscriptionValidation {
         }
     }
 
+    public static void validateBasePriceOrdering(Map<String, Object> business) {
+        if (business == null) {
+            throw new RuntimeException("Thiếu cấu hình doanh nghiệp");
+        }
+
+        Map<String, Object> subscriptionPricing = (Map<String, Object>) business.get("subscriptionPricing");
+        if (subscriptionPricing == null) {
+            throw new RuntimeException("Thiếu cấu hình định giá subscription");
+        }
+
+        Map<String, Object> basePricing = (Map<String, Object>) subscriptionPricing.get("basePrices");
+        if (basePricing == null) {
+            throw new RuntimeException("Thiếu cấu hình giá nền");
+        }
+
+        BigDecimal trialPrice = toBigDecimal(basePricing.get("trial"), "giá nền trial");
+        BigDecimal standardPrice = toBigDecimal(basePricing.get("standard"), "giá nền standard");
+        BigDecimal enterprisePrice = toBigDecimal(basePricing.get("enterprise"), "giá nền enterprise");
+
+        if (trialPrice.compareTo(standardPrice) > 0 || standardPrice.compareTo(enterprisePrice) > 0) {
+            throw new RuntimeException("Giá nền gói dịch vụ phải tăng dần: Trial <= Standard <= Enterprise.");
+        }
+    }
+
     public static ParentPostPermission parseParentPostPermission(String value) {
         String normalizedValue = normalize(value);
         if (normalizedValue == null) {
@@ -212,5 +237,15 @@ public class SubscriptionValidation {
 
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private static BigDecimal toBigDecimal(Object raw, String label) {
+        if (raw instanceof BigDecimal bigDecimal) {
+            return bigDecimal;
+        }
+        if (raw instanceof Number number) {
+            return BigDecimal.valueOf(number.doubleValue());
+        }
+        throw new RuntimeException("Thiếu hoặc sai định dạng cấu hình: " + label);
     }
 }

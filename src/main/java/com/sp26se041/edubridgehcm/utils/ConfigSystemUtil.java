@@ -137,12 +137,12 @@ public class ConfigSystemUtil {
     //Tờ hóa đơn chi tiết
     public static SubscriptionPriceBreakdown calculateSubscriptionPriceBreakdown(UpsertServicePackageFeeRequest request, Map<String, Object> business) {
         SubscriptionValidation.validatePricingInput(request, business);
+        SubscriptionValidation.validateBasePriceOrdering(business);
 
         Map<String, Object> pricingConfig = getPricingConfig(business);
         Map<String, Object> basePricing = (Map<String, Object>) pricingConfig.get("basePricing");
         Map<String, Object> featureUnitPricing = (Map<String, Object>) pricingConfig.get("featureUnitPricing");
-        Map<String, Object> packageQuotas = (Map<String, Object>) pricingConfig.get("packageQuotas");
-
+       
         PackageType packageType = SubscriptionValidation.parsePackageType(request.getPackageType());
 
         //bước xác định giá nền (gốc) của từng gói

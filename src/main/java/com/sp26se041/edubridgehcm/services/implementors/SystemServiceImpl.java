@@ -127,15 +127,6 @@ public class SystemServiceImpl implements SystemService {
                         null
                 );
             }
-
-            double trialPrice = businessData.getSubscriptionPricing().getBasePrices().getTrial();
-            if (Double.compare(trialPrice, 0d) != 0) {
-                return ResponseBuilder.build(
-                        HttpStatus.BAD_REQUEST,
-                        "Giá gói trial phải luôn bằng 0.",
-                        null
-                );
-            }
         }
 
         updateConfig(request);
@@ -163,6 +154,18 @@ public class SystemServiceImpl implements SystemService {
         businessJson.put("serviceRate", business.getServiceRate());
         businessJson.put("minPay", business.getMinPay());
         businessJson.put("maxPay", business.getMaxPay());
+
+        BigDecimal trialBasePrice = business.getSubscriptionPricing().getBasePrices().getTrial();
+        BigDecimal standardBasePrice = business.getSubscriptionPricing().getBasePrices().getStandard();
+        BigDecimal enterpriseBasePrice = business.getSubscriptionPricing().getBasePrices().getEnterprise();
+
+        if (trialBasePrice == null || standardBasePrice == null || enterpriseBasePrice == null) {
+            throw new RuntimeException("Thiếu cấu hình giá nền cho một hoặc nhiều gói (trial/standard/enterprise).");
+        }
+
+        if (trialBasePrice.compareTo(standardBasePrice) > 0 || standardBasePrice.compareTo(enterpriseBasePrice) > 0) {
+            throw new RuntimeException("Giá nền gói dịch vụ phải tăng dần: Trial <= Standard <= Enterprise.");
+        }
 
         Map<String, Object> basePrices = new HashMap<>();
         basePrices.put("trial", business.getSubscriptionPricing().getBasePrices().getTrial());
