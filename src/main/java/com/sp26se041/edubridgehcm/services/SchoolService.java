@@ -79,4 +79,6 @@ public interface SchoolService {
     ResponseEntity<ResponseObject> extractProgramSubjectsFromExcel(MultipartFile file);
 
     ResponseEntity<ResponseObject> getNationalCurriculumTemplate();
+
+    ResponseEntity<ResponseObject> getParentsInFavouriteSchool();
 }

@@ -99,6 +99,12 @@ public class SchoolController {
         return schoolService.upsertCurriculum(request);
     }
 
+    @GetMapping("/parents")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> getParentsInFavouriteSchool() {
+        return schoolService.getParentsInFavouriteSchool();
+    }
+
     @GetMapping("/templates/national")
     public ResponseEntity<ResponseObject> getNationalTemplate() {
         return schoolService.getNationalCurriculumTemplate();

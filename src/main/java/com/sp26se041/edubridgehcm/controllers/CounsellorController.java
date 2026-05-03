@@ -74,4 +74,11 @@ public class CounsellorController {
         return counsellorService.getCounsellorsInSlot(appointmentTime, appointmentDate);
     }
 
+    @GetMapping("/slots")
+    @PreAuthorize("hasAnyRole('COUNSELLOR')")
+    public ResponseEntity<ResponseObject> getSlotsOfCampus(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate){
+        return counsellorService.getSlotsOfCampus(startDate, endDate);
+    }
+
+
 }

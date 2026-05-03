@@ -19,4 +19,6 @@ public interface CounsellorService {
     ResponseEntity<ResponseObject> updateConsultationOfflineRequest(UpdateConsultationOfflineRequest request);
 
     ResponseEntity<ResponseObject> getCounsellorsInSlot(LocalTime appointmentTime, LocalDate appointmentDate);
+
+    ResponseEntity<ResponseObject> getSlotsOfCampus(LocalDate startDate, LocalDate endDate);
 }

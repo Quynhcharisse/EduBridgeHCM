@@ -2381,6 +2381,15 @@ public class CampusServiceImpl implements CampusService {
         response.put("accAdminId", conversation.getAccAdminId());
         response.put("emailAdmin", emailAdmin);
         response.put("campusId", conversation.getCampusId());
+        campusRepo.findById(conversation.getCampusId())
+                .ifPresentOrElse(campus -> {
+                    response.put("campusName", campus.getName());
+                    response.put("schoolName", campus.getSchool().getName());
+                }, () -> {
+                    response.put("campusName", null);
+                    response.put("schoolName", null);
+                });
+
         response.put("campusEmail", campusEmail);
         response.put("messages", buildMessages(messages));
         response.put("hasMore", hasMore);

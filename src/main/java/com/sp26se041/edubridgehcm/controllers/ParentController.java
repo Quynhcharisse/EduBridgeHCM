@@ -176,13 +176,12 @@ public class ParentController {
     }
 
     @GetMapping("/student/{id}")
-    @PreAuthorize("hasAnyRole('PARENT')")
+    @PreAuthorize("hasAnyRole('PARENT', 'SCHOOL')")
     public ResponseEntity<ResponseObject> getStudentInfoById(@PathVariable int id) {
         return parentService.getStudentInfo(id);
     }
 
     @GetMapping("/slots/{campusId}")
-    @PreAuthorize("hasAnyRole('PARENT')")
     public ResponseEntity<ResponseObject> getSlots(@PathVariable int campusId ,@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
                                                    @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
            return parentService.getSlots(campusId, startDate, endDate);

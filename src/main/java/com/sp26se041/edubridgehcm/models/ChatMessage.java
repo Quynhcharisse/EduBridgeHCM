@@ -42,6 +42,12 @@ public class ChatMessage {
     @Column(name = "campus_id")
     int campusId;
 
+    @Column(name = "school_name")
+    String schoolName;
+
+    @Column(name = "campus_name")
+    String campusName;
+
     @Column(name = "message")
     String message;
 
