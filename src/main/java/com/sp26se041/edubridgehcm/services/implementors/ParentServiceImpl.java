@@ -51,6 +51,7 @@ import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpEntity;
@@ -1773,13 +1774,33 @@ public class ParentServiceImpl implements ParentService {
             );
         }
 
-        Sort sort = buildConsultationSort(parsedStatus);
+        PageResponse<Map<String, Object>> pageResponse;
 
-        Pageable pageable = PaginationUtil.buildPageRequest(page, size, sort);
+        try {
 
-        Page<ConsultationOfflineRequest> consultationOfflineRequests = consultationOfflineRequestRepo.findAllByParentAndStatus(parent.get(), parsedStatus, pageable);
+            if (parsedStatus == null) {
 
-        PageResponse<Map<String, Object>> pageResponse = PaginationUtil.buildPageResponse(consultationOfflineRequests, this::buildConsultationOfflineRequest);
+                Pageable pageable = PaginationUtil.buildPageRequest(page, size);
+
+                Page<ConsultationOfflineRequest> consultationOfflineRequests = consultationOfflineRequestRepo
+                        .findAllWithTimelineSort(parent.get(), pageable);
+
+                pageResponse = PaginationUtil.buildPageResponse(consultationOfflineRequests, this::buildConsultationOfflineRequest);
+
+            } else {
+
+                Sort sort = buildConsultationSort(parsedStatus);
+
+                Pageable pageable = PaginationUtil.buildPageRequest(page, size, sort);
+
+                Page<ConsultationOfflineRequest> consultationOfflineRequestsWithStatus = consultationOfflineRequestRepo.findAllByParentAndStatus(parent.get(), parsedStatus, pageable);
+
+                pageResponse = PaginationUtil.buildPageResponse(consultationOfflineRequestsWithStatus, this::buildConsultationOfflineRequest);
+
+            }
+        } catch (Exception e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
 
         return ResponseBuilder.build(
                 HttpStatus.OK,
