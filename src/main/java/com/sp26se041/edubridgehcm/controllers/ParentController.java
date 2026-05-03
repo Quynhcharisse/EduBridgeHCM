@@ -195,7 +195,7 @@ public class ParentController {
 
     @GetMapping("/consultation/offline")
     @PreAuthorize("hasAnyRole('PARENT')")
-    public ResponseEntity<ResponseObject> getConsultationOfflineRequests(@RequestParam String status ,@RequestParam int page, @RequestParam int pageSize) {
+    public ResponseEntity<ResponseObject> getConsultationOfflineRequests(@RequestParam (required = false) String status ,@RequestParam int page, @RequestParam int pageSize) {
         return parentService.getConsultationOfflineRequests(status, page, pageSize);
     }
 }
