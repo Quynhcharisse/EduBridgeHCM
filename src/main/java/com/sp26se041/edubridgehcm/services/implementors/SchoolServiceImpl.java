@@ -974,7 +974,7 @@ public class SchoolServiceImpl implements SchoolService {
         return ResponseBuilder.build(HttpStatus.OK, "", data);
     }
 
-    private Map<String, Object> buildParentProfileData( Parent parent ) {
+    private Map<String, Object> buildParentProfileData(Parent parent) {
 
         Map<String, Object> parentData = new HashMap<>();
         parentData.put("name", parent.getName());
@@ -2030,7 +2030,7 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     private Set<Integer> getFavouriteSchoolIds() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        String email = Objects.requireNonNull(SecurityContextHolder.getContext().getAuthentication()).getName();
 
         Parent parent = parentRepo.findByAccount_Email(email).orElse(null);
 
@@ -2048,7 +2048,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("name", school.getName());
         data.put("isFavourite", favouriteSchoolIds.contains(school.getId()));
         data.put("description", school.getDescription());
-        data.put("totalCampus", school.getCampusList() != null ? school.getCampusList().size() : 0);
+        data.put("totalCampus", school.getCampusList().size());
         data.put("logoUrl", school.getLogoUrl());
         data.put("websiteUrl", school.getWebsiteUrl());
         data.put("representativeName", school.getRepresentativeName());
@@ -2085,7 +2085,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("imageJson", campus.getImageJson());
         data.put("facility", campus.getFacility());
 
-        List<String> consultantEmails = campus.getCounsellorList().stream().map(Counsellor::getAccount).filter(acc -> acc != null).filter(acc -> Role.COUNSELLOR.equals(acc.getRole())).filter(acc -> Status.ACCOUNT_ACTIVE.equals(acc.getStatus())).map(Account::getEmail).toList();
+        List<String> consultantEmails = campus.getCounsellorList().stream().map(Counsellor::getAccount).filter(Objects::nonNull).filter(acc -> Role.COUNSELLOR.equals(acc.getRole())).filter(acc -> Status.ACCOUNT_ACTIVE.equals(acc.getStatus())).map(Account::getEmail).toList();
 
         data.put("consultantEmails", consultantEmails);
         return data;
@@ -2324,9 +2324,9 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("startTime", openDayEvent.getStartTime());
         data.put("endTime", openDayEvent.getEndTime());
 
-        data.put("campusName", openDayEvent.getCampus() != null ? openDayEvent.getCampus().getName() : "N/A");
-        data.put("campusId", openDayEvent.getCampus() != null ? openDayEvent.getCampus().getId() : null);
-        data.put("campusAddress", openDayEvent.getCampus() != null ? openDayEvent.getCampus().getAddress() : "N/A");
+        data.put("campusName", openDayEvent.getCampus().getName());
+        data.put("campusId", openDayEvent.getCampus().getId());
+        data.put("campusAddress", openDayEvent.getCampus().getAddress());
 
         data.put("status", openDayEvent.getStatus());
         data.put("createdAt", openDayEvent.getCreatedAt());
@@ -2440,8 +2440,8 @@ public class SchoolServiceImpl implements SchoolService {
             row.createCell(1).setCellValue(campaign.getName());
             row.createCell(2).setCellValue(campaign.getYear());
             row.createCell(3).setCellValue(campaign.getDescription());
-            row.createCell(4).setCellValue(campaign.getStartDate() != null ? campaign.getStartDate().toString() : "");
-            row.createCell(5).setCellValue(campaign.getEndDate() != null ? campaign.getEndDate().toString() : "");
+            row.createCell(4).setCellValue(campaign.getStartDate().toString());
+            row.createCell(5).setCellValue(campaign.getEndDate().toString());
             row.createCell(6).setCellValue(autoCheckAndExpireStatus(campaign).name());
         });
 
@@ -2452,7 +2452,6 @@ public class SchoolServiceImpl implements SchoolService {
     @Override
     public ResponseEntity<ResponseObject> createSchoolSubscription(CreateSubscriptionRequest request, HttpServletRequest httpRequest) {
 
-        // step 1 : xác thực school - campus chính
         Campus actorCampus = extractActorCampus();
 
         if (actorCampus == null)
@@ -2472,11 +2471,26 @@ public class SchoolServiceImpl implements SchoolService {
             );
         }
 
-        // step 2: lấy thông tin của gói cước
-        Subscription subscription = subscriptionRepo.findById(request.getPackageId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy gói dịch vụ trong hệ thống"));
+        Subscription subscription = subscriptionRepo.findById(request.getPackageId()).orElse(null);
 
-        if (subscription.getFinalPrice() == null || subscription.getFinalPrice().compareTo(BigDecimal.ZERO) <= 0) {
+        if (subscription == null) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Không tìm thấy gói dịch vụ trong hệ thống",
+                    null
+            );
+        }
+
+        // Chỉ cho phép thao tác với gói đang ở trạng thái active
+        if (subscription.getPackageStatus() != Status.PACKAGE_ACTIVE) {
+            return ResponseBuilder.build(
+                    HttpStatus.FORBIDDEN,
+                    "Gói dịch vụ này không khả dụng để mua/gia hạn",
+                    null
+            );
+        }
+
+        if (subscription.getFinalPrice().compareTo(BigDecimal.ZERO) <= 0) {
             return ResponseBuilder.build(
                     HttpStatus.BAD_REQUEST,
                     "Tổng tiền gói dịch vụ không hợp lệ",
@@ -2485,8 +2499,7 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         //ktra upgrade vs renew
-        List<SchoolSubscription> currentActiveSub =
-                schoolSubscriptionRepo.findBySchoolIdAndIsSelected(school.getId(), true);
+        List<SchoolSubscription> currentActiveSub = schoolSubscriptionRepo.findBySchoolIdAndIsSelected(school.getId(), true);
 
         LocalDate calculatedStartDate = LocalDate.now();
         LocalDate calculatedEndDate = calculatedStartDate.plusDays(subscription.getDurationDays());
@@ -2500,6 +2513,15 @@ public class SchoolServiceImpl implements SchoolService {
                     .get();
 
             if (current.getSubscription().getId().equals(request.getPackageId())) {
+                // Kiểm tra gói có bị pending deactive không
+                if (current.getSubscription().getPackageStatus().equals(Status.PACKAGE_INACTIVE_PENDING)) {
+                    return ResponseBuilder.build(
+                            HttpStatus.FORBIDDEN,
+                            "Gói này đã ngừng phát hành. Không thể gia hạn. Vui lòng chọn gói khác.",
+                            null
+                    );
+                }
+
                 // Nếu GIA HẠN (Renew) - Cùng loại gói
                 LocalDate baseDate = LocalDate.now().isAfter(current.getEndDate()) ? LocalDate.now() : current.getEndDate();
                 calculatedStartDate = baseDate;
@@ -2517,10 +2539,9 @@ public class SchoolServiceImpl implements SchoolService {
                     );
                 }
 
-                Integer currentDurationDays = current.getSubscription().getDurationDays();
-                Integer targetDurationDays = subscription.getDurationDays();
-                if (currentDurationDays == null || currentDurationDays <= 0
-                        || targetDurationDays == null || targetDurationDays <= 0) {
+                int currentDurationDays = current.getSubscription().getDurationDays();
+                int targetDurationDays = subscription.getDurationDays();
+                if (currentDurationDays <= 0 || targetDurationDays <= 0) {
                     return ResponseBuilder.build(
                             HttpStatus.BAD_REQUEST,
                             "Gói dịch vụ thiếu cấu hình thời hạn.",
@@ -2531,13 +2552,6 @@ public class SchoolServiceImpl implements SchoolService {
                 boolean isTrial = current.getSubscription().getPackageType() == PackageType.TRIAL;
                 BigDecimal currentPrice = isTrial ? BigDecimal.ZERO : current.getSubscription().getPrice();
                 BigDecimal targetPrice = subscription.getPrice();
-                if (targetPrice == null || (!isTrial && currentPrice == null)) {
-                    return ResponseBuilder.build(
-                            HttpStatus.BAD_REQUEST,
-                            "Giá gói không hợp lệ để nâng cấp.",
-                            null
-                    );
-                }
 
                 BigDecimal remainingDaysDecimal = BigDecimal.valueOf(remainingDays);
                 BigDecimal currentDailyPrice = currentPrice.divide(BigDecimal.valueOf(currentDurationDays), 6, RoundingMode.HALF_UP);
@@ -2584,6 +2598,10 @@ public class SchoolServiceImpl implements SchoolService {
                 .setScale(0, RoundingMode.HALF_UP)
                 .longValue();
 
+        if (amount == 0) {
+            return handleFreeSubscription(school, subscription, calculatedStartDate, calculatedEndDate, orderNote, httpRequest);
+        }
+
         if (amount <= 0) {
             return ResponseBuilder.build(
                     HttpStatus.BAD_REQUEST,
@@ -2616,13 +2634,52 @@ public class SchoolServiceImpl implements SchoolService {
         String vnp_SecureHash = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, hashData);
         String paymentUrl = VNPayConfig.vnp_PayUrl + "?" + queryUrl + "&vnp_SecureHash=" + vnp_SecureHash;
 
-        log.info("VNPay request prepared: tmnCode={}, returnUrl={}, txnRef={}, amount={}, version={}", VNPayConfig.vnp_TmnCode, VNPayConfig.vnp_ReturnUrl, vnp_TxnRef, amount, vnp_Params.get("vnp_Version"));
-        log.debug("VNPay hashData={}", hashData);
-        log.debug("VNPay secureHash={}", vnp_SecureHash);
-
         paymentTransactionRepo.save(PaymentTransaction.builder().school(school).schoolSubscription(schoolSubscription).vnpTxnRef(vnp_TxnRef).vnpAmount(amount).vnpOrderInfo(orderNote).status(Status.PAYMENT_PENDING).createdAt(LocalDateTime.now()).ipAddress(VNPayConfig.getIpAddress(httpRequest)).build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Payment URL tạo thành công", paymentUrl);
+    }
+
+    private ResponseEntity<ResponseObject> handleFreeSubscription(
+            School school,
+            Subscription subscription,
+            LocalDate startDate,
+            LocalDate endDate,
+            String note,
+            HttpServletRequest request) {
+
+        // 1. Tạo SchoolSubscription và kích hoạt luôn (isSelected = true)
+        String licenseKey = "LIC-FREE-" + VNPayConfig.getRandomNumber(8).toUpperCase();
+        SchoolSubscription schoolSubscription = SchoolSubscription.builder()
+                .school(school)
+                .subscription(subscription)
+                .startDate(startDate)
+                .endDate(endDate)
+                .isSelected(true) // Kích hoạt ngay
+                .licenseKey(licenseKey)
+                .build();
+        schoolSubscription = schoolSubscriptionRepo.save(schoolSubscription);
+
+        // 2. Ghi nhận vào lịch sử giao dịch (Status SUCCESS luôn)
+        paymentTransactionRepo.save(PaymentTransaction.builder()
+                .school(school)
+                .schoolSubscription(schoolSubscription)
+                .vnpTxnRef("FREE-" + System.currentTimeMillis())
+                .vnpAmount(0L)
+                .vnpOrderInfo(note)
+                .status(Status.PAYMENT_SUCCESS)
+                .createdAt(LocalDateTime.now())
+                .ipAddress(VNPayConfig.getIpAddress(request))
+                .build());
+
+        // 3. Thực hiện các logic hậu mãi (Hủy gói cũ, chia quota, gửi mail/noti)
+        activateSchoolSubscription(schoolSubscription);
+
+        notificationService.publish(
+                NotificationEventType.BUY_PACKAGE_FEE,
+                null,
+                buildBuyPackageNotificationContext(schoolSubscription)
+        );
+        return ResponseBuilder.build(HttpStatus.OK, "Kích hoạt gói dùng thử/ thành công", "/dashboard");
     }
 
     private String generateUniqueVnpTxnRef() {
@@ -2709,7 +2766,7 @@ public class SchoolServiceImpl implements SchoolService {
                 );
             }
 
-            if (transaction.getVnpAmount() == null || transaction.getVnpAmount() != callbackAmount) {
+            if (transaction.getVnpAmount() != callbackAmount) {
                 transaction.setStatus(Status.PAYMENT_FAILED);
                 transaction.setUpdatedAt(LocalDateTime.now());
                 paymentTransactionRepo.save(transaction);
@@ -2800,10 +2857,10 @@ public class SchoolServiceImpl implements SchoolService {
         School school = schoolSubscription.getSchool();
         Subscription subscription = schoolSubscription.getSubscription();
 
-        if (school != null && school.getName() != null && !school.getName().isBlank()) {
+        if (!school.getName().isBlank()) {
             contextData.put("actorName", school.getName().trim());
         }
-        if (subscription != null && subscription.getName() != null && !subscription.getName().isBlank()) {
+        if (!subscription.getName().isBlank()) {
             contextData.put("packageName", subscription.getName().trim());
         }
         return contextData;
@@ -2811,7 +2868,6 @@ public class SchoolServiceImpl implements SchoolService {
 
     private void distributeResourceQuotas(Integer schoolId, Subscription packageBought) {
         Map<String, Object> features = (Map<String, Object>) packageBought.getFeatures();
-        if (features == null) return;
 
         // Lấy số lượng Counsellor tối đa từ gói (Ví dụ key là "maxCounsellors")
         Object maxCounsellorsObj = features.get("maxCounsellors");
@@ -2827,9 +2883,7 @@ public class SchoolServiceImpl implements SchoolService {
         // Nếu chia có dư (ví dụ 10 slot cho 3 campus), slot dư có thể cộng vào Campus chính
         int remainder = totalMaxCounsellors % campuses.size();
 
-        for (int i = 0; i < campuses.size(); i++) {
-            Campus campus = campuses.get(i);
-
+        for (Campus campus : campuses) {
             // Tìm bản ghi quota hiện tại hoặc tạo mới
             CampusResourceQuota quota = campusResourceQuotaRepo
                     .findByCampusIdAndResourceType(campus.getId(), ResourceType.COUNSELLOR)
@@ -3043,6 +3097,7 @@ public class SchoolServiceImpl implements SchoolService {
         Campus actorCampus = extractActorCampus();
 
         // Quota (Hạn mức được chia)
+        assert actorCampus != null;
         var quotaOpt = campusResourceQuotaRepo.findByCampusIdAndResourceType(actorCampus.getId(), ResourceType.COUNSELLOR);
         int myQuota = quotaOpt.map(CampusResourceQuota::getMaxQuota).orElse(0);
 
@@ -3085,7 +3140,7 @@ public class SchoolServiceImpl implements SchoolService {
         Map<String, Object> resourceSummary = new LinkedHashMap<>();
         resourceSummary.put("totalPackageQuota", totalCounsellorsInPackage);
         resourceSummary.put("myCampusQuota", myQuota);
-        resourceSummary.put("otherCampusesQuota", Math.max(0, totalAllocatedToOthers));
+        resourceSummary.put("otherCampusesQuota", totalAllocatedToOthers);
         data.put("resourceSummary", resourceSummary);
 
         // ---------------STATUS HIÊNT THỊ---------------//
@@ -3180,6 +3235,11 @@ public class SchoolServiceImpl implements SchoolService {
                     Subscription targetSub = subscriptionRepo.findById(request.getTargetPackageId())
                             .orElseThrow(() -> new RuntimeException("Gói đích không tồn tại"));
 
+                    // Chỉ cho phép preview/upgrade với gói active
+                    if (targetSub.getPackageStatus() != Status.PACKAGE_ACTIVE) {
+                        throw new RuntimeException("Gói đích không khả dụng để chọn (không còn phát hành)");
+                    }
+
                     if (targetSub.getId().equals(activeSub.getSubscription().getId())) {
                         throw new RuntimeException("Gói đích phải khác gói hiện tại.");
                     }
@@ -3195,8 +3255,7 @@ public class SchoolServiceImpl implements SchoolService {
 
                     Integer currentDurationDays = activeSub.getSubscription().getDurationDays();
                     Integer targetDurationDays = targetSub.getDurationDays();
-                    if (currentDurationDays == null || currentDurationDays <= 0
-                            || targetDurationDays == null || targetDurationDays <= 0) {
+                    if (currentDurationDays <= 0 || targetDurationDays <= 0) {
                         throw new RuntimeException("Gói dịch vụ thiếu cấu hình thời hạn (durationDays).");
                     }
 
@@ -3205,9 +3264,6 @@ public class SchoolServiceImpl implements SchoolService {
                     // netAmount luôn là giá gốc trước thuế/phí để tránh tính chồng
                     BigDecimal currentVal = isTrial ? BigDecimal.ZERO : activeSub.getSubscription().getPrice();
                     BigDecimal targetVal = targetSub.getPrice();
-                    if (targetVal == null || (!isTrial && currentVal == null)) {
-                        throw new RuntimeException("Giá gói không hợp lệ để tính preview.");
-                    }
 
                     BigDecimal currentDailyPrice = currentVal.divide(BigDecimal.valueOf(currentDurationDays), 6, RoundingMode.HALF_UP);
                     BigDecimal targetDailyPrice = targetVal.divide(BigDecimal.valueOf(targetDurationDays), 6, RoundingMode.HALF_UP);
@@ -3239,11 +3295,8 @@ public class SchoolServiceImpl implements SchoolService {
                 //netAmount = giá_gói_hiện_tại
                 case RENEW -> {
                     netAmount = activeSub.getSubscription().getPrice();
-                    if (netAmount == null) {
-                        throw new RuntimeException("Giá gói hiện tại không hợp lệ để gia hạn.");
-                    }
-                    Integer durationDays = activeSub.getSubscription().getDurationDays();
-                    if (durationDays == null || durationDays <= 0) {
+                    int durationDays = activeSub.getSubscription().getDurationDays();
+                    if (durationDays <= 0) {
                         throw new RuntimeException("Gói hiện tại thiếu cấu hình thời hạn (durationDays).");
                     }
                     LocalDate baseDate = LocalDate.now().isAfter(activeSub.getEndDate()) ? LocalDate.now() : activeSub.getEndDate();

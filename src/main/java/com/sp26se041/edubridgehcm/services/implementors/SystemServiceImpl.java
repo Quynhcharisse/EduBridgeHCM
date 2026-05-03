@@ -30,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -126,15 +127,6 @@ public class SystemServiceImpl implements SystemService {
                         null
                 );
             }
-
-            double trialPrice = businessData.getSubscriptionPricing().getBasePrices().getTrial();
-            if (Double.compare(trialPrice, 0d) != 0) {
-                return ResponseBuilder.build(
-                        HttpStatus.BAD_REQUEST,
-                        "Giá gói trial phải luôn bằng 0.",
-                        null
-                );
-            }
         }
 
         updateConfig(request);
@@ -162,6 +154,18 @@ public class SystemServiceImpl implements SystemService {
         businessJson.put("serviceRate", business.getServiceRate());
         businessJson.put("minPay", business.getMinPay());
         businessJson.put("maxPay", business.getMaxPay());
+
+        BigDecimal trialBasePrice = business.getSubscriptionPricing().getBasePrices().getTrial();
+        BigDecimal standardBasePrice = business.getSubscriptionPricing().getBasePrices().getStandard();
+        BigDecimal enterpriseBasePrice = business.getSubscriptionPricing().getBasePrices().getEnterprise();
+
+        if (trialBasePrice == null || standardBasePrice == null || enterpriseBasePrice == null) {
+            throw new RuntimeException("Thiếu cấu hình giá nền cho một hoặc nhiều gói (trial/standard/enterprise).");
+        }
+
+        if (trialBasePrice.compareTo(standardBasePrice) > 0 || standardBasePrice.compareTo(enterpriseBasePrice) > 0) {
+            throw new RuntimeException("Giá nền gói dịch vụ phải tăng dần: Trial <= Standard <= Enterprise.");
+        }
 
         Map<String, Object> basePrices = new HashMap<>();
         basePrices.put("trial", business.getSubscriptionPricing().getBasePrices().getTrial());
@@ -270,12 +274,14 @@ public class SystemServiceImpl implements SystemService {
                 boolean hasPurchased = schoolSubscriptionRepo.existsBySubscriptionAndEndDateAfter(sub, LocalDate.now());
 
                 if (hasPurchased) {
-                    // TH1: Đang có người dùng -> Chuyển sang PENDING để "Lock", không cho mua mới/gia hạn
+                    //case co ng mua -> Chuyển sang PENDING để "Lock", không cho mua mới/gia hạn
                     sub.setPackageStatus(Status.PACKAGE_INACTIVE_PENDING);
-                    // Lưu vết giá mới vào trường new_price để Admin biết tại sao gói này bị deactive
+                    //luu gia moi vao trường new_price để Admin biết tại sao gói này bị deactive
+                    //luu ngay ap dung gia moi
                     sub.setNewPrice(newBreakdown.finalPrice());
+                    sub.setPriceApplyDate(LocalDate.now());
                 } else {
-                    // TH2: Chưa ai dùng -> chuyển deactive 
+                    // case chưa ai dùng -> chuyển deactive
                     sub.setPackageStatus(Status.PACKAGE_DEACTIVATED);
                 }
             }

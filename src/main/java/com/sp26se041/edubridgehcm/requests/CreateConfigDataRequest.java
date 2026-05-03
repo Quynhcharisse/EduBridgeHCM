@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -30,8 +31,8 @@ public class CreateConfigDataRequest {
     public static class BusinessData {
         double taxRate; // VAT
         double serviceRate; // Phí dịch vụ mà nền tảng thu
-        double minPay; // Số tiền thanh toán tối thiểu
-        double maxPay; //Số tiền thanh toán tối đa
+        BigDecimal minPay; // Số tiền thanh toán tối thiểu
+        BigDecimal maxPay; //Số tiền thanh toán tối đa
 
         SubscriptionPricing subscriptionPricing; //config chung của package fee
     }
@@ -52,9 +53,9 @@ public class CreateConfigDataRequest {
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class BasePrices {
-        double trial;
-        double standard;
-        double enterprise;
+        BigDecimal trial;
+        BigDecimal standard;
+        BigDecimal enterprise;
     }
 
     @Data
@@ -62,8 +63,8 @@ public class CreateConfigDataRequest {
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class FeatureUnitPrices {
-        double aiChatbotMonthlyFee;
-        double premiumSupportFee;
+        BigDecimal aiChatbotMonthlyFee;
+        BigDecimal premiumSupportFee;
     }
 
     @Data
@@ -73,7 +74,7 @@ public class CreateConfigDataRequest {
     public static class PackageQuotas {
         int durationDays;
         int trialCounsellor;  //Max value admin nhập
-        int standardCounsellor; 
+        int standardCounsellor;
         int enterpriseCounsellor;
         int trialPostLimit;  //Max value admin nhập
         int standardPostLimit;
@@ -85,7 +86,6 @@ public class CreateConfigDataRequest {
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class MediaData {
-
         // Dung lượng (Size)
         int maxImgSize;
         int maxDocSize;
