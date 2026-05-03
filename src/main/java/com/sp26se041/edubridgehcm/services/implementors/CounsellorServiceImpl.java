@@ -461,25 +461,6 @@ public class CounsellorServiceImpl implements CounsellorService {
 
         ConsultationOfflineRequest offlineRequest = consultationOfflineRequest.get();
 
-        boolean isBooked = consultationOfflineRequestRepo
-                .existsByCounsellorSlotAndAppointmentDateAndAppointmentTimeAndStatusIn(
-                        counsellorSlotOpt.get(),
-                        offlineRequest.getAppointmentDate(),
-                        offlineRequest.getAppointmentTime(),
-                        List.of(
-                                Status.CONSULTATION_CONFIRMED,
-                                Status.CONSULTATION_IN_PROGRESS
-                        )
-                );
-
-        if (isBooked) {
-            return ResponseBuilder.build(
-                    HttpStatus.BAD_REQUEST,
-                    "Slot tư vấn viên đã được đặt",
-                    null
-            );
-        }
-
         Status currentStatus = offlineRequest.getStatus();
 
         switch (consultationAction) {
@@ -492,10 +473,30 @@ public class CounsellorServiceImpl implements CounsellorService {
                             null
                     );
                 }
+
+                boolean isBooked = consultationOfflineRequestRepo
+                        .existsByCounsellorSlotAndAppointmentDateAndAppointmentTimeAndStatusInAndIdNot(
+                                counsellorSlotOpt.get(),
+                                offlineRequest.getAppointmentDate(),
+                                offlineRequest.getAppointmentTime(),
+                                List.of(
+                                        Status.CONSULTATION_CONFIRMED,
+                                        Status.CONSULTATION_IN_PROGRESS
+                                ),
+                                offlineRequest.getId()
+                        );
+
+                if (isBooked) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Slot tư vấn viên đã được đặt",
+                            null
+                    );
+                }
+                offlineRequest.setAppointmentTime(counsellorSlotOpt.get().getCampusScheduleTemplate().getStartTime());
+//                offlineRequest.setAppointmentDate();
                 offlineRequest.setCounsellor(counsellorSlotOpt.get().getCounsellor());
                 offlineRequest.setCounsellorSlot(counsellorSlotOpt.get());
-                offlineRequest.setAppointmentTime(offlineRequest.getAppointmentTime());
-                offlineRequest.setAppointmentDate(offlineRequest.getAppointmentDate());
                 offlineRequest.setStatus(Status.CONSULTATION_CONFIRMED);
             }
 
@@ -685,6 +686,14 @@ public class CounsellorServiceImpl implements CounsellorService {
         List<CampusScheduleTemplate> campusScheduleTemplates =
                 campusScheduleTemplateRepo.findByCampusIdAndActiveTrueOrderByStartTimeAsc(counsellor.getCampus().getId());
 
+        List<ConsultationOfflineRequest> allRequests =
+                consultationOfflineRequestRepo
+                        .findByCampusIdAndAppointmentDateBetween(
+                                counsellor.getCampus().getId(),
+                                startDate,
+                                endDate
+                        );
+
         List<Map<String, Object>> result = new ArrayList<>();
 
         for (CampusScheduleTemplate campusScheduleTemplate : campusScheduleTemplates) {
@@ -702,6 +711,14 @@ public class CounsellorServiceImpl implements CounsellorService {
             if (slotDate.isBefore(campaign.getStartDate()) || slotDate.isAfter(campaign.getEndDate())) {
                 continue;
             }
+
+            long totalRequests = allRequests.stream()
+                    .filter(r ->
+                            r.getAppointmentDate().equals(slotDate)
+                                    && r.getAppointmentTime().equals(campusScheduleTemplate.getStartTime())
+                                    && r.getStatus() != Status.CONSULTATION_CANCELLED
+                    )
+                    .count();
 
             Status status = getSlotStatus(
                     slotDate,
@@ -721,6 +738,7 @@ public class CounsellorServiceImpl implements CounsellorService {
             slotMap.put("statusLabel", status.getValue());
             slotMap.put("maxBookingPerSlot", maxBookingPerSlot);
             slotMap.put("allowBookingBeforeHours", allowBookingBeforeHours);
+            slotMap.put("totalRequests", totalRequests);
 
             result.add(slotMap);
         }

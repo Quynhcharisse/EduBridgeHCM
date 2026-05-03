@@ -66,4 +66,12 @@ ORDER BY
             @Param("parent") Parent parent,
             Pageable pageable
     );
+
+    List<ConsultationOfflineRequest> findByCampusIdAndAppointmentDateBetween(Integer campusId, LocalDate appointmentDateAfter, LocalDate appointmentDateBefore);
+
+    long countByAppointmentDateAndAppointmentTimeAndCampusAndStatusIn(LocalDate appointmentDate, LocalTime appointmentTime, Campus campus, Collection<Status> statuses);
+
+    List<ConsultationOfflineRequest> findByParentIdAndCampusIdAndAppointmentDateBetween(Integer parentId, Integer campusId, LocalDate appointmentDateAfter, LocalDate appointmentDateBefore);
+
+    boolean existsByCounsellorSlotAndAppointmentDateAndAppointmentTimeAndStatusInAndIdNot(CounsellorSlot counsellorSlot, LocalDate appointmentDate, LocalTime appointmentTime, Collection<Status> statuses, Long id);
 }
