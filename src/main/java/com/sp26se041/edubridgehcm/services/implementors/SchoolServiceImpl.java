@@ -2490,7 +2490,7 @@ public class SchoolServiceImpl implements SchoolService {
             );
         }
 
-        if (subscription.getFinalPrice().compareTo(BigDecimal.ZERO) <= 0) {
+        if (subscription.getFinalPrice().compareTo(BigDecimal.ZERO) < 0) {
             return ResponseBuilder.build(
                     HttpStatus.BAD_REQUEST,
                     "Tổng tiền gói dịch vụ không hợp lệ",
@@ -2559,6 +2559,7 @@ public class SchoolServiceImpl implements SchoolService {
                 BigDecimal creditOld = currentDailyPrice.multiply(remainingDaysDecimal).setScale(0, RoundingMode.HALF_UP);
                 BigDecimal chargeNew = targetDailyPrice.multiply(remainingDaysDecimal).setScale(0, RoundingMode.HALF_UP);
                 BigDecimal netAmount = chargeNew.subtract(creditOld);
+
                 if (netAmount.compareTo(BigDecimal.ZERO) < 0) {
                     return ResponseBuilder.build(
                             HttpStatus.BAD_REQUEST,
@@ -2679,7 +2680,7 @@ public class SchoolServiceImpl implements SchoolService {
                 null,
                 buildBuyPackageNotificationContext(schoolSubscription)
         );
-        return ResponseBuilder.build(HttpStatus.OK, "Kích hoạt gói dùng thử/ thành công", "/dashboard");
+        return ResponseBuilder.build(HttpStatus.OK, "Kích hoạt gói dùng thử thành công", null);
     }
 
     private String generateUniqueVnpTxnRef() {
