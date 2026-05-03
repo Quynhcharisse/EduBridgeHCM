@@ -1,7 +1,9 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.sp26se041.edubridgehcm.enums.ConsultationAction;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
+import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
 import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.models.ConsultationOfflineRequest;
@@ -9,8 +11,10 @@ import com.sp26se041.edubridgehcm.models.Conversation;
 import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.CounsellorSlot;
 import com.sp26se041.edubridgehcm.models.Parent;
+import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.StudentProfile;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
+import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
 import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
 import com.sp26se041.edubridgehcm.repositories.ConsultationOfflineRequestRepo;
@@ -18,6 +22,7 @@ import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorSlotRepo;
 import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.StudentInfoRepo;
 import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
 import com.sp26se041.edubridgehcm.requests.UpdateConsultationOfflineRequest;
@@ -41,6 +46,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -74,6 +80,8 @@ public class CounsellorServiceImpl implements CounsellorService {
 
     private final ConsultationOfflineRequestRepo consultationOfflineRequestRepo;
     private final CampusScheduleTemplateRepo campusScheduleTemplateRepo;
+    private final AdmissionCampaignRepo admissionCampaignRepo;
+    private final SchoolConfigRepo schoolConfigRepo;
 
 
     @Override
@@ -418,9 +426,9 @@ public class CounsellorServiceImpl implements CounsellorService {
     @Override
     public ResponseEntity<ResponseObject> updateConsultationOfflineRequest(UpdateConsultationOfflineRequest request) {
 
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-
-        Counsellor counsellor = counsellorRepo.findByAccountId(accountRepo.findByEmail(email).get().getId());
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế, không thể thực hiện thao tác này.", null);
+        }
 
         Optional<ConsultationOfflineRequest> consultationOfflineRequest =  consultationOfflineRequestRepo.findById(request.getId());
 
@@ -428,11 +436,122 @@ public class CounsellorServiceImpl implements CounsellorService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Lịch hẹn không tồn tại", null);
         }
 
+        Optional<CounsellorSlot> counsellorSlotOpt =
+                counsellorSlotRepo.findById(request.getCounsellorSlotId());
+
+        if (counsellorSlotOpt.isEmpty()) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Slot tư vấn không tồn tại",
+                    null
+            );
+        }
+
+        ConsultationAction consultationAction;
+
+        try {
+            consultationAction = parseConsultationAction(request.getAction());
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    e.getMessage(),
+                    null
+            );
+        }
+
         ConsultationOfflineRequest offlineRequest = consultationOfflineRequest.get();
 
+        boolean isBooked = consultationOfflineRequestRepo
+                .existsByCounsellorSlotAndAppointmentDateAndAppointmentTimeAndStatusIn(
+                        counsellorSlotOpt.get(),
+                        offlineRequest.getAppointmentDate(),
+                        offlineRequest.getAppointmentTime(),
+                        List.of(
+                                Status.CONSULTATION_CONFIRMED,
+                                Status.CONSULTATION_IN_PROGRESS
+                        )
+                );
 
+        if (isBooked) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Slot tư vấn viên đã được đặt",
+                    null
+            );
+        }
 
-        return null;
+        Status currentStatus = offlineRequest.getStatus();
+
+        switch (consultationAction) {
+
+            case CONFIRM -> {
+                if (currentStatus != Status.CONSULTATION_PENDING) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Chỉ có thể xác nhận lịch hẹn đang chờ xác nhận",
+                            null
+                    );
+                }
+                offlineRequest.setCounsellor(counsellorSlotOpt.get().getCounsellor());
+                offlineRequest.setCounsellorSlot(counsellorSlotOpt.get());
+                offlineRequest.setAppointmentTime(offlineRequest.getAppointmentTime());
+                offlineRequest.setAppointmentDate(offlineRequest.getAppointmentDate());
+                offlineRequest.setStatus(Status.CONSULTATION_CONFIRMED);
+            }
+
+//            case START -> {
+//                if (currentStatus != Status.CONSULTATION_CONFIRMED) {
+//                    return ResponseBuilder.build(
+//                            HttpStatus.BAD_REQUEST,
+//                            "Chỉ có thể bắt đầu lịch hẹn đã được xác nhận",
+//                            null
+//                    );
+//                }
+//
+//                offlineRequest.setStatus(Status.CONSULTATION_IN_PROGRESS);
+//            }
+//
+//            case END -> {
+//                if (currentStatus != Status.CONSULTATION_IN_PROGRESS) {
+//                    return ResponseBuilder.build(
+//                            HttpStatus.BAD_REQUEST,
+//                            "Chỉ có thể kết thúc lịch hẹn đang tư vấn",
+//                            null
+//                    );
+//                }
+//
+//                offlineRequest.setStatus(Status.CONSULTATION_COMPLETED);
+//            }
+//
+//            case CANCEL -> {
+//                if (currentStatus != Status.CONSULTATION_PENDING &&
+//                        currentStatus != Status.CONSULTATION_CONFIRMED) {
+//                    return ResponseBuilder.build(
+//                            HttpStatus.BAD_REQUEST,
+//                            "Chỉ có thể hủy lịch hẹn đang chờ xác nhận hoặc đã xác nhận",
+//                            null
+//                    );
+//                }
+//
+//                offlineRequest.setStatus(Status.CONSULTATION_CANCELLED);
+//            }
+//
+//            case NO_SHOW -> {
+//                if (currentStatus != Status.CONSULTATION_CONFIRMED) {
+//                    return ResponseBuilder.build(
+//                            HttpStatus.BAD_REQUEST,
+//                            "Chỉ có thể đánh dấu không đến với lịch hẹn đã xác nhận",
+//                            null
+//                    );
+//                }
+//
+//                offlineRequest.setStatus(Status.CONSULTATION_NO_SHOW);
+//            }
+        }
+
+        consultationOfflineRequestRepo.save(offlineRequest);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Cập nhật lịch hẹn thành công", null);
     }
 
     @Override
@@ -482,7 +601,7 @@ public class CounsellorServiceImpl implements CounsellorService {
                         );
 
         List<Map<String, Object>> result = counsellorSlots.stream()
-                .map(this::buildCounsellorInSlot)
+                .map(slot -> buildCounsellorInSlot(slot, appointmentDate, appointmentTime))
                 .toList();
 
         return ResponseBuilder.build(
@@ -492,21 +611,183 @@ public class CounsellorServiceImpl implements CounsellorService {
         );
     }
 
-    private Map<String, Object> buildCounsellorInSlot(CounsellorSlot slot) {
+    @Override
+    public ResponseEntity<ResponseObject> getSlotsOfCampus(LocalDate startDate, LocalDate endDate) {
+
+        if (startDate.getDayOfWeek() != DayOfWeek.MONDAY) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "startDate phải là Thứ 2", null);
+        }
+
+        if (endDate.getDayOfWeek() != DayOfWeek.SUNDAY) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "endDate phải là Chủ nhật", null);
+        }
+
+        if (endDate.isBefore(startDate)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "endDate phải lớn hơn startDate", null);
+        }
+
+        if (!startDate.plusDays(6).equals(endDate)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Phải chọn đúng 1 tuần (7 ngày)", null);
+        }
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        Counsellor counsellor = counsellorRepo.findByAccountId(accountRepo.findByEmail(email).get().getId());
+
+        if (counsellor == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tài khoản tư vấn viên không tồn tại trong hệ thống",null);
+        }
+
+        Optional<AdmissionCampaign> campaignOpt =
+                admissionCampaignRepo.findBySchoolIdAndYearAndStatus(
+                        counsellor.getCampus().getSchool().getId(),
+                        startDate.getYear(),
+                        Status.OPEN_ADMISSION_CAMPAIGN
+                );
+
+        if (campaignOpt.isEmpty()) {
+            return ResponseBuilder.build(
+                    HttpStatus.OK,
+                    "Lấy danh sách slot thành công",
+                    Collections.emptyList()
+            );
+        }
+
+        Object maxBookingPerSlot = "N/A";
+        Object allowBookingBeforeHours = "N/A";
+
+        if (counsellor.getCampus().getPolicyDetail() == null) {
+
+            Optional<SchoolConfig> schoolConfig = schoolConfigRepo.findBySchoolIdAndKey(counsellor.getCampus().getSchool().getId(), "operationSettingsData");
+
+            if (schoolConfig.isPresent()) {
+
+                SchoolConfig schoolConfigData = schoolConfig.get();
+
+                Map<String, Object> operationSettingsData = (Map<String, Object>) schoolConfigData.getValue();
+
+                maxBookingPerSlot = (int) operationSettingsData.get("maxBookingPerSlot");
+                allowBookingBeforeHours =
+                        ((Number) operationSettingsData.get("allowBookingBeforeHours")).intValue();
+            }
+        }
+
+        Map<String, Object> policyDetail = (Map<String, Object>) counsellor.getCampus().getPolicyDetail();
+
+        if (policyDetail != null) {
+            maxBookingPerSlot = (int) policyDetail.get("maxBookingPerSlot");
+            allowBookingBeforeHours =
+                    ((Number) policyDetail.get("allowBookingBeforeHours")).intValue();
+        }
+
+        AdmissionCampaign campaign = campaignOpt.get();
+
+        List<CampusScheduleTemplate> campusScheduleTemplates =
+                campusScheduleTemplateRepo.findByCampusIdAndActiveTrueOrderByStartTimeAsc(counsellor.getCampus().getId());
+
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        for (CampusScheduleTemplate campusScheduleTemplate : campusScheduleTemplates) {
+
+            LocalDate slotDate = getDateByDayOfWeek(
+                    startDate,
+                    endDate,
+                    campusScheduleTemplate.getDayOfWeek()
+            );
+
+            if (slotDate == null) {
+                continue;
+            }
+
+            if (slotDate.isBefore(campaign.getStartDate()) || slotDate.isAfter(campaign.getEndDate())) {
+                continue;
+            }
+
+            Status status = getSlotStatus(
+                    slotDate,
+                    campusScheduleTemplate.getStartTime(),
+                    campusScheduleTemplate.getEndTime()
+            );
+
+            Map<String, Object> slotMap = new HashMap<>();
+
+            slotMap.put("campusScheduleTemplateId", campusScheduleTemplate.getId());
+            slotMap.put("admissionCampaignId", campaign.getId());
+            slotMap.put("date", slotDate);
+            slotMap.put("dayOfWeek", campusScheduleTemplate.getDayOfWeek());
+            slotMap.put("startTime", campusScheduleTemplate.getStartTime());
+            slotMap.put("endTime", campusScheduleTemplate.getEndTime());
+            slotMap.put("status", status);
+            slotMap.put("statusLabel", status.getValue());
+            slotMap.put("maxBookingPerSlot", maxBookingPerSlot);
+            slotMap.put("allowBookingBeforeHours", allowBookingBeforeHours);
+
+            result.add(slotMap);
+        }
+
+        result.sort(
+                Comparator
+                        .comparing((Map<String, Object> m) -> (LocalDate) m.get("date"))
+                        .thenComparing(m -> (LocalTime) m.get("startTime"))
+        );
+
+        return ResponseBuilder.build(
+                HttpStatus.OK,
+                "Lấy danh sách slot thành công",
+                result
+        );
+    }
+
+    private ConsultationAction parseConsultationAction(String action) {
+
+        if (action == null || action.isBlank()) {
+            throw new IllegalArgumentException("Action không được để trống");
+        }
+
+        String normalized = action.trim().toLowerCase();
+
+        return Arrays.stream(ConsultationAction.values())
+                .filter(a -> a.getValue().equalsIgnoreCase(normalized))
+                .findFirst()
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Action không hợp lệ")
+                );
+    }
+
+    private Map<String, Object> buildCounsellorInSlot(
+            CounsellorSlot slot,
+            LocalDate appointmentDate,
+            LocalTime appointmentTime
+    ) {
         Map<String, Object> map = new HashMap<>();
+
+        boolean isBooked = consultationOfflineRequestRepo
+                .existsByCounsellorSlotAndAppointmentDateAndAppointmentTimeAndStatusIn(
+                        slot,
+                        appointmentDate,
+                        appointmentTime,
+                        List.of(
+                                Status.CONSULTATION_CONFIRMED,
+                                Status.CONSULTATION_IN_PROGRESS
+                        )
+                );
 
         Counsellor counsellor = slot.getCounsellor();
         CampusScheduleTemplate template = slot.getCampusScheduleTemplate();
 
         map.put("counsellorSlotId", slot.getId());
+        map.put("counsellorId", counsellor.getId());
         map.put("counsellorName", counsellor.getName());
-        map.put("email", counsellor.getAccount().getEmail());
-        map.put("avatarUrl", counsellor.getAvatar());
+
+        map.put("dayOfWeek", template.getDayOfWeek());
         map.put("startTime", template.getStartTime());
         map.put("endTime", template.getEndTime());
 
+        map.put("bookingStatus", isBooked ? "Đã được đặt" : "Còn trống");
+
         return map;
     }
+
 
     private Map<String, Object> buildConsultationOfflineRequest(
             ConsultationOfflineRequest request
