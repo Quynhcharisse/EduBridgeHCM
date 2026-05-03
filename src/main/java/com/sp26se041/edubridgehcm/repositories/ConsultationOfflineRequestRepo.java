@@ -3,6 +3,7 @@ package com.sp26se041.edubridgehcm.repositories;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.ConsultationOfflineRequest;
+import com.sp26se041.edubridgehcm.models.CounsellorSlot;
 import com.sp26se041.edubridgehcm.models.Parent;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,4 +25,6 @@ public interface ConsultationOfflineRequestRepo extends JpaRepository<Consultati
     Optional<ConsultationOfflineRequest> findAllByCampusIdAndAppointmentDateAndAppointmentTimeOrderByCreatedDateDesc(Integer campusId, LocalDate appointmentDate, LocalTime appointmentTime);
 
     Page<ConsultationOfflineRequest> findAllByCampusAndStatus(Campus campus, Status status, Pageable pageable);
+
+    boolean existsByCounsellorSlotAndAppointmentDateAndAppointmentTimeAndStatusIn(CounsellorSlot counsellorSlot, LocalDate appointmentDate, LocalTime appointmentTime, Collection<Status> statuses);
 }

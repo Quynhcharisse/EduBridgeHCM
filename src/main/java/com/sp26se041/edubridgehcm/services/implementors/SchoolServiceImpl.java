@@ -22,6 +22,7 @@ import com.sp26se041.edubridgehcm.models.CampusResourceQuota;
 import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
 import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.Curriculum;
+import com.sp26se041.edubridgehcm.models.FavouriteSchool;
 import com.sp26se041.edubridgehcm.models.OpenDayEvent;
 import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.PaymentTransaction;
@@ -951,6 +952,52 @@ public class SchoolServiceImpl implements SchoolService {
                 "languageOptions", languages
         );
         return ResponseBuilder.build(HttpStatus.OK, "Lấy mẫu chương trình quốc gia thành công", data);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getParentsInFavouriteSchool() {
+
+        Campus actorCampus = extractActorCampus();
+
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Chỉ cơ sở chính mới được phép thực hiện thao tác này", null);
+        }
+
+        List<FavouriteSchool> favouriteSchools = favouriteSchoolRepo.findBySchoolId(actorCampus.getSchool().getId());
+
+        List<Map<String, Object>> data = new ArrayList<>();
+
+        for (FavouriteSchool favouriteSchool : favouriteSchools) {
+            Map<String, Object> parentData = buildParentProfileData(favouriteSchool.getParent());
+            data.add(parentData);
+        }
+        return ResponseBuilder.build(HttpStatus.OK, "", data);
+    }
+
+    private Map<String, Object> buildParentProfileData( Parent parent ) {
+
+        Map<String, Object> parentData = new HashMap<>();
+        parentData.put("name", parent.getName());
+        parentData.put("gender", parent.getGender());
+        parentData.put("phone", parent.getPhone());
+        parentData.put("avatar", parent.getAvatar());
+        parentData.put("relationship", parent.getRelationship());
+        parentData.put("occupation", parent.getOccupation());
+        parentData.put("workplace", parent.getWorkplace());
+        parentData.put("currentAddress", parent.getCurrentAddress());
+        parentData.put("idCardNumber", parent.getIdCardNumber());
+
+        List<Map<String, Object>> children = parent.getStudentProfileList().stream().map(child -> {
+            Map<String, Object> childData = new HashMap<>();
+            childData.put("id", child.getId());
+            childData.put("name", child.getStudentName());
+            childData.put("gender", child.getGender());
+            return childData;
+        }).toList();
+
+        parentData.put("children", children);
+
+        return parentData;
     }
 
     @Override

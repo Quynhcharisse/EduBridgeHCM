@@ -94,6 +94,7 @@ import java.util.stream.Collectors;
 public class AdminServiceImpl implements AdminService {
 
     private final NotificationService notificationService;
+
     @Value("${AI_SERVICE_N8N}")
     private String n8nUrl;
 

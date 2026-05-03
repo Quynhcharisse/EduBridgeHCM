@@ -125,7 +125,9 @@ public class ParentServiceImpl implements ParentService {
     private final CampusScheduleTemplateRepo campusScheduleTemplateRepo;
 
     private final ConsultationOfflineRequestRepo consultationOfflineRequestRepo;
+
     private final AdmissionCampaignRepo admissionCampaignRepo;
+
     private final SchoolConfigRepo schoolConfigRepo;
 
     @Override
@@ -610,6 +612,7 @@ public class ParentServiceImpl implements ParentService {
         result.put("transcriptImages", studentProfile.getTranscriptImages());
 
         return result;
+
     }
 
     private boolean isBlank(String value) {
@@ -1493,6 +1496,33 @@ public class ParentServiceImpl implements ParentService {
         List<CampusScheduleTemplate> campusScheduleTemplates =
                 campusScheduleTemplateRepo.findByCampusIdAndActiveTrueOrderByStartTimeAsc(campusId);
 
+        Object maxBookingPerSlot = "N/A";
+        Object allowBookingBeforeHours = "N/A";
+
+        if (campus.getPolicyDetail() == null) {
+
+            Optional<SchoolConfig> schoolConfig = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "operationSettingsData");
+
+            if (schoolConfig.isPresent()) {
+
+                SchoolConfig schoolConfigData = schoolConfig.get();
+
+                Map<String, Object> operationSettingsData = (Map<String, Object>) schoolConfigData.getValue();
+
+                maxBookingPerSlot = (int) operationSettingsData.get("maxBookingPerSlot");
+                allowBookingBeforeHours =
+                        ((Number) operationSettingsData.get("allowBookingBeforeHours")).intValue();
+            }
+        }
+
+        Map<String, Object> policyDetail = (Map<String, Object>) campus.getPolicyDetail();
+
+        if (policyDetail != null) {
+            maxBookingPerSlot = (int) policyDetail.get("maxBookingPerSlot");
+            allowBookingBeforeHours =
+                    ((Number) policyDetail.get("allowBookingBeforeHours")).intValue();
+        }
+
         List<Map<String, Object>> result = new ArrayList<>();
 
         for (CampusScheduleTemplate campusScheduleTemplate : campusScheduleTemplates) {
@@ -1527,6 +1557,8 @@ public class ParentServiceImpl implements ParentService {
             slotMap.put("endTime", campusScheduleTemplate.getEndTime());
             slotMap.put("status", status);
             slotMap.put("statusLabel", status.getValue());
+            slotMap.put("maxBookingPerSlot", maxBookingPerSlot);
+            slotMap.put("allowBookingBeforeHours", allowBookingBeforeHours);
 
             result.add(slotMap);
         }
@@ -1632,7 +1664,23 @@ public class ParentServiceImpl implements ParentService {
             Optional<SchoolConfig> schoolConfig = schoolConfigRepo.findBySchoolIdAndKey(campus.get().getSchool().getId(), "operationSettingsData");
 
             if (schoolConfig.isEmpty()) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy cấu hình vận hành của trường", null);
+
+                ConsultationOfflineRequest consultationOfflineRequest = ConsultationOfflineRequest.builder()
+                        .appointmentDate(request.getAppointmentDate())
+                        .parent(parent.get())
+                        .phone(request.getPhone().trim())
+                        .question(request.getQuestion().trim())
+                        .appointmentTime(request.getAppointmentTime())
+                        .appointmentDate(request.getAppointmentDate())
+                        .campus(campus.get())
+                        .createdDate(LocalDate.now())
+                        .status(CONSULTATION_PENDING)
+                        .build();
+
+                consultationOfflineRequestRepo.save(consultationOfflineRequest);
+
+                return ResponseBuilder.build(HttpStatus.CREATED, "", null);
+
             }
 
             SchoolConfig schoolConfigData = schoolConfig.get();
@@ -1661,7 +1709,7 @@ public class ParentServiceImpl implements ParentService {
 
         Map<String, Object> policyDetail = (Map<String, Object>) campus.get().getPolicyDetail();
 
-        if (policyDetail != null && policyDetail.get("maxBookingPerSlot") != null) {
+        if (policyDetail != null) {
 
             int maxBookingPerSlot = (int) policyDetail.get("maxBookingPerSlot");
             int allowBookingBeforeHour =

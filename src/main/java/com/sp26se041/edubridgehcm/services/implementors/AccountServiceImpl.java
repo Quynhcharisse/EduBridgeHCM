@@ -715,6 +715,7 @@ public class AccountServiceImpl implements AccountService {
         parentData.put("workplace", parent.getWorkplace());
         parentData.put("currentAddress", parent.getCurrentAddress());
         parentData.put("idCardNumber", parent.getIdCardNumber());
+
         return parentData;
     }
 
