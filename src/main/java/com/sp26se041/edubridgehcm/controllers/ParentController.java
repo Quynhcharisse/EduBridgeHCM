@@ -176,7 +176,7 @@ public class ParentController {
     }
 
     @GetMapping("/student/{id}")
-    @PreAuthorize("hasAnyRole('PARENT')")
+    @PreAuthorize("hasAnyRole('PARENT', 'SCHOOL')")
     public ResponseEntity<ResponseObject> getStudentInfoById(@PathVariable int id) {
         return parentService.getStudentInfo(id);
     }

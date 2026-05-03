@@ -16,4 +16,6 @@ public interface FavouriteSchoolRepo extends JpaRepository<FavouriteSchool, Long
     Page<FavouriteSchool> findByParentIdOrderByCreatedAtDesc(Integer parentId, Pageable pageable);
 
     List<FavouriteSchool> findByParentId(Integer parentId);
+
+    List<FavouriteSchool> findBySchoolId(Integer schoolId);
 }

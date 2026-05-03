@@ -804,6 +804,14 @@ public class CounsellorServiceImpl implements CounsellorService {
         map.put("parentId", request.getParent().getId());
         map.put("parentName", request.getParent().getName());
 
+        LocalDate appointmentDate = request.getAppointmentDate();
+
+        LocalDate startOfWeek = appointmentDate.with(java.time.DayOfWeek.MONDAY);
+        LocalDate endOfWeek = appointmentDate.with(java.time.DayOfWeek.SUNDAY);
+
+        map.put("startDateOfWeek", startOfWeek);
+        map.put("endDateOfWeek", endOfWeek);
+
         return map;
     }
 
