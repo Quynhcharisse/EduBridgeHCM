@@ -43,7 +43,6 @@ import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.ReassignConsultationsRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
@@ -83,6 +82,8 @@ import org.springframework.web.client.RestTemplate;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.Normalizer;
@@ -1905,130 +1906,6 @@ public class CampusServiceImpl implements CampusService {
         return ResponseBuilder.build(HttpStatus.OK, "Lấy các khung giờ có chuyên viên rảnh theo ngày thành công.", groupedByTime);
     }
 
-    @Override
-    @Transactional
-    public ResponseEntity<ResponseObject> reassignConsultationRequests(ReassignConsultationsRequest request) {
-
-        if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế, không thể thực hiện thao tác này.", null);
-        }
-
-        Campus actorCampus = extractActorCampus();
-        if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
-        }
-
-        if (request.getFromSlotId() == null || request.getToSlotId() == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cần gửi fromSlotId và toSlotId.", null);
-        }
-        if (request.getFromSlotId().equals(request.getToSlotId())) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Slot nguồn và slot đích phải khác nhau.", null);
-        }
-
-        CounsellorSlot fromSlot = counsellorSlotRepo.findById(request.getFromSlotId()).orElse(null);
-        CounsellorSlot toSlot = counsellorSlotRepo.findById(request.getToSlotId()).orElse(null);
-        if (fromSlot == null || toSlot == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy slot nguồn hoặc slot đích.", null);
-        }
-        if (!fromSlot.getCampusScheduleTemplate().getCampus().getId().equals(actorCampus.getId())
-                || !toSlot.getCampusScheduleTemplate().getCampus().getId().equals(actorCampus.getId())) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Slot không thuộc cơ sở của tài khoản hiện tại.", null);
-        }
-        if (toSlot.getStatus() != Status.AVAILABLE) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Slot đích phải đang ở trạng thái sẵn sàng (AVAILABLE).", null);
-        }
-
-        CampusScheduleTemplate fromT = fromSlot.getCampusScheduleTemplate();
-        CampusScheduleTemplate toT = toSlot.getCampusScheduleTemplate();
-        if (!templatesAlignedForConsultationReassign(fromT, toT)) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Slot đích phải cùng thứ trong tuần, cùng khung giờ và cùng buổi (session) với slot nguồn.", null);
-        }
-        if (!campaignsAlignedForConsultationReassign(fromSlot, toSlot)) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Slot đích phải cùng chiến dịch tuyển sinh với slot nguồn (hoặc cả hai chưa gắn campaign — không hỗ trợ điều chuyển).", null);
-        }
-
-        List<ConsultationOfflineRequest> candidates = fromSlot.getConsultationOfflineRequests() == null
-                ? List.of()
-                : fromSlot.getConsultationOfflineRequests();
-        List<ConsultationOfflineRequest> toMove = candidates.stream()
-                .filter(r -> CounsellorSlotValidation.BLOCKING_CONSULTATION_STATUSES_FOR_UNASSIGN.contains(r.getStatus()))
-                .filter(r -> request.getConsultationRequestIds() == null
-                        || request.getConsultationRequestIds().isEmpty()
-                        || request.getConsultationRequestIds().contains(r.getId()))
-                .toList();
-
-        if (toMove.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Không có lịch hẹn ở trạng thái chờ / đã xác nhận / đang diễn ra để điều chuyển trên slot nguồn.", null);
-        }
-
-        List<Long> movedIds = new ArrayList<>();
-        for (ConsultationOfflineRequest r : toMove) {
-            if (r.getAppointmentDate() == null) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Lịch hẹn thiếu ngày hẹn (appointmentDate), không thể điều chuyển.", null);
-            }
-            if (!appointmentWithinSlotDateRange(r.getAppointmentDate(), toSlot)) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, String.format(
-                        "Ngày hẹn %s nằm ngoài khoảng ngày hiệu lực của slot đích (%s → %s).",
-                        r.getAppointmentDate(), toSlot.getStartDate(), toSlot.getEndDate()), null);
-            }
-            if (!appointmentMatchesTemplateDayOfWeek(r.getAppointmentDate(), toT)) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                        "Ngày hẹn không khớp thứ trong tuần của khung slot đích.", null);
-            }
-            if (!isSlotAvailable(toSlot, r.getAppointmentDate())) {
-                return ResponseBuilder.build(HttpStatus.CONFLICT,
-                        "Slot đích đã có lịch hẹn trùng ngày ở trạng thái chặn. Chọn slot khác hoặc ngày khác.", null);
-            }
-            r.setCounsellorSlot(toSlot);
-            if (toSlot.getCounsellor() != null) {
-                r.setCounsellor(toSlot.getCounsellor());
-            }
-            consultationOfflineRequestRepo.save(r);
-            counsellorSlotRepo.flush();
-            entityManager.refresh(toSlot);
-            movedIds.add(r.getId());
-        }
-
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("fromSlotId", request.getFromSlotId());
-        body.put("toSlotId", request.getToSlotId());
-        body.put("movedConsultationRequestIds", movedIds);
-        body.put("movedCount", movedIds.size());
-
-        return ResponseBuilder.build(HttpStatus.OK, "Điều chuyển lịch hẹn sang chuyên viên / slot mới thành công.", body);
-    }
-
-    private static boolean templatesAlignedForConsultationReassign(CampusScheduleTemplate from, CampusScheduleTemplate to) {
-        if (from == null || to == null) {
-            return false;
-        }
-        return from.getDayOfWeek().equalsIgnoreCase(to.getDayOfWeek())
-                && from.getStartTime().equals(to.getStartTime())
-                && from.getEndTime().equals(to.getEndTime())
-                && Objects.equals(from.getSessionType(), to.getSessionType());
-    }
-
-    private static boolean campaignsAlignedForConsultationReassign(CounsellorSlot from, CounsellorSlot to) {
-        if (from.getAdmissionCampaign() == null || to.getAdmissionCampaign() == null) {
-            return false;
-        }
-        return from.getAdmissionCampaign().getId().equals(to.getAdmissionCampaign().getId());
-    }
-
-    private static boolean appointmentWithinSlotDateRange(LocalDate appointmentDate, CounsellorSlot slot) {
-        return slot.getStartDate() != null && slot.getEndDate() != null
-                && !appointmentDate.isBefore(slot.getStartDate())
-                && !appointmentDate.isAfter(slot.getEndDate());
-    }
-
-    private static boolean appointmentMatchesTemplateDayOfWeek(LocalDate appointmentDate, CampusScheduleTemplate template) {
-        String dow = appointmentDate.getDayOfWeek().name().substring(0, 3);
-        return template.getDayOfWeek() != null && dow.equalsIgnoreCase(template.getDayOfWeek());
-    }
-
     private Map<String, Object> buildCounsellorSlotData(CounsellorSlot slot) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("slotId", slot.getId());
@@ -2432,6 +2309,14 @@ public class CampusServiceImpl implements CampusService {
 
     private ResponseEntity<Resource> buildFileResponse(Path path, String fileName) throws IOException {
         Resource resource = new UrlResource(path.toUri());
-        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"").contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")).body(resource);
+        String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        String contentDisposition = "attachment; filename=\""
+                + fileName.replaceAll("[^\\x20-\\x7E]", "_")
+                + "\"; filename*=UTF-8''" + encodedFileName;
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition)
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(resource);
     }
 }
