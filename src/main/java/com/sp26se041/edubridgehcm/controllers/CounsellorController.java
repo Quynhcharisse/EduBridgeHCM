@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.controllers;
 
+import com.sp26se041.edubridgehcm.requests.UpdateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.CounsellorService;
 import com.sp26se041.edubridgehcm.services.ParentService;
@@ -80,5 +81,10 @@ public class CounsellorController {
         return counsellorService.getSlotsOfCampus(startDate, endDate);
     }
 
+    @PutMapping("/consultation/offline")
+    @PreAuthorize("hasAnyRole('COUNSELLOR')")
+    public ResponseEntity<ResponseObject> updateConsultationOfflineRequest(UpdateConsultationOfflineRequest updateConsultationOfflineRequest){
+        return counsellorService.updateConsultationOfflineRequest(updateConsultationOfflineRequest);
+    }
 
 }

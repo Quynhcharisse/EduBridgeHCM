@@ -15,7 +15,9 @@ import java.time.LocalTime;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateConsultationOfflineRequest {
     Long id;
-    LocalTime appointmentTime;
+    LocalDate appointmentDate;
+    String note;
+    String cancelReason;
     int counsellorSlotId;
     String action;
 }

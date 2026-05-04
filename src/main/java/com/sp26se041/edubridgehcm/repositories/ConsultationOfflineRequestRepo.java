@@ -3,6 +3,7 @@ package com.sp26se041.edubridgehcm.repositories;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.ConsultationOfflineRequest;
+import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.CounsellorSlot;
 import com.sp26se041.edubridgehcm.models.Parent;
 import org.springframework.data.domain.Page;
@@ -74,4 +75,6 @@ ORDER BY
     List<ConsultationOfflineRequest> findByParentIdAndCampusIdAndAppointmentDateBetween(Integer parentId, Integer campusId, LocalDate appointmentDateAfter, LocalDate appointmentDateBefore);
 
     boolean existsByCounsellorSlotAndAppointmentDateAndAppointmentTimeAndStatusInAndIdNot(CounsellorSlot counsellorSlot, LocalDate appointmentDate, LocalTime appointmentTime, Collection<Status> statuses, Long id);
+
+    List<ConsultationOfflineRequest> findByCounsellorAndAppointmentDateAndAppointmentTime(Counsellor counsellor, LocalDate appointmentDate, LocalTime appointmentTime);
 }
