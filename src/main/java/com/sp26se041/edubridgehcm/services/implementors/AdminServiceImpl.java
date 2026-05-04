@@ -1108,10 +1108,9 @@ public class AdminServiceImpl implements AdminService {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("transactionId", t.getId());
             row.put("schoolName", t.getSchool().getName());
+
             String packageName = "N/A";
-            if (t.getSchoolSubscription().getSubscription() != null) {
-                packageName = t.getSchoolSubscription().getSubscription().getName();
-            }
+            packageName = t.getSchoolSubscription().getSubscription().getName();
             row.put("packageName", packageName);
             row.put("txnRef", t.getVnpTxnRef());
             row.put("vnpTransactionNo", t.getVnpTransactionNo());
@@ -1120,10 +1119,9 @@ public class AdminServiceImpl implements AdminService {
             row.put("cardType", t.getVnpCardType());
          
             Long displayAmount = t.getStatus() == Status.PAYMENT_PENDING ? t.getExpectedAmount() : t.getVnpAmount();
-            if (displayAmount == null) displayAmount = 0L;
             row.put("amount", displayAmount / 100.0);
-            row.put("expectedAmount", (t.getExpectedAmount() != null ? t.getExpectedAmount() : 0L) / 100.0);
-            row.put("paidAmount", (t.getVnpAmount() != null ? t.getVnpAmount() : 0L) / 100.0);
+            row.put("expectedAmount", t.getExpectedAmount() / 100.0);
+            row.put("paidAmount", t.getVnpAmount() / 100.0);
             
             row.put("status", t.getStatus());
             row.put("createdAt", t.getCreatedAt());
