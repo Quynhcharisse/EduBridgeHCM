@@ -20,6 +20,7 @@ import lombok.experimental.FieldDefaults;
 import org.jspecify.annotations.NullMarked;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Data
@@ -29,7 +30,6 @@ import java.time.LocalTime;
 @Entity
 @Table(name = "consultation_offline_request")
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@NullMarked
 public class ConsultationOfflineRequest {
 
     @Id
@@ -42,8 +42,14 @@ public class ConsultationOfflineRequest {
     @Column(name = "question", length = 1100)
     String question;
 
-    @Column(name = "note")
+    @Column(name = "note", length = 5000)
     String note;
+
+    @Column(name = "cancel_by", length = 500)
+    String cancelBy;
+
+    @Column(name = "cancel_time")
+    LocalDateTime cancelTime;
 
     @Column(name = "appointment_time")
     LocalTime appointmentTime;
@@ -58,7 +64,7 @@ public class ConsultationOfflineRequest {
     @Column(name = "status")
     Status status;
 
-    @Column(name = "cancel_reason")
+    @Column(name = "cancel_reason", length = 500)
     String cancelReason;
 
     @ManyToOne

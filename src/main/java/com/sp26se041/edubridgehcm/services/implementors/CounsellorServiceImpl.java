@@ -138,7 +138,20 @@ public class CounsellorServiceImpl implements CounsellorService {
                     scheduleTemplate.getEndTime()
             );
 
+            List<ConsultationOfflineRequest> requests =
+                    consultationOfflineRequestRepo
+                            .findByCounsellorAndAppointmentDateAndAppointmentTime(
+                                    counsellor,
+                                    slotDate,
+                                    scheduleTemplate.getStartTime()
+                            );
+
+            List<Map<String, Object>> consultationOfflineRequests = requests.stream()
+                    .map(this::buildConsultationOfflineRequest)
+                    .toList();
+
             Map<String, Object> slotMap = new HashMap<>();
+
             slotMap.put("counsellorSlotId", counsellorSlot.getId());
             slotMap.put("counsellorId", counsellor.getId());
             slotMap.put("campusScheduleTemplateId", scheduleTemplate.getId());
@@ -148,6 +161,8 @@ public class CounsellorServiceImpl implements CounsellorService {
             slotMap.put("endTime", scheduleTemplate.getEndTime());
             slotMap.put("status", status);           // UPCOMING / ONGOING / PAST
             slotMap.put("statusLabel", status.getValue());  // Tiếng Việt
+
+            slotMap.put("consultationOfflineRequests", consultationOfflineRequests);
 
             result.add(slotMap);
         }
@@ -436,17 +451,6 @@ public class CounsellorServiceImpl implements CounsellorService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Lịch hẹn không tồn tại", null);
         }
 
-        Optional<CounsellorSlot> counsellorSlotOpt =
-                counsellorSlotRepo.findById(request.getCounsellorSlotId());
-
-        if (counsellorSlotOpt.isEmpty()) {
-            return ResponseBuilder.build(
-                    HttpStatus.BAD_REQUEST,
-                    "Slot tư vấn không tồn tại",
-                    null
-            );
-        }
-
         ConsultationAction consultationAction;
 
         try {
@@ -474,11 +478,51 @@ public class CounsellorServiceImpl implements CounsellorService {
                     );
                 }
 
+                Optional<CounsellorSlot> counsellorSlotOpt =
+                        counsellorSlotRepo.findById(request.getCounsellorSlotId());
+
+                if (counsellorSlotOpt.isEmpty()) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Slot tư vấn không tồn tại",
+                            null
+                    );
+                }
+
+                // ===== VALIDATE DATE =====
+                if (request.getAppointmentDate() == null) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Ngày hẹn không được để trống",
+                            null
+                    );
+                }
+
+                LocalDate slotDate = request.getAppointmentDate();
+                LocalTime slotTime = counsellorSlotOpt.get()
+                        .getCampusScheduleTemplate()
+                        .getStartTime();
+
+                String slotDay = counsellorSlotOpt.get()
+                        .getCampusScheduleTemplate()
+                        .getDayOfWeek(); // MON
+
+                String requestDay = slotDate.getDayOfWeek().name().substring(0, 3);
+
+                if (!requestDay.equals(slotDay)) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Ngày hẹn không khớp với slot đã chọn",
+                            null
+                    );
+                }
+
+                // ===== CHECK SLOT BỊ CHIẾM =====
                 boolean isBooked = consultationOfflineRequestRepo
                         .existsByCounsellorSlotAndAppointmentDateAndAppointmentTimeAndStatusInAndIdNot(
                                 counsellorSlotOpt.get(),
-                                offlineRequest.getAppointmentDate(),
-                                offlineRequest.getAppointmentTime(),
+                                slotDate,
+                                slotTime,
                                 List.of(
                                         Status.CONSULTATION_CONFIRMED,
                                         Status.CONSULTATION_IN_PROGRESS
@@ -493,61 +537,118 @@ public class CounsellorServiceImpl implements CounsellorService {
                             null
                     );
                 }
-                offlineRequest.setAppointmentTime(counsellorSlotOpt.get().getCampusScheduleTemplate().getStartTime());
-//                offlineRequest.setAppointmentDate();
+
+                // ===== UPDATE DATA =====
+                offlineRequest.setAppointmentDate(slotDate);
+                offlineRequest.setAppointmentTime(slotTime);
                 offlineRequest.setCounsellor(counsellorSlotOpt.get().getCounsellor());
                 offlineRequest.setCounsellorSlot(counsellorSlotOpt.get());
                 offlineRequest.setStatus(Status.CONSULTATION_CONFIRMED);
             }
 
-//            case START -> {
-//                if (currentStatus != Status.CONSULTATION_CONFIRMED) {
-//                    return ResponseBuilder.build(
-//                            HttpStatus.BAD_REQUEST,
-//                            "Chỉ có thể bắt đầu lịch hẹn đã được xác nhận",
-//                            null
-//                    );
-//                }
-//
-//                offlineRequest.setStatus(Status.CONSULTATION_IN_PROGRESS);
-//            }
-//
-//            case END -> {
-//                if (currentStatus != Status.CONSULTATION_IN_PROGRESS) {
-//                    return ResponseBuilder.build(
-//                            HttpStatus.BAD_REQUEST,
-//                            "Chỉ có thể kết thúc lịch hẹn đang tư vấn",
-//                            null
-//                    );
-//                }
-//
-//                offlineRequest.setStatus(Status.CONSULTATION_COMPLETED);
-//            }
-//
-//            case CANCEL -> {
-//                if (currentStatus != Status.CONSULTATION_PENDING &&
-//                        currentStatus != Status.CONSULTATION_CONFIRMED) {
-//                    return ResponseBuilder.build(
-//                            HttpStatus.BAD_REQUEST,
-//                            "Chỉ có thể hủy lịch hẹn đang chờ xác nhận hoặc đã xác nhận",
-//                            null
-//                    );
-//                }
-//
-//                offlineRequest.setStatus(Status.CONSULTATION_CANCELLED);
-//            }
-//
-//            case NO_SHOW -> {
-//                if (currentStatus != Status.CONSULTATION_CONFIRMED) {
-//                    return ResponseBuilder.build(
-//                            HttpStatus.BAD_REQUEST,
-//                            "Chỉ có thể đánh dấu không đến với lịch hẹn đã xác nhận",
-//                            null
-//                    );
-//                }
-//
-//                offlineRequest.setStatus(Status.CONSULTATION_NO_SHOW);
-//            }
+            case START -> {
+                if (currentStatus != Status.CONSULTATION_CONFIRMED) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Chỉ có thể bắt đầu lịch hẹn đã được xác nhận",
+                            null
+                    );
+                }
+
+                offlineRequest.setStatus(Status.CONSULTATION_IN_PROGRESS);
+            }
+
+            case END -> {
+                if (currentStatus != Status.CONSULTATION_IN_PROGRESS) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Chỉ có thể kết thúc lịch hẹn đang tư vấn",
+                            null
+                    );
+                }
+                // Validate note
+                if (request.getNote() == null || request.getNote().trim().isEmpty()) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Vui lòng nhập nội dung tóm tắt buổi tư vấn",
+                            null
+                    );
+                }
+
+                if (request.getNote().length() > 5000) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Nội dung tóm tắt không được vượt quá 5000 ký tự",
+                            null
+                    );
+                }
+
+                offlineRequest.setNote(request.getNote().trim());
+                offlineRequest.setStatus(Status.CONSULTATION_COMPLETED);
+            }
+
+            case CANCEL -> {
+                if (currentStatus != Status.CONSULTATION_PENDING &&
+                        currentStatus != Status.CONSULTATION_CONFIRMED) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Chỉ có thể hủy lịch hẹn đang chờ xác nhận hoặc đã xác nhận",
+                            null
+                    );
+                }
+
+                String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+                // Validate cancelReason
+                if (request.getCancelReason() == null || request.getCancelReason().trim().isEmpty()) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Vui lòng nhập lý do hủy lịch hẹn",
+                            null
+                    );
+                }
+
+                if (request.getCancelReason().length() > 500) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Lý do hủy không được vượt quá 500 ký tự",
+                            null
+                    );
+                }
+
+                offlineRequest.setCancelBy(email);
+                offlineRequest.setCancelReason(request.getCancelReason().trim());
+                offlineRequest.setCancelTime(LocalDateTime.now());
+                offlineRequest.setStatus(Status.CONSULTATION_CANCELLED);
+            }
+
+            case NO_SHOW -> {
+                if (currentStatus != Status.CONSULTATION_CONFIRMED) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Chỉ có thể đánh dấu không đến với lịch hẹn đã xác nhận",
+                            null
+                    );
+                }
+
+                LocalDateTime appointmentDateTime = LocalDateTime.of(
+                        offlineRequest.getAppointmentDate(),
+                        offlineRequest.getAppointmentTime()
+                );
+
+                LocalDateTime now = LocalDateTime.now();
+
+                // Chưa tới giờ hẹn thì không cho NO_SHOW
+                if (now.isBefore(appointmentDateTime)) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Chưa tới thời gian hẹn, không thể đánh dấu không đến",
+                            null
+                    );
+                }
+
+                offlineRequest.setStatus(Status.CONSULTATION_NO_SHOW);
+            }
         }
 
         consultationOfflineRequestRepo.save(offlineRequest);
@@ -810,6 +911,7 @@ public class CounsellorServiceImpl implements CounsellorService {
     private Map<String, Object> buildConsultationOfflineRequest(
             ConsultationOfflineRequest request
     ) {
+
         Map<String, Object> map = new HashMap<>();
 
         map.put("id", request.getId());
@@ -829,6 +931,26 @@ public class CounsellorServiceImpl implements CounsellorService {
 
         map.put("startDateOfWeek", startOfWeek);
         map.put("endDateOfWeek", endOfWeek);
+
+        if (request.getCounsellor() == null) {
+            map.put("counsellorId", null);
+            map.put("counsellorName", "N/A");
+        } else {
+            map.put("counsellorId", request.getCounsellor().getId());
+            map.put("counsellorName", request.getCounsellor().getAccount().getEmail());
+        }
+
+        if (request.getCancelReason() == null) {
+            map.put("cancelReason", null);
+        } else {
+            map.put("cancelReason", request.getCancelReason().trim());
+        }
+
+        if (request.getNote() == null) {
+            map.put("note", null);
+        } else {
+            map.put("note", request.getNote().trim());
+        }
 
         return map;
     }

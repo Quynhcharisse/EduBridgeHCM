@@ -1855,7 +1855,22 @@ public class ParentServiceImpl implements ParentService {
         result.put("question", consultationOfflineRequest.getQuestion());
         result.put("appointmentDate", consultationOfflineRequest.getAppointmentDate());
         result.put("appointmentTime", consultationOfflineRequest.getAppointmentTime());
+        result.put("schoolName", consultationOfflineRequest.getCampus().getSchool().getName());
+        result.put("campusName", consultationOfflineRequest.getCampus().getName());
+        result.put("address", consultationOfflineRequest.getCampus().getAddress());
         result.put("status", consultationOfflineRequest.getStatus().getValue());
+
+        if (consultationOfflineRequest.getNote() == null) {
+            result.put("note", null);
+        } else {
+            result.put("note", consultationOfflineRequest.getNote().trim());
+        }
+
+        if (consultationOfflineRequest.getCancelReason() == null) {
+            result.put("cancelReason", null);
+        } else {
+            result.put("cancelReason", consultationOfflineRequest.getCancelReason());
+        }
 
         return result;
     }
