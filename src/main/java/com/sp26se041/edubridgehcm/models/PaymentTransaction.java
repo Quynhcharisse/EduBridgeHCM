@@ -43,15 +43,17 @@ public class PaymentTransaction {
     @JoinColumn(name = "school_subscription_id")
     SchoolSubscription schoolSubscription;
 
-    // VNPay transaction information
     @Column(name = "vnp_txn_ref", unique = true, nullable = false)
     String vnpTxnRef; // mã giao dịch của hệ thống
 
     @Column(name = "vnp_transaction_no")
     String vnpTransactionNo; // mã giao dịch của VNPay
 
+    @Column(name = "expected_amount")
+    Long expectedAmount;
+
     @Column(name = "vnp_amount")
-    Long vnpAmount; // số tiền thanh toán (VNĐ * 100)
+    Long vnpAmount;
 
     @Column(name = "vnp_order_info")
     String vnpOrderInfo; // thông tin đơn hàng
@@ -79,7 +81,4 @@ public class PaymentTransaction {
 
     @Column(name = "ip_address")
     String ipAddress; // IP của người thực hiện thanh toán
-
-    @Column(name = "notes", columnDefinition = "TEXT")
-    String notes; // note về giao dịch
 }

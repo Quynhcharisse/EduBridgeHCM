@@ -224,6 +224,16 @@ public class SchoolController {
         return schoolService.handleVNPayCallback(request);
     }
 
+    @GetMapping("/payment/receipt")
+    public ResponseEntity<ResponseObject> viewPaymentReceipt(@RequestParam String txnRef) {
+        return schoolService.viewPaymentReceipt(txnRef);
+    }
+
+    @GetMapping("/subscription/receipt/export")
+    public ResponseEntity<byte[]> exportPaymentReceipt(@RequestParam String txnRef) {
+        return schoolService.exportPaymentReceipt(txnRef);
+    }
+
     @GetMapping("/current/subscription")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> viewCurrentSubscription() {

@@ -92,16 +92,15 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -779,7 +778,21 @@ public class CampusServiceImpl implements CampusService {
 
         Account account = accountRepo.save(Account.builder().email(normalize(request.getEmail())).role(Role.COUNSELLOR).status(Status.ACCOUNT_ACTIVE).registerDate(LocalDate.now()).firstLogin(true).build());
 
-        Counsellor counsellor = counsellorRepo.save(Counsellor.builder().account(account).campus(actorCampus).avatar(request.getAvatar()).employeeCode(UUID.randomUUID()).build());
+        String rawName = request.getEmail() != null && request.getEmail().contains("@")
+                ? request.getEmail().split("@")[0]   // cắt trước @
+                : "Tư vấn viên";
+
+        String generatedName = Arrays.stream(rawName.split("[._-]"))
+                .map(part -> part.isEmpty() ? "" :
+                        Character.toUpperCase(part.charAt(0)) + part.substring(1).toLowerCase())
+                .collect(Collectors.joining(" "));
+
+        Counsellor counsellor = counsellorRepo.save(Counsellor.builder()
+                .account(account)
+                .campus(actorCampus)
+                .avatar(request.getAvatar())
+                .name(generatedName)
+                .employeeCode(UUID.randomUUID()).build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Tạo tài khoản chuyên viên tư vấn thành công.", buildCounsellorData(counsellor));
     }
@@ -1565,17 +1578,11 @@ public class CampusServiceImpl implements CampusService {
         return ResponseBuilder.build(HttpStatus.OK, (isAssign ? "Gán" : "Hủy gán") + " chuyên viên tư vấn thành công.", resultBody);
     }
 
-    /**
-     * Tránh snapshot sau DELETE vẫn đọc entity cũ trong persistence context (first-level cache).
-     */
     private void clearPersistenceContextBeforeSnapshot() {
         entityManager.flush();
         entityManager.clear();
     }
 
-    /**
-     * Danh sách gán hiện tại của campus — cùng cấu trúc phần tử với GET /counsellor/slots/assigned.
-     */
     private List<Map<String, Object>> loadAssignedSlotsSnapshot(Integer campusId) {
         List<CounsellorSlot> slots = counsellorSlotRepo.findByCampusScheduleTemplate_Campus_Id(campusId);
         return slots.stream()
@@ -1584,9 +1591,6 @@ public class CampusServiceImpl implements CampusService {
                 .toList();
     }
 
-    /**
-     * Danh sách id khung lịch (bỏ trùng, bỏ null).
-     */
     private static List<Integer> resolveAssignTemplateIds(AssignCounsellorIntoSlotsRequest request) {
         if (request.getTemplateIds() == null || request.getTemplateIds().isEmpty()) {
             return List.of();
@@ -1594,9 +1598,6 @@ public class CampusServiceImpl implements CampusService {
         return request.getTemplateIds().stream().filter(id -> id != null).distinct().toList();
     }
 
-    /**
-     * Id bản ghi counsellor_slot khi UNASSIGN theo slotId (bỏ trùng, bỏ null).
-     */
     private static List<Integer> resolveUnassignSlotIds(AssignCounsellorIntoSlotsRequest request) {
         if (request.getSlotIds() == null || request.getSlotIds().isEmpty()) {
             return List.of();
@@ -1604,9 +1605,6 @@ public class CampusServiceImpl implements CampusService {
         return request.getSlotIds().stream().filter(Objects::nonNull).distinct().toList();
     }
 
-    /**
-     * Hủy theo slotId: slot không còn đăng ký chặn → xóa bản ghi; có phụ huynh chờ/xác nhận/đang diễn ra → lỗi (cần điều chuyển trước).
-     */
     private void unassignCounsellorSlotsByIds(AssignCounsellorIntoSlotsRequest request, Campus actorCampus, List<Integer> slotIds) {
 
         List<Integer> allowedCounsellorIds = (request.getCounsellorIds() != null)
@@ -1630,9 +1628,6 @@ public class CampusServiceImpl implements CampusService {
         }
     }
 
-    /**
-     * UNASSIGN theo khoảng ngày + đúng một counsellor; không gửi templateIds/slotIds.
-     */
     private static boolean isRangeBulkUnassignRequest(AssignCounsellorIntoSlotsRequest request) {
         if (request.getCounsellorIds() == null || request.getCounsellorIds().size() != 1) {
             return false;

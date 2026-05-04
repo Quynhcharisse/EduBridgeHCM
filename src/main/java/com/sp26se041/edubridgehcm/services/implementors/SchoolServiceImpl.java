@@ -1,5 +1,16 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
+import com.lowagie.text.Document;
+import com.lowagie.text.Element;
+import com.lowagie.text.Font;
+import com.lowagie.text.PageSize;
+import com.lowagie.text.Paragraph;
+import com.lowagie.text.Phrase;
+import com.lowagie.text.Rectangle;
+import com.lowagie.text.pdf.BaseFont;
+import com.lowagie.text.pdf.PdfPCell;
+import com.lowagie.text.pdf.PdfPTable;
+import com.lowagie.text.pdf.PdfWriter;
 import com.sp26se041.edubridgehcm.configurations.VNPayConfig;
 import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.CategoryTemplate;
@@ -109,14 +120,17 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.Normalizer;
+import java.text.NumberFormat;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -139,16 +153,19 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.awt.Color;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class SchoolServiceImpl implements SchoolService {
 
-    private final PostRepo postRepo;
-    private final SubjectRepo subjectRepo;
     @Value("${AI_SERVICE_N8N}")
     private String n8nUrl;
+
+    private final PostRepo postRepo;
+
+    private final SubjectRepo subjectRepo;
 
     private final CampusRepo campusRepo;
 
@@ -2529,7 +2546,7 @@ public class SchoolServiceImpl implements SchoolService {
                 amountToCharge = subscription.getFinalPrice();
                 orderNote = "Gia hạn gói " + normalize(subscription.getName()) + " từ ngày " + calculatedStartDate;
             } else {
-                // Nếu NÂNG CẤP (Upgrade) - Khác loại gói
+                // Nếu CHUYỂN GÓI (Switch Plan) - Khác loại gói
                 long remainingDays = ChronoUnit.DAYS.between(LocalDate.now(), current.getEndDate());
                 if (remainingDays <= 0) {
                     return ResponseBuilder.build(
@@ -2563,16 +2580,28 @@ public class SchoolServiceImpl implements SchoolService {
                 if (netAmount.compareTo(BigDecimal.ZERO) < 0) {
                     return ResponseBuilder.build(
                             HttpStatus.BAD_REQUEST,
-                            "Không thể hạ cấp gói trong thao tác nâng cấp.",
+                            "Không thể chuyển xuống gói thấp hơn. Vui lòng chọn gói có giá trị cao hơn.",
                             null
                     );
                 }
 
-                ConfigSystemUtil.SubscriptionPriceBreakdown breakdown = calculateBreakdownFromNet(netAmount);
-                amountToCharge = breakdown.finalPrice();
+                // trả full tiền gói mới + bù ngày từ giá trị còn lại gói cũ
+                //giá 1 ngày gói cũ
+                BigDecimal oldDailyPrice = currentPrice.divide(BigDecimal.valueOf(currentDurationDays), 6, RoundingMode.HALF_UP);
+
+                //giá 1 ngày gói mới
+                BigDecimal newDailyPrice = targetPrice.divide(BigDecimal.valueOf(targetDurationDays), 6, RoundingMode.HALF_UP);
+
+                //giá trị tiền còn lại trong gói cũ
+                BigDecimal remainingValue = oldDailyPrice.multiply(BigDecimal.valueOf(remainingDays));
+
+                long bonusDays = newDailyPrice.compareTo(BigDecimal.ONE) > 0 ? remainingValue.divide(newDailyPrice, 0, RoundingMode.FLOOR).longValue() : 0L;
+
+
+                amountToCharge = subscription.getFinalPrice();
                 calculatedStartDate = LocalDate.now();
-                calculatedEndDate = current.getEndDate(); // giữ nguyên hạn cũ theo policy preview
-                orderNote = "Nâng cấp lên gói " + normalize(subscription.getName()) + " theo proration";
+                calculatedEndDate = LocalDate.now().plusDays(targetDurationDays + bonusDays);
+                orderNote = "Chuyen goi sang " + normalize(subscription.getName()) + " bu them " + bonusDays + " ngay tu goi cu";
             }
         }
 
@@ -2635,7 +2664,16 @@ public class SchoolServiceImpl implements SchoolService {
         String vnp_SecureHash = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, hashData);
         String paymentUrl = VNPayConfig.vnp_PayUrl + "?" + queryUrl + "&vnp_SecureHash=" + vnp_SecureHash;
 
-        paymentTransactionRepo.save(PaymentTransaction.builder().school(school).schoolSubscription(schoolSubscription).vnpTxnRef(vnp_TxnRef).vnpAmount(amount).vnpOrderInfo(orderNote).status(Status.PAYMENT_PENDING).createdAt(LocalDateTime.now()).ipAddress(VNPayConfig.getIpAddress(httpRequest)).build());
+        paymentTransactionRepo.save(PaymentTransaction.builder()
+                .school(school)
+                .schoolSubscription(schoolSubscription)
+                .vnpTxnRef(vnp_TxnRef)
+                .expectedAmount(amount)
+                .vnpAmount(0L)
+                .vnpOrderInfo(orderNote)
+                .status(Status.PAYMENT_PENDING)
+                .createdAt(LocalDateTime.now())
+                .ipAddress(VNPayConfig.getIpAddress(httpRequest)).build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Payment URL tạo thành công", paymentUrl);
     }
@@ -2698,6 +2736,46 @@ public class SchoolServiceImpl implements SchoolService {
     @Transactional
     public ResponseEntity<ResponseObject> handleVNPayCallback(HttpServletRequest request) {
 
+        ResponseEntity<ResponseObject> callbackResponse = processVNPayCallback(request);
+        String vnpResponseCode = request.getParameter("vnp_ResponseCode");
+        String vnpTxnRef = request.getParameter("vnp_TxnRef");
+
+        String paymentStatus = callbackResponse.getStatusCode().is2xxSuccessful() && "00".equals(vnpResponseCode)
+                ? "success"
+                : "failed";
+
+        StringBuilder redirectUrl = new StringBuilder(VNPayConfig.vnp_FrontendResultUrl);
+        redirectUrl.append(VNPayConfig.vnp_FrontendResultUrl.contains("?") ? "&" : "?");
+        redirectUrl.append("status=").append(paymentStatus);
+
+        if (vnpTxnRef != null && !vnpTxnRef.isBlank()) {
+            redirectUrl.append("&txnRef=")
+                    .append(URLEncoder.encode(vnpTxnRef, StandardCharsets.UTF_8));
+        }
+
+        if (vnpResponseCode != null && !vnpResponseCode.isBlank()) {
+            redirectUrl.append("&responseCode=")
+                    .append(URLEncoder.encode(vnpResponseCode, StandardCharsets.UTF_8));
+        }
+
+        Map<String, Object> bodyMap = new HashMap<>();
+        bodyMap.put("status", paymentStatus);
+        bodyMap.put("redirectUrl", redirectUrl.toString());
+        if (vnpTxnRef != null && !vnpTxnRef.isBlank()) bodyMap.put("txnRef", vnpTxnRef);
+        if (vnpResponseCode != null && !vnpResponseCode.isBlank()) bodyMap.put("responseCode", vnpResponseCode);
+
+        ResponseObject body = ResponseObject.builder()
+                .message("VNPay callback processed")
+                .body(bodyMap)
+                .build();
+
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(URI.create(redirectUrl.toString()))
+                .body(body);
+    }
+
+    private ResponseEntity<ResponseObject> processVNPayCallback(HttpServletRequest request) {
+
         Map<String, String> vnp_Params = new HashMap<>();
 
         Map<String, String[]> requestParams = request.getParameterMap();
@@ -2717,7 +2795,6 @@ public class SchoolServiceImpl implements SchoolService {
         Map<String, String> sortedFields = new TreeMap<>(vnp_Params);
         String hashData = buildVnpHashDataFromRawQuery(request.getQueryString());
         if (hashData.isBlank()) {
-            // Fallback cho các case test nội bộ không truyền raw query string đầy đủ.
             hashData = buildVnpHashData(sortedFields);
         }
         String checkSum = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, hashData);
@@ -2746,7 +2823,6 @@ public class SchoolServiceImpl implements SchoolService {
                 );
             }
 
-            // 4. Tìm giao dịch trong hệ thống
             PaymentTransaction transaction =
                     paymentTransactionRepo.findByVnpTxnRef(vnp_TxnRef).orElse(null);
 
@@ -2758,7 +2834,6 @@ public class SchoolServiceImpl implements SchoolService {
                 );
             }
 
-            // Kiểm tra xem giao dịch này đã được xử lý trước đó chưa (tránh IPN gọi trùng)
             if (transaction.getStatus() != Status.PAYMENT_PENDING) {
                 return ResponseBuilder.build(
                         HttpStatus.OK,
@@ -2767,8 +2842,15 @@ public class SchoolServiceImpl implements SchoolService {
                 );
             }
 
-            if (transaction.getVnpAmount() != callbackAmount) {
+            Long expectedAmount = transaction.getExpectedAmount();
+            if (expectedAmount == null || expectedAmount != callbackAmount) {
                 transaction.setStatus(Status.PAYMENT_FAILED);
+                transaction.setVnpAmount(0L);
+                transaction.setVnpResponseCode(vnp_ResponseCode);
+                transaction.setVnpTransactionNo(vnp_Params.get("vnp_TransactionNo"));
+                transaction.setVnpBankCode(vnp_Params.get("vnp_BankCode"));
+                transaction.setVnpCardType(vnp_Params.get("vnp_CardType"));
+                transaction.setVnpPayDate(vnp_Params.get("vnp_PayDate"));
                 transaction.setUpdatedAt(LocalDateTime.now());
                 paymentTransactionRepo.save(transaction);
                 return ResponseBuilder.build(
@@ -2781,6 +2863,12 @@ public class SchoolServiceImpl implements SchoolService {
             if ("00".equals(vnp_ResponseCode)) {
                 // Cập nhật giao dịch
                 transaction.setStatus(Status.PAYMENT_SUCCESS);
+                transaction.setVnpAmount(callbackAmount); // Set số tiền ĐÃ thanh toán từ callback
+                transaction.setVnpResponseCode(vnp_ResponseCode);
+                transaction.setVnpTransactionNo(vnp_Params.get("vnp_TransactionNo"));
+                transaction.setVnpBankCode(vnp_Params.get("vnp_BankCode"));
+                transaction.setVnpCardType(vnp_Params.get("vnp_CardType"));
+                transaction.setVnpPayDate(vnp_Params.get("vnp_PayDate"));
                 transaction.setUpdatedAt(LocalDateTime.now());
                 paymentTransactionRepo.save(transaction);
 
@@ -2804,6 +2892,12 @@ public class SchoolServiceImpl implements SchoolService {
             } else {
                 // thanh toán thất bại (Người dùng hủy hoặc lỗi thẻ)
                 transaction.setStatus(Status.PAYMENT_FAILED);
+                transaction.setVnpAmount(0L);
+                transaction.setVnpResponseCode(vnp_ResponseCode);
+                transaction.setVnpTransactionNo(vnp_Params.get("vnp_TransactionNo"));
+                transaction.setVnpBankCode(vnp_Params.get("vnp_BankCode"));
+                transaction.setVnpCardType(vnp_Params.get("vnp_CardType"));
+                transaction.setVnpPayDate(vnp_Params.get("vnp_PayDate"));
                 transaction.setUpdatedAt(LocalDateTime.now());
                 paymentTransactionRepo.save(transaction);
 
@@ -2909,13 +3003,23 @@ public class SchoolServiceImpl implements SchoolService {
             return "Payment package";
         }
 
-        String normalizedText = rawOrderInfo.trim().replaceAll("\\s+", " ");
-        // VNPay accepts text order info; keep a conservative safe character set.
-        normalizedText = normalizedText.replaceAll("[^a-zA-Z0-9 _.,:-]", "");
-        if (normalizedText.length() > 255) {
-            normalizedText = normalizedText.substring(0, 255);
+        String normalized = Normalizer.normalize(rawOrderInfo.trim(), Normalizer.Form.NFD);
+
+        normalized = normalized.replaceAll("\\p{M}", "");
+
+        normalized = normalized.replace("đ", "d").replace("Đ", "D");
+
+
+        normalized = normalized.replaceAll("[^a-zA-Z0-9 _.,:-]", "");
+
+        normalized = normalized.replaceAll("\\s+", " ");
+
+
+        if (normalized.length() > 255) {
+            normalized = normalized.substring(0, 255);
         }
-        return normalizedText;
+
+        return normalized.trim();
     }
 
     private String buildVnpQueryString(Map<String, String> params) {
@@ -3012,7 +3116,273 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     private String urlEncode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.US_ASCII);
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> viewPaymentReceipt(String txnRef) {
+
+        if (txnRef == null || txnRef.isBlank())
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Thiếu mã giao dịch.", null);
+
+        PaymentTransaction tx = paymentTransactionRepo.findByVnpTxnRef(txnRef).orElse(null);
+        if (tx == null)
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy giao dịch.", null);
+
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null || !actorCampus.getSchool().getId().equals(tx.getSchool().getId()))
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền xem hóa đơn này.", null);
+
+        if (tx.getStatus() != Status.PAYMENT_SUCCESS)
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Giao dịch chưa thanh toán thành công.", null);
+
+        SchoolSubscription sub = tx.getSchoolSubscription();
+        Subscription pkg = sub.getSubscription();
+
+        String payDateRaw = tx.getVnpPayDate();
+        String payDateFormatted = formatVnpDate(payDateRaw);
+
+        long paidAmount = tx.getVnpAmount() / 100;
+
+        Map<String, Object> receipt = new LinkedHashMap<>();
+
+        Map<String, Object> transactionInfo = new LinkedHashMap<>();
+        transactionInfo.put("txnRef", tx.getVnpTxnRef());
+        transactionInfo.put("vnpTransactionNo", tx.getVnpTransactionNo());
+        transactionInfo.put("payDate", payDateFormatted);
+        transactionInfo.put("bankCode", tx.getVnpBankCode());
+        transactionInfo.put("cardType", tx.getVnpCardType());
+        transactionInfo.put("status", "THANH TOÁN THÀNH CÔNG");
+        receipt.put("transaction", transactionInfo);
+
+        Map<String, Object> schoolInfo = new LinkedHashMap<>();
+        schoolInfo.put("schoolName", tx.getSchool().getName());
+        receipt.put("school", schoolInfo);
+
+        Map<String, Object> packageInfo = new LinkedHashMap<>();
+        packageInfo.put("packageName", pkg.getName());
+        packageInfo.put("packageType", pkg.getPackageType());
+        packageInfo.put("durationDays", pkg.getDurationDays());
+        packageInfo.put("licenseKey", sub.getLicenseKey());
+        packageInfo.put("startDate", sub.getStartDate());
+        packageInfo.put("endDate", sub.getEndDate());
+        receipt.put("package", packageInfo);
+
+        Map<String, Object> financial = new LinkedHashMap<>();
+        financial.put("basePrice", pkg.getPrice());
+        financial.put("serviceFee", pkg.getServiceFee());
+        financial.put("taxFee", pkg.getTaxFee());
+        financial.put("totalPaid", paidAmount);
+        receipt.put("financial", financial);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy hóa đơn thành công", receipt);
+    }
+
+    @Override
+    public ResponseEntity<byte[]> exportPaymentReceipt(String txnRef) {
+        if (txnRef == null || txnRef.isBlank())
+            return ResponseEntity.badRequest().build();
+
+        PaymentTransaction tx = paymentTransactionRepo.findByVnpTxnRef(txnRef).orElse(null);
+        if (tx == null)
+            return ResponseEntity.notFound().build();
+
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null || !actorCampus.getSchool().getId().equals(tx.getSchool().getId()))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        if (tx.getStatus() != Status.PAYMENT_SUCCESS)
+            return ResponseEntity.badRequest().build();
+
+        SchoolSubscription sub = tx.getSchoolSubscription();
+        Subscription pkg = sub.getSubscription();
+        long paidAmount = tx.getVnpAmount() != null ? tx.getVnpAmount() / 100 : 0L;
+
+        try {
+            byte[] pdfBytes = buildReceiptPdf(tx, sub, pkg, paidAmount);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDispositionFormData("attachment",
+                    "hoa-don-" + txnRef + ".pdf");
+
+            return ResponseEntity.ok().headers(headers).body(pdfBytes);
+
+        } catch (Exception e) {
+            log.error("Lỗi xuất hóa đơn txnRef={}: {}", txnRef, e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    private byte[] buildReceiptPdf(PaymentTransaction tx,
+                                   SchoolSubscription sub,
+                                   Subscription pkg,
+                                   long paidAmount) throws Exception {
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        Document doc = new Document(PageSize.A4, 40, 40, 50, 50);
+        PdfWriter.getInstance(doc, out);
+        doc.open();
+
+        // --- Font ---
+        BaseFont bf = BaseFont.createFont(
+                "fonts/Arial.ttf",
+                BaseFont.IDENTITY_H,
+                BaseFont.EMBEDDED
+        );
+
+        Font fontTitle   = new Font(bf, 20, Font.BOLD,   new Color(30, 90, 160));
+        Font fontHeader  = new Font(bf, 11, Font.BOLD,   Color.WHITE);
+        Font fontLabel   = new Font(bf, 10, Font.BOLD,   Color.DARK_GRAY);
+        Font fontValue   = new Font(bf, 10, Font.NORMAL, Color.BLACK);
+        Font fontSmall   = new Font(bf,  9, Font.ITALIC, Color.GRAY);
+        Font fontTotal   = new Font(bf, 12, Font.BOLD,   new Color(30, 90, 160));
+        Font fontSuccess = new Font(bf, 10, Font.BOLD,   new Color(34, 139, 34));
+
+        NumberFormat moneyFmt = NumberFormat.getInstance(new Locale("vi", "VN"));
+
+        // ===== TIÊU ĐỀ =====
+        Paragraph title = new Paragraph("EDUBRIDGEHCM", fontTitle);
+        title.setAlignment(Element.ALIGN_CENTER);
+        doc.add(title);
+
+        Paragraph subtitle = new Paragraph("HÓA ĐƠN DỊCH VỤ", new Font(bf, 14, Font.BOLD, Color.DARK_GRAY));
+        subtitle.setAlignment(Element.ALIGN_CENTER);
+        subtitle.setSpacingAfter(20);
+        doc.add(subtitle);
+
+        // ===== TRẠNG THÁI =====
+        Paragraph statusLine = new Paragraph("THANH TOAN THANH CONG", fontSuccess);
+        statusLine.setAlignment(Element.ALIGN_CENTER);
+        statusLine.setSpacingAfter(15);
+        doc.add(statusLine);
+
+        // ===== THÔNG TIN GIAO DỊCH =====
+        doc.add(buildSectionTable("THONG TIN GIAO DICH",
+                new String[][]{
+                        {"Ma giao dich he thong", tx.getVnpTxnRef()},
+                        {"Ma giao dich VNPay",    tx.getVnpTransactionNo()},
+                        {"Ngan hang",             tx.getVnpBankCode()},
+                        {"Loai the",              tx.getVnpCardType()},
+                        {"Thoi gian thanh toan",  formatVnpDate(tx.getVnpPayDate())},
+                }, fontHeader, fontLabel, fontValue));
+
+        // ===== THÔNG TIN TRƯỜNG =====
+        doc.add(buildSectionTable("THONG TIN DON VI",
+                new String[][]{
+                        {"Ten truong", tx.getSchool().getName()},
+                }, fontHeader, fontLabel, fontValue));
+
+        // ===== THÔNG TIN GÓI =====
+        doc.add(buildSectionTable("THONG TIN GOI DICH VU",
+                new String[][]{
+                        {"Ten goi",      pkg.getName()},
+                        {"Loai goi",     pkg.getPackageType().getValue()},
+                        {"Thoi han",     pkg.getDurationDays() + " ngay"},
+                        {"License Key",  sub.getLicenseKey()},
+                        {"Ngay bat dau", sub.getStartDate().toString()},
+                        {"Ngay het han", sub.getEndDate().toString()},
+                }, fontHeader, fontLabel, fontValue));
+
+        // ===== CHI TIẾT TÀI CHÍNH =====
+        doc.add(buildSectionTable("CHI TIET THANH TOAN",
+                new String[][]{
+                        {"Gia goc",     moneyFmt.format(pkg.getPrice())     + " VND"},
+                        {"Phi dich vu", moneyFmt.format(pkg.getServiceFee()) + " VND"},
+                        {"Thue VAT",    moneyFmt.format(pkg.getTaxFee())     + " VND"},
+                }, fontHeader, fontLabel, fontValue));
+
+        // ===== TỔNG TIỀN =====
+        PdfPTable totalTable = new PdfPTable(2);
+        totalTable.setWidthPercentage(100);
+        totalTable.setWidths(new float[]{60f, 40f});
+        totalTable.setSpacingBefore(5);
+        totalTable.setSpacingAfter(20);
+
+        Color totalBg = new Color(240, 245, 255);
+
+        PdfPCell labelCell = new PdfPCell(new Phrase("TONG TIEN DA THANH TOAN", fontTotal));
+        labelCell.setBorder(Rectangle.TOP);
+        labelCell.setPadding(8);
+        labelCell.setBackgroundColor(totalBg);
+
+        PdfPCell valueCell = new PdfPCell(new Phrase(moneyFmt.format(paidAmount) + " VND", fontTotal));
+        valueCell.setBorder(Rectangle.TOP);
+        valueCell.setPadding(8);
+        valueCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        valueCell.setBackgroundColor(totalBg);
+
+        totalTable.addCell(labelCell);
+        totalTable.addCell(valueCell);
+        doc.add(totalTable);
+
+        // ===== FOOTER =====
+        Paragraph footer = new Paragraph(
+                "Hoa don duoc xuat tu dong tu he thong EduBridgeHCM.\n" +
+                        "Vui long lien he support@edubridgehcm.vn neu co thac mac.",
+                fontSmall);
+        footer.setAlignment(Element.ALIGN_CENTER);
+        doc.add(footer);
+
+        doc.close();
+        return out.toByteArray();
+    }
+
+    private PdfPTable buildSectionTable(String sectionTitle,
+                                        String[][] rows,
+                                        Font fontHeader,
+                                        Font fontLabel,
+                                        Font fontValue) throws Exception {
+        PdfPTable table = new PdfPTable(2);
+        table.setWidthPercentage(100);
+        table.setWidths(new float[]{40f, 60f});
+        table.setSpacingBefore(10);
+        table.setSpacingAfter(5);
+
+        // Header row
+        PdfPCell header = new PdfPCell(new Phrase(sectionTitle, fontHeader));
+        header.setColspan(2);
+        header.setBackgroundColor(new Color(30, 90, 160));
+        header.setPadding(7);
+        header.setBorder(Rectangle.NO_BORDER);
+        table.addCell(header);
+
+        // Data rows
+        Color rowColor1 = Color.WHITE;
+        Color rowColor2 = new Color(245, 248, 255);
+        Color borderColor = new Color(220, 220, 220);
+        boolean alternate = false;
+
+        for (String[] row : rows) {
+            Color bg = alternate ? rowColor2 : rowColor1;
+
+            PdfPCell cellLabel = new PdfPCell(new Phrase(row[0], fontLabel));
+            cellLabel.setBackgroundColor(bg);
+            cellLabel.setPadding(6);
+            cellLabel.setBorderColor(borderColor);
+
+            PdfPCell cellValue = new PdfPCell(new Phrase(row[1] != null ? row[1] : "-", fontValue));
+            cellValue.setBackgroundColor(bg);
+            cellValue.setPadding(6);
+            cellValue.setBorderColor(borderColor);
+
+            table.addCell(cellLabel);
+            table.addCell(cellValue);
+            alternate = !alternate;
+        }
+
+        return table;
+    }
+
+    private String formatVnpDate(String raw) {
+        if (raw == null || raw.length() < 14) return raw != null ? raw : "-";
+        try {
+            DateTimeFormatter input = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+            DateTimeFormatter output = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+            return LocalDateTime.parse(raw, input).format(output);
+        } catch (Exception e) {
+            return raw;
+        }
     }
 
     private ResponseEntity<Resource> buildFileResponse(Path path, String fileName) throws IOException {
@@ -3116,11 +3486,10 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("dasRemaining", Math.max(0, daysRemaining));
         data.put("isExpired", isExpired);
 
-        // --- CHI TIẾT QUYỀN LỢI ---
         data.put("entitlements", entitlements);
 
         Map<String, Object> usageReport = new LinkedHashMap<>();
-        // Thống kê Counsellor
+
         Map<String, Object> counsellorStats = new LinkedHashMap<>();
         counsellorStats.put("totalPackage", totalCounsellorsInPackage);
         counsellorStats.put("myCampusQuota", myQuota);
@@ -3214,12 +3583,12 @@ public class SchoolServiceImpl implements SchoolService {
 
             SubscriptionAction action = SubscriptionAction.valueOf(request.getActionType().trim().toUpperCase());
 
-            if (activeSub == null && (action == SubscriptionAction.RENEW || action == SubscriptionAction.UPGRADE)) {
+            if (activeSub == null && (action == SubscriptionAction.RENEW || action == SubscriptionAction.SWITCH_PLAN)) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                        "Cơ sở hiện không có gói dịch vụ nào đang hoạt động để Gia hạn hoặc Nâng cấp.", null);
+                        "Cơ sở hiện không có gói dịch vụ nào đang hoạt động để gia hạn hoặc chuyển gói.", null);
             }
 
-            // netAmount là tiền chênh lệch gốc 
+            // netAmount là tiền chênh lệch gốc
             BigDecimal netAmount = BigDecimal.ZERO;
             Map<String, Object> warnings = new LinkedHashMap<>();
             Map<String, Object> currentDetails = new LinkedHashMap<>();
@@ -3251,73 +3620,61 @@ public class SchoolServiceImpl implements SchoolService {
                     warnings.put("message", "Đăng ký gói mới. Hiệu lực tính từ thời điểm thanh toán thành công.");
                 }
 
-                case UPGRADE -> {
-
-                    if (request.getTargetPackageId() == null) {
-                        throw new RuntimeException("Thiếu gói đích để nâng cấp.");
-                    }
+                case SWITCH_PLAN -> {
+                    if (request.getTargetPackageId() == null)
+                        throw new RuntimeException("Vui lòng chọn gói muốn chuyển sang.");
 
                     Subscription targetSub = subscriptionRepo.findById(request.getTargetPackageId())
-                            .orElseThrow(() -> new RuntimeException("Gói đích không tồn tại"));
+                            .orElseThrow(() -> new RuntimeException("Gói đích không tồn tại."));
 
-                    // Chỉ cho phép preview/upgrade với gói active
-                    if (targetSub.getPackageStatus() != Status.PACKAGE_ACTIVE) {
-                        throw new RuntimeException("Gói đích không khả dụng để chọn (không còn phát hành)");
-                    }
+                    if (targetSub.getPackageStatus() != Status.PACKAGE_ACTIVE)
+                        throw new RuntimeException("Gói đích không khả dụng (không còn phát hành).");
 
-                    if (targetSub.getId().equals(activeSub.getSubscription().getId())) {
+                    if (targetSub.getId().equals(activeSub.getSubscription().getId()))
                         throw new RuntimeException("Gói đích phải khác gói hiện tại.");
-                    }
 
-                    // ktra gói hiện tại có phải là gói dùng thử không
                     boolean isTrial = activeSub.getSubscription().getPackageType() == PackageType.TRIAL;
 
-                    // Policy A: prorate theo thời gian còn lại và giữ nguyên ngày hết hạn hiện tại
-                    long remainingDays = ChronoUnit.DAYS.between(LocalDate.now(), activeSub.getEndDate());
-                    if (remainingDays <= 0) {
-                        throw new RuntimeException("Gói hiện tại đã hết hạn, vui lòng gia hạn để tiếp tục.");
-                    }
-
-                    Integer currentDurationDays = activeSub.getSubscription().getDurationDays();
-                    Integer targetDurationDays = targetSub.getDurationDays();
-                    if (currentDurationDays <= 0 || targetDurationDays <= 0) {
-                        throw new RuntimeException("Gói dịch vụ thiếu cấu hình thời hạn (durationDays).");
-                    }
-
-                    BigDecimal remainingDaysDecimal = BigDecimal.valueOf(remainingDays);
-
-                    // netAmount luôn là giá gốc trước thuế/phí để tránh tính chồng
                     BigDecimal currentVal = isTrial ? BigDecimal.ZERO : activeSub.getSubscription().getPrice();
                     BigDecimal targetVal = targetSub.getPrice();
 
-                    BigDecimal currentDailyPrice = currentVal.divide(BigDecimal.valueOf(currentDurationDays), 6, RoundingMode.HALF_UP);
-                    BigDecimal targetDailyPrice = targetVal.divide(BigDecimal.valueOf(targetDurationDays), 6, RoundingMode.HALF_UP);
+                    if (!isTrial && targetVal.compareTo(currentVal) <= 0)
+                        throw new RuntimeException("Không thể chuyển xuống gói thấp hơn. Vui lòng chọn gói có giá trị cao hơn.");
 
-                    BigDecimal creditOld = currentDailyPrice.multiply(remainingDaysDecimal).setScale(0, RoundingMode.HALF_UP);
-                    BigDecimal chargeNew = targetDailyPrice.multiply(remainingDaysDecimal).setScale(0, RoundingMode.HALF_UP);
-                    netAmount = chargeNew.subtract(creditOld);
+                    long remainingDays = ChronoUnit.DAYS.between(LocalDate.now(), activeSub.getEndDate());
+                    if (remainingDays <= 0)
+                        throw new RuntimeException("Gói hiện tại đã hết hạn, vui lòng mua gói mới.");
 
-                    if (netAmount.compareTo(BigDecimal.ZERO) < 0) {
-                        throw new RuntimeException("Không thể hạ cấp gói trong thao tác nâng cấp.");
-                    }
+                    Integer currentDurationDays = activeSub.getSubscription().getDurationDays();
+                    Integer targetDurationDays = targetSub.getDurationDays();
+                    if (currentDurationDays <= 0 || targetDurationDays <= 0)
+                        throw new RuntimeException("Gói dịch vụ thiếu cấu hình thời hạn (durationDays).");
+
+                    BigDecimal oldDailyPrice = currentVal.divide(BigDecimal.valueOf(currentDurationDays), 6, RoundingMode.HALF_UP);
+                    BigDecimal newDailyPrice = targetVal.divide(BigDecimal.valueOf(targetDurationDays), 6, RoundingMode.HALF_UP);
+                    BigDecimal remainingValue = oldDailyPrice.multiply(BigDecimal.valueOf(remainingDays));
+                    long bonusDays = newDailyPrice.compareTo(BigDecimal.ZERO) > 0
+                            ? remainingValue.divide(newDailyPrice, 0, RoundingMode.FLOOR).longValue()
+                            : 0L;
+
+                    LocalDate newEndDate = LocalDate.now().plusDays(targetDurationDays + bonusDays);
+                    netAmount = targetSub.getPrice(); // full price gói mới
+
 
                     currentDetails.put("packageName", activeSub.getSubscription().getName());
                     currentDetails.put("price", currentVal);
-                    currentDetails.put("durationDays", currentDurationDays);
+                    currentDetails.put("remainingDays", remainingDays);
                     currentDetails.put("expiryDate", activeSub.getEndDate());
 
                     targetDetails.put("packageName", targetSub.getName());
                     targetDetails.put("price", targetVal);
                     targetDetails.put("durationDays", targetDurationDays);
-                    targetDetails.put("remainingDays", remainingDays);
-                    targetDetails.put("creditOld", creditOld);
-                    targetDetails.put("chargeNew", chargeNew);
-                    targetDetails.put("newExpiryDate", activeSub.getEndDate());
-                    warnings.put("message", "Nâng cấp áp dụng theo proration phần thời gian còn lại và giữ nguyên ngày hết hạn hiện tại.");
-                    warnings.put("pricingNote", "Tiền chênh lệch được tính từ giá gốc trước thuế/phí, sau đó mới cộng Service Fee và VAT.");
+                    targetDetails.put("bonusDays", bonusDays);
+                    targetDetails.put("newExpiryDate", newEndDate);
+                    warnings.put("message", "Gói hiện tại sẽ bị hủy ngay khi thanh toán thành công.");
+                    warnings.put("pricingNote", "Bạn được bù thêm " + bonusDays + " ngày từ giá trị còn lại của gói cũ.");
                 }
 
-                //netAmount = giá_gói_hiện_tại
                 case RENEW -> {
                     netAmount = activeSub.getSubscription().getPrice();
                     int durationDays = activeSub.getSubscription().getDurationDays();
@@ -3326,7 +3683,10 @@ public class SchoolServiceImpl implements SchoolService {
                         throw new RuntimeException("Gói hiện tại thiếu cấu hình thời hạn (durationDays).");
                     }
 
-                    LocalDate baseDate = LocalDate.now().isAfter(activeSub.getEndDate()) ? LocalDate.now() : activeSub.getEndDate();
+                    LocalDate baseDate = LocalDate.now().isAfter(activeSub.getEndDate())
+                            ? LocalDate.now()
+                            : activeSub.getEndDate();
+
                     currentDetails.put("packageName", activeSub.getSubscription().getName());
                     currentDetails.put("price", netAmount);
                     currentDetails.put("expiryDate", activeSub.getEndDate());
@@ -3337,7 +3697,6 @@ public class SchoolServiceImpl implements SchoolService {
                 }
             }
 
-            // Step 5: Build financial breakdown and response
             var breakdown = calculateBreakdownFromNet(netAmount);
 
             Map<String, Object> response = new LinkedHashMap<>();
@@ -3350,8 +3709,7 @@ public class SchoolServiceImpl implements SchoolService {
 
             return ResponseBuilder.build(HttpStatus.OK, "Xem trước thay đổi gói thành công", response);
         } catch (Exception e) {
-            String message = e.getMessage() != null ? e.getMessage() : "Dữ liệu preview không hợp lệ.";
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, message, null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage() != null ? e.getMessage() : "Dữ liệu preview không hợp lệ.", null);
         }
     }
 
@@ -3401,5 +3759,4 @@ public class SchoolServiceImpl implements SchoolService {
         }
         return BigDecimal.valueOf(number.doubleValue());
     }
-
 }

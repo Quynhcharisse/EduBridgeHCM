@@ -74,8 +74,9 @@ import java.math.RoundingMode;
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -1036,28 +1037,28 @@ public class AdminServiceImpl implements AdminService {
 
             // Đóng gói kết quả hiển thị với mô tả rõ ràng cho từng thành phần giá
             Map<String, Object> pricingBreakdown = new LinkedHashMap<>();
-            
+
             Map<String, Object> basePriceObj = new LinkedHashMap<>();
             basePriceObj.put("amount", basePrice);
             pricingBreakdown.put("basePrice", basePriceObj);
-            
+
             Map<String, Object> featuresObj = new LinkedHashMap<>();
             featuresObj.put("amount", totalFeatureAmount);
             featuresObj.put("details", breakdown);
             pricingBreakdown.put("features", featuresObj);
-            
+
             Map<String, Object> netPriceObj = new LinkedHashMap<>();
             netPriceObj.put("amount", subscription.getPrice());
             pricingBreakdown.put("netPrice", netPriceObj);
-            
+
             Map<String, Object> serviceFeeObj = new LinkedHashMap<>();
             serviceFeeObj.put("amount", subscription.getServiceFee());
             pricingBreakdown.put("serviceFee", serviceFeeObj);
-            
+
             Map<String, Object> taxFeeObj = new LinkedHashMap<>();
             taxFeeObj.put("amount", subscription.getTaxFee());
             pricingBreakdown.put("taxFee", taxFeeObj);
-            
+
             Map<String, Object> finalPriceObj = new LinkedHashMap<>();
             finalPriceObj.put("amount", subscription.getFinalPrice());
             pricingBreakdown.put("finalPrice", finalPriceObj);
@@ -1107,20 +1108,23 @@ public class AdminServiceImpl implements AdminService {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("transactionId", t.getId());
             row.put("schoolName", t.getSchool().getName());
+
             String packageName = "N/A";
-            if (t.getSchoolSubscription().getSubscription() != null) {
-                packageName = t.getSchoolSubscription().getSubscription().getName();
-            }
+            packageName = t.getSchoolSubscription().getSubscription().getName();
             row.put("packageName", packageName);
             row.put("txnRef", t.getVnpTxnRef());
             row.put("vnpTransactionNo", t.getVnpTransactionNo());
             row.put("orderInfo", t.getVnpOrderInfo());
             row.put("bankCode", t.getVnpBankCode());
             row.put("cardType", t.getVnpCardType());
-            row.put("amount", t.getVnpAmount() / 100.0);
+
+            Long displayAmount = t.getStatus() == Status.PAYMENT_PENDING ? t.getExpectedAmount() : t.getVnpAmount();
+            row.put("amount", displayAmount / 100.0);
+            row.put("expectedAmount", t.getExpectedAmount() / 100.0);
+            row.put("paidAmount", t.getVnpAmount() / 100.0);
+
             row.put("status", t.getStatus());
             row.put("createdAt", t.getCreatedAt());
-            row.put("notes", t.getNotes());
             return row;
         }).toList();
 
@@ -1648,29 +1652,28 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> getRevenuesSummary(Integer year, Integer month, String packageType) {
+    public ResponseEntity<ResponseObject> getRevenuesSummary(LocalDate startDate, LocalDate endDate, String packageType) {
 
-        if (year == null || year < 2000 || year > 2100) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Năm không hợp lệ. Vui lòng nhập từ 2000 đến 2100.", null);
+        if (endDate == null) endDate = LocalDate.now();
+        if (startDate == null) startDate = endDate.minusYears(5);
+
+        if (endDate.isBefore(startDate)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Ngày kết thúc không được trước ngày bắt đầu", null);
         }
 
-        if (month != null && (month < 1 || month > 12)) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tháng không hợp lệ. Vui lòng nhập từ 1 đến 12.", null);
-        }
-
-        LocalDateTime fromAt;
-        LocalDateTime toAt;
+        long daysBetween = ChronoUnit.DAYS.between(startDate, endDate);
+        DateTimeFormatter periodFormatter;
         String scope;
 
-        if (month == null) {
-            fromAt = LocalDate.of(year, 1, 1).atStartOfDay();
-            toAt = fromAt.plusYears(1);
-            scope = "YEAR";
-        } else {
-            YearMonth yearMonth = YearMonth.of(year, month);
-            fromAt = yearMonth.atDay(1).atStartOfDay();
-            toAt = yearMonth.plusMonths(1).atDay(1).atStartOfDay();
+        if (daysBetween <= 45) {
+            periodFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            scope = "DAY";
+        } else if (daysBetween <= 365 * 2) { // Dưới 2 năm thì xem theo tháng
+            periodFormatter = DateTimeFormatter.ofPattern("yyyy-MM");
             scope = "MONTH";
+        } else { // Trên 2 năm (ví dụ 5 năm) thì xem theo năm cho thoáng biểu đồ
+            periodFormatter = DateTimeFormatter.ofPattern("yyyy");
+            scope = "YEAR";
         }
 
         String normalizedPackageType = (packageType == null || packageType.isBlank())
@@ -1685,6 +1688,17 @@ public class AdminServiceImpl implements AdminService {
             }
         }
 
+        Map<String, RevenueAccumulator> trendAccumulator = new TreeMap<>();
+        LocalDate temp = startDate;
+        while (!temp.isAfter(endDate)) {
+            trendAccumulator.put(temp.format(periodFormatter), new RevenueAccumulator());
+            if (scope.equals("DAY")) temp = temp.plusDays(1);
+            else if (scope.equals("MONTH")) temp = temp.plusMonths(1);
+            else temp = temp.plusYears(1);
+        }
+
+        LocalDateTime fromAt = startDate.atStartOfDay();
+        LocalDateTime toAt = endDate.atTime(LocalTime.MAX);
         List<PaymentTransaction> transactions = paymentTransactionRepo.findAll(
                 buildRevenueSpecification(fromAt, toAt, normalizedPackageType)
         );
@@ -1695,10 +1709,8 @@ public class AdminServiceImpl implements AdminService {
         BigDecimal totalFinalRevenue = BigDecimal.ZERO;
         long countedTransactions = 0L;
 
-        Map<String, RevenueAccumulator> trendAccumulator = new TreeMap<>();
-
         for (PaymentTransaction transaction : transactions) {
-            Subscription subscription = transaction.getSchoolSubscription() == null
+            Subscription subscription = (transaction.getSchoolSubscription() == null)
                     ? null
                     : transaction.getSchoolSubscription().getSubscription();
 
@@ -1707,29 +1719,25 @@ public class AdminServiceImpl implements AdminService {
             BigDecimal taxFee = subscription == null ? BigDecimal.ZERO : safeMoney(subscription.getTaxFee());
             BigDecimal finalRevenue = resolveFinalRevenue(subscription, transaction);
 
-            if (finalRevenue.compareTo(BigDecimal.ZERO) == 0
-                    && netRevenue.compareTo(BigDecimal.ZERO) == 0
-                    && serviceFee.compareTo(BigDecimal.ZERO) == 0
-                    && taxFee.compareTo(BigDecimal.ZERO) == 0) {
-                continue;
-            }
+            // Bỏ qua rác (nếu cần)
+            if (finalRevenue.signum() == 0 && netRevenue.signum() == 0) continue;
 
+            // Cộng dồn tổng quát
             totalNetRevenue = totalNetRevenue.add(netRevenue);
             totalServiceFee = totalServiceFee.add(serviceFee);
             totalTaxFee = totalTaxFee.add(taxFee);
             totalFinalRevenue = totalFinalRevenue.add(finalRevenue);
             countedTransactions++;
 
-            String period = month == null
-                    ? transaction.getUpdatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM"))
-                    : transaction.getUpdatedAt().toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE);
-
-            RevenueAccumulator acc = trendAccumulator.computeIfAbsent(period, k -> new RevenueAccumulator());
-            acc.netRevenue = acc.netRevenue.add(netRevenue);
-            acc.serviceFee = acc.serviceFee.add(serviceFee);
-            acc.taxFee = acc.taxFee.add(taxFee);
-            acc.finalRevenue = acc.finalRevenue.add(finalRevenue);
-            acc.transactions++;
+            String periodKey = transaction.getUpdatedAt().format(periodFormatter);
+            RevenueAccumulator acc = trendAccumulator.get(periodKey);
+            if (acc != null) {
+                acc.netRevenue = acc.netRevenue.add(netRevenue);
+                acc.serviceFee = acc.serviceFee.add(serviceFee);
+                acc.taxFee = acc.taxFee.add(taxFee);
+                acc.finalRevenue = acc.finalRevenue.add(finalRevenue);
+                acc.transactions++;
+            }
         }
 
         Map<String, Object> totals = new LinkedHashMap<>();
@@ -1752,10 +1760,11 @@ public class AdminServiceImpl implements AdminService {
         }).toList();
 
         Map<String, Object> data = new LinkedHashMap<>();
-        data.put("year", year);
-        data.put("month", month);
+        data.put("startDate", startDate);
+        data.put("endDate", endDate);
         data.put("packageType", normalizedPackageType);
         data.put("scope", scope);
+        data.put("dataPoints", trend.size());
         data.put("totals", totals);
         data.put("trend", trend);
 

@@ -23,11 +23,18 @@ public class VNPayConfig {
 
     public static String vnp_ReturnUrl;
 
+    public static String vnp_FrontendResultUrl;
+
     public static String vnp_apiUrl = "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
 
     @Value("${VNPAY_RETURN_URL}")
     public void setReturnUrl(String url) {
         vnp_ReturnUrl = url;
+    }
+
+    @Value("${VNPAY_FE_RESULT_URL:${URL_SERVER_FE}/payment/vnpay-result}")
+    public void setFrontendResultUrl(String url) {
+        vnp_FrontendResultUrl = url;
     }
 
     @Value("${vnp.tmn-code:ZDT0KK8Q}")

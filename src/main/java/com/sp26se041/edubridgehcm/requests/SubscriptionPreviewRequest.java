@@ -13,6 +13,6 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class SubscriptionPreviewRequest {
-    String actionType; // UPGRADE, RENEW
-    Integer targetPackageId;// Dùng cho UPGRADE
+    String actionType; // SWITCH_PLAN, RENEW
+    Integer targetPackageId;// Dùng cho SWITCH_PLAN
 }
