@@ -539,7 +539,6 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
             fields.put("taxCode", school.get().getTaxCode());
             fields.put("websiteUrl", school.get().getWebsiteUrl());
             fields.put("representativeName", school.get().getRepresentativeName());
-            fields.put("hotline", school.get().getHotline());
             fields.put("foundingDate", school.get().getFoundingDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
             fields.put("logoUrl", school.get().getLogoUrl());
             fields.put("businessLicenseUrl", school.get().getBusinessLicenseUrl());

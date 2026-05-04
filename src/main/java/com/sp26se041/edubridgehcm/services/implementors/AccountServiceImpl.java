@@ -457,9 +457,6 @@ public class AccountServiceImpl implements AccountService {
 
             try {
 
-                SchoolConfig hqFacility = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "facilityData").orElse(null);
-
-
                 Optional<TemplateDocx> schoolTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.SCHOOL_INFO_TEMPLATE);
 
                 if (schoolTemplateDocx.isEmpty()) {
@@ -476,7 +473,6 @@ public class AccountServiceImpl implements AccountService {
                 fields.put("taxCode", school.getTaxCode());
                 fields.put("websiteUrl", school.getWebsiteUrl());
                 fields.put("representativeName", school.getRepresentativeName());
-                fields.put("hotline", school.getHotline());
                 fields.put("foundingDate", school.getFoundingDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
                 fields.put("logoUrl", school.getLogoUrl());
                 fields.put("businessLicenseUrl", school.getBusinessLicenseUrl());
