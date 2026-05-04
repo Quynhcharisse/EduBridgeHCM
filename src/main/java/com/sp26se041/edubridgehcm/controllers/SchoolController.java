@@ -225,7 +225,7 @@ public class SchoolController {
     }
 
     @GetMapping("/payment/receipt")
-    public ResponseEntity<ResponseObject> viewPaymentReceipt(String txnRef) {
+    public ResponseEntity<ResponseObject> viewPaymentReceipt(@RequestParam String txnRef) {
         return schoolService.viewPaymentReceipt(txnRef);
     }
 
