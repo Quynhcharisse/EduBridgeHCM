@@ -2,7 +2,6 @@ package com.sp26se041.edubridgehcm.services;
 
 import com.sp26se041.edubridgehcm.enums.OfferingProgramAction;
 import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
-import com.sp26se041.edubridgehcm.requests.ReassignConsultationsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
@@ -43,8 +42,6 @@ public interface CampusService {
 
     ResponseEntity<ResponseObject> getAvailableSlots(LocalDate targetDate, Integer campaignId);
 
-    ResponseEntity<ResponseObject> reassignConsultationRequests(ReassignConsultationsRequest request);
-
     ResponseEntity<ResponseObject> getAssignedSlots(Integer counsellorId);
 
     ResponseEntity<ResponseObject> getCounsellorAvailableList();
@@ -56,7 +53,7 @@ public interface CampusService {
     ResponseEntity<ResponseObject> getDocuments();
 
     ResponseEntity<ResponseObject> getChatHistoryWithAdmin(Long cursorId);
-    
+
     ResponseEntity<ResponseObject> createConversationWithAdmin();
 
     ResponseEntity<ResponseObject> getConversation();
