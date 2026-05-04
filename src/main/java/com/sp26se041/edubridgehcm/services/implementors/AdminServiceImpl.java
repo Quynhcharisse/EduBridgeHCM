@@ -1819,14 +1819,6 @@ public class AdminServiceImpl implements AdminService {
             }
         }
 
-        List<Map<String, Object>> schoolGrowthByMonth = new ArrayList<>();
-        for (int month = 1; month <= 12; month++) {
-            Map<String, Object> item = new LinkedHashMap<>();
-            item.put("month", String.format("%d-%02d", year, month));
-            item.put("newSchools", growthByMonth.getOrDefault(month, 0L));
-            schoolGrowthByMonth.add(item);
-        }
-
         long totalVerification = verifiedCount + unverifiedCount;
         BigDecimal verifiedRate = totalVerification == 0
                 ? BigDecimal.ZERO
@@ -1842,7 +1834,6 @@ public class AdminServiceImpl implements AdminService {
         data.put("year", year);
         data.put("activeSchools", activeSchools);
         data.put("usersByRole", usersByRole);
-        data.put("schoolGrowthByMonth", schoolGrowthByMonth);
         data.put("verificationStatus", verificationStatus);
 
         return ResponseBuilder.build(HttpStatus.OK, "Lấy thống kê tổng quát thành công", data);
@@ -1874,16 +1865,12 @@ public class AdminServiceImpl implements AdminService {
     }
 
     private BigDecimal resolveFinalRevenue(Subscription subscription, PaymentTransaction transaction) {
-        if (subscription != null && subscription.getFinalPrice() != null) {
+        if (subscription != null) {
             return subscription.getFinalPrice();
         }
 
-        if (transaction.getVnpAmount() != null) {
-            // VNPay amount is stored as VND * 100.
-            return BigDecimal.valueOf(transaction.getVnpAmount()).movePointLeft(2);
-        }
+        return BigDecimal.valueOf(transaction.getVnpAmount()).movePointLeft(2);
 
-        return BigDecimal.ZERO;
     }
 
     private static class RevenueAccumulator {
