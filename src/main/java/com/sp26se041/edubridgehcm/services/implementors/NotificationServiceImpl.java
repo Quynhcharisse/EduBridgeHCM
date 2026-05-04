@@ -170,39 +170,55 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public void publish(NotificationEventType eventType, Account actor, Map<String, Object> contextData) {
-        if (eventType == null) {
-            return;
-        }
+        if (eventType == null) return;
 
         LocalDateTime now = LocalDateTime.now();
         EventTemplateConfig config = EVENT_TEMPLATE_CONFIGS.get(eventType);
-        if (config == null) {
-            return;
-        }
+        if (config == null) return;
 
-        NotificationTemplate template = buildTemplate(config, eventType, actor, contextData);
-
+        // 1. TẠO MỘT BẢN SAO CONTEXT ĐỂ XỬ LÝ GỬI TIN
+        // Chúng ta giữ nguyên contextData gốc để lấy danh sách người nhận
         Set<Account> recipients = new HashSet<>();
-
-        for (Role role : config.recipientRoles()) {
-            recipients.addAll(accountRepo.findByRole(role));
+        if (contextData != null && contextData.get("specificRecipients") instanceof List<?> specificList) {
+            for (Object obj : specificList) {
+                if (obj instanceof Account acc) recipients.add(acc);
+            }
+        } else {
+            for (Role role : config.recipientRoles()) {
+                recipients.addAll(accountRepo.findByRole(role));
+            }
         }
 
         if (recipients.isEmpty()) return;
 
+        // 2. TẠO DỮ LIỆU ĐỂ LƯU VÀO DATABASE (PERSISTENCE DATA)
+        // Quan trọng: Phải loại bỏ các Object không Serializable như Account, List<Account>
+        Map<String, Object> cleanContext = new HashMap<>();
+        if (contextData != null) {
+            contextData.forEach((key, value) -> {
+                // Chỉ giữ lại các kiểu dữ liệu cơ bản để lưu vào cột JSON của DB
+                if (!(value instanceof Account) && !(value instanceof Iterable)) {
+                    cleanContext.put(key, value);
+                }
+            });
+        }
+
+        // Build template dựa trên dữ liệu đã làm sạch
+        NotificationTemplate template = buildTemplate(config, eventType, actor, cleanContext);
+
+        // 3. LƯU THÔNG BÁO VÀO BẢNG NOTIFICATIONS
         Notifications notification = Notifications.builder()
                 .eventType(eventType)
                 .actorUser(actor)
                 .title(template.title())
                 .body(template.body())
-                .data(template.payload())
+                .data(template.payload()) // Lúc này payload chỉ chứa String/Number, không bị lỗi
                 .createdAt(now)
                 .build();
 
         notificationsRepo.save(notification);
 
         for (Account recipient : recipients) {
-            // 1. lưu DB
             NotificationRecipients item = NotificationRecipients.builder()
                     .notification(notification)
                     .recipientUser(recipient)
@@ -210,19 +226,15 @@ public class NotificationServiceImpl implements NotificationService {
                     .isRead(false)
                     .createdAt(now)
                     .build();
-
             notificationRecipientsRepo.save(item);
 
             try {
                 pushService.sendToUser(recipient, notification);
-
                 item.setDeliveryStatus(Status.NOTIFICATION_SENT);
                 item.setDeliveredAt(LocalDateTime.now());
-
             } catch (Exception e) {
                 item.setDeliveryStatus(Status.NOTIFICATION_FAILED);
             }
-
             notificationRecipientsRepo.save(item);
         }
     }
@@ -244,17 +256,24 @@ public class NotificationServiceImpl implements NotificationService {
                                                Map<String, Object> contextData) {
         String actorName = resolveActorName(eventType, actor, contextData);
         String packageName = resolvePackageName(contextData);
+        String parentName = (contextData != null && contextData.get("parentName") != null)
+                ? contextData.get("parentName").toString() : "Phụ huynh";
+
         String title = config.titleTemplate()
                 .replace("{actorName}", actorName)
-                .replace("{packageName}", packageName);
+                .replace("{packageName}", packageName)
+                .replace("{parentName}", parentName);
+
         String body = config.bodyTemplate()
                 .replace("{actorName}", actorName)
-                .replace("{packageName}", packageName);
+                .replace("{packageName}", packageName)
+                .replace("{parentName}", parentName);
 
         Map<String, Object> payload = new HashMap<>();
         payload.put("eventType", eventType.name());
         payload.put("route", config.route());
         payload.put("actorName", actorName);
+        payload.put("parentName", parentName);
         if (contextData != null && !contextData.isEmpty()) {
             payload.putAll(contextData);
         }
@@ -263,7 +282,7 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     private String resolveSchoolName(Account actor) {
-        if (actor != null && actor.getCampus() != null && actor.getCampus().getSchool() != null) {
+        if (actor != null && actor.getCampus().getSchool() != null) {
             return actor.getCampus().getSchool().getName();
         }
         return "Trường học";
@@ -287,14 +306,16 @@ public class NotificationServiceImpl implements NotificationService {
         return packageName.toString().trim();
     }
 
-//
-//    private String resolveParentName(Account actor) {
-//        if (actor != null && Role.PARENT.equals(actor.getRole())) {
-//            return "Phụ huynh";
-//        }
-//        return "Phụ huynh";
-//    }
-
+    private String resolveParentName(Account actor) {
+        if (actor != null && Role.PARENT.equals(actor.getRole())) {
+            // Ưu tiên lấy tên đầy đủ, nếu không có thì lấy Email, cuối cùng mới là chữ "Phụ huynh"
+            if (!actor.getParent().getName().isBlank()) {
+                return actor.getParent().getName();
+            }
+            return actor.getEmail();
+        }
+        return "Một phụ huynh";
+    }
 
     private String resolveActorName(NotificationEventType eventType, Account actor, Map<String, Object> contextData) {
         if (contextData != null) {
@@ -324,9 +345,9 @@ public class NotificationServiceImpl implements NotificationService {
             return resolveAdminName(actor);
         }
 
-//        if (eventType == NotificationEventType.FAVORITE_SCHOOL) {
-//            return resolveParentName(actor);
-//        }
+        if (eventType == NotificationEventType.FAVORITE_SCHOOL) {
+            return resolveParentName(actor);
+        }
 
         return "Hệ thống EduBridge";
     }
@@ -381,15 +402,15 @@ public class NotificationServiceImpl implements NotificationService {
                 )
         );
 
-//        configs.put(
-//                NotificationEventType.FAVORITE_SCHOOL,
-//                new EventTemplateConfig(
-//                        "Thêm trường yêu thích",
-//                        "{actorName} vừa tạo gói doanh nghiệp mới {packageName}.",
-//                        "/saved-schools",
-//                        List.of(Role.SCHOOL)
-//                )
-//        );
+        configs.put(
+                NotificationEventType.FAVORITE_SCHOOL,
+                new EventTemplateConfig(
+                        "Phụ huynh mới quan tâm",
+                        "{actorName} vừa thêm trường bạn vào danh sách yêu thích.", // Đổi thành {actorName}
+                        "/school/parents-interest",
+                        List.of(Role.SCHOOL)
+                )
+        );
         return configs;
     }
 

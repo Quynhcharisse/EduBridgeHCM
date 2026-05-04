@@ -976,6 +976,8 @@ public class SchoolServiceImpl implements SchoolService {
 
         Campus actorCampus = extractActorCampus();
 
+        assert actorCampus != null;
+
         if (!actorCampus.getIsPrimaryBranch()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Chỉ cơ sở chính mới được phép thực hiện thao tác này", null);
         }
