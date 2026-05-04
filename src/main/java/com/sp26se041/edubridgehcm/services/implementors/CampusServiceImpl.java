@@ -2533,7 +2533,6 @@ public class CampusServiceImpl implements CampusService {
         return trend;
     }
 
-    /** One data point in the trend series. */
     private Map<String, Object> buildTrendEntry(String label, List<ConsultationOfflineRequest> group) {
         long completed = group.stream().filter(r -> r.getStatus() == Status.CONSULTATION_COMPLETED).count();
         long cancelled = group.stream().filter(r -> r.getStatus() == Status.CONSULTATION_CANCELLED).count();
@@ -2550,8 +2549,6 @@ public class CampusServiceImpl implements CampusService {
         entry.put("noShow",    noShow);
         return entry;
     }
-
-    // ─── By day-of-week (heatmap / bar chart) ───────────────────────────────
 
     private List<Map<String, Object>> buildConsultationByDayOfWeek(List<ConsultationOfflineRequest> requests) {
         Map<java.time.DayOfWeek, Long> countMap = requests.stream()
@@ -2570,9 +2567,6 @@ public class CampusServiceImpl implements CampusService {
         return result;
     }
 
-    // ─── Rate helper ────────────────────────────────────────────────────────
-
-    /** Returns (numerator / denominator) × 100, rounded to 1 decimal. 0.0 when denominator = 0. */
     private double pct(long numerator, long denominator) {
         if (denominator == 0) return 0.0;
         return BigDecimal.valueOf(numerator)
