@@ -1481,7 +1481,11 @@ public class CampusServiceImpl implements CampusService {
             }
             counsellorSlotRepo.flush();
             clearPersistenceContextBeforeSnapshot();
-            List<Map<String, Object>> snapshotById = loadAssignedSlotsSnapshot(actorCampus.getId());
+            // Post-filter: loại bỏ những slot vừa bị xóa khỏi snapshot (tránh JPA L1 cache trả cũ)
+            List<Map<String, Object>> snapshotById = loadAssignedSlotsSnapshot(actorCampus.getId())
+                    .stream()
+                    .filter(s -> !unassignSlotIds.contains((Integer) s.get("slotId")))
+                    .collect(Collectors.toList());
             Map<String, Object> bodyById = new LinkedHashMap<>();
             bodyById.put("action", actionInput);
             bodyById.put("removedSlotIds", List.copyOf(unassignSlotIds));
@@ -1624,8 +1628,7 @@ public class CampusServiceImpl implements CampusService {
                 throw new IllegalArgumentException("slotId=" + sid + " không khớp danh sách counsellorIds.");
             }
             CounsellorSlotValidation.assertNoBlockingConsultationForUnassignDelete(slot);
-            counsellorSlotRepo.delete(slot);
-            counsellorSlotRepo.flush();
+            safeDeleteSlot(slot);
         }
     }
 
@@ -1687,7 +1690,7 @@ public class CampusServiceImpl implements CampusService {
                     }
                 }
             } else {
-                counsellorSlotRepo.delete(slot);
+                safeDeleteSlot(slot);
                 deletedIds.add(slot.getId());
             }
         }
@@ -1811,7 +1814,26 @@ public class CampusServiceImpl implements CampusService {
                             + (request.getCampaignId() != null ? " (campaignId=" + request.getCampaignId() + ")." : "."));
         }
         CounsellorSlotValidation.assertNoBlockingConsultationForUnassignDelete(targetSlot);
-        counsellorSlotRepo.delete(targetSlot);
+        safeDeleteSlot(targetSlot);
+    }
+
+    private void safeDeleteSlot(CounsellorSlot slot) {
+        // Step 1: Nullify FK trên consultation → giữ lịch sử, tránh FK violation
+        List<ConsultationOfflineRequest> linked = consultationOfflineRequestRepo.findByCounsellorSlotId(slot.getId());
+        if (!linked.isEmpty()) {
+            linked.forEach(c -> c.setCounsellorSlot(null));
+            consultationOfflineRequestRepo.saveAll(linked);
+            consultationOfflineRequestRepo.flush();
+        }
+        // Step 2: Tách slot khỏi Counsellor.counsellorSlotList (EAGER + CascadeType.ALL)
+        // Nếu không làm bước này, Hibernate flush Counsellor thấy list vẫn còn slot
+        // → re-persist lại slot vừa delete → DB không thay đổi
+        Counsellor counsellor = slot.getCounsellor();
+        if (counsellor != null && counsellor.getCounsellorSlotList() != null) {
+            counsellor.getCounsellorSlotList().remove(slot);
+        }
+        // Step 3: Delete slot
+        counsellorSlotRepo.delete(slot);
         counsellorSlotRepo.flush();
     }
 
