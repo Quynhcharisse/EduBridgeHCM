@@ -28,6 +28,7 @@ public class ImportConfirmRequest {
         Map<String, Object> rowData;
         Error error;
         Boolean isError;
+        Boolean isDeleted; 
     }
 
     @Data

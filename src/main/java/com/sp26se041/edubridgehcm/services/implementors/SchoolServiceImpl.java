@@ -2503,7 +2503,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         LocalDate calculatedStartDate = LocalDate.now();
         LocalDate calculatedEndDate = calculatedStartDate.plusDays(subscription.getDurationDays());
-        String orderNote = "Thanh toán gói " + normalize(subscription.getName());
+        String orderNote = "Thanh toan goi san pham";
         BigDecimal amountToCharge = subscription.getFinalPrice();
 
         if (!currentActiveSub.isEmpty()) {
@@ -3207,18 +3207,17 @@ public class SchoolServiceImpl implements SchoolService {
         SchoolSubscription activeSub = schoolSubscriptionRepo.findBySchoolIdAndIsSelected(actorCampus.getSchool().getId(), true)
                 .stream().findFirst().orElse(null);
 
-        if (activeSub == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không có gói dịch vụ nào đang hoạt động.", null);
-        }
-
         try {
-
-            // parse action 
             if (request == null || request.getActionType() == null || request.getActionType().isBlank()) {
                 throw new RuntimeException("Thiếu loại hành động (actionType).");
             }
 
             SubscriptionAction action = SubscriptionAction.valueOf(request.getActionType().trim().toUpperCase());
+
+            if (activeSub == null && (action == SubscriptionAction.RENEW || action == SubscriptionAction.UPGRADE)) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Cơ sở hiện không có gói dịch vụ nào đang hoạt động để Gia hạn hoặc Nâng cấp.", null);
+            }
 
             // netAmount là tiền chênh lệch gốc 
             BigDecimal netAmount = BigDecimal.ZERO;
@@ -3227,6 +3226,31 @@ public class SchoolServiceImpl implements SchoolService {
             Map<String, Object> targetDetails = new LinkedHashMap<>();
 
             switch (action) {
+                case BUY_NEW -> {
+                    if (request.getTargetPackageId() == null) {
+                        throw new RuntimeException("Vui lòng chọn gói dịch vụ muốn mua.");
+                    }
+
+                    Subscription targetSub = subscriptionRepo.findById(request.getTargetPackageId())
+                            .orElseThrow(() -> new RuntimeException("Gói dịch vụ không tồn tại."));
+
+                    if (targetSub.getPackageStatus() != Status.PACKAGE_ACTIVE) {
+                        throw new RuntimeException("Gói dịch vụ này hiện không còn phát hành.");
+                    }
+
+                    netAmount = targetSub.getPrice();
+                    LocalDate startDate = LocalDate.now();
+                    LocalDate expiryDate = startDate.plusDays(targetSub.getDurationDays());
+
+                    targetDetails.put("packageName", targetSub.getName());
+                    targetDetails.put("price", netAmount);
+                    targetDetails.put("durationDays", targetSub.getDurationDays());
+                    targetDetails.put("newStartDate", startDate);
+                    targetDetails.put("newExpiryDate", expiryDate);
+
+                    warnings.put("message", "Đăng ký gói mới. Hiệu lực tính từ thời điểm thanh toán thành công.");
+                }
+
                 case UPGRADE -> {
 
                     if (request.getTargetPackageId() == null) {
@@ -3297,9 +3321,11 @@ public class SchoolServiceImpl implements SchoolService {
                 case RENEW -> {
                     netAmount = activeSub.getSubscription().getPrice();
                     int durationDays = activeSub.getSubscription().getDurationDays();
+
                     if (durationDays <= 0) {
                         throw new RuntimeException("Gói hiện tại thiếu cấu hình thời hạn (durationDays).");
                     }
+
                     LocalDate baseDate = LocalDate.now().isAfter(activeSub.getEndDate()) ? LocalDate.now() : activeSub.getEndDate();
                     currentDetails.put("packageName", activeSub.getSubscription().getName());
                     currentDetails.put("price", netAmount);
