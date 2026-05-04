@@ -2467,9 +2467,6 @@ public class CampusServiceImpl implements CampusService {
         // Rates
         cards.put("completionRate",   pct(completed, finalized));   // % hoàn thành
         cards.put("cancellationRate", pct(cancelled, responded));   // % huỷ
-        cards.put("noShowRate",       pct(noShow, completed + noShow)); // % bỏ hẹn
-        cards.put("conversionRate",   pct(completed, total));       // % chuyển đổi
-        cards.put("confirmRate",      pct(responded, total));       // % school đã phản hồi
         return cards;
     }
 
