@@ -1127,7 +1127,6 @@ public class AdminServiceImpl implements AdminService {
             
             row.put("status", t.getStatus());
             row.put("createdAt", t.getCreatedAt());
-            row.put("notes", t.getNotes());
             return row;
         }).toList();
 

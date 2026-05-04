@@ -112,6 +112,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -2707,6 +2708,46 @@ public class SchoolServiceImpl implements SchoolService {
     @Transactional
     public ResponseEntity<ResponseObject> handleVNPayCallback(HttpServletRequest request) {
 
+        ResponseEntity<ResponseObject> callbackResponse = processVNPayCallback(request);
+        String vnpResponseCode = request.getParameter("vnp_ResponseCode");
+        String vnpTxnRef = request.getParameter("vnp_TxnRef");
+
+        String paymentStatus = callbackResponse.getStatusCode().is2xxSuccessful() && "00".equals(vnpResponseCode)
+            ? "success"
+            : "failed";
+
+        StringBuilder redirectUrl = new StringBuilder(VNPayConfig.vnp_FrontendResultUrl);
+        redirectUrl.append(VNPayConfig.vnp_FrontendResultUrl.contains("?") ? "&" : "?");
+        redirectUrl.append("status=").append(paymentStatus);
+
+        if (vnpTxnRef != null && !vnpTxnRef.isBlank()) {
+            redirectUrl.append("&txnRef=")
+                .append(URLEncoder.encode(vnpTxnRef, StandardCharsets.UTF_8));
+        }
+
+        if (vnpResponseCode != null && !vnpResponseCode.isBlank()) {
+            redirectUrl.append("&responseCode=")
+                .append(URLEncoder.encode(vnpResponseCode, StandardCharsets.UTF_8));
+        }
+
+        Map<String, Object> bodyMap = new HashMap<>();
+        bodyMap.put("status", paymentStatus);
+        bodyMap.put("redirectUrl", redirectUrl.toString());
+        if (vnpTxnRef != null && !vnpTxnRef.isBlank()) bodyMap.put("txnRef", vnpTxnRef);
+        if (vnpResponseCode != null && !vnpResponseCode.isBlank()) bodyMap.put("responseCode", vnpResponseCode);
+
+        ResponseObject body = ResponseObject.builder()
+            .message("VNPay callback processed")
+            .body(bodyMap)
+            .build();
+
+        return ResponseEntity.status(HttpStatus.FOUND)
+            .location(URI.create(redirectUrl.toString()))
+            .body(body);
+        }
+
+        private ResponseEntity<ResponseObject> processVNPayCallback(HttpServletRequest request) {
+
         Map<String, String> vnp_Params = new HashMap<>();
 
         Map<String, String[]> requestParams = request.getParameterMap();
@@ -2773,8 +2814,10 @@ public class SchoolServiceImpl implements SchoolService {
                 );
             }
 
-            if (transaction.getVnpAmount() != callbackAmount) {
+            Long expectedAmount = transaction.getExpectedAmount();
+            if (expectedAmount == null || expectedAmount != callbackAmount) {
                 transaction.setStatus(Status.PAYMENT_FAILED);
+                transaction.setVnpAmount(0L);
                 transaction.setVnpResponseCode(vnp_ResponseCode);
                 transaction.setVnpTransactionNo(vnp_Params.get("vnp_TransactionNo"));
                 transaction.setVnpBankCode(vnp_Params.get("vnp_BankCode"));
@@ -2821,6 +2864,7 @@ public class SchoolServiceImpl implements SchoolService {
             } else {
                 // thanh toán thất bại (Người dùng hủy hoặc lỗi thẻ)
                 transaction.setStatus(Status.PAYMENT_FAILED);
+                transaction.setVnpAmount(0L);
                 transaction.setVnpResponseCode(vnp_ResponseCode);
                 transaction.setVnpTransactionNo(vnp_Params.get("vnp_TransactionNo"));
                 transaction.setVnpBankCode(vnp_Params.get("vnp_BankCode"));

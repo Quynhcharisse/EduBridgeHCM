@@ -81,7 +81,4 @@ public class PaymentTransaction {
 
     @Column(name = "ip_address")
     String ipAddress; // IP của người thực hiện thanh toán
-
-    @Column(name = "notes", columnDefinition = "TEXT")
-    String notes; // note về giao dịch
 }
