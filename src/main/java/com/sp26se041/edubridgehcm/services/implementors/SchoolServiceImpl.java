@@ -2635,7 +2635,16 @@ public class SchoolServiceImpl implements SchoolService {
         String vnp_SecureHash = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, hashData);
         String paymentUrl = VNPayConfig.vnp_PayUrl + "?" + queryUrl + "&vnp_SecureHash=" + vnp_SecureHash;
 
-        paymentTransactionRepo.save(PaymentTransaction.builder().school(school).schoolSubscription(schoolSubscription).vnpTxnRef(vnp_TxnRef).vnpAmount(amount).vnpOrderInfo(orderNote).status(Status.PAYMENT_PENDING).createdAt(LocalDateTime.now()).ipAddress(VNPayConfig.getIpAddress(httpRequest)).build());
+        paymentTransactionRepo.save(PaymentTransaction.builder()
+        .school(school)
+        .schoolSubscription(schoolSubscription)
+        .vnpTxnRef(vnp_TxnRef)
+        .expectedAmount(amount)
+        .vnpAmount(0L)
+        .vnpOrderInfo(orderNote)
+        .status(Status.PAYMENT_PENDING)
+        .createdAt(LocalDateTime.now())
+        .ipAddress(VNPayConfig.getIpAddress(httpRequest)).build());
 
         return ResponseBuilder.build(HttpStatus.OK, "Payment URL tạo thành công", paymentUrl);
     }
@@ -2717,7 +2726,6 @@ public class SchoolServiceImpl implements SchoolService {
         Map<String, String> sortedFields = new TreeMap<>(vnp_Params);
         String hashData = buildVnpHashDataFromRawQuery(request.getQueryString());
         if (hashData.isBlank()) {
-            // Fallback cho các case test nội bộ không truyền raw query string đầy đủ.
             hashData = buildVnpHashData(sortedFields);
         }
         String checkSum = VNPayConfig.hmacSHA512(VNPayConfig.vnp_HashSecret, hashData);
@@ -2746,7 +2754,6 @@ public class SchoolServiceImpl implements SchoolService {
                 );
             }
 
-            // 4. Tìm giao dịch trong hệ thống
             PaymentTransaction transaction =
                     paymentTransactionRepo.findByVnpTxnRef(vnp_TxnRef).orElse(null);
 
@@ -2758,7 +2765,6 @@ public class SchoolServiceImpl implements SchoolService {
                 );
             }
 
-            // Kiểm tra xem giao dịch này đã được xử lý trước đó chưa (tránh IPN gọi trùng)
             if (transaction.getStatus() != Status.PAYMENT_PENDING) {
                 return ResponseBuilder.build(
                         HttpStatus.OK,
@@ -2769,6 +2775,11 @@ public class SchoolServiceImpl implements SchoolService {
 
             if (transaction.getVnpAmount() != callbackAmount) {
                 transaction.setStatus(Status.PAYMENT_FAILED);
+                transaction.setVnpResponseCode(vnp_ResponseCode);
+                transaction.setVnpTransactionNo(vnp_Params.get("vnp_TransactionNo"));
+                transaction.setVnpBankCode(vnp_Params.get("vnp_BankCode"));
+                transaction.setVnpCardType(vnp_Params.get("vnp_CardType"));
+                transaction.setVnpPayDate(vnp_Params.get("vnp_PayDate"));
                 transaction.setUpdatedAt(LocalDateTime.now());
                 paymentTransactionRepo.save(transaction);
                 return ResponseBuilder.build(
@@ -2781,6 +2792,12 @@ public class SchoolServiceImpl implements SchoolService {
             if ("00".equals(vnp_ResponseCode)) {
                 // Cập nhật giao dịch
                 transaction.setStatus(Status.PAYMENT_SUCCESS);
+                transaction.setVnpAmount(callbackAmount); // Set số tiền ĐÃ thanh toán từ callback
+                transaction.setVnpResponseCode(vnp_ResponseCode);
+                transaction.setVnpTransactionNo(vnp_Params.get("vnp_TransactionNo"));
+                transaction.setVnpBankCode(vnp_Params.get("vnp_BankCode"));
+                transaction.setVnpCardType(vnp_Params.get("vnp_CardType"));
+                transaction.setVnpPayDate(vnp_Params.get("vnp_PayDate"));
                 transaction.setUpdatedAt(LocalDateTime.now());
                 paymentTransactionRepo.save(transaction);
 
@@ -2804,6 +2821,11 @@ public class SchoolServiceImpl implements SchoolService {
             } else {
                 // thanh toán thất bại (Người dùng hủy hoặc lỗi thẻ)
                 transaction.setStatus(Status.PAYMENT_FAILED);
+                transaction.setVnpResponseCode(vnp_ResponseCode);
+                transaction.setVnpTransactionNo(vnp_Params.get("vnp_TransactionNo"));
+                transaction.setVnpBankCode(vnp_Params.get("vnp_BankCode"));
+                transaction.setVnpCardType(vnp_Params.get("vnp_CardType"));
+                transaction.setVnpPayDate(vnp_Params.get("vnp_PayDate"));
                 transaction.setUpdatedAt(LocalDateTime.now());
                 paymentTransactionRepo.save(transaction);
 
@@ -2909,13 +2931,23 @@ public class SchoolServiceImpl implements SchoolService {
             return "Payment package";
         }
 
-        String normalizedText = rawOrderInfo.trim().replaceAll("\\s+", " ");
-        // VNPay accepts text order info; keep a conservative safe character set.
-        normalizedText = normalizedText.replaceAll("[^a-zA-Z0-9 _.,:-]", "");
-        if (normalizedText.length() > 255) {
-            normalizedText = normalizedText.substring(0, 255);
+        String normalized = Normalizer.normalize(rawOrderInfo.trim(), Normalizer.Form.NFD);
+
+        normalized = normalized.replaceAll("\\p{M}", "");
+     
+        normalized = normalized.replace("đ", "d").replace("Đ", "D");
+
+       
+        normalized = normalized.replaceAll("[^a-zA-Z0-9 _.,:-]", "");
+       
+        normalized = normalized.replaceAll("\\s+", " ");
+
+       
+        if (normalized.length() > 255) {
+            normalized = normalized.substring(0, 255);
         }
-        return normalizedText;
+
+        return normalized.trim();
     }
 
     private String buildVnpQueryString(Map<String, String> params) {
@@ -3012,7 +3044,7 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     private String urlEncode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.US_ASCII);
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     private ResponseEntity<Resource> buildFileResponse(Path path, String fileName) throws IOException {
