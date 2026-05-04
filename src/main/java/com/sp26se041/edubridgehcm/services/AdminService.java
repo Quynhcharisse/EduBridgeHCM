@@ -8,6 +8,8 @@ import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
+
 public interface AdminService {
 
     ResponseEntity<ResponseObject> autoFillQuotasByYear(AutoFillQuotasByYearRequest request);
@@ -44,7 +46,7 @@ public interface AdminService {
 
     ResponseEntity<ResponseObject> getDashboardOverview(Integer year);
 
-    ResponseEntity<ResponseObject> getRevenuesSummary(Integer year, Integer month, String packageType);
+    ResponseEntity<ResponseObject> getRevenuesSummary(LocalDate startDate, LocalDate endDate, String packageType);
 
     ResponseEntity<ResponseObject> getAllActiveSchools();
 

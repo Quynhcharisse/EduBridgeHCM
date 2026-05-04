@@ -81,4 +81,8 @@ public interface SchoolService {
     ResponseEntity<ResponseObject> getNationalCurriculumTemplate();
 
     ResponseEntity<ResponseObject> getParentsInFavouriteSchool();
+
+    ResponseEntity<ResponseObject> viewPaymentReceipt(String txnRef);
+
+    ResponseEntity<byte[]> exportPaymentReceipt(String txnRef);
 }

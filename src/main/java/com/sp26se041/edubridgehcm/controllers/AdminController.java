@@ -24,6 +24,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
+
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
@@ -156,10 +158,10 @@ public class AdminController {
 
     @GetMapping("/revenues/summary")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ResponseObject> getRevenuesSummary(@RequestParam(name = "year") Integer year,
-                                                             @RequestParam(name = "month", required = false) Integer month,
+    public ResponseEntity<ResponseObject> getRevenuesSummary(@RequestParam(name = "startDate") LocalDate startDate,
+                                                             @RequestParam(name = "endDate", required = false) LocalDate endDate,
                                                              @RequestParam(name = "packageType", required = false) String packageType) {
-        return adminService.getRevenuesSummary(year, month, packageType);
+        return adminService.getRevenuesSummary(startDate, endDate, packageType);
     }
 
     @GetMapping("/dashboard/overview")

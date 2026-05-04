@@ -6,8 +6,8 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum SubscriptionAction {
-    BUY_NEW("buy new"),
-    UPGRADE("nâng cấp"),
+    BUY_NEW("mua gói mới"),
+    SWITCH_PLAN("chuyển gói"),
     RENEW("gia hạn");
     private final String value;
 }
