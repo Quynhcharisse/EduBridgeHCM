@@ -16,6 +16,8 @@ import java.time.LocalDate;
 
 public interface CampusService {
 
+    ResponseEntity<ResponseObject> getConsultationStats(String period, LocalDate from, LocalDate to);
+
     ResponseEntity<ResponseObject> createCampusProgramOffering(CreateCampusProgramOfferingRequest request);
 
     ResponseEntity<ResponseObject> viewCampusProgramOfferingList(Integer campusId, int page, int pageSize);

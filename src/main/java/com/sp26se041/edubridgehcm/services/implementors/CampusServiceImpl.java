@@ -2329,6 +2329,269 @@ public class CampusServiceImpl implements CampusService {
         };
     }
 
+    @Override
+    public ResponseEntity<ResponseObject> getConsultationStats(String period, LocalDate from, LocalDate to) {
+
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND,
+                    "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
+        }
+
+        LocalDate[] range = resolveConsultationDateRange(period, from, to);
+        if (range == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Period không hợp lệ. Giá trị hợp lệ: THIS_WEEK, THIS_MONTH, THIS_QUARTER, THIS_YEAR, CUSTOM. "
+                            + "Khi chọn CUSTOM cần truyền thêm from và to.", null);
+        }
+        LocalDate dateFrom = range[0];
+        LocalDate dateTo   = range[1];
+        String normalizedPeriod = (period != null && !period.isBlank()) ? period.trim().toUpperCase() : "CUSTOM";
+        boolean isPrimaryBranch = Boolean.TRUE.equals(actorCampus.getIsPrimaryBranch());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("period", normalizedPeriod);
+        result.put("from", dateFrom.toString());
+        result.put("to", dateTo.toString());
+        result.put("isPrimaryBranch", isPrimaryBranch);
+
+        if (isPrimaryBranch) {
+            // ── Campus chính: tổng hợp toàn trường + breakdown từng cơ sở ──
+            List<Campus> allCampuses = campusRepo.findAllBySchoolId(actorCampus.getSchool().getId());
+            List<Integer> campusIds  = allCampuses.stream().map(Campus::getId).collect(Collectors.toList());
+
+            List<ConsultationOfflineRequest> allRequests =
+                    consultationOfflineRequestRepo.findByCampusIdInAndAppointmentDateBetween(campusIds, dateFrom, dateTo);
+
+            // 1. Cards – tổng toàn trường
+            result.put("cards", buildConsultationCards(allRequests));
+
+            // 2. Trend line – xu hướng theo thời gian (granularity tuỳ period)
+            result.put("trend", buildConsultationTrend(allRequests, dateFrom, dateTo, normalizedPeriod));
+
+            // 3. Phân bổ theo thứ trong tuần
+            result.put("byDayOfWeek", buildConsultationByDayOfWeek(allRequests));
+
+            // 4. So sánh từng cơ sở (bar chart)
+            Map<Integer, List<ConsultationOfflineRequest>> byCampusId = allRequests.stream()
+                    .collect(Collectors.groupingBy(r -> r.getCampus().getId()));
+
+            List<Map<String, Object>> byCampusList = new ArrayList<>();
+            for (Campus c : allCampuses) {
+                List<ConsultationOfflineRequest> campusReqs =
+                        byCampusId.getOrDefault(c.getId(), Collections.emptyList());
+                Map<String, Object> entry = new LinkedHashMap<>();
+                entry.put("campusId", c.getId());
+                entry.put("campusName", c.getName());
+                entry.put("isPrimaryBranch", Boolean.TRUE.equals(c.getIsPrimaryBranch()));
+                entry.putAll(buildConsultationCards(campusReqs));
+                byCampusList.add(entry);
+            }
+            result.put("byCampus", byCampusList);
+
+        } else {
+            // ── Campus chi nhánh: chỉ dữ liệu của cơ sở đó ──
+            List<ConsultationOfflineRequest> requests =
+                    consultationOfflineRequestRepo.findByCampusIdAndAppointmentDateBetween(
+                            actorCampus.getId(), dateFrom, dateTo);
+
+            result.put("cards", buildConsultationCards(requests));
+            result.put("trend", buildConsultationTrend(requests, dateFrom, dateTo, normalizedPeriod));
+            result.put("byDayOfWeek", buildConsultationByDayOfWeek(requests));
+        }
+
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy thống kê tư vấn thành công.", result);
+    }
+
+    private LocalDate[] resolveConsultationDateRange(String period, LocalDate from, LocalDate to) {
+        if (period == null || period.isBlank()) {
+            if (from != null && to != null) return new LocalDate[]{from, to};
+            return null;
+        }
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+        return switch (period.trim().toUpperCase()) {
+            case "THIS_WEEK" -> {
+                LocalDate start = today.with(java.time.DayOfWeek.MONDAY);
+                LocalDate end   = today.with(java.time.DayOfWeek.SUNDAY);
+                yield new LocalDate[]{start, end};
+            }
+            case "THIS_MONTH" -> {
+                LocalDate start = today.withDayOfMonth(1);
+                LocalDate end   = today.withDayOfMonth(today.lengthOfMonth());
+                yield new LocalDate[]{start, end};
+            }
+            case "THIS_QUARTER" -> {
+                int q = (today.getMonthValue() - 1) / 3;
+                LocalDate start = today.withMonth(q * 3 + 1).withDayOfMonth(1);
+                LocalDate end   = start.plusMonths(2).withDayOfMonth(start.plusMonths(2).lengthOfMonth());
+                yield new LocalDate[]{start, end};
+            }
+            case "THIS_YEAR" -> {
+                LocalDate start = today.withDayOfYear(1);
+                LocalDate end   = today.withDayOfYear(today.lengthOfYear());
+                yield new LocalDate[]{start, end};
+            }
+            case "CUSTOM" -> {
+                if (from == null || to == null || from.isAfter(to)) yield null;
+                yield new LocalDate[]{from, to};
+            }
+            default -> null;
+        };
+    }
+
+    private Map<String, Object> buildConsultationCards(List<ConsultationOfflineRequest> requests) {
+        long pending = 0, confirmed = 0, inProgress = 0, completed = 0, cancelled = 0, noShow = 0;
+        for (ConsultationOfflineRequest r : requests) {
+            switch (r.getStatus()) {
+                case CONSULTATION_PENDING    -> pending++;
+                case CONSULTATION_CONFIRMED  -> confirmed++;
+                case CONSULTATION_IN_PROGRESS -> inProgress++;
+                case CONSULTATION_COMPLETED  -> completed++;
+                case CONSULTATION_CANCELLED  -> cancelled++;
+                case CONSULTATION_NO_SHOW    -> noShow++;
+                default -> { }
+            }
+        }
+        long total     = requests.size();
+        long finalized = completed + cancelled + noShow;
+        long responded = total - pending;
+
+        Map<String, Object> cards = new LinkedHashMap<>();
+        cards.put("total",      total);
+        cards.put("pending",    pending);
+        cards.put("confirmed",  confirmed);
+        cards.put("inProgress", inProgress);
+        cards.put("completed",  completed);
+        cards.put("cancelled",  cancelled);
+        cards.put("noShow",     noShow);
+        // Rates
+        cards.put("completionRate",   pct(completed, finalized));   // % hoàn thành
+        cards.put("cancellationRate", pct(cancelled, responded));   // % huỷ
+        cards.put("noShowRate",       pct(noShow, completed + noShow)); // % bỏ hẹn
+        cards.put("conversionRate",   pct(completed, total));       // % chuyển đổi
+        cards.put("confirmRate",      pct(responded, total));       // % school đã phản hồi
+        return cards;
+    }
+
+    // ─── Trend (line chart) ─────────────────────────────────────────────────
+
+    /**
+     * Groups requests by time bucket depending on the period:
+     * <ul>
+     *   <li>THIS_WEEK / THIS_MONTH → by day   (label: "dd/MM")</li>
+     *   <li>THIS_QUARTER           → by week  (label: "dd/MM − dd/MM")</li>
+     *   <li>THIS_YEAR / CUSTOM     → by month (label: "MM/yyyy")</li>
+     * </ul>
+     */
+    private List<Map<String, Object>> buildConsultationTrend(
+            List<ConsultationOfflineRequest> requests,
+            LocalDate dateFrom, LocalDate dateTo, String normalizedPeriod) {
+
+        boolean byMonth = "THIS_YEAR".equals(normalizedPeriod)
+                || ("CUSTOM".equals(normalizedPeriod) && !dateFrom.plusMonths(3).isAfter(dateTo));
+        boolean byWeek  = "THIS_QUARTER".equals(normalizedPeriod);
+
+        List<Map<String, Object>> trend = new ArrayList<>();
+
+        if (byMonth) {
+            // Group by yyyy-MM
+            Map<String, List<ConsultationOfflineRequest>> grouped = requests.stream()
+                    .collect(Collectors.groupingBy(
+                            r -> r.getAppointmentDate().format(DateTimeFormatter.ofPattern("yyyy-MM"))));
+
+            LocalDate cursor = dateFrom.withDayOfMonth(1);
+            while (!cursor.isAfter(dateTo)) {
+                String key   = cursor.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+                String label = cursor.format(DateTimeFormatter.ofPattern("MM/yyyy"));
+                trend.add(buildTrendEntry(label, grouped.getOrDefault(key, Collections.emptyList())));
+                cursor = cursor.plusMonths(1);
+            }
+
+        } else if (byWeek) {
+            // Weekly buckets (Monday → Sunday)
+            LocalDate weekStart = dateFrom.with(java.time.DayOfWeek.MONDAY);
+            if (weekStart.isAfter(dateFrom)) weekStart = weekStart.minusWeeks(1);
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM");
+
+            while (!weekStart.isAfter(dateTo)) {
+                LocalDate weekEnd = weekStart.plusDays(6);
+                String label      = weekStart.format(fmt) + " - " + weekEnd.format(fmt);
+                final LocalDate ws = weekStart;
+                final LocalDate we = weekEnd;
+                List<ConsultationOfflineRequest> group = requests.stream()
+                        .filter(r -> !r.getAppointmentDate().isBefore(ws)
+                                  && !r.getAppointmentDate().isAfter(we))
+                        .collect(Collectors.toList());
+                trend.add(buildTrendEntry(label, group));
+                weekStart = weekStart.plusWeeks(1);
+            }
+
+        } else {
+            // Daily (THIS_WEEK / THIS_MONTH)
+            Map<LocalDate, List<ConsultationOfflineRequest>> grouped = requests.stream()
+                    .collect(Collectors.groupingBy(ConsultationOfflineRequest::getAppointmentDate));
+
+            LocalDate cursor = dateFrom;
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM");
+            while (!cursor.isAfter(dateTo)) {
+                trend.add(buildTrendEntry(cursor.format(fmt),
+                        grouped.getOrDefault(cursor, Collections.emptyList())));
+                cursor = cursor.plusDays(1);
+            }
+        }
+
+        return trend;
+    }
+
+    /** One data point in the trend series. */
+    private Map<String, Object> buildTrendEntry(String label, List<ConsultationOfflineRequest> group) {
+        long completed = group.stream().filter(r -> r.getStatus() == Status.CONSULTATION_COMPLETED).count();
+        long cancelled = group.stream().filter(r -> r.getStatus() == Status.CONSULTATION_CANCELLED).count();
+        long noShow    = group.stream().filter(r -> r.getStatus() == Status.CONSULTATION_NO_SHOW).count();
+        long pending   = group.stream().filter(r -> r.getStatus() == Status.CONSULTATION_PENDING).count();
+        long confirmed = group.stream().filter(r -> r.getStatus() == Status.CONSULTATION_CONFIRMED).count();
+        Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("label",     label);
+        entry.put("total",     (long) group.size());
+        entry.put("completed", completed);
+        entry.put("confirmed", confirmed);
+        entry.put("pending",   pending);
+        entry.put("cancelled", cancelled);
+        entry.put("noShow",    noShow);
+        return entry;
+    }
+
+    // ─── By day-of-week (heatmap / bar chart) ───────────────────────────────
+
+    private List<Map<String, Object>> buildConsultationByDayOfWeek(List<ConsultationOfflineRequest> requests) {
+        Map<java.time.DayOfWeek, Long> countMap = requests.stream()
+                .collect(Collectors.groupingBy(
+                        r -> r.getAppointmentDate().getDayOfWeek(),
+                        Collectors.counting()));
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (java.time.DayOfWeek dow : java.time.DayOfWeek.values()) {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("day",   dow.name().substring(0, 3));
+            entry.put("label", translateDayOfWeek(dow.name().substring(0, 3)));
+            entry.put("total", countMap.getOrDefault(dow, 0L));
+            result.add(entry);
+        }
+        return result;
+    }
+
+    // ─── Rate helper ────────────────────────────────────────────────────────
+
+    /** Returns (numerator / denominator) × 100, rounded to 1 decimal. 0.0 when denominator = 0. */
+    private double pct(long numerator, long denominator) {
+        if (denominator == 0) return 0.0;
+        return BigDecimal.valueOf(numerator)
+                .divide(BigDecimal.valueOf(denominator), 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100))
+                .setScale(1, RoundingMode.HALF_UP)
+                .doubleValue();
+    }
+
     private ResponseEntity<Resource> buildFileResponse(Path path, String fileName) throws IOException {
         Resource resource = new UrlResource(path.toUri());
         String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8)

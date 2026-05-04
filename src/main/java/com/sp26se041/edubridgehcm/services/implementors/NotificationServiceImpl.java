@@ -184,8 +184,15 @@ public class NotificationServiceImpl implements NotificationService {
 
         Set<Account> recipients = new HashSet<>();
 
-        for (Role role : config.recipientRoles()) {
-            recipients.addAll(accountRepo.findByRole(role));
+        // Nếu có specificRecipients trong contextData → dùng đó thay vì role-based
+        if (contextData != null && contextData.get("specificRecipients") instanceof List<?> specificList) {
+            for (Object obj : specificList) {
+                if (obj instanceof Account acc) recipients.add(acc);
+            }
+        } else {
+            for (Role role : config.recipientRoles()) {
+                recipients.addAll(accountRepo.findByRole(role));
+            }
         }
 
         if (recipients.isEmpty()) return;
@@ -324,9 +331,12 @@ public class NotificationServiceImpl implements NotificationService {
             return resolveAdminName(actor);
         }
 
-//        if (eventType == NotificationEventType.FAVORITE_SCHOOL) {
-//            return resolveParentName(actor);
-//        }
+        if (eventType == NotificationEventType.FAVORITE_SCHOOL) {
+            if (contextData != null && contextData.get("parentName") != null) {
+                return contextData.get("parentName").toString();
+            }
+            return "Một phụ huynh";
+        }
 
         return "Hệ thống EduBridge";
     }
@@ -381,15 +391,15 @@ public class NotificationServiceImpl implements NotificationService {
                 )
         );
 
-//        configs.put(
-//                NotificationEventType.FAVORITE_SCHOOL,
-//                new EventTemplateConfig(
-//                        "Thêm trường yêu thích",
-//                        "{actorName} vừa tạo gói doanh nghiệp mới {packageName}.",
-//                        "/saved-schools",
-//                        List.of(Role.SCHOOL)
-//                )
-//        );
+        configs.put(
+                NotificationEventType.FAVORITE_SCHOOL,
+                new EventTemplateConfig(
+                        "Phụ huynh mới quan tâm đến trường",
+                        "{actorName} vừa thêm trường bạn vào danh sách yêu thích.",
+                        "/school/parents-interest",
+                        List.of()
+                )
+        );
         return configs;
     }
 

@@ -2,6 +2,8 @@ package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.Gender;
 import com.sp26se041.edubridgehcm.enums.GradeLevel;
+import com.sp26se041.edubridgehcm.enums.NotificationEventType;
+import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.enums.SubjectType;
 import com.sp26se041.edubridgehcm.models.Account;
@@ -44,6 +46,7 @@ import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
+import com.sp26se041.edubridgehcm.services.NotificationService;
 import com.sp26se041.edubridgehcm.services.ParentService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
@@ -120,6 +123,8 @@ public class ParentServiceImpl implements ParentService {
     private final CampusRepo campusRepo;
 
     private final CounsellorRepo counsellorRepo;
+
+    private final NotificationService notificationService;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -427,7 +432,19 @@ public class ParentServiceImpl implements ParentService {
 
         favouriteSchoolRepo.save(favouriteSchool);
 
-        //notification when parent click add favorite for school
+        // Gửi notification tới tài khoản của trường được follow
+        try {
+            List<Account> schoolAccounts = accountRepo.findByCampus_School_IdAndRole(school.getId(), Role.SCHOOL);
+            if (!schoolAccounts.isEmpty()) {
+                String parentName = parent.getAccount() != null ? parent.getAccount().getEmail() : "Một phụ huynh";
+                Map<String, Object> context = new HashMap<>();
+                context.put("parentName", parentName);
+                context.put("specificRecipients", schoolAccounts);
+                notificationService.publish(NotificationEventType.FAVORITE_SCHOOL, parent.getAccount(), context);
+            }
+        } catch (Exception ignored) {
+            // notification lỗi không block nghiệp vụ chính
+        }
 
         return ResponseBuilder.build(HttpStatus.OK, "", null);
     }

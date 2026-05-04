@@ -67,6 +67,7 @@ public interface ConsultationOfflineRequestRepo extends JpaRepository<Consultati
             Pageable pageable
     );
 
+    // Thống kê tư vấn theo campus + khoảng thời gian
     List<ConsultationOfflineRequest> findByCampusIdAndAppointmentDateBetween(Integer campusId, LocalDate appointmentDateAfter, LocalDate appointmentDateBefore);
 
     long countByAppointmentDateAndAppointmentTimeAndCampusAndStatusIn(LocalDate appointmentDate, LocalTime appointmentTime, Campus campus, Collection<Status> statuses);
@@ -78,4 +79,8 @@ public interface ConsultationOfflineRequestRepo extends JpaRepository<Consultati
     List<ConsultationOfflineRequest> findByCounsellorAndAppointmentDateAndAppointmentTime(Counsellor counsellor, LocalDate appointmentDate, LocalTime appointmentTime);
 
     List<ConsultationOfflineRequest> findByCounsellorSlotId(Integer slotId);
+
+    // Thống kê tư vấn theo nhiều campus (dành cho HQ xem tổng)
+    List<ConsultationOfflineRequest> findByCampusIdInAndAppointmentDateBetween(
+            List<Integer> campusIds, LocalDate from, LocalDate to);
 }
