@@ -16,6 +16,7 @@ import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.SystemService;
 import com.sp26se041.edubridgehcm.utils.ConfigSystemUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
+import com.sp26se041.edubridgehcm.validations.platform.SystemConfigValidation;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
@@ -525,25 +526,35 @@ public class SystemServiceImpl implements SystemService {
             DataFormatter formatter = new DataFormatter();
             List<ImportConfirmRequest.ImportRow> resultRows = new ArrayList<>();
 
-            Set<String> validCodes = getExistingMethodCodes();
-            Set<String> admissionProcessKeys = getExistingAdmissionProcessKeys();
-            Set<String> methodDocumentKeys = getExistingMethodDocumentKeys();
+            Map<String, Object> configValue = getAdmissionConfigMap();
+            Set<String> dbValidCodes = getExistingKeys(configValue, ImportType.ALLOWED_METHODS);
+//            Set<String> dbAdmissionProcessKeys = getExistingKeys(configValue, ImportType.ADMISSION_PROCESSES);
+//            Set<String> dbMethodDocumentKeys = getExistingKeys(configValue, ImportType.METHOD_DOCUMENTS);
+
+            Set<String> fileLevelCodes = new HashSet<>();
+            Set<String> fileLevelAdmissionKeys = new HashSet<>();
+            Set<String> fileLevelMethodDocKeys = new HashSet<>();
 
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
                 if (row == null || isRowEmpty(row)) continue;
 
-                // 1. Map row thành RowData tương ứng
+                // 1. Map row to RowData
                 Map<String, Object> rowData = mapRowToMap(row, type, formatter, i + 1);
 
-                // 2. Validate RowData
-                ImportConfirmRequest.Error error = validateRowData(rowData, type, validCodes, admissionProcessKeys, methodDocumentKeys);
+                // 2. Validate RowData with file-level duplicate checking
+                ImportConfirmRequest.Error error = SystemConfigValidation.validateRowData(
+                        rowData, type,
+                        fileLevelCodes, fileLevelAdmissionKeys, fileLevelMethodDocKeys,
+                        dbValidCodes
+                );
 
-                // 3. Đóng gói vào ImportRow
+                // 3. Package into ImportRow
                 resultRows.add(ImportConfirmRequest.ImportRow.builder()
                         .rowData(rowData)
                         .error(error)
                         .isError(error != null)
+                        .isDeleted(false)
                         .build());
             }
 
@@ -572,43 +583,64 @@ public class SystemServiceImpl implements SystemService {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Dữ liệu trống", null);
             }
 
-            Set<String> validCodes = getExistingMethodCodes();
-            Set<String> admissionProcessKeys = getExistingAdmissionProcessKeys();
-            Set<String> methodDocumentKeys = getExistingMethodDocumentKeys();
+            Map<String, Object> configValue = getAdmissionConfigMap();
+
+            Set<String> dbValidCodes = getExistingKeys(configValue, ImportType.ALLOWED_METHODS);
+
+            Set<String> fileLevelCodes = new HashSet<>();
+            Set<String> fileLevelAdmissionKeys = new HashSet<>();
+            Set<String> fileLevelMethodDocKeys = new HashSet<>();
+
             List<ImportConfirmRequest.ImportRow> rows = request.getRows();
-            rows.forEach(row -> {
-                ImportConfirmRequest.Error error = validateRowData(row.getRowData(), type, validCodes, admissionProcessKeys, methodDocumentKeys);
-                row.setError(error);
-                row.setIsError(error != null);
+            
+            rows.stream()
+                    .filter(r -> !Boolean.TRUE.equals(r.getIsDeleted()))
+                    .forEach(row -> {
+                        var error = SystemConfigValidation.validateRowData(
+                                row.getRowData(), type,
+                                fileLevelCodes, fileLevelAdmissionKeys, fileLevelMethodDocKeys,
+                                dbValidCodes
+                        );
+                        row.setError(error);
+                        row.setIsError(error != null);
+                    });
+
+
+            if (rows.stream()
+                    .filter(r -> !Boolean.TRUE.equals(r.getIsDeleted()))
+                    .anyMatch(r -> Boolean.TRUE.equals(r.getIsError()))) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Dữ liệu không hợp lệ", rows);
+            }
+
+            List<Map<String, Object>> existingData = (List<Map<String, Object>>) configValue.getOrDefault(type.getSheetName(), new ArrayList<>());
+            Map<String, Map<String, Object>> mergedMap = new LinkedHashMap<>();
+
+            existingData.forEach(m -> mergedMap.put(SystemConfigValidation.getBusinessKey(m, type), m));
+
+            rows.forEach(r -> {
+                String businessKey = SystemConfigValidation.getBusinessKey((Map<String, Object>) r.getRowData(), type);
+                
+                if (Boolean.TRUE.equals(r.getIsDeleted())) {
+                    mergedMap.remove(businessKey);
+                } else {
+                    Map<String, Object> rowData = (Map<String, Object>) r.getRowData();
+                    mergedMap.put(businessKey, rowData);
+                }
             });
 
-            boolean hasError = rows.stream().anyMatch(r -> Boolean.TRUE.equals(r.getIsError()));
-            if (hasError) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Dữ liệu không hợp lệ", rows);
+            List<Map<String, Object>> finalData = new ArrayList<>(mergedMap.values());
+
+            List<Map<String, Object>> nestedData = SystemConfigValidation.groupToNestedStructure(finalData, type);
+            configValue.put(type.getSheetName(), nestedData);
+
+            SystemConfigValidation.syncLegacyData(configValue, nestedData, type);
+
+            if (type == ImportType.ALLOWED_METHODS) {
+                SystemConfigValidation.cascadeDeleteOnMethodChange(configValue, nestedData);
             }
 
             PlatformConfig config = platformConfigRepo.findByKey("admissionSettingsData")
                     .orElse(PlatformConfig.builder().key("admissionSettingsData").value(new HashMap<>()).build());
-
-            Map<String, Object> configValue = config.getValue() instanceof Map<?, ?> raw
-                    ? (Map<String, Object>) raw
-                    : new HashMap<>();
-
-            List<Object> cleanData = rows.stream()
-                    .map(ImportConfirmRequest.ImportRow::getRowData)
-                    .collect(Collectors.toList());
-
-            configValue.put(type.getSheetName(), cleanData);
-
-            // Keep legacy/current keys synchronized so all readers get consistent data.
-            if (type == ImportType.METHOD_DOCUMENTS) {
-                configValue.put("methodDocumentRequirements", cleanData);
-                Map<String, Object> documentRequirementsData = configValue.get("documentRequirementsData") instanceof Map<?, ?> rawDocReq
-                        ? (Map<String, Object>) rawDocReq
-                        : new HashMap<>();
-                documentRequirementsData.put("byMethod", cleanData);
-                configValue.put("documentRequirementsData", documentRequirementsData);
-            }
 
             config.setValue(configValue);
             config.setModifiedDate(LocalDateTime.now());
@@ -628,15 +660,22 @@ public class SystemServiceImpl implements SystemService {
 
         validateImportType(type);
 
-        // ALLOWED_METHODS cần kiểm tra trùng code với dữ liệu hiện có + trong chính payload.
-        // 2 type còn lại cần danh sách methodCode hợp lệ để đối chiếu.
-        Set<String> validCodes = getExistingMethodCodes();
-        Set<String> admissionProcessKeys = getExistingAdmissionProcessKeys();
-        Set<String> methodDocumentKeys = getExistingMethodDocumentKeys();
+        Map<String, Object> configValue = getAdmissionConfigMap();
+
+        Set<String> dbValidCodes = getExistingKeys(configValue, ImportType.ALLOWED_METHODS);
+       
+        Set<String> fileLevelCodes = new HashSet<>();
+        Set<String> fileLevelAdmissionKeys = new HashSet<>();
+        Set<String> fileLevelMethodDocKeys = new HashSet<>();
+
         List<ImportConfirmRequest.ImportRow> rows = request.getRows();
 
         rows.forEach(row -> {
-            ImportConfirmRequest.Error error = validateRowData(row.getRowData(), type, validCodes, admissionProcessKeys, methodDocumentKeys);
+            ImportConfirmRequest.Error error = SystemConfigValidation.validateRowData(
+                    row.getRowData(), type,
+                    fileLevelCodes, fileLevelAdmissionKeys, fileLevelMethodDocKeys,
+                    dbValidCodes
+            );
             row.setError(error);
             row.setIsError(error != null);
         });
@@ -647,185 +686,40 @@ public class SystemServiceImpl implements SystemService {
     private Map<String, Object> mapRowToMap(Row row, ImportType type, DataFormatter formatter, int index) {
         Map<String, Object> rowData = new LinkedHashMap<>();
         rowData.put("index", index);
+
         switch (type) {
-            case ALLOWED_METHODS:
+            case ALLOWED_METHODS -> {
                 rowData.put("code", cellText(row.getCell(0), formatter));
                 rowData.put("displayName", cellText(row.getCell(1), formatter));
                 rowData.put("description", cellText(row.getCell(2), formatter));
-                break;
-
-            case ADMISSION_PROCESSES:
+            }
+            case ADMISSION_PROCESSES -> {
                 rowData.put("methodCode", cellText(row.getCell(0), formatter));
                 rowData.put("stepOrder", cellText(row.getCell(1), formatter));
                 rowData.put("stepName", cellText(row.getCell(2), formatter));
                 rowData.put("description", cellText(row.getCell(3), formatter));
-                break;
-            case METHOD_DOCUMENTS:
+            }
+            case METHOD_DOCUMENTS -> {
                 rowData.put("methodCode", cellText(row.getCell(0), formatter));
                 rowData.put("code", cellText(row.getCell(1), formatter));
                 rowData.put("name", cellText(row.getCell(2), formatter));
                 rowData.put("required", parseBoolean(cellText(row.getCell(3), formatter)));
-                break;
+            }
         }
         return rowData;
     }
 
-    //hàm check method code nếu đã import rồi ==> sau đấy check cho các key khác
-    // ==> list mã phương thức đã nộp từ DB (phục vụ validate các sheet sau)
-    private Set<String> getExistingMethodCodes() {
-        return platformConfigRepo.findByKey("admissionSettingsData")
-                .map(config -> {
-                    if (!(config.getValue() instanceof Map<?, ?> rawVal)) {
-                        return new HashSet<String>();
-                    }
-                    Map<String, Object> val = (Map<String, Object>) rawVal;
-                    List<Map<String, Object>> methods = (List<Map<String, Object>>) val.get("allowedMethods");
-                    if (methods == null) return new HashSet<String>();
-                    return methods.stream()
-                            .filter(m -> m != null && m.get("code") != null)
-                            .map(m -> String.valueOf(m.get("code")).trim().toLowerCase())
-                            .filter(code -> !code.isBlank())
-                            .collect(Collectors.toSet());
-                }).orElse(new HashSet<>());
-    }
-
-    private Set<String> getExistingAdmissionProcessKeys() {
-        return platformConfigRepo.findByKey("admissionSettingsData")
-                .map(config -> {
-                    if (!(config.getValue() instanceof Map<?, ?> rawVal)) {
-                        return new HashSet<String>();
-                    }
-                    Map<String, Object> val = (Map<String, Object>) rawVal;
-                    List<Map<String, Object>> processes = (List<Map<String, Object>>) val.get("admissionProcesses");
-                    if (processes == null) return new HashSet<String>();
-                    return processes.stream()
-                            .filter(p -> p != null)
-                            .map(p -> buildCompositeKey(p.get("methodCode"), p.get("stepOrder")))
-                            .filter(key -> !key.isBlank())
-                            .collect(Collectors.toSet());
-                }).orElse(new HashSet<>());
-    }
-
-    private Set<String> getExistingMethodDocumentKeys() {
-        return platformConfigRepo.findByKey("admissionSettingsData")
-                .map(config -> {
-                    if (!(config.getValue() instanceof Map<?, ?> rawVal)) {
-                        return new HashSet<String>();
-                    }
-                    Map<String, Object> val = (Map<String, Object>) rawVal;
-                    List<Map<String, Object>> docs = (List<Map<String, Object>>) val.get("methodDocumentRequirements");
-                    if (docs == null && val.get("documentRequirementsData") instanceof Map<?, ?> rawDocData) {
-                        Map<String, Object> docData = (Map<String, Object>) rawDocData;
-                        docs = (List<Map<String, Object>>) docData.get("byMethod");
-                    }
-                    if (docs == null) return new HashSet<String>();
-                    return docs.stream()
-                            .filter(d -> d != null)
-                            .map(d -> buildCompositeKey(d.get("methodCode"), d.get("code")))
-                            .filter(key -> !key.isBlank())
-                            .collect(Collectors.toSet());
-                }).orElse(new HashSet<>());
-    }
-
-    private ImportConfirmRequest.Error validateRowData(
-            Map<String, Object> rowData,
-            ImportType type,
-            Set<String> validCodes,
-            Set<String> admissionProcessKeys,
-            Set<String> methodDocumentKeys
-    ) {
-
-        List<ImportConfirmRequest.Fields> fieldErrors = new ArrayList<>();
-        if (rowData == null) {
-            fieldErrors.add(new ImportConfirmRequest.Fields("rowData", "Dữ liệu dòng không hợp lệ"));
-            return new ImportConfirmRequest.Error(fieldErrors);
-        }
-
-        rowData.forEach((key, value) -> {
-            if (key.equals("description") || key.equals("index")) return;
-            if (value == null || String.valueOf(value).isBlank()) {
-                fieldErrors.add(new ImportConfirmRequest.Fields(key, "Trường này không được để trống"));
-            }
-        });
-
-        if (type == ImportType.ALLOWED_METHODS) {
-            String code = String.valueOf(rowData.get("code")).trim().toLowerCase();
-            if (!code.isBlank()) {
-                if (validCodes.contains(code)) {
-                    fieldErrors.add(new ImportConfirmRequest.Fields("code", "Mã phương thức đã tồn tại"));
-                } else {
-                    // Thêm vào tập hợp để chặn trùng trong cùng request validate nhiều dòng.
-                    validCodes.add(code);
-                }
-            }
-        }
-
-        if (type == ImportType.ADMISSION_PROCESSES) {
-            String key = buildCompositeKey(rowData.get("methodCode"), rowData.get("stepOrder"));
-            if (!key.isBlank()) {
-                if (admissionProcessKeys.contains(key)) {
-                    fieldErrors.add(new ImportConfirmRequest.Fields("stepOrder", "Bước xét tuyển đã tồn tại cho phương thức này"));
-                } else {
-                    admissionProcessKeys.add(key);
-                }
-            }
-        }
-
-        if (type == ImportType.METHOD_DOCUMENTS) {
-            String key = buildCompositeKey(rowData.get("methodCode"), rowData.get("code"));
-            if (!key.isBlank()) {
-                if (methodDocumentKeys.contains(key)) {
-                    fieldErrors.add(new ImportConfirmRequest.Fields("code", "Mã giấy tờ đã tồn tại cho phương thức này"));
-                } else {
-                    methodDocumentKeys.add(key);
-                }
-            }
-        }
-
-        // 2. Validate nghiệp vụ riêng
-        String mCode = String.valueOf(rowData.get("methodCode")).toLowerCase();
-        if (type != ImportType.ALLOWED_METHODS && !mCode.isBlank() && !validCodes.contains(mCode)) {
-            fieldErrors.add(new ImportConfirmRequest.Fields("methodCode", "Mã phương thức không tồn tại"));
-        }
-
-        // Check định dạng số cho stepOrder
-        if (type == ImportType.ADMISSION_PROCESSES) {
-            try {
-                Integer.parseInt(String.valueOf(rowData.get("stepOrder")));
-            } catch (NumberFormatException e) {
-                fieldErrors.add(new ImportConfirmRequest.Fields("stepOrder", "Thứ tự bước phải là số"));
-            }
-        }
-
-        return fieldErrors.isEmpty() ? null : new ImportConfirmRequest.Error(fieldErrors);
-    }
-
-    private String buildCompositeKey(Object first, Object second) {
-        String left = normalize(first);
-        String right = normalize(second);
-        if (left.isBlank() || right.isBlank()) return "";
-        return left + "|" + right;
-    }
-
-    private String normalize(Object raw) {
-        if (raw == null) return "";
-        return String.valueOf(raw).trim().toLowerCase();
-    }
-
-    //Lấy text từ cell bất kể kiểu dữ liệu là gì (Numeric, String, Formula...)
     private String cellText(Cell cell, DataFormatter formatter) {
         if (cell == null) return "";
         return formatter.formatCellValue(cell).trim();
     }
 
-    //Chuyển đổi linh hoạt các giá trị đánh dấu trong Excel sang Boolean
     private boolean parseBoolean(String raw) {
         if (raw == null) return false;
         String v = raw.trim().toLowerCase();
         return List.of("true", "1", "yes", "y", "x").contains(v);
     }
 
-    //Kiểm tra xem một dòng có hoàn toàn trống hay không
     private boolean isRowEmpty(Row row) {
         if (row == null) return true;
         for (int cellNum = row.getFirstCellNum(); cellNum < row.getLastCellNum(); cellNum++) {
@@ -835,5 +729,21 @@ public class SystemServiceImpl implements SystemService {
             }
         }
         return true;
+    }
+
+    private Map<String, Object> getAdmissionConfigMap() {
+        return platformConfigRepo.findByKey("admissionSettingsData")
+                .map(config -> config.getValue() instanceof Map ? (Map<String, Object>) config.getValue() : new HashMap<String, Object>())
+                .orElse(new HashMap<>());
+    }
+
+    private Set<String> getExistingKeys(Map<String, Object> config, ImportType type) {
+        Object data = config.get(type.getSheetName());
+        if (!(data instanceof List<?> list)) return new HashSet<>();
+        return list.stream()
+                .filter(Map.class::isInstance)
+                .map(m -> SystemConfigValidation.getBusinessKey((Map<String, Object>) m, type))
+                .filter(k -> !k.isBlank())
+                .collect(Collectors.toCollection(HashSet::new));
     }
 }
