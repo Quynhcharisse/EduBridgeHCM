@@ -7,4 +7,5 @@ public enum NotificationEventType {
     BUY_PACKAGE_FEE,
     CREATE_PACKAGE_FEE,
     FAVORITE_SCHOOL,
+    REMOVE_FAVORITE_SCHOOL
 }

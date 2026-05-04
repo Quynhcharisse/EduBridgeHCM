@@ -2473,16 +2473,6 @@ public class CampusServiceImpl implements CampusService {
         return cards;
     }
 
-    // ─── Trend (line chart) ─────────────────────────────────────────────────
-
-    /**
-     * Groups requests by time bucket depending on the period:
-     * <ul>
-     *   <li>THIS_WEEK / THIS_MONTH → by day   (label: "dd/MM")</li>
-     *   <li>THIS_QUARTER           → by week  (label: "dd/MM − dd/MM")</li>
-     *   <li>THIS_YEAR / CUSTOM     → by month (label: "MM/yyyy")</li>
-     * </ul>
-     */
     private List<Map<String, Object>> buildConsultationTrend(
             List<ConsultationOfflineRequest> requests,
             LocalDate dateFrom, LocalDate dateTo, String normalizedPeriod) {

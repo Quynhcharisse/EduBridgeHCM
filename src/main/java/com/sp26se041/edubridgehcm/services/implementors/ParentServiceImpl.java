@@ -54,7 +54,6 @@ import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpEntity;
@@ -137,7 +136,7 @@ public class ParentServiceImpl implements ParentService {
     private final SchoolConfigRepo schoolConfigRepo;
 
     @Override
-    public  ResponseEntity<ResponseObject> getConversations(Long cursorId) {
+    public ResponseEntity<ResponseObject> getConversations(Long cursorId) {
         try {
             String email = SecurityContextHolder
                     .getContext()
@@ -148,10 +147,10 @@ public class ParentServiceImpl implements ParentService {
 
             if (cursorId == null) {
                 conversations = conversationRepo
-                            .findTop20ByParentEmailAndStudentProfileIsNotNullOrderByIdDesc(email);
+                        .findTop20ByParentEmailAndStudentProfileIsNotNullOrderByIdDesc(email);
             } else {
-                    conversations = conversationRepo
-                            .findTop20ByParentEmailAndIdLessThanAndStudentProfileIsNotNullOrderByIdDesc(email, cursorId);
+                conversations = conversationRepo
+                        .findTop20ByParentEmailAndIdLessThanAndStudentProfileIsNotNullOrderByIdDesc(email, cursorId);
             }
             List<Map<String, Object>> items = buildConversationList(conversations, email);
 
@@ -200,7 +199,7 @@ public class ParentServiceImpl implements ParentService {
 
         Optional<StudentProfile> studentProfile = studentInfoRepo.findById(studentProfileId);
 
-        if(studentProfile.isEmpty()) {
+        if (studentProfile.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Thông tin trẻ không tồn tại trong hệ thống", null);
         }
 
@@ -225,14 +224,14 @@ public class ParentServiceImpl implements ParentService {
 
         }
 
-             Conversation conservation = Conversation.builder()
-                    .parentEmail(parentEmail)
-                    .counsellorEmail("N/A")
-                    .campusId(campusId)
-                    .studentProfile(studentProfile.get())
-                     .build();
+        Conversation conservation = Conversation.builder()
+                .parentEmail(parentEmail)
+                .counsellorEmail("N/A")
+                .campusId(campusId)
+                .studentProfile(studentProfile.get())
+                .build();
 
-            return ResponseBuilder.build(HttpStatus.OK, "", buildHistoryMessages(conservation, studentProfile.get(), messages, hasMore, cursorId));
+        return ResponseBuilder.build(HttpStatus.OK, "", buildHistoryMessages(conservation, studentProfile.get(), messages, hasMore, cursorId));
 
     }
 
@@ -280,7 +279,8 @@ public class ParentServiceImpl implements ParentService {
                     map.put("imageUrl", item.getImageUrl());
                     return map;
                 })
-                .toList();;
+                .toList();
+        ;
 
         payload.put("images", items);
         payload.put("subjectsInSystem", getSubjects());
@@ -388,14 +388,12 @@ public class ParentServiceImpl implements ParentService {
 
         Optional<StudentProfile> studentProfile = studentInfoRepo.findById(studentProfileId);
 
-        if(studentProfile.isEmpty()) {
+        if (studentProfile.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Thông tin trẻ không tồn tại trong hệ thốngd", null);
         }
 
         return ResponseBuilder.build(HttpStatus.OK, "", buildStudentProfile(studentProfile.get()));
     }
-
-    // FAVOURITE SCHOOLS
 
     @Override
     public ResponseEntity<ResponseObject> addFavouriteSchool(AddFavouriteSchoolRequest request) {
@@ -432,18 +430,26 @@ public class ParentServiceImpl implements ParentService {
 
         favouriteSchoolRepo.save(favouriteSchool);
 
-        // Gửi notification tới tài khoản của trường được follow
         try {
             List<Account> schoolAccounts = accountRepo.findByCampus_School_IdAndRole(school.getId(), Role.SCHOOL);
             if (!schoolAccounts.isEmpty()) {
-                String parentName = parent.getAccount() != null ? parent.getAccount().getEmail() : "Một phụ huynh";
+                String displayName = !parent.getName().isBlank()
+                        ? parent.getName()
+                        : parent.getAccount().getEmail();
+
                 Map<String, Object> context = new HashMap<>();
-                context.put("parentName", parentName);
+                context.put("parentName", displayName);
                 context.put("specificRecipients", schoolAccounts);
-                notificationService.publish(NotificationEventType.FAVORITE_SCHOOL, parent.getAccount(), context);
+
+                // 2. Publish thông báo
+                notificationService.publish(
+                        NotificationEventType.FAVORITE_SCHOOL,
+                        parent.getAccount(),
+                        context
+                );
             }
-        } catch (Exception ignored) {
-            // notification lỗi không block nghiệp vụ chính
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi thông báo Favorite School: " + e.getMessage());
         }
 
         return ResponseBuilder.build(HttpStatus.OK, "", null);
@@ -536,7 +542,7 @@ public class ParentServiceImpl implements ParentService {
                 .status(Status.CONVERSATION_PENDING)
                 .build();
 
-            conversationRepo.save(conservation);
+        conversationRepo.save(conservation);
 
         return ResponseBuilder.build(HttpStatus.CREATED, "", conservation.getId());
     }
@@ -1050,7 +1056,7 @@ public class ParentServiceImpl implements ParentService {
                 request.getStudentName().trim(),
                 email
         )) {
-            return "Tên học sinh " + request.getStudentName().trim()  +" đã tồn tại";
+            return "Tên học sinh " + request.getStudentName().trim() + " đã tồn tại";
         }
 
 
@@ -1066,7 +1072,7 @@ public class ParentServiceImpl implements ParentService {
 
             Optional<PersonalityType> personalityType = personalityTypeRepo.findByCode(request.getPersonalityTypeCode());
 
-            if (personalityType.isEmpty()){
+            if (personalityType.isEmpty()) {
                 return "Loại tính cách không hợp lệ";
             }
 
@@ -1075,7 +1081,7 @@ public class ParentServiceImpl implements ParentService {
 
             Optional<Major> major = majorRepo.findByName(request.getFavouriteJob());
 
-            if(major.isEmpty()){
+            if (major.isEmpty()) {
                 return "Ngành nghề yêu thích không hợp lệ";
             }
 
@@ -1084,48 +1090,48 @@ public class ParentServiceImpl implements ParentService {
 
         if (request.getAcademicInfos() != null) {
             if (!request.getAcademicInfos().isEmpty()) {
-               Set<String> gradeLevels = new HashSet<>();
+                Set<String> gradeLevels = new HashSet<>();
 
-               for (int i = 0; i < request.getAcademicInfos().size(); i++) {
+                for (int i = 0; i < request.getAcademicInfos().size(); i++) {
 
-                   AddStudentInfoRequest.AcademicInfo academicInfo = request.getAcademicInfos().get(i);
+                    AddStudentInfoRequest.AcademicInfo academicInfo = request.getAcademicInfos().get(i);
 
-                   // academicInfo null -> bỏ qua
-                   if (academicInfo == null) {
-                       continue;
-                   }
+                    // academicInfo null -> bỏ qua
+                    if (academicInfo == null) {
+                        continue;
+                    }
 
-                   String gradeLevel = academicInfo.getGradeLevel();
-                   List<AddStudentInfoRequest.SubjectResult> subjectResults = academicInfo.getSubjectResults();
+                    String gradeLevel = academicInfo.getGradeLevel();
+                    List<AddStudentInfoRequest.SubjectResult> subjectResults = academicInfo.getSubjectResults();
 
-                   boolean blankGradeLevel = isBlank(gradeLevel);
-                   boolean emptySubjectResults = subjectResults == null || subjectResults.isEmpty();
+                    boolean blankGradeLevel = isBlank(gradeLevel);
+                    boolean emptySubjectResults = subjectResults == null || subjectResults.isEmpty();
 
-                   // Dòng rỗng hoàn toàn -> bỏ qua
-                   if (blankGradeLevel && emptySubjectResults) {
-                       continue;
-                   }
+                    // Dòng rỗng hoàn toàn -> bỏ qua
+                    if (blankGradeLevel && emptySubjectResults) {
+                        continue;
+                    }
 
-                   // Có dữ liệu môn học nhưng chưa nhập khối lớp -> lỗi
-                   if (blankGradeLevel) {
-                       return "Khối lớp là bắt buộc khi đã nhập danh sách môn học tại vị trí " + i;
-                   }
+                    // Có dữ liệu môn học nhưng chưa nhập khối lớp -> lỗi
+                    if (blankGradeLevel) {
+                        return "Khối lớp là bắt buộc khi đã nhập danh sách môn học tại vị trí " + i;
+                    }
 
-                   if (parseGrade(gradeLevel) == null) {
-                       return "Khối lớp không hợp lệ: " + gradeLevel;
-                   }
+                    if (parseGrade(gradeLevel) == null) {
+                        return "Khối lớp không hợp lệ: " + gradeLevel;
+                    }
 
-                   String normalizedGradeLevel = gradeLevel.trim().toLowerCase();
-                   if (!gradeLevels.add(normalizedGradeLevel)) {
-                       return "Khối lớp bị trùng: " + gradeLevel;
-                   }
+                    String normalizedGradeLevel = gradeLevel.trim().toLowerCase();
+                    if (!gradeLevels.add(normalizedGradeLevel)) {
+                        return "Khối lớp bị trùng: " + gradeLevel;
+                    }
 
-                   String error = validateAcademicSubjectsForCreate(subjectResults, gradeLevel);
+                    String error = validateAcademicSubjectsForCreate(subjectResults, gradeLevel);
 
-                   if (!error.isEmpty()) {
-                       return error;
-                   }
-               }
+                    if (!error.isEmpty()) {
+                        return error;
+                    }
+                }
             }
         }
 
@@ -1343,7 +1349,7 @@ public class ParentServiceImpl implements ParentService {
                     map.put("updatedAt", conversation.getUpdatedDate());
                     map.put("unreadCount", unreadCount != null ? unreadCount : 0L);
                     map.put("otherUser", conversation.getCounsellorEmail());
-                    map.put("campusName",  campus.get().getName());
+                    map.put("campusName", campus.get().getName());
                     map.put("schoolId", campus.get().getSchool().getId());
                     map.put("schoolName", campus.get().getSchool().getName());
                     map.put("schoolLogoUrl", campus.get().getSchool().getLogoUrl());
@@ -1359,7 +1365,7 @@ public class ParentServiceImpl implements ParentService {
 
     private List<Map<String, Object>> mergeAcademicProfileMetadata(StudentProfile studentProfile) {
 
-        List<Subject> allSubjects = subjectRepo.findAllByTypeIn( List.of(SubjectType.REGULAR_SUBJECT, SubjectType.FOREIGN_LANGUAGE_SUBJECT));
+        List<Subject> allSubjects = subjectRepo.findAllByTypeIn(List.of(SubjectType.REGULAR_SUBJECT, SubjectType.FOREIGN_LANGUAGE_SUBJECT));
 
         List<Map<String, Object>> storedAcademicProfiles =
                 (List<Map<String, Object>>) studentProfile.getAcademicProfileMetadata();
@@ -1558,7 +1564,7 @@ public class ParentServiceImpl implements ParentService {
             Optional<Parent> parent = parentRepo.findByAccount_Email(email);
 
             if (parent.isPresent()) {
-                parentRequests  =
+                parentRequests =
                         consultationOfflineRequestRepo
                                 .findByParentIdAndCampusIdAndAppointmentDateBetween(
                                         parent.get().getId(),
