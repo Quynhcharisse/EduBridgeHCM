@@ -1118,7 +1118,13 @@ public class AdminServiceImpl implements AdminService {
             row.put("orderInfo", t.getVnpOrderInfo());
             row.put("bankCode", t.getVnpBankCode());
             row.put("cardType", t.getVnpCardType());
-            row.put("amount", t.getVnpAmount() / 100.0);
+         
+            Long displayAmount = t.getStatus() == Status.PAYMENT_PENDING ? t.getExpectedAmount() : t.getVnpAmount();
+            if (displayAmount == null) displayAmount = 0L;
+            row.put("amount", displayAmount / 100.0);
+            row.put("expectedAmount", (t.getExpectedAmount() != null ? t.getExpectedAmount() : 0L) / 100.0);
+            row.put("paidAmount", (t.getVnpAmount() != null ? t.getVnpAmount() : 0L) / 100.0);
+            
             row.put("status", t.getStatus());
             row.put("createdAt", t.getCreatedAt());
             row.put("notes", t.getNotes());
