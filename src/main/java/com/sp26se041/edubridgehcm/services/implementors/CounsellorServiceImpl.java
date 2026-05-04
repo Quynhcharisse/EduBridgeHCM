@@ -162,7 +162,7 @@ public class CounsellorServiceImpl implements CounsellorService {
             slotMap.put("status", status);           // UPCOMING / ONGOING / PAST
             slotMap.put("statusLabel", status.getValue());  // Tiếng Việt
 
-            slotMap.put("consultationOfflineRequests", consultationOfflineRequests);
+            slotMap.put("consultationOfflineRequest", consultationOfflineRequests);
 
             result.add(slotMap);
         }
@@ -897,6 +897,7 @@ public class CounsellorServiceImpl implements CounsellorService {
         map.put("counsellorSlotId", slot.getId());
         map.put("counsellorId", counsellor.getId());
         map.put("counsellorName", counsellor.getName());
+        map.put("counsellorEmail", counsellor.getAccount().getEmail());
 
         map.put("dayOfWeek", template.getDayOfWeek());
         map.put("startTime", template.getStartTime());
