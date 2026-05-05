@@ -175,15 +175,6 @@ public class CampusController {
         return campusService.getConversation();
     }
 
-    /**
-     * Thống kê tư vấn offline theo khoảng thời gian.
-     * <ul>
-     *   <li>period: THIS_WEEK | THIS_MONTH | THIS_QUARTER | THIS_YEAR | CUSTOM</li>
-     *   <li>Nếu period = CUSTOM thì bắt buộc truyền from + to (yyyy-MM-dd)</li>
-     *   <li>Nếu cơ sở là isPrimaryBranch=true → trả thêm byCampus[] cho biểu đồ</li>
-     * </ul>
-     */
-    @Operation(summary = "Thống kê tư vấn offline (dashboard)")
     @GetMapping("/consultation/stats")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> getConsultationStats(

@@ -856,18 +856,15 @@ public class CampusServiceImpl implements CampusService {
         if (actorCampus == null)
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy cơ sở trường học.", null);
 
-        // 1. Lấy thông tin Quota hiện tại của Campus phụ
         var quotaOpt = campusResourceQuotaRepo.findByCampusIdAndResourceType(actorCampus.getId(), ResourceType.COUNSELLOR);
         int maxQuota = quotaOpt.map(CampusResourceQuota::getMaxQuota).orElse(0);
         long currentUsage = counsellorRepo.countByCampusId(actorCampus.getId());
 
-        // 2. Tìm thông tin Campus chính (để lấy Email nhận)
         Campus primaryCampus = campusRepo.findAllBySchoolId(actorCampus.getSchool().getId()).stream()
                 .filter(Campus::getIsPrimaryBranch)
                 .findFirst()
                 .orElse(null);
 
-        // 3. Đóng gói dữ liệu trả về cho FE
         Map<String, Object> summary = new HashMap<>();
         summary.put("campusName", actorCampus.getName());
         summary.put("currentUsage", currentUsage);
@@ -2386,23 +2383,35 @@ public class CampusServiceImpl implements CampusService {
         result.put("isPrimaryBranch", isPrimaryBranch);
 
         if (isPrimaryBranch) {
-            // ── Campus chính: tổng hợp toàn trường + breakdown từng cơ sở ──
             List<Campus> allCampuses = campusRepo.findAllBySchoolId(actorCampus.getSchool().getId());
             List<Integer> campusIds  = allCampuses.stream().map(Campus::getId).collect(Collectors.toList());
 
             List<ConsultationOfflineRequest> allRequests =
                     consultationOfflineRequestRepo.findByCampusIdInAndAppointmentDateBetween(campusIds, dateFrom, dateTo);
 
-            // 1. Cards – tổng toàn trường
             result.put("cards", buildConsultationCards(allRequests));
 
-            // 2. Trend line – xu hướng theo thời gian (granularity tuỳ period)
             result.put("trend", buildConsultationTrend(allRequests, dateFrom, dateTo, normalizedPeriod));
 
-            // 3. Phân bổ theo thứ trong tuần
             result.put("byDayOfWeek", buildConsultationByDayOfWeek(allRequests));
 
-            // 4. So sánh từng cơ sở (bar chart)
+            Integer schoolId = actorCampus.getSchool().getId();
+            long totalCampuses     = campusRepo.countBySchoolId(schoolId);
+            long totalCounsellors  = counsellorRepo.countByCampusSchoolId(schoolId);
+            // Đếm active counsellors toàn trường
+            long activeCounsellorsSchool = allCampuses.stream()
+                    .mapToLong(c -> counsellorRepo.findByCampus_IdAndAccount_Status(
+                            c.getId(), com.sp26se041.edubridgehcm.enums.Status.ACTIVE).size())
+                    .sum();
+
+            Map<String, Object> schoolSummary = new LinkedHashMap<>();
+            schoolSummary.put("totalCampuses", totalCampuses);
+            schoolSummary.put("totalCounsellors", totalCounsellors);
+            schoolSummary.put("activeCounsellors", activeCounsellorsSchool);
+            schoolSummary.put("totalConsultationsInPeriod", (long) allRequests.size());
+            result.put("schoolSummary", schoolSummary);
+
+            // 5. So sánh từng cơ sở (bar chart)
             Map<Integer, List<ConsultationOfflineRequest>> byCampusId = allRequests.stream()
                     .collect(Collectors.groupingBy(r -> r.getCampus().getId()));
 
@@ -2414,6 +2423,10 @@ public class CampusServiceImpl implements CampusService {
                 entry.put("campusId", c.getId());
                 entry.put("campusName", c.getName());
                 entry.put("isPrimaryBranch", Boolean.TRUE.equals(c.getIsPrimaryBranch()));
+                entry.put("counsellorCount", counsellorRepo.countByCampusId(c.getId()));
+                entry.put("activeCounsellorCount",
+                        (long) counsellorRepo.findByCampus_IdAndAccount_Status(
+                                c.getId(), com.sp26se041.edubridgehcm.enums.Status.ACTIVE).size());
                 entry.putAll(buildConsultationCards(campusReqs));
                 byCampusList.add(entry);
             }
