@@ -438,10 +438,9 @@ public class ParentServiceImpl implements ParentService {
                         : parent.getAccount().getEmail();
 
                 Map<String, Object> context = new HashMap<>();
-                context.put("parentName", displayName);
+                context.put("actorName", displayName);
                 context.put("specificRecipients", schoolAccounts);
 
-                // 2. Publish thông báo
                 notificationService.publish(
                         NotificationEventType.FAVORITE_SCHOOL,
                         parent.getAccount(),
@@ -449,7 +448,7 @@ public class ParentServiceImpl implements ParentService {
                 );
             }
         } catch (Exception e) {
-            System.err.println("Lỗi gửi thông báo Favorite School: " + e.getMessage());
+            System.err.println("[FAVORITE_SCHOOL notification] Lỗi: " + e.getClass().getSimpleName() + " - " + e.getMessage());
         }
 
         return ResponseBuilder.build(HttpStatus.OK, "", null);
@@ -490,14 +489,41 @@ public class ParentServiceImpl implements ParentService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị vô hiệu", null);
         }
 
-        boolean exists = favouriteSchoolRepo.existsById(favouriteSchoolId);
+        FavouriteSchool favourite = favouriteSchoolRepo.findById(favouriteSchoolId).orElse(null);
 
-        if (!exists) {
+        if (favourite == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Lỗi: Không tìm thấy dữ liệu", null);
         }
 
+        // Lưu lại thông tin trước khi xoá
+        School school = favourite.getSchool();
+        Parent parent = favourite.getParent();
+
         favouriteSchoolRepo.deleteAllByIdInBatch(List.of(favouriteSchoolId));
         favouriteSchoolRepo.flush();
+
+        try {
+            if (school != null && parent != null) {
+                List<Account> schoolAccounts = accountRepo.findByCampus_School_IdAndRole(
+                        school.getId(), Role.SCHOOL);
+                if (!schoolAccounts.isEmpty()) {
+                    String name = parent.getName();
+                    String displayName = (name != null && !name.isBlank())
+                            ? name
+                            : (parent.getAccount() != null ? parent.getAccount().getEmail() : "Một phụ huynh");
+
+                    Map<String, Object> context = new HashMap<>();
+                    context.put("actorName", displayName);
+                    context.put("specificRecipients", schoolAccounts);
+                    notificationService.publish(
+                            NotificationEventType.REMOVE_FAVORITE_SCHOOL,
+                            parent.getAccount(),
+                            context);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[REMOVE_FAVORITE_SCHOOL notification] Lỗi: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+        }
 
         return ResponseBuilder.build(HttpStatus.OK, "", null);
     }
@@ -1788,6 +1814,24 @@ public class ParentServiceImpl implements ParentService {
                 .build();
 
         consultationOfflineRequestRepo.save(entity);
+
+        // ── Notify school accounts của campus ─────────────────────────────────
+        try {
+            List<Account> schoolAccounts = accountRepo.findByCampus_School_IdAndRole(
+                    campus.getSchool().getId(), Role.SCHOOL);
+            if (!schoolAccounts.isEmpty()) {
+                String displayName = (parent.getName() != null && !parent.getName().isBlank())
+                        ? parent.getName() : parent.getAccount().getEmail();
+                Map<String, Object> context = new HashMap<>();
+                context.put("actorName", displayName);
+                context.put("appointmentDate", request.getAppointmentDate().toString());
+                context.put("specificRecipients", schoolAccounts);
+                notificationService.publish(NotificationEventType.CONSULTATION_BOOKED,
+                        parent.getAccount(), context);
+            }
+        } catch (Exception ignored) {
+            // notification lỗi không block nghiệp vụ chính
+        }
 
         return ResponseBuilder.build(HttpStatus.CREATED, "Đặt lịch thành công", null);
     }

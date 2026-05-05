@@ -2,6 +2,7 @@ package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.CategoryTemplate;
+import com.sp26se041.edubridgehcm.enums.NotificationEventType;
 import com.sp26se041.edubridgehcm.enums.OfferingProgramAction;
 import com.sp26se041.edubridgehcm.enums.ResourceType;
 import com.sp26se041.edubridgehcm.enums.Role;
@@ -49,6 +50,7 @@ import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.responses.StorageTreeNode;
 import com.sp26se041.edubridgehcm.services.CampusService;
+import com.sp26se041.edubridgehcm.services.NotificationService;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
@@ -147,6 +149,8 @@ public class CampusServiceImpl implements CampusService {
     private final SchoolHolidayRepo schoolHolidayRepo;
 
     private final TemplateDocxRepo templateDocxRepo;
+
+    private final NotificationService notificationService;
 
     private final EntityManager entityManager;
 
@@ -1580,6 +1584,32 @@ public class CampusServiceImpl implements CampusService {
         }
         resultBody.put("slots", slotsSnapshot);
 
+        // ── Notify counsellors ─────────────────────────────────────────────────
+        try {
+            List<Counsellor> affectedCounsellors = counsellorRepo.findAllById(
+                    request.getCounsellorIds() != null ? request.getCounsellorIds() : List.of());
+            List<Account> counsellorAccounts = affectedCounsellors.stream()
+                    .map(Counsellor::getAccount)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            if (!counsellorAccounts.isEmpty()) {
+                NotificationEventType slotEvent = isAssign
+                        ? NotificationEventType.COUNSELLOR_SLOT_ASSIGNED
+                        : NotificationEventType.COUNSELLOR_SLOT_UNASSIGNED;
+
+                Map<String, Object> ctx = new HashMap<>();
+                ctx.put("campusName", actorCampus.getName());
+                ctx.put("packageName", matchedCampaign != null ? matchedCampaign.getName() : "");
+                ctx.put("specificRecipients", counsellorAccounts);
+
+                Account actorAccount = AuthRequestUtil.extractAuthenticatedAccount();
+                notificationService.publish(slotEvent, actorAccount, ctx);
+            }
+        } catch (Exception ignored) {
+            // notification lỗi không block nghiệp vụ chính
+        }
+
         return ResponseBuilder.build(HttpStatus.OK, (isAssign ? "Gán" : "Hủy gán") + " chuyên viên tư vấn thành công.", resultBody);
     }
 
@@ -2467,9 +2497,6 @@ public class CampusServiceImpl implements CampusService {
         // Rates
         cards.put("completionRate",   pct(completed, finalized));   // % hoàn thành
         cards.put("cancellationRate", pct(cancelled, responded));   // % huỷ
-        cards.put("noShowRate",       pct(noShow, completed + noShow)); // % bỏ hẹn
-        cards.put("conversionRate",   pct(completed, total));       // % chuyển đổi
-        cards.put("confirmRate",      pct(responded, total));       // % school đã phản hồi
         return cards;
     }
 
