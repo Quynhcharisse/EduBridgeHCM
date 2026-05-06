@@ -5,6 +5,7 @@ import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
 
+import java.text.Normalizer;
 import java.util.Locale;
 
 public class CampusValidation {
@@ -63,6 +64,57 @@ public class CampusValidation {
         }
 
         return null;
+    }
+
+    public static String toSafeObjectKey(String input) {
+        if (input == null || input.trim().isEmpty()) {
+            return "";
+        }
+
+        // 1. normalize Unicode (tách dấu ra)
+        String normalized = Normalizer.normalize(input.trim(), Normalizer.Form.NFD);
+
+        // 2. remove dấu (accent)
+        String noAccent = normalized.replaceAll("\\p{M}", "");
+
+        // 3. xử lý riêng đ/Đ
+        noAccent = noAccent.replace("đ", "d").replace("Đ", "d");
+
+        // 4. lowercase
+        String lower = noAccent.toLowerCase(Locale.ROOT);
+
+        // 5. replace ký tự không hợp lệ -> _
+        String safe = lower.replaceAll("[^a-z0-9]+", "_");
+
+        // 6. cleanup: nhiều _ -> 1
+        safe = safe.replaceAll("_+", "_");
+
+        // 7. remove _ đầu/cuối
+        safe = safe.replaceAll("^_+|_+$", "");
+
+        return safe;
+    }
+
+    public static String mapBoardingDescription(BoardingType type) {
+        return switch (type) {
+
+            case FULL_BOARDING ->
+                    "Cơ sở này cung cấp dịch vụ nội trú toàn phần, nơi học sinh sinh hoạt tại trường với chỗ ở, bữa ăn và sự chăm sóc toàn diện hằng ngày.";
+
+            case SEMI_BOARDING ->
+                    "Cơ sở này cung cấp dịch vụ bán trú, cho phép học sinh ở lại trường vào ban ngày để dùng bữa, được hỗ trợ học tập và tham gia các hoạt động ngoại khóa mà không lưu trú qua đêm.";
+
+            case BOTH ->
+                    "Cơ sở này cung cấp cả dịch vụ nội trú toàn phần và bán trú, mang đến lựa chọn linh hoạt về lưu trú và chăm sóc ban ngày để đáp ứng nhu cầu đa dạng của học sinh.";
+        };
+    }
+
+    public static String generateCampusName(Integer schoolId, CampusRepo campusRepo) {
+        int currentCount = campusRepo.countBySchoolId(schoolId);
+        if (currentCount == 0) {
+            return "Cơ sở 1 (Cơ sở chính)";
+        }
+        return "Cơ sở " + (currentCount + 1);
     }
 
     public static String normalize(String value) {

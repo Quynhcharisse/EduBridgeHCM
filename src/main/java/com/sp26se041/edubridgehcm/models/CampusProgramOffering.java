@@ -67,9 +67,16 @@ public class CampusProgramOffering {
     String programNameSnapshot; // Tên Program lúc tạo Offering
 
     @Column(name = "admission_method")
-    String admissionMethod; 
+    String admissionMethod; // methodCode lấy từ admissionMethodTimelines của campaign
 
-    int quota;
+    @Column(name = "quota")
+    int quota; // Chỉ tiêu snapshot từ method timeline lúc tạo offering
+
+    @Column(name = "open_date")
+    LocalDate openDate;
+
+    @Column(name = "close_date")
+    LocalDate closeDate;
 
     @Column(name = "remaining_quota")
     int remainingQuota; //(Chỉ tiêu còn lại)
@@ -87,12 +94,6 @@ public class CampusProgramOffering {
     @Enumerated(EnumType.STRING)
     @Column(name = "application_status")
     Status applicationStatus;
-
-    @Column(name = "open_date")
-    LocalDate openDate;
-
-    @Column(name = "close_date")
-    LocalDate closeDate;
 
     @Enumerated(EnumType.STRING)
     Status status;

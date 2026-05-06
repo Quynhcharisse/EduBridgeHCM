@@ -15,6 +15,8 @@ public class CreateCampusProgramOfferingRequest {
 
     Integer admissionCampaignId;
 
+    String methodCode; // phải khớp với một methodCode trong admissionMethodTimelines của campaign
+
     Integer campusId;
 
     Integer programId;
