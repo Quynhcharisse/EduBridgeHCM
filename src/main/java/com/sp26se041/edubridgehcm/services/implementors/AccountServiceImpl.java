@@ -456,14 +456,18 @@ public class AccountServiceImpl implements AccountService {
             school.setWebsiteUrl(normalize(campusData.getSchoolData().getWebsiteUrl()));
 
             try {
+                supabaseStorageService.removeFile(school.getFolderPath(), school.getFileName());
+            } catch (Exception ex) {
+                System.out.println(ex.getMessage());
+            }
+
+            try {
 
                 Optional<TemplateDocx> schoolTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.SCHOOL_INFO_TEMPLATE);
 
                 if (schoolTemplateDocx.isEmpty()) {
                     throw new Exception("Không tìm thấy mẫu tài liệu trường (docx) hoặc đã bị xóa.");
                 }
-
-                supabaseStorageService.removeFile(school.getFolderPath(), school.getFileName());
 
                 String uuid = UUID.randomUUID().toString();
 

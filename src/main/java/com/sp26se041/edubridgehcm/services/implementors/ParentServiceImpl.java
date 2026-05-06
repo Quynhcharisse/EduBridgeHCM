@@ -4,44 +4,9 @@ import com.sp26se041.edubridgehcm.enums.Gender;
 import com.sp26se041.edubridgehcm.enums.GradeLevel;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.enums.SubjectType;
-import com.sp26se041.edubridgehcm.models.Account;
-import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
-import com.sp26se041.edubridgehcm.models.Campus;
-import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
-import com.sp26se041.edubridgehcm.models.ChatMessage;
-import com.sp26se041.edubridgehcm.models.ConsultationOfflineRequest;
-import com.sp26se041.edubridgehcm.models.Conversation;
-import com.sp26se041.edubridgehcm.models.Counsellor;
-import com.sp26se041.edubridgehcm.models.FavouriteSchool;
-import com.sp26se041.edubridgehcm.models.Major;
-import com.sp26se041.edubridgehcm.models.Parent;
-import com.sp26se041.edubridgehcm.models.PersonalityType;
-import com.sp26se041.edubridgehcm.models.School;
-import com.sp26se041.edubridgehcm.models.SchoolConfig;
-import com.sp26se041.edubridgehcm.models.StudentProfile;
-import com.sp26se041.edubridgehcm.models.Subject;
-import com.sp26se041.edubridgehcm.repositories.AccountRepo;
-import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
-import com.sp26se041.edubridgehcm.repositories.CampusRepo;
-import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
-import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
-import com.sp26se041.edubridgehcm.repositories.ConsultationOfflineRequestRepo;
-import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
-import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
-import com.sp26se041.edubridgehcm.repositories.FavouriteSchoolRepo;
-import com.sp26se041.edubridgehcm.repositories.MajorRepo;
-import com.sp26se041.edubridgehcm.repositories.ParentRepo;
-import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
-import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
-import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
-import com.sp26se041.edubridgehcm.repositories.StudentInfoRepo;
-import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
-import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
-import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
-import com.sp26se041.edubridgehcm.requests.AutoFillTranscriptRequest;
-import com.sp26se041.edubridgehcm.requests.CreateConsultationOfflineRequest;
-import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
+import com.sp26se041.edubridgehcm.models.*;
+import com.sp26se041.edubridgehcm.repositories.*;
+import com.sp26se041.edubridgehcm.requests.*;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.ParentService;
@@ -51,7 +16,6 @@ import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpEntity;
@@ -84,6 +48,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_CANCELLED;
@@ -130,6 +95,7 @@ public class ParentServiceImpl implements ParentService {
     private final AdmissionCampaignRepo admissionCampaignRepo;
 
     private final SchoolConfigRepo schoolConfigRepo;
+    private final CampusProgramOfferingRepo campusProgramOfferingRepo;
 
     @Override
     public  ResponseEntity<ResponseObject> getConversations(Long cursorId) {
@@ -1826,6 +1792,19 @@ public class ParentServiceImpl implements ParentService {
                 pageResponse
         );
     }
+
+//    @Override
+//    public ResponseEntity<ResponseObject> createAdmissionReservationForm(CreateAdmissionReservationFormRequest request) {
+//
+//        Optional<CampusProgramOffering> campusProgramOffering = campusProgramOfferingRepo.findById(request.getCampusProgramOfferingId());
+//
+//        if (campusProgramOffering.isEmpty()) {
+//            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy chương trình tuyển sinh", null);
+//        }
+//
+//
+//
+//    }
 
     private Sort buildConsultationSort(Status status) {
 

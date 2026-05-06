@@ -1,13 +1,7 @@
 package com.sp26se041.edubridgehcm.controllers;
 
 import com.sp26se041.edubridgehcm.enums.OfferingProgramAction;
-import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
-import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
-import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
-import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.ReassignConsultationsRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.*;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.CampusService;
 import com.sp26se041.edubridgehcm.services.WebSocketService;
@@ -36,6 +30,7 @@ import java.time.LocalDate;
 public class CampusController {
 
     private final CampusService campusService;
+
     private final WebSocketService webSocketService;
 
     @PostMapping("/offering")
@@ -185,4 +180,11 @@ public class CampusController {
 
         return webSocketService.markConversationAsRead(conversationId, email);
     }
+
+    @PostMapping("/chat-with-AI-chatbot")
+    @PreAuthorize("hasAnyRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> chatWithAIChatBotSchool(@RequestBody ChatMessageForChatBot chatMessageForChatBot) {
+        return campusService.chatWithChatbotForSchool(chatMessageForChatBot);
+    }
+
 }

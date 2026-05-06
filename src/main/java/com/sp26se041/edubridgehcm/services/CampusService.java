@@ -1,13 +1,7 @@
 package com.sp26se041.edubridgehcm.services;
 
 import com.sp26se041.edubridgehcm.enums.OfferingProgramAction;
-import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
-import com.sp26se041.edubridgehcm.requests.ReassignConsultationsRequest;
-import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
-import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
-import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
-import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.*;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
@@ -60,4 +54,6 @@ public interface CampusService {
     ResponseEntity<ResponseObject> createConversationWithAdmin();
 
     ResponseEntity<ResponseObject> getConversation();
+
+    ResponseEntity<ResponseObject> chatWithChatbotForSchool(ChatMessageForChatBot messageForChatBot);
 }

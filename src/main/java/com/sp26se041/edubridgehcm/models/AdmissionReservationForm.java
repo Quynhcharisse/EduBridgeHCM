@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.models;
 
 import com.sp26se041.edubridgehcm.enums.Status;
+import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -17,7 +18,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.Type;
 import org.jspecify.annotations.NullMarked;
+
+import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -33,9 +37,32 @@ public class AdmissionReservationForm {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
 
+    @Type(JsonBinaryType.class)
+    @Column(columnDefinition = "jsonb", name = "profile_metadata")
+    Object profileMetadata;
+
+    @Column(name = "created_time")
+    LocalDateTime createdTime;
+
+    @Column(name = "updated_time")
+    LocalDateTime updatedTime;
+
+    @Column(name = "cancel_reason")
+    String cancelReason;
+
+    @Column(name = "method_name")
+    String methodName;
+
+    @Column(name = "verify_by")
+    String verifiedBy;
+
     @ManyToOne
     @JoinColumn(name = "campus_program_offering_id")
     CampusProgramOffering campusProgramOffering;
+
+    @ManyToOne
+    @JoinColumn(name = "student_profile_id")
+    StudentProfile studentProfile;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status")

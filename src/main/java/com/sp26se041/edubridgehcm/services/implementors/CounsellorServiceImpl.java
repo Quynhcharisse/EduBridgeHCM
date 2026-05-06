@@ -2,29 +2,9 @@ package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.ConsultationAction;
 import com.sp26se041.edubridgehcm.enums.Status;
-import com.sp26se041.edubridgehcm.models.Account;
-import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
-import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
-import com.sp26se041.edubridgehcm.models.ChatMessage;
-import com.sp26se041.edubridgehcm.models.ConsultationOfflineRequest;
-import com.sp26se041.edubridgehcm.models.Conversation;
-import com.sp26se041.edubridgehcm.models.Counsellor;
-import com.sp26se041.edubridgehcm.models.CounsellorSlot;
-import com.sp26se041.edubridgehcm.models.Parent;
-import com.sp26se041.edubridgehcm.models.SchoolConfig;
-import com.sp26se041.edubridgehcm.models.StudentProfile;
-import com.sp26se041.edubridgehcm.repositories.AccountRepo;
-import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
-import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
-import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
-import com.sp26se041.edubridgehcm.repositories.ConsultationOfflineRequestRepo;
-import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
-import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
-import com.sp26se041.edubridgehcm.repositories.CounsellorSlotRepo;
-import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
-import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
-import com.sp26se041.edubridgehcm.repositories.StudentInfoRepo;
-import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
+import com.sp26se041.edubridgehcm.models.*;
+import com.sp26se041.edubridgehcm.repositories.*;
+import com.sp26se041.edubridgehcm.requests.ChatMessageForChatBot;
 import com.sp26se041.edubridgehcm.requests.UpdateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -36,24 +16,20 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.RestTemplate;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_CANCELLED;
 import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_COMPLETED;
@@ -79,9 +55,152 @@ public class CounsellorServiceImpl implements CounsellorService {
     private final CounsellorSlotRepo counsellorSlotRepo;
 
     private final ConsultationOfflineRequestRepo consultationOfflineRequestRepo;
+
     private final CampusScheduleTemplateRepo campusScheduleTemplateRepo;
+
     private final AdmissionCampaignRepo admissionCampaignRepo;
+
     private final SchoolConfigRepo schoolConfigRepo;
+
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    private final SchoolSubscriptionRepo schoolSubscriptionRepo;
+
+    @Override
+    public ResponseEntity<ResponseObject> chatWithChatbotForSchool(ChatMessageForChatBot messageForChatBot) {
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        Optional<Account> account = accountRepo.findByEmail(email);
+
+        if (account.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tài khoản không tồn tại", null);
+        }
+
+        Counsellor counsellor = counsellorRepo.findByAccountId(account.get().getId());
+
+        if (counsellor == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tư vấn viên không tồn tại", null);
+        }
+
+
+        Optional<SchoolSubscription> activeSubOpt = schoolSubscriptionRepo.findBySchoolIdAndIsSelected(counsellor.getCampus().getSchool().getId(), true).stream().findFirst(); // tại 1 thời điểm chỉ có 1 gói đc active
+
+        if (activeSubOpt.isEmpty()) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Trường chưa có gói dịch vụ đang hoạt động",
+                    null
+            );
+        }
+
+        // 1. Lấy thông tin Features từ gói cước
+        Map<String, Object> features = (Map<String, Object>) activeSubOpt.get().getSubscription().getFeatures();
+
+        boolean hasAiAssistant = (boolean) features.get("hasAiAssistant");
+
+        if (!hasAiAssistant) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Gói dịch vụ hiện tại không hỗ trợ tính năng chatbot AI", null);
+        }
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+
+        payload.put("chatInput", messageForChatBot.getChatInput());
+        payload.put("schoolId",  counsellor.getCampus().getSchool().getId());
+        payload.put("sessionId", email);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+
+        try {
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    "https://n8n-service-ijbl.onrender.com/webhook/chatbot-ai-for-school",
+                    entity,
+                    String.class
+            );
+
+            String rawBody = response.getBody();
+
+            if (rawBody == null || rawBody.isBlank()) {
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_GATEWAY,
+                        "n8n không trả dữ liệu",
+                        null
+                );
+            }
+
+            ObjectMapper objectMapper = new ObjectMapper();
+
+            Object parsed = objectMapper.readValue(rawBody, Object.class);
+
+            Map<String, Object> responseBody;
+
+            if (parsed instanceof List) {
+                // n8n trả array → lấy phần tử đầu tiên
+                List<Map<String, Object>> list = (List<Map<String, Object>>) parsed;
+                responseBody = list.isEmpty() ? new LinkedHashMap<>() : list.get(0);
+            } else {
+                responseBody = (Map<String, Object>) parsed;
+            }
+
+            return ResponseBuilder.build(HttpStatus.OK, "Thành công", responseBody);
+
+        } catch (HttpClientErrorException e) {
+            String rawError = e.getResponseBodyAsString();
+            if (rawError == null || rawError.isBlank()) {
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_REQUEST,
+                        "Yêu cầu không hợp lệ",
+                        null
+                );
+            }
+            try {
+                ObjectMapper objectMapper = new ObjectMapper();
+
+                Map<String, Object> errorBody = objectMapper.readValue(
+                        rawError,
+                        new TypeReference<>() {
+                        }
+                );
+
+                String message = errorBody.get("message") != null
+                        ? errorBody.get("message").toString()
+                        : "Yêu cầu không hợp lệ";
+
+                Object body = errorBody.get("body");
+
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_REQUEST,
+                        message,
+                        body
+                );
+
+            } catch (Exception ex) {
+                return ResponseBuilder.build(
+                        HttpStatus.BAD_REQUEST,
+                        rawError,
+                        null
+                );
+            }
+
+        } catch (HttpServerErrorException e) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_GATEWAY,
+                    "n8n đang lỗi phía server",
+                    null
+            );
+
+        } catch (Exception e) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_GATEWAY,
+                    "Không gọi được n8n workflow: " + e.getMessage(),
+                    null
+            );
+        }
+    }
+
 
 
     @Override
@@ -1038,4 +1157,5 @@ public class CounsellorServiceImpl implements CounsellorService {
         msg.put("status", message.getStatus());
         return msg;
     }
+
 }
