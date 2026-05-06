@@ -605,7 +605,6 @@ public class SystemServiceImpl implements SystemService {
                         row.setIsError(error != null);
                     });
 
-
             if (rows.stream()
                     .filter(r -> !Boolean.TRUE.equals(r.getIsDeleted()))
                     .anyMatch(r -> Boolean.TRUE.equals(r.getIsError()))) {

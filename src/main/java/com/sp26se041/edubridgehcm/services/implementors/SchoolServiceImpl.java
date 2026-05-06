@@ -497,17 +497,39 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         AdmissionCampaign oldCampaign = admissionCampaignRepo.findById(id).orElse(null);
+
         if (oldCampaign == null)
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy chiến dịch tuyển sinh trong hệ thống", null);
 
-        // 1. Tạo một Request giả từ dữ liệu cũ
+        if (oldCampaign.getStatus().equals(Status.DRAFT_ADMISSION_CAMPAIGN)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chiến dịch tuyển sinh đang ở trạng thái nháp, không thể nhân bản", null);
+        }
+
+        // case 1: tạo bản clone cho năm kế tiếp khi ko muốn tạo
+        // case 2: clone từ bản bị cancelled
+
+        LocalDate newStartDate = oldCampaign.getStartDate().plusYears(1);
+        LocalDate newEndDate = oldCampaign.getEndDate().plusYears(1);
+
+        List<CreateAdmissionCampaignTemplateRequest.AdmissionMethodTimelineRequest> shiftedTimelines =
+                convertMethodTimelinesToRequests(oldCampaign.getAdmissionMethodTimelines())
+                        .stream()
+                        .map(t -> CreateAdmissionCampaignTemplateRequest.AdmissionMethodTimelineRequest.builder()
+                                .methodCode(t.getMethodCode())
+                                .startDate(t.getStartDate() != null ? t.getStartDate().plusYears(1) : null)
+                                .endDate(t.getEndDate() != null ? t.getEndDate().plusYears(1) : null)
+                                .allowReservationSubmission(t.getAllowReservationSubmission())
+                                .quota(t.getQuota())
+                                .build())
+                        .toList();
+
         CreateAdmissionCampaignTemplateRequest request = new CreateAdmissionCampaignTemplateRequest();
-        request.setName(oldCampaign.getName() + " (Bản chỉnh sửa)");
+        request.setName("Chiến dịch tuyển sinh " + oldCampaign.getYear() + 1);
         request.setDescription(oldCampaign.getDescription());
-        request.setYear(oldCampaign.getYear());
-        request.setStartDate(oldCampaign.getStartDate());
-        request.setEndDate(oldCampaign.getEndDate());
-        request.setAdmissionMethodTimelines(convertMethodTimelinesToRequests(oldCampaign.getAdmissionMethodTimelines()));
+        request.setYear(oldCampaign.getYear() + 1);
+        request.setStartDate(newStartDate);
+        request.setEndDate(newEndDate);
+        request.setAdmissionMethodTimelines(shiftedTimelines);
 
         String error = AdmissionCampaignValidation.validationCloneDraftCampaign(request);
 
@@ -535,7 +557,9 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         Integer systemQuotaForClone = resolveSchoolTotalQuota(actorCampus.getSchool().getId());
+
         int totalMethodQuotaForClone = AdmissionCampaignValidation.sumMethodQuotas(methodTimelines);
+
         if (systemQuotaForClone != null && totalMethodQuotaForClone > systemQuotaForClone) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
                     "Tổng chỉ tiêu các phương thức (" + totalMethodQuotaForClone + ") vượt quá chỉ tiêu được cấp cho trường (" + systemQuotaForClone + ")", null);
@@ -722,6 +746,13 @@ public class SchoolServiceImpl implements SchoolService {
         if (campaign.getStatus() != Status.OPEN_ADMISSION_CAMPAIGN && campaign.getStatus() != Status.DRAFT_ADMISSION_CAMPAIGN) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
                     "Chỉ có thể hủy chiến dịch đang ở trạng thái nháp hoặc mở. Trạng thái hiện tại: " + campaign.getStatus(), null);
+        }
+
+        //bắt buộc phải nhập lý do khi hủy campaign đang mở
+        if (campaign.getStatus() == Status.OPEN_ADMISSION_CAMPAIGN
+                && (reason == null || reason.isBlank())) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Vui lòng nhập lý do khi hủy chiến dịch đang mở", null);
         }
 
         // block nếu còn đơn đang hoạt động — từng campus phải tự xử lý đơn của mình trước
