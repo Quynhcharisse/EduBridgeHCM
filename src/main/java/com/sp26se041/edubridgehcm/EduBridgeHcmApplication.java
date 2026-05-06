@@ -148,47 +148,29 @@ business.put("subscriptionPricing", subscriptionPricing);
         Map<String, Object> admissionSettingsData = new HashMap<>();
         List<Map<String, Object>> allowedMethods = List.of(
                 Map.of(
+                        "code", "THI_TUYEN",
+                        "displayName", "Thi vào lớp 10",
+                        "description", "Sử dụng kết quả bài thi tốt nghiệp THCS (vào lớp 10) do Bộ Giáo Dục Đào Tạo Tổ Chức"
+                ),
+                Map.of(
                         "code", "HOC_BA",
-                        "displayName", "Xét kết quả học tập (Học bạ)",
-                        "description", "Dựa trên điểm trung bình các môn học năm lớp 12 hoặc cả 3 năm THPT."
+                        "displayName", "Xét học bạ THCS",
+                        "description", "Sử dụng kết quả học tập lớp 6, 7, 8, 9"
                 ),
                 Map.of(
-                        "code", "THPT",
-                        "displayName", "Xét điểm thi tốt nghiệp THPT",
-                        "description", "Sử dụng kết quả kỳ thi tốt nghiệp THPT quốc gia theo các tổ hợp môn."
+                        "code", "HOC_BA + ĐGNL",
+                        "displayName", "Xét học bạ THCS + Thi đánh giá năng lực",
+                        "description", "Sử dụng kết quả học tập lớp 6, 7, 8, 9 kèm theo bài đánh giá năng lực do trường tổ chức"
                 ),
                 Map.of(
-                        "code", "DGNL",
-                        "displayName", "Kỳ thi Đánh giá năng lực (ĐHQG)",
-                        "description", "Sử dụng kết quả kỳ thi đánh giá năng lực do ĐH Quốc gia tổ chức."
+                        "code", "HOC_BA + PV",
+                        "displayName", "Xét học bạ THCS + Phỏng vấn",
+                        "description", "Sử dụng kết quả học tập lớp 6, 7, 8, 9 kèm theo tham gia buổi phỏng vấn do trường tổ chức"
                 ),
                 Map.of(
-                        "code", "TUYEN_THANG",
-                        "displayName", "Tuyển thẳng & Ưu tiên xét tuyển",
-                        "description", "Dành cho thí sinh đạt giải quốc gia, quốc tế hoặc theo quy định riêng của trường."
-                ),
-                Map.of(
-                        "code", "XET_TUYEN_KET_HOP",
-                        "displayName", "Xét tuyển kết hợp",
-                        "description", "Kết hợp điểm học bạ với chứng chỉ ngoại ngữ quốc tế (IELTS, TOEFL) hoặc giải thưởng năng khiếu."
-                ),
-
-                Map.of(
-                        "code", "KIEM_TRA_RIENG",
-                        "displayName", "Kiểm tra năng lực đầu vào của trường",
-                        "description", "Thí sinh tham gia bài thi đánh giá năng lực tư duy, ngoại ngữ hoặc phỏng vấn trực tiếp do nhà trường tổ chức."
-                ),
-
-                Map.of(
-                        "code", "DIEM_THI_VAO_10",
-                        "displayName", "Xét điểm thi tuyển sinh lớp 10",
-                        "description", "Sử dụng kết quả kỳ thi tuyển sinh vào lớp 10 do Sở Giáo dục và Đào tạo tổ chức."
-                ),
-
-                Map.of(
-                        "code", "UU_TIEN_RIENG",
-                        "displayName", "Ưu tiên xét tuyển theo chính sách trường",
-                        "description", "Dành cho học sinh có anh chị em đang theo học tại hệ thống hoặc thuộc các trường liên kết."
+                        "code", "HOC_BA + KHOA_HOC_BAT_BUOC",
+                        "displayName", "Xét học bạ THCS + Tham gia khóa học bắt buộc do trường tổ chức",
+                        "description", "Sử dụng kết quả học tập lớp 6, 7, 8, 9 kèm theo tham gia khóa học đào tạo bắt buộc do trường tổ chức trước khi nhập học"
                 )
         );
         admissionSettingsData.put("allowedMethods", allowedMethods);

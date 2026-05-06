@@ -56,6 +56,9 @@ public class AdmissionReservationForm {
     @Column(name = "verify_by")
     String verifiedBy;
 
+    @Column(name = "reject_reason")
+    String rejectReason;
+
     @ManyToOne
     @JoinColumn(name = "campus_program_offering_id")
     CampusProgramOffering campusProgramOffering;
