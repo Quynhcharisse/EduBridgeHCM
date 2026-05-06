@@ -37,7 +37,6 @@ import com.sp26se041.edubridgehcm.models.FavouriteSchool;
 import com.sp26se041.edubridgehcm.models.OpenDayEvent;
 import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.PaymentTransaction;
-import com.sp26se041.edubridgehcm.models.PlatformConfig;
 import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
@@ -91,6 +90,7 @@ import com.sp26se041.edubridgehcm.utils.SchoolUtil;
 import com.sp26se041.edubridgehcm.validations.school.AdmissionCampaignValidation;
 import com.sp26se041.edubridgehcm.validations.school.CampusValidation;
 import com.sp26se041.edubridgehcm.validations.school.CurriculumValidation;
+import com.sp26se041.edubridgehcm.validations.school.PreviewSubscriptionValidation;
 import com.sp26se041.edubridgehcm.validations.school.ProgramValidation;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -120,6 +120,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.awt.*;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -153,7 +154,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import java.awt.Color;
 
 @Service
 @RequiredArgsConstructor
@@ -234,7 +234,7 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
         }
 
-        BoardingType boardingType = parseBoardingType(request.getBoardingType());
+        BoardingType boardingType = CampusValidation.parseBoardingType(request.getBoardingType());
 
         if (boardingType == null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Dịch vụ nội trú không hợp lệ. Giá trị hợp lệ bao gồm: FULL_BOARDING, SEMI_BOARDING, BOTH.", null);
@@ -242,7 +242,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         Account acc = accountRepo.save(Account.builder().email(normalize(request.getEmail())).role(Role.SCHOOL).status(Status.ACCOUNT_ACTIVE).registerDate(LocalDate.now()).firstLogin(true).isRestricted(false).build());
 
-        Campus campus = campusRepo.save(Campus.builder().school(actorCampus.getSchool()).account(acc).name(generateCampusName(actorCampus.getSchool().getId())).address(normalize(request.getAddress())).phoneNumber(normalize(request.getPhone())).city(normalize(request.getCity())).district(normalize(request.getDistrict())).ward(normalize(request.getWard())).boardingType(boardingType).latitude(request.getLatitude()).longitude(request.getLongitude()).status(Status.ACTIVE).isPrimaryBranch(false).build());
+        Campus campus = campusRepo.save(Campus.builder().school(actorCampus.getSchool()).account(acc).name(CampusValidation.generateCampusName(actorCampus.getSchool().getId(), campusRepo)).address(normalize(request.getAddress())).phoneNumber(normalize(request.getPhone())).city(normalize(request.getCity())).district(normalize(request.getDistrict())).ward(normalize(request.getWard())).boardingType(boardingType).latitude(request.getLatitude()).longitude(request.getLongitude()).status(Status.ACTIVE).isPrimaryBranch(false).build());
 
         String fileName = "";
         String folderName = "";
@@ -282,7 +282,7 @@ public class SchoolServiceImpl implements SchoolService {
 
             Map<String, Object> campusData = buildCampusDocxData(campus, facilityItems);
 
-            String campusName = toSafeObjectKey(campus.getName());
+            String campusName = CampusValidation.toSafeObjectKey(campus.getName());
 
             folderName = actorCampus.getSchool().getFolderPath() + "/" + campusName;
             fileName = "campus_info_" + uuid + ".docx";
@@ -328,35 +328,6 @@ public class SchoolServiceImpl implements SchoolService {
         return ResponseBuilder.build(HttpStatus.OK, "Tạo cơ sở thành công", data);
     }
 
-    private String toSafeObjectKey(String input) {
-        if (input == null || input.trim().isEmpty()) {
-            return "";
-        }
-
-        // 1. normalize Unicode (tách dấu ra)
-        String normalized = Normalizer.normalize(input.trim(), Normalizer.Form.NFD);
-
-        // 2. remove dấu (accent)
-        String noAccent = normalized.replaceAll("\\p{M}", "");
-
-        // 3. xử lý riêng đ/Đ
-        noAccent = noAccent.replace("đ", "d").replace("Đ", "d");
-
-        // 4. lowercase
-        String lower = noAccent.toLowerCase(Locale.ROOT);
-
-        // 5. replace ký tự không hợp lệ -> _
-        String safe = lower.replaceAll("[^a-z0-9]+", "_");
-
-        // 6. cleanup: nhiều _ -> 1
-        safe = safe.replaceAll("_+", "_");
-
-        // 7. remove _ đầu/cuối
-        safe = safe.replaceAll("^_+|_+$", "");
-
-        return safe;
-    }
-
     private Map<String, Object> buildCampusDocxData(Campus campus, List<Map<String, Object>> facilityItems) {
         Map<String, Object> data = new LinkedHashMap<>();
 
@@ -365,32 +336,10 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("phoneNumber", campus.getPhoneNumber());
         data.put("address", campus.getAddress());
         data.put("boardingType", campus.getBoardingType());
-        data.put("boardingDescription", mapBoardingDescription(campus.getBoardingType()));
+        data.put("boardingDescription", CampusValidation.mapBoardingDescription(campus.getBoardingType()));
         data.put("facilityItems", facilityItems);
 
         return data;
-    }
-
-    private String mapBoardingDescription(BoardingType type) {
-        return switch (type) {
-
-            case FULL_BOARDING ->
-                    "Cơ sở này cung cấp dịch vụ nội trú toàn phần, nơi học sinh sinh hoạt tại trường với chỗ ở, bữa ăn và sự chăm sóc toàn diện hằng ngày.";
-
-            case SEMI_BOARDING ->
-                    "Cơ sở này cung cấp dịch vụ bán trú, cho phép học sinh ở lại trường vào ban ngày để dùng bữa, được hỗ trợ học tập và tham gia các hoạt động ngoại khóa mà không lưu trú qua đêm.";
-
-            case BOTH ->
-                    "Cơ sở này cung cấp cả dịch vụ nội trú toàn phần và bán trú, mang đến lựa chọn linh hoạt về lưu trú và chăm sóc ban ngày để đáp ứng nhu cầu đa dạng của học sinh.";
-        };
-    }
-
-    private String generateCampusName(Integer schoolId) {
-        int currentCount = campusRepo.countBySchoolId(schoolId);
-        if (currentCount == 0) {
-            return "Cơ sở 1 (Cơ sở chính)";
-        }
-        return "Cơ sở " + (currentCount + 1);
     }
 
     @Override
@@ -500,6 +449,15 @@ public class SchoolServiceImpl implements SchoolService {
             );
         }
 
+        Integer systemQuota = resolveSchoolTotalQuota(actorCampus.getSchool().getId());
+
+        int totalMethodQuota = AdmissionCampaignValidation.sumMethodQuotas(methodTimelines);
+
+        if (systemQuota != null && totalMethodQuota > systemQuota) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Tổng chỉ tiêu các phương thức (" + totalMethodQuota + ") vượt quá chỉ tiêu được cấp cho trường (" + systemQuota + ")", null);
+        }
+
         AdmissionCampaign admissionCampaign = AdmissionCampaign.builder()
                 .school(actorCampus.getSchool())
                 .name(normalize(request.getName()))
@@ -511,6 +469,11 @@ public class SchoolServiceImpl implements SchoolService {
                 .status(Status.DRAFT_ADMISSION_CAMPAIGN)
                 .build();
         admissionCampaignRepo.save(admissionCampaign);
+
+        if (systemQuota != null && totalMethodQuota < systemQuota) {
+            return ResponseBuilder.build(HttpStatus.CREATED,
+                    "Tạo chiến dịch tuyển sinh thành công. Lưu ý: Tổng chỉ tiêu các phương thức (" + totalMethodQuota + ") chưa phân bổ hết chỉ tiêu được cấp (" + systemQuota + ")", null);
+        }
 
         return ResponseBuilder.build(HttpStatus.CREATED, "Tạo chiến dịch tuyển sinh thành công", null);
     }
@@ -546,7 +509,7 @@ public class SchoolServiceImpl implements SchoolService {
         request.setEndDate(oldCampaign.getEndDate());
         request.setAdmissionMethodTimelines(convertMethodTimelinesToRequests(oldCampaign.getAdmissionMethodTimelines()));
 
-        String error = AdmissionCampaignValidation.validationCreateAdmissionCampaignTemplate(request, actorCampus, admissionCampaignRepo);
+        String error = AdmissionCampaignValidation.validationCloneDraftCampaign(request);
 
         if (error != null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, error, null);
@@ -571,6 +534,13 @@ public class SchoolServiceImpl implements SchoolService {
             );
         }
 
+        Integer systemQuotaForClone = resolveSchoolTotalQuota(actorCampus.getSchool().getId());
+        int totalMethodQuotaForClone = AdmissionCampaignValidation.sumMethodQuotas(methodTimelines);
+        if (systemQuotaForClone != null && totalMethodQuotaForClone > systemQuotaForClone) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Tổng chỉ tiêu các phương thức (" + totalMethodQuotaForClone + ") vượt quá chỉ tiêu được cấp cho trường (" + systemQuotaForClone + ")", null);
+        }
+
         AdmissionCampaign newCampaign = AdmissionCampaign.builder()
                 .school(oldCampaign.getSchool())
                 .name(request.getName())
@@ -584,7 +554,11 @@ public class SchoolServiceImpl implements SchoolService {
 
         admissionCampaignRepo.save(newCampaign);
 
-        return ResponseBuilder.build(HttpStatus.CREATED, "Nhân bản chiến dịch tuyển sinh thành công!", buildCampaignData(newCampaign));
+        String cloneMessage = "Nhân bản chiến dịch tuyển sinh thành công!";
+        if (systemQuotaForClone != null && totalMethodQuotaForClone < systemQuotaForClone) {
+            cloneMessage += " Lưu ý: Tổng chỉ tiêu các phương thức (" + totalMethodQuotaForClone + ") chưa phân bổ hết chỉ tiêu được cấp (" + systemQuotaForClone + ")";
+        }
+        return ResponseBuilder.build(HttpStatus.CREATED, cloneMessage, buildCampaignData(newCampaign));
     }
 
     @Override
@@ -634,6 +608,7 @@ public class SchoolServiceImpl implements SchoolService {
         admissionCampaign.setStartDate(request.getStartDate());
         admissionCampaign.setEndDate(request.getEndDate());
         List<Map<String, Object>> methodTimelines;
+
         try {
             methodTimelines = resolveAdmissionMethodTimelines(
                     actorCampus.getSchool().getId(),
@@ -651,8 +626,20 @@ public class SchoolServiceImpl implements SchoolService {
                     null
             );
         }
+        Integer systemQuotaForUpdate = resolveSchoolTotalQuota(actorCampus.getSchool().getId());
+        int totalMethodQuotaForUpdate = AdmissionCampaignValidation.sumMethodQuotas(methodTimelines);
+        if (systemQuotaForUpdate != null && totalMethodQuotaForUpdate > systemQuotaForUpdate) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Tổng chỉ tiêu các phương thức (" + totalMethodQuotaForUpdate + ") vượt quá chỉ tiêu được cấp cho trường (" + systemQuotaForUpdate + ")", null);
+        }
+
         admissionCampaign.setAdmissionMethodTimelines(methodTimelines);
         admissionCampaignRepo.save(admissionCampaign);
+
+        if (systemQuotaForUpdate != null && totalMethodQuotaForUpdate < systemQuotaForUpdate) {
+            return ResponseBuilder.build(HttpStatus.OK,
+                    "Cập nhật chiến dịch tuyển sinh thành công. Lưu ý: Tổng chỉ tiêu các phương thức (" + totalMethodQuotaForUpdate + ") chưa phân bổ hết chỉ tiêu được cấp (" + systemQuotaForUpdate + ")", null);
+        }
 
         return ResponseBuilder.build(HttpStatus.OK, "Cập nhật chiến dịch tuyển sinh thành công", null);
     }
@@ -697,13 +684,10 @@ public class SchoolServiceImpl implements SchoolService {
             );
         }
 
-// Kiểm tra tính hợp lệ của ngày kết thúc trước khi Publish
-        if (LocalDate.now().isAfter(campaign.getEndDate())) {
-            return ResponseBuilder.build(
-                    HttpStatus.BAD_REQUEST,
-                    "Không thể công bố chiến dịch đã hết hạn. Vui lòng cập nhật ngày kết thúc",
-                    null
-            );
+        Integer systemQuota = resolveSchoolTotalQuota(actorCampus.getSchool().getId());
+        String publishError = AdmissionCampaignValidation.validationPublishCampaign(campaign, systemQuota);
+        if (publishError != null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, publishError, null);
         }
 
         campaign.setStatus(Status.OPEN_ADMISSION_CAMPAIGN);
@@ -724,7 +708,6 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị vô hiệu", null);
         }
 
-        //kiểm tra Actor & Quyền (Tương tự Create/Update)
         Campus actorCampus = extractActorCampus();
         if (actorCampus == null || !actorCampus.getIsPrimaryBranch()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Cơ sở chính mới được phép cập nhật trạng thái chiến dịch tuyển sinh", null);
@@ -736,27 +719,23 @@ public class SchoolServiceImpl implements SchoolService {
         if (campaign == null)
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Cơ sở không tồn tại trong hệ thống", null);
 
-        // 2. Chỉ cho hủy nếu đang OPEN
-        if (campaign.getStatus() == Status.CANCELLED_ADMISSION_CAMPAIGN) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cơ sở hiện tại không hoạt động", null);
+        if (campaign.getStatus() != Status.OPEN_ADMISSION_CAMPAIGN && campaign.getStatus() != Status.DRAFT_ADMISSION_CAMPAIGN) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Chỉ có thể hủy chiến dịch đang ở trạng thái nháp hoặc mở. Trạng thái hiện tại: " + campaign.getStatus(), null);
         }
 
-        // 3. Kiểm tra xem có hồ sơ nào đang bám vào các Offering của Campaign này không
-        // Bạn nên đếm các hồ sơ CHƯA HOÀN THÀNH (Ví dụ: PENDING, PROCESSING)
-        long activeProfilesCount =
-                admissionReservationFormRepo.countByCampusProgramOffering_AdmissionCampaign_IdAndStatusIn(
-                        id,
-                        Status.activeReservationStatuses()
-                )
-                        + admissionReservationFormRepo.countByCampusProgramOffering_AdmissionCampaign_IdAndStatusIsNull(id);
-
-        if (activeProfilesCount > 0) {
+        // block nếu còn đơn đang hoạt động — từng campus phải tự xử lý đơn của mình trước
+        // việc liên quan đến admission campaign thì phải do campus chính họ làm
+        long activeFormsCount = admissionReservationFormRepo.countByCampusProgramOffering_AdmissionCampaign_IdAndStatusIn(id, Status.activeReservationStatuses())
+                + admissionReservationFormRepo
+                .countByCampusProgramOffering_AdmissionCampaign_IdAndStatusIsNull(id);
+        if (activeFormsCount > 0) {
             return ResponseBuilder.build(
                     HttpStatus.PRECONDITION_FAILED,
                     String.format(
-                            "Không thể hủy chiến dịch. Hiện có %d hồ sơ đăng ký đang hoạt động thuộc chiến dịch này. " +
-                                    "Vui lòng từ chối hoặc xử lý tất cả hồ sơ trước khi hủy để đảm bảo tính toàn vẹn dữ liệu",
-                            activeProfilesCount
+                            "Không thể hủy chiến dịch. Hiện có %d hồ sơ chưa được xử lý. " +
+                                    "Vui lòng yêu cầu các cơ sở liên quan từ chối hoặc xử lý toàn bộ hồ sơ trước khi hủy chiến dịch",
+                            activeFormsCount
                     ),
                     null
             );
@@ -766,7 +745,7 @@ public class SchoolServiceImpl implements SchoolService {
         campaign.setReason(normalize(reason));
         admissionCampaignRepo.save(campaign);
 
-        // Hủy toàn bộ Offering con: AdmissionCampaign.status giữ CANCELLED_*; offering dùng lifecycle OFFERING_* + application CLOSED.
+        // hủy toàn bộ gói tuyển sinh
         List<CampusProgramOffering> offerings = campusProgramOfferingRepo.findByAdmissionCampaignId(id);
         if (!offerings.isEmpty()) {
             for (CampusProgramOffering offering : offerings) {
@@ -1308,7 +1287,7 @@ public class SchoolServiceImpl implements SchoolService {
             );
         }
 
-        String duplicatedCoreSubject = findDuplicatedCoreSubjectName(request.getExtraSubjectList(), curriculum.getSubjectsJsonb());
+        String duplicatedCoreSubject = ProgramValidation.findDuplicatedCoreSubjectName(request.getExtraSubjectList(), curriculum.getSubjectsJsonb());
         if (duplicatedCoreSubject != null) {
             return ResponseBuilder.build(
                     HttpStatus.BAD_REQUEST,
@@ -1398,35 +1377,6 @@ public class SchoolServiceImpl implements SchoolService {
             return "true".equalsIgnoreCase(mandatoryCell.getStringCellValue().trim());
         }
         return false;
-    }
-
-    private String findDuplicatedCoreSubjectName(List<ProgramRequest.SubjectExtraRequest> extraSubjects, Object curriculumSubjectsRaw) {
-        if (extraSubjects == null || extraSubjects.isEmpty() || !(curriculumSubjectsRaw instanceof List<?> curriculumSubjects) || curriculumSubjects.isEmpty()) {
-            return null;
-        }
-
-        Set<String> mandatoryCoreNames = curriculumSubjects.stream()
-                .filter(Map.class::isInstance)
-                .map(subject -> (Map<?, ?>) subject)
-                .filter(subject -> Boolean.TRUE.equals(subject.get("isMandatory")))
-                .map(subject -> normalize(Objects.toString(subject.get("name"), null)))
-                .filter(StringUtils::isNotBlank)
-                .map(name -> name.toLowerCase(Locale.ROOT))
-                .collect(Collectors.toSet());
-
-        for (ProgramRequest.SubjectExtraRequest extraSubject : extraSubjects) {
-            if (extraSubject == null) {
-                continue;
-            }
-            String normalizedExtraName = normalize(extraSubject.getName());
-            if (StringUtils.isBlank(normalizedExtraName)) {
-                continue;
-            }
-            if (mandatoryCoreNames.contains(normalizedExtraName.toLowerCase(Locale.ROOT))) {
-                return normalizedExtraName;
-            }
-        }
-        return null;
     }
 
     @Override
@@ -1838,6 +1788,7 @@ public class SchoolServiceImpl implements SchoolService {
             LocalDate methodStartDate = timelineRequest.getStartDate();
             LocalDate methodEndDate = timelineRequest.getEndDate();
             boolean allowReservationSubmission = !Boolean.FALSE.equals(timelineRequest.getAllowReservationSubmission());
+            Integer quota = timelineRequest.getQuota();
             if (methodStartDate == null || methodEndDate == null) {
                 throw new IllegalArgumentException("Mỗi phương thức tuyển sinh phải có ngày bắt đầu và ngày kết thúc");
             }
@@ -1849,6 +1800,9 @@ public class SchoolServiceImpl implements SchoolService {
                         "Thời gian của phương thức " + methodCode + " phải nằm trong khoảng thời gian chiến dịch"
                 );
             }
+            if (quota == null || quota <= 0) {
+                throw new IllegalArgumentException("Chỉ tiêu của phương thức " + methodCode + " phải lớn hơn 0");
+            }
 
             Map<String, Object> timeline = new LinkedHashMap<>();
             timeline.put("methodCode", configuredMethod.get("code"));
@@ -1857,6 +1811,7 @@ public class SchoolServiceImpl implements SchoolService {
             timeline.put("startDate", methodStartDate);
             timeline.put("endDate", methodEndDate);
             timeline.put("allowReservationSubmission", allowReservationSubmission);
+            timeline.put("quota", quota);
             resolved.add(timeline);
         }
 
@@ -1875,9 +1830,10 @@ public class SchoolServiceImpl implements SchoolService {
             }
 
             String methodCode = normalize(Objects.toString(map.get("methodCode"), null));
-            LocalDate startDate = parseLocalDateSafe(map.get("startDate"));
-            LocalDate endDate = parseLocalDateSafe(map.get("endDate"));
-            Boolean allowReservationSubmission = parseBooleanSafe(map.get("allowReservationSubmission"));
+            LocalDate startDate = AdmissionCampaignValidation.parseLocalDateSafe(map.get("startDate"));
+            LocalDate endDate = AdmissionCampaignValidation.parseLocalDateSafe(map.get("endDate"));
+            Boolean allowReservationSubmission = AdmissionCampaignValidation.parseBooleanSafe(map.get("allowReservationSubmission"));
+            Integer quota = AdmissionCampaignValidation.parseIntegerSafe(map.get("quota"));
             if (methodCode == null || startDate == null || endDate == null) {
                 continue;
             }
@@ -1887,40 +1843,22 @@ public class SchoolServiceImpl implements SchoolService {
                     .startDate(startDate)
                     .endDate(endDate)
                     .allowReservationSubmission(allowReservationSubmission == null ? Boolean.TRUE : allowReservationSubmission)
+                    .quota(quota)
                     .build());
         }
         return requests;
     }
 
-    private LocalDate parseLocalDateSafe(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof LocalDate localDate) {
-            return localDate;
-        }
+    private Integer resolveSchoolTotalQuota(int schoolId) {
+        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "quotaConfigData").orElse(null);
+        if (config == null || !(config.getValue() instanceof Map<?, ?> cfg)) return null;
+        Object total = cfg.get("totalSystemQuota");
+        if (total == null) return null;
         try {
-            return LocalDate.parse(String.valueOf(value));
+            return Integer.parseInt(total.toString());
         } catch (Exception ignored) {
             return null;
         }
-    }
-
-    private Boolean parseBooleanSafe(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Boolean b) {
-            return b;
-        }
-        String s = String.valueOf(value).trim();
-        if (s.equalsIgnoreCase("true")) {
-            return Boolean.TRUE;
-        }
-        if (s.equalsIgnoreCase("false")) {
-            return Boolean.FALSE;
-        }
-        return null;
     }
 
     private Map<String, Object> buildProgramData(Program program) {
@@ -1985,26 +1923,6 @@ public class SchoolServiceImpl implements SchoolService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
-    }
-
-    private BoardingType parseBoardingType(String value) {
-        String normalized = normalize(value);
-        if (normalized == null) {
-            return null;
-        }
-
-        String enumKey = normalized.toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
-
-        try {
-            return BoardingType.valueOf(enumKey);
-        } catch (IllegalArgumentException ignored) {
-            for (BoardingType boardingType : BoardingType.values()) {
-                if (boardingType.getValue().equalsIgnoreCase(normalized)) {
-                    return boardingType;
-                }
-            }
-            return null;
-        }
     }
 
     @Override
@@ -3233,13 +3151,13 @@ public class SchoolServiceImpl implements SchoolService {
                 BaseFont.EMBEDDED
         );
 
-        Font fontTitle   = new Font(bf, 20, Font.BOLD,   new Color(30, 90, 160));
-        Font fontHeader  = new Font(bf, 11, Font.BOLD,   Color.WHITE);
-        Font fontLabel   = new Font(bf, 10, Font.BOLD,   Color.DARK_GRAY);
-        Font fontValue   = new Font(bf, 10, Font.NORMAL, Color.BLACK);
-        Font fontSmall   = new Font(bf,  9, Font.ITALIC, Color.GRAY);
-        Font fontTotal   = new Font(bf, 12, Font.BOLD,   new Color(30, 90, 160));
-        Font fontSuccess = new Font(bf, 10, Font.BOLD,   new Color(34, 139, 34));
+        Font fontTitle = new Font(bf, 20, Font.BOLD, new Color(30, 90, 160));
+        Font fontHeader = new Font(bf, 11, Font.BOLD, Color.WHITE);
+        Font fontLabel = new Font(bf, 10, Font.BOLD, Color.DARK_GRAY);
+        Font fontValue = new Font(bf, 10, Font.NORMAL, Color.BLACK);
+        Font fontSmall = new Font(bf, 9, Font.ITALIC, Color.GRAY);
+        Font fontTotal = new Font(bf, 12, Font.BOLD, new Color(30, 90, 160));
+        Font fontSuccess = new Font(bf, 10, Font.BOLD, new Color(34, 139, 34));
 
         NumberFormat moneyFmt = NumberFormat.getInstance(new Locale("vi", "VN"));
 
@@ -3263,10 +3181,10 @@ public class SchoolServiceImpl implements SchoolService {
         doc.add(buildSectionTable("THONG TIN GIAO DICH",
                 new String[][]{
                         {"Ma giao dich he thong", tx.getVnpTxnRef()},
-                        {"Ma giao dich VNPay",    tx.getVnpTransactionNo()},
-                        {"Ngan hang",             tx.getVnpBankCode()},
-                        {"Loai the",              tx.getVnpCardType()},
-                        {"Thoi gian thanh toan",  formatVnpDate(tx.getVnpPayDate())},
+                        {"Ma giao dich VNPay", tx.getVnpTransactionNo()},
+                        {"Ngan hang", tx.getVnpBankCode()},
+                        {"Loai the", tx.getVnpCardType()},
+                        {"Thoi gian thanh toan", formatVnpDate(tx.getVnpPayDate())},
                 }, fontHeader, fontLabel, fontValue));
 
         // ===== THÔNG TIN TRƯỜNG =====
@@ -3278,10 +3196,10 @@ public class SchoolServiceImpl implements SchoolService {
         // ===== THÔNG TIN GÓI =====
         doc.add(buildSectionTable("THONG TIN GOI DICH VU",
                 new String[][]{
-                        {"Ten goi",      pkg.getName()},
-                        {"Loai goi",     pkg.getPackageType().getValue()},
-                        {"Thoi han",     pkg.getDurationDays() + " ngay"},
-                        {"License Key",  sub.getLicenseKey()},
+                        {"Ten goi", pkg.getName()},
+                        {"Loai goi", pkg.getPackageType().getValue()},
+                        {"Thoi han", pkg.getDurationDays() + " ngay"},
+                        {"License Key", sub.getLicenseKey()},
                         {"Ngay bat dau", sub.getStartDate().toString()},
                         {"Ngay het han", sub.getEndDate().toString()},
                 }, fontHeader, fontLabel, fontValue));
@@ -3289,9 +3207,9 @@ public class SchoolServiceImpl implements SchoolService {
         // ===== CHI TIẾT TÀI CHÍNH =====
         doc.add(buildSectionTable("CHI TIET THANH TOAN",
                 new String[][]{
-                        {"Gia goc",     moneyFmt.format(pkg.getPrice())     + " VND"},
+                        {"Gia goc", moneyFmt.format(pkg.getPrice()) + " VND"},
                         {"Phi dich vu", moneyFmt.format(pkg.getServiceFee()) + " VND"},
-                        {"Thue VAT",    moneyFmt.format(pkg.getTaxFee())     + " VND"},
+                        {"Thue VAT", moneyFmt.format(pkg.getTaxFee()) + " VND"},
                 }, fontHeader, fontLabel, fontValue));
 
         // ===== TỔNG TIỀN =====
@@ -3716,8 +3634,8 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     private ConfigSystemUtil.SubscriptionPriceBreakdown calculateBreakdownFromNet(BigDecimal netAmount) {
-        BigDecimal serviceRate = resolveBusinessRate("serviceRate");
-        BigDecimal taxRate = resolveBusinessRate("taxRate");
+        BigDecimal serviceRate = PreviewSubscriptionValidation.resolveBusinessRate("serviceRate", platformConfigRepo);
+        BigDecimal taxRate = PreviewSubscriptionValidation.resolveBusinessRate("taxRate", platformConfigRepo);
 
         BigDecimal normalizedNet = netAmount == null ? BigDecimal.ZERO : netAmount.max(BigDecimal.ZERO);
         BigDecimal serviceFee = normalizedNet.multiply(serviceRate).setScale(0, RoundingMode.HALF_UP);
@@ -3735,30 +3653,5 @@ public class SchoolServiceImpl implements SchoolService {
                 serviceFee,       // serviceFee
                 taxFee,           // taxFee
                 finalPrice);        // finalPrice
-    }
-
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> asMap(Object value) {
-        if (value instanceof Map<?, ?> raw) {
-            return (Map<String, Object>) raw;
-        }
-        return Collections.emptyMap();
-    }
-
-    private Map<String, Object> getBusinessMap() {
-        PlatformConfig config = platformConfigRepo.findByKey("business").orElse(null);
-        if (config == null || config.getValue() == null) {
-            throw new RuntimeException("Chưa cấu hình business.");
-        }
-        return asMap(config.getValue());
-    }
-
-    private BigDecimal resolveBusinessRate(String key) {
-        Map<String, Object> business = getBusinessMap();
-        Object rawValue = business.get(key);
-        if (!(rawValue instanceof Number number)) {
-            throw new RuntimeException("Thiếu cấu hình " + key + ".");
-        }
-        return BigDecimal.valueOf(number.doubleValue());
     }
 }

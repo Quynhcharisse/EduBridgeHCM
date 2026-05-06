@@ -9,12 +9,15 @@ import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.repositories.CurriculumRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
 import com.sp26se041.edubridgehcm.requests.ProgramRequest;
+import org.apache.commons.lang3.StringUtils;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -189,11 +192,35 @@ public class ProgramValidation {
     }
 
     public static String normalize(String value) {
-        if (value == null) {
+        return CampusValidation.normalize(value);
+    }
+
+    public static String findDuplicatedCoreSubjectName(List<ProgramRequest.SubjectExtraRequest> extraSubjects, Object curriculumSubjectsRaw) {
+        if (extraSubjects == null || extraSubjects.isEmpty() || !(curriculumSubjectsRaw instanceof List<?> curriculumSubjects) || curriculumSubjects.isEmpty()) {
             return null;
         }
 
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
+        Set<String> mandatoryCoreNames = curriculumSubjects.stream()
+                .filter(Map.class::isInstance)
+                .map(subject -> (Map<?, ?>) subject)
+                .filter(subject -> Boolean.TRUE.equals(subject.get("isMandatory")))
+                .map(subject -> normalize(Objects.toString(subject.get("name"), null)))
+                .filter(StringUtils::isNotBlank)
+                .map(name -> name.toLowerCase(Locale.ROOT))
+                .collect(Collectors.toSet());
+
+        for (ProgramRequest.SubjectExtraRequest extraSubject : extraSubjects) {
+            if (extraSubject == null) {
+                continue;
+            }
+            String normalizedExtraName = normalize(extraSubject.getName());
+            if (StringUtils.isBlank(normalizedExtraName)) {
+                continue;
+            }
+            if (mandatoryCoreNames.contains(normalizedExtraName.toLowerCase(Locale.ROOT))) {
+                return normalizedExtraName;
+            }
+        }
+        return null;
     }
 }

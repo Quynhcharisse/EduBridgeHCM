@@ -202,10 +202,16 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không xác định được cơ sở áp dụng offering.", null);
         }
 
-        Integer configuredQuota = resolveConfiguredCampusQuota(actorCampus.getSchool().getId(), targetCampus.getId(), campaign.getYear());
-        if (configuredQuota == null || configuredQuota <= 0) {
+        Map<String, Object> methodTimeline = resolveMethodTimeline(campaign, request.getMethodCode());
+        if (methodTimeline == null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Chưa cấu hình quota hợp lệ cho cơ sở này trong cấu hình của trường.", null);
+                    "Phương thức tuyển sinh '" + request.getMethodCode() + "' không tồn tại trong chiến dịch này.", null);
+        }
+
+        Integer methodQuota = methodTimeline.get("quota") instanceof Number n ? n.intValue() : null;
+        if (methodQuota == null || methodQuota <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Chỉ tiêu của phương thức '" + request.getMethodCode() + "' chưa được cấu hình hợp lệ.", null);
         }
 
         BigDecimal basePrice = program.getBaseTuitionFee();
@@ -258,21 +264,14 @@ public class CampusServiceImpl implements CampusService {
             }
         }
 
-        LocalDate targetOpenDate = request.getOpenDate() != null ? request.getOpenDate() : campaign.getStartDate();
-        LocalDate targetCloseDate = request.getCloseDate() != null ? request.getCloseDate() : campaign.getEndDate();
+        LocalDate methodStartDate = parseLocalDateSafe(methodTimeline.get("startDate"));
+        LocalDate methodEndDate = parseLocalDateSafe(methodTimeline.get("endDate"));
+        LocalDate targetOpenDate = request.getOpenDate() != null ? request.getOpenDate()
+                : (methodStartDate != null ? methodStartDate : campaign.getStartDate());
+        LocalDate targetCloseDate = request.getCloseDate() != null ? request.getCloseDate()
+                : (methodEndDate != null ? methodEndDate : campaign.getEndDate());
 
-        // applicationStatus: trạng thái vận hành nhận hồ sơ theo khung thời gian campus chọn.
         Status initialApplicationStatus = deriveApplicationStatusByDateWindow(targetOpenDate, targetCloseDate);
-
-        String method = resolveDefaultAdmissionMethod(campaign);
-
-        if (method == null) {
-            return ResponseBuilder.build(
-                    HttpStatus.BAD_REQUEST,
-                    "Không xác định được phương thức tuyển sinh mặc định (chiến dịch tuyển sinh có nhiều hoặc không có phương thức).",
-                    null
-            );
-        }
 
         campusProgramOfferingRepo.save(CampusProgramOffering.builder()
                 .campus(targetCampus)
@@ -280,9 +279,9 @@ public class CampusServiceImpl implements CampusService {
                 .program(program)
                 .programNameSnapshot(program.getName())
                 .baseTuitionSnapshot(basePrice)
-                .admissionMethod(Objects.requireNonNull(method))
-                .quota(configuredQuota)
-                .remainingQuota(configuredQuota)
+                .admissionMethod(normalize(Objects.toString(methodTimeline.get("methodCode"), null)))
+                .quota(methodQuota)
+                .remainingQuota(methodQuota)
                 .learningMode(request.getLearningMode())
                 .priceAdjustmentPercentage(adjustmentPercent.floatValue())
                 .finalTuitionFee(finalFee)
@@ -744,22 +743,29 @@ public class CampusServiceImpl implements CampusService {
      * Lấy phương thức tuyển sinh mặc định từ campaign để snapshot vào offering.
      * Nếu có nhiều phương thức, ưu tiên phương thức hợp lệ đầu tiên.
      */
-    private String resolveDefaultAdmissionMethod(AdmissionCampaign campaign) {
-        if (!(campaign.getAdmissionMethodTimelines() instanceof List<?> timelines) || timelines.isEmpty()) {
+    private Map<String, Object> resolveMethodTimeline(AdmissionCampaign campaign, String methodCode) {
+        if (methodCode == null || !(campaign.getAdmissionMethodTimelines() instanceof List<?> timelines)) {
             return null;
         }
-
+        String normalizedInput = methodCode.trim().toLowerCase(java.util.Locale.ROOT);
         for (Object item : timelines) {
-            if (!(item instanceof Map<?, ?> timelineMap)) {
-                continue;
-            }
-            String methodCode = normalize(Objects.toString(timelineMap.get("methodCode"), null));
-            if (methodCode != null) {
-                return methodCode;
+            if (!(item instanceof Map<?, ?> map)) continue;
+            String code = Objects.toString(map.get("methodCode"), null);
+            if (code != null && code.trim().toLowerCase(java.util.Locale.ROOT).equals(normalizedInput)) {
+                return (Map<String, Object>) map;
             }
         }
-
         return null;
+    }
+
+    private LocalDate parseLocalDateSafe(Object value) {
+        if (value == null) return null;
+        if (value instanceof LocalDate ld) return ld;
+        try {
+            return LocalDate.parse(String.valueOf(value));
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     @Override

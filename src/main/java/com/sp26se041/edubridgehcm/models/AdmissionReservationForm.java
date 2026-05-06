@@ -41,4 +41,7 @@ public class AdmissionReservationForm {
     @Column(name = "status")
     Status status;
 
+    @Column(name = "cancel_reason")
+    String cancelReason;
+
 }
