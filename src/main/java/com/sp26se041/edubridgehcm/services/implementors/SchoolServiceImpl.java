@@ -596,7 +596,12 @@ public class SchoolServiceImpl implements SchoolService {
         if (systemQuotaForClone != null && totalMethodQuotaForClone < systemQuotaForClone) {
             cloneMessage += " Lưu ý: Tổng chỉ tiêu các phương thức (" + totalMethodQuotaForClone + ") chưa phân bổ hết chỉ tiêu được cấp (" + systemQuotaForClone + ")";
         }
-        return ResponseBuilder.build(HttpStatus.CREATED, cloneMessage, buildCampaignData(newCampaign));
+        Map<String, Object> cloneAdmissionConfig = resolveAdmissionConfigForCampaignView(newCampaign.getSchool().getId());
+        Map<String, List<Map<String, Object>>> cloneProcessByMethod = indexNestedListByMethodCode(
+                toListOfMaps(cloneAdmissionConfig.get("admissionProcesses")), "steps");
+        Map<String, List<Map<String, Object>>> cloneDocsByMethod = indexNestedListByMethodCode(
+                toListOfMaps(cloneAdmissionConfig.get("byMethod")), "documents");
+        return ResponseBuilder.build(HttpStatus.CREATED, cloneMessage, buildCampaignData(newCampaign, cloneProcessByMethod, cloneDocsByMethod));
     }
 
     @Override
@@ -825,17 +830,30 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     private ResponseEntity<ResponseObject> buildAdmissionCampaignTemplateResponse(int schoolId, int year) {
+        Map<String, Object> admissionConfig = resolveAdmissionConfigForCampaignView(schoolId);
+
+        Map<String, List<Map<String, Object>>> processByMethod = indexNestedListByMethodCode(
+                toListOfMaps(admissionConfig.get("admissionProcesses")), "steps");
+        Map<String, List<Map<String, Object>>> docsByMethod = indexNestedListByMethodCode(
+                toListOfMaps(admissionConfig.get("byMethod")), "documents");
+
+        Map<String, Object> responseBody = new LinkedHashMap<>();
+        responseBody.put("campaignConfig", buildCampaignConfig(admissionConfig));
+
         if (year > 0) {
             List<AdmissionCampaign> campaigns = admissionCampaignRepo.findBySchoolIdAndYearOrderByStatusAsc(schoolId, year);
-            List<Map<String, Object>> data = campaigns.stream().map(this::buildCampaignData).toList();
-            return ResponseBuilder.build(HttpStatus.OK, "Hiển thị danh sách chiến dịch tuyển sinh năm " + year + " thành công", data);
+            List<Map<String, Object>> data = campaigns.stream()
+                    .map(campaign -> buildCampaignData(campaign, processByMethod, docsByMethod)).toList();
+            responseBody.put("campaigns", data);
+            return ResponseBuilder.build(HttpStatus.OK, "Hiển thị danh sách chiến dịch tuyển sinh năm " + year + " thành công", responseBody);
         }
 
         List<AdmissionCampaign> campaignList = admissionCampaignRepo.findBySchoolIdOrderByYearDesc(schoolId);
+        List<Map<String, Object>> data = campaignList.stream()
+                .map(campaign -> buildCampaignData(campaign, processByMethod, docsByMethod)).toList();
+        responseBody.put("campaigns", data);
 
-        List<Map<String, Object>> data = campaignList.stream().map(this::buildCampaignData).toList();
-
-        return ResponseBuilder.build(HttpStatus.OK, "Hiển thị danh sách chiến dịch tuyển sinh", data);
+        return ResponseBuilder.build(HttpStatus.OK, "Hiển thị danh sách chiến dịch tuyển sinh", responseBody);
     }
 
     private Status autoCheckAndExpireStatus(AdmissionCampaign admissionCampaign) {
@@ -1606,27 +1624,28 @@ public class SchoolServiceImpl implements SchoolService {
         return account.getCampus();
     }
 
-    private Map<String, Object> buildCampaignData(AdmissionCampaign campaign) {
-        Map<String, Object> data = new HashMap<>();
+    private Map<String, Object> buildCampaignConfig(Map<String, Object> admissionConfig) {
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("allowedMethods", toListOfMaps(admissionConfig.get("allowedMethods")));
+        config.put("mandatoryAll", toListOfMaps(admissionConfig.get("mandatoryAll")));
+        return config;
+    }
+
+    private Map<String, Object> buildCampaignData(
+            AdmissionCampaign campaign,
+            Map<String, List<Map<String, Object>>> processByMethod,
+            Map<String, List<Map<String, Object>>> docsByMethod) {
+        Map<String, Object> data = new LinkedHashMap<>();
         data.put("id", campaign.getId());
         data.put("name", campaign.getName());
         data.put("description", campaign.getDescription());
         data.put("year", campaign.getYear());
         data.put("startDate", campaign.getStartDate());
         data.put("endDate", campaign.getEndDate());
-        List<Map<String, Object>> methodTimelines = toListOfMaps(campaign.getAdmissionMethodTimelines());
-        data.put("admissionMethodTimelines", methodTimelines);
         data.put("status", autoCheckAndExpireStatus(campaign));
         data.put("schoolId", campaign.getSchool().getId());
 
-        Map<String, Object> admissionConfig = resolveAdmissionConfigForCampaignView(campaign.getSchool().getId());
-        List<Map<String, Object>> admissionProcesses = toListOfMaps(admissionConfig.get("admissionProcesses"));
-        List<Map<String, Object>> mandatoryAll = toListOfMaps(admissionConfig.get("mandatoryAll"));
-        List<Map<String, Object>> byMethod = toListOfMaps(admissionConfig.get("byMethod"));
-
-        Map<String, List<Map<String, Object>>> processByMethod = indexNestedListByMethodCode(admissionProcesses, "steps");
-        Map<String, List<Map<String, Object>>> docsByMethod = indexNestedListByMethodCode(byMethod, "documents");
-
+        List<Map<String, Object>> methodTimelines = toListOfMaps(campaign.getAdmissionMethodTimelines());
         List<Map<String, Object>> methodDetails = new ArrayList<>();
         for (Map<String, Object> timeline : methodTimelines) {
             String methodCode = normalize(Objects.toString(timeline.get("methodCode"), null));
@@ -1646,8 +1665,7 @@ public class SchoolServiceImpl implements SchoolService {
             methodDetails.add(methodDetail);
         }
 
-        data.put("admissionMethodDetails", methodDetails);
-        data.put("mandatoryAll", mandatoryAll);
+        data.put("admissionMethodTimelines", methodDetails);
         data.put("campusProgramOfferings", buildCampaignOfferingDetails(campaign.getId()));
         return data;
     }
@@ -1711,6 +1729,13 @@ public class SchoolServiceImpl implements SchoolService {
 
         Map<String, Object> schoolAdmission = getSchoolConfigMapValue(schoolId, "admissionSettingsData");
         Map<String, Object> schoolDocReq = getSchoolConfigMapValue(schoolId, "documentRequirementsData");
+
+        result.put(
+            "allowedMethods",
+            schoolAdmission != null
+                ? toListOfMaps(schoolAdmission.get("allowedMethods"))
+                : Collections.emptyList()
+        );
 
         result.put(
                 "admissionProcesses",
