@@ -67,8 +67,4 @@ public class AdmissionReservationForm {
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     Status status;
-
-    @Column(name = "cancel_reason")
-    String cancelReason;
-
 }
