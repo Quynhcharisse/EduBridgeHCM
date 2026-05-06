@@ -302,6 +302,16 @@ public class AdmissionCampaignValidation {
         if (value instanceof LocalDate localDate) {
             return localDate;
         }
+        // Jackson serialize LocalDate thành array [year, month, day] khi lưu vào JSONB
+        if (value instanceof List<?> list && list.size() == 3) {
+            try {
+                int year  = ((Number) list.get(0)).intValue();
+                int month = ((Number) list.get(1)).intValue();
+                int day   = ((Number) list.get(2)).intValue();
+                return LocalDate.of(year, month, day);
+            } catch (Exception ignored) {
+            }
+        }
         try {
             return LocalDate.parse(String.valueOf(value));
         } catch (Exception ignored) {
