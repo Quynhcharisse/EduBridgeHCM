@@ -456,17 +456,18 @@ public class AccountServiceImpl implements AccountService {
             school.setWebsiteUrl(normalize(campusData.getSchoolData().getWebsiteUrl()));
 
             try {
+                supabaseStorageService.removeFile(school.getFolderPath(), school.getFileName());
+            } catch (Exception ex) {
+                System.out.println(ex.getMessage());
+            }
 
-                SchoolConfig hqFacility = schoolConfigRepo.findBySchoolIdAndKey(campus.getSchool().getId(), "facilityData").orElse(null);
-
+            try {
 
                 Optional<TemplateDocx> schoolTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.SCHOOL_INFO_TEMPLATE);
 
                 if (schoolTemplateDocx.isEmpty()) {
                     throw new Exception("Không tìm thấy mẫu tài liệu trường (docx) hoặc đã bị xóa.");
                 }
-
-                supabaseStorageService.removeFile(school.getFolderPath(), school.getFileName());
 
                 String uuid = UUID.randomUUID().toString();
 
@@ -476,7 +477,6 @@ public class AccountServiceImpl implements AccountService {
                 fields.put("taxCode", school.getTaxCode());
                 fields.put("websiteUrl", school.getWebsiteUrl());
                 fields.put("representativeName", school.getRepresentativeName());
-                fields.put("hotline", school.getHotline());
                 fields.put("foundingDate", school.getFoundingDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
                 fields.put("logoUrl", school.getLogoUrl());
                 fields.put("businessLicenseUrl", school.getBusinessLicenseUrl());

@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.services;
 
+import com.sp26se041.edubridgehcm.requests.ChatMessageForChatBot;
 import com.sp26se041.edubridgehcm.requests.UpdateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import org.springframework.http.ResponseEntity;
@@ -8,6 +9,9 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 
 public interface CounsellorService {
+
+    ResponseEntity<ResponseObject> chatWithChatbotForSchool(ChatMessageForChatBot messageForChatBot);
+
     ResponseEntity<ResponseObject> getCounsellorCalendar(LocalDate startDate, LocalDate endDate);
 
     ResponseEntity<ResponseObject> getConversations(String status, Long cursorId);

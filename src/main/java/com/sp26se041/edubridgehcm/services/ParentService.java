@@ -1,6 +1,5 @@
 package com.sp26se041.edubridgehcm.services;
 
-import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
 import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
 import com.sp26se041.edubridgehcm.requests.AutoFillTranscriptRequest;
@@ -14,6 +13,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface ParentService {
+
     ResponseEntity<ResponseObject> getConversations(Long cursorId);
 
     ResponseEntity<ResponseObject> getChatHistory(String parentEmail, int campusId, int studentProfileId, Long cursorId);
@@ -52,5 +52,7 @@ public interface ParentService {
     ResponseEntity<ResponseObject> createConsultationOfflineRequest(CreateConsultationOfflineRequest request);
 
     ResponseEntity<ResponseObject> getConsultationOfflineRequests(String status, int page, int size);
+
+//    ResponseEntity<ResponseObject> createAdmissionReservationForm(CreateAdmissionReservationFormRequest request);
 
 }

@@ -72,4 +72,8 @@ public class StudentProfile {
     @EqualsAndHashCode.Exclude
     List<Conversation> conversationList;
 
+    @OneToMany(mappedBy = "studentProfile", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<AdmissionReservationForm> admissionReservationForms;
 }

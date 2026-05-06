@@ -1,8 +1,10 @@
 package com.sp26se041.edubridgehcm.services;
 
 import com.sp26se041.edubridgehcm.enums.OfferingProgramAction;
+
 import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
+import com.sp26se041.edubridgehcm.requests.ChatMessageForChatBot;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
@@ -59,4 +61,6 @@ public interface CampusService {
     ResponseEntity<ResponseObject> createConversationWithAdmin();
 
     ResponseEntity<ResponseObject> getConversation();
+
+    ResponseEntity<ResponseObject> chatWithChatbotForSchool(ChatMessageForChatBot messageForChatBot);
 }

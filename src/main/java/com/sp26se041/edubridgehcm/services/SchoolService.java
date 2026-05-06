@@ -85,4 +85,5 @@ public interface SchoolService {
     ResponseEntity<ResponseObject> viewPaymentReceipt(String txnRef);
 
     ResponseEntity<byte[]> exportPaymentReceipt(String txnRef);
+
 }

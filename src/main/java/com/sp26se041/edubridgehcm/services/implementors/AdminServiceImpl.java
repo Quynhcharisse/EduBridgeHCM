@@ -522,7 +522,6 @@ public class AdminServiceImpl implements AdminService {
             fields.put("taxCode", request.getTaxCode().trim());
             fields.put("websiteUrl", request.getWebsiteUrl());
             fields.put("representativeName", request.getRepresentativeName());
-            fields.put("hotline", request.getHotline());
             fields.put("foundingDate", request.getFoundingDate()
                     .format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
             fields.put("logoUrl", request.getLogoUrl());
