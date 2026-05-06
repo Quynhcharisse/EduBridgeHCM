@@ -69,6 +69,7 @@ public class AdmissionCampaign {
     @Type(JsonBinaryType.class)
     @Column(name = "admission_method_timelines" ,columnDefinition = "jsonb")
     Object admissionMethodTimelines;
+    // HOC BA --> START - END , QUOTA PTTS HỌC BẠ
 
     @Enumerated(EnumType.STRING)
     Status status;

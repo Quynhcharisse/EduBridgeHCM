@@ -38,7 +38,8 @@ public class CreateAdmissionCampaignTemplateRequest {
         String methodCode;
         LocalDate startDate;
         LocalDate endDate;
-        Boolean allowReservationSubmission;
+        Boolean allowReservationSubmission; //đc nộp hồ sơ hay ko?
+        Integer quota;
     }
 }
 
