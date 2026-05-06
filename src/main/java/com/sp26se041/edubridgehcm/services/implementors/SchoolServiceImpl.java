@@ -479,7 +479,7 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> cloneAdmissionCampaign(int id) {
+    public ResponseEntity<ResponseObject> cloneAdmissionCampaign(int id, int targetYear) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đã bị vô hiệu", null);
@@ -505,40 +505,42 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chiến dịch tuyển sinh đang ở trạng thái nháp, không thể nhân bản", null);
         }
 
-        int targetYear = oldCampaign.getYear() + 1;
+        int yearDifference = targetYear - oldCampaign.getYear();
+
+        if (yearDifference < 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Năm mục tiêu không được nhỏ hơn năm của chiến dịch gốc", null);
+        }
+
         int schoolId = actorCampus.getSchool().getId();
 
         // case này : giải quyêt đã clone rồi laij muon clone nua
         if (admissionCampaignRepo.existsBySchoolIdAndYearAndStatus(schoolId, targetYear, Status.OPEN_ADMISSION_CAMPAIGN)) {
-            return ResponseBuilder.build(HttpStatus.CONFLICT,
-                    "Năm " + targetYear + " đã có chiến dịch đang mở. Không cần nhân bản", null);
+            return ResponseBuilder.build(HttpStatus.CONFLICT, "Năm " + targetYear + " đã có chiến dịch đang mở.", null);
         }
 
-        // Không cho clone nếu năm kế tiếp đã có campaign DRAFT
         if (admissionCampaignRepo.existsBySchoolIdAndYearAndStatus(schoolId, targetYear, Status.DRAFT_ADMISSION_CAMPAIGN)) {
-            return ResponseBuilder.build(HttpStatus.CONFLICT,
-                    "Năm " + targetYear + " đã có bản nháp. Vui lòng chỉnh sửa bản nháp hiện có thay vì tạo mới", null);
+            return ResponseBuilder.build(HttpStatus.CONFLICT, "Năm " + targetYear + " đã có bản nháp.", null);
         }
 
-        LocalDate newStartDate = oldCampaign.getStartDate().plusYears(1);
-        LocalDate newEndDate = oldCampaign.getEndDate().plusYears(1);
+        LocalDate newStartDate = oldCampaign.getStartDate().plusYears(yearDifference);
+        LocalDate newEndDate = oldCampaign.getEndDate().plusYears(yearDifference);
 
         List<CreateAdmissionCampaignTemplateRequest.AdmissionMethodTimelineRequest> shiftedTimelines =
                 convertMethodTimelinesToRequests(oldCampaign.getAdmissionMethodTimelines())
                         .stream()
                         .map(t -> CreateAdmissionCampaignTemplateRequest.AdmissionMethodTimelineRequest.builder()
                                 .methodCode(t.getMethodCode())
-                                .startDate(t.getStartDate() != null ? t.getStartDate().plusYears(1) : null)
-                                .endDate(t.getEndDate() != null ? t.getEndDate().plusYears(1) : null)
+                                .startDate(t.getStartDate() != null ? t.getStartDate().plusYears(yearDifference) : null)
+                                .endDate(t.getEndDate() != null ? t.getEndDate().plusYears(yearDifference) : null)
                                 .allowReservationSubmission(t.getAllowReservationSubmission())
                                 .quota(t.getQuota())
                                 .build())
                         .toList();
 
         CreateAdmissionCampaignTemplateRequest request = new CreateAdmissionCampaignTemplateRequest();
-        request.setName("Chiến dịch tuyển sinh " + (oldCampaign.getYear() + 1));
+        request.setName("Chiến dịch tuyển sinh " + targetYear);
         request.setDescription(oldCampaign.getDescription());
-        request.setYear(oldCampaign.getYear() + 1);
+        request.setYear(targetYear);
         request.setStartDate(newStartDate);
         request.setEndDate(newEndDate);
         request.setAdmissionMethodTimelines(shiftedTimelines);

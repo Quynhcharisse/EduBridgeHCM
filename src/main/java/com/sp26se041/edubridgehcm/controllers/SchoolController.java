@@ -59,8 +59,8 @@ public class SchoolController {
 
     @PostMapping("{id}/campaign/template/clone")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> cloneAdmissionCampaign(@PathVariable int id) {
-        return schoolService.cloneAdmissionCampaign(id);
+    public ResponseEntity<ResponseObject> cloneAdmissionCampaign(@PathVariable int id, @RequestParam int targetYear) {
+        return schoolService.cloneAdmissionCampaign(id, targetYear);
     }
 
     @PutMapping("/campaign/template")
