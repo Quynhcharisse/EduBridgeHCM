@@ -24,6 +24,8 @@ public interface CampusService {
 
     ResponseEntity<ResponseObject> viewCampusProgramOfferingList(Integer campusId, int page, int pageSize);
 
+    ResponseEntity<ResponseObject> getOfferingQuotaSummary(int campaignId);
+
     ResponseEntity<ResponseObject> updateCampusProgramOffering(UpdateCampusProgramOfferingRequest request);
 
     ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(int offeringId, OfferingProgramAction action);

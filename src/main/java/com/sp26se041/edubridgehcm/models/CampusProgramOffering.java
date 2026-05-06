@@ -97,4 +97,7 @@ public class CampusProgramOffering {
 
     @Enumerated(EnumType.STRING)
     Status status;
+
+    @Column(name = "allow_reservation_submission")
+    Boolean allowReservationSubmission; // lấy từ admissionMethodTimelines của campaign
 }

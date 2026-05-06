@@ -21,6 +21,8 @@ public class CreateCampusProgramOfferingRequest {
 
     Integer programId;
 
+    Integer quota; // campus tự nhập, validate tổng ≤ quota được campus chính phân bổ
+
     LearningMode learningMode;
 
     Float priceAdjustmentPercentage;
