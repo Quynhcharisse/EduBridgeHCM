@@ -168,31 +168,60 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public void publish(NotificationEventType eventType, Account actor, Map<String, Object> contextData) {
-        if (eventType == null) {
-            return;
-        }
+        if (eventType == null) return;
 
         LocalDateTime now = LocalDateTime.now();
         EventTemplateConfig config = EVENT_TEMPLATE_CONFIGS.get(eventType);
-        if (config == null) {
-            return;
-        }
+        if (config == null) return;
 
-        NotificationTemplate template = buildTemplate(config, eventType, actor, contextData);
-
+        // 1. RESOLVE RECIPIENTS
+        // Với REQUIRES_NEW, các Account từ TX ngoài đã bị detach → phải re-fetch bằng ID
         Set<Account> recipients = new HashSet<>();
-
-        for (Role role : config.recipientRoles()) {
-            recipients.addAll(accountRepo.findByRole(role));
+        if (contextData != null && contextData.get("specificRecipients") instanceof List<?> specificList) {
+            List<Integer> ids = new java.util.ArrayList<>();
+            for (Object obj : specificList) {
+                if (obj instanceof Account acc && acc.getId() != null) {
+                    ids.add(acc.getId());
+                }
+            }
+            if (!ids.isEmpty()) {
+                recipients.addAll(accountRepo.findAllById(ids));
+            }
+        } else {
+            for (Role role : config.recipientRoles()) {
+                recipients.addAll(accountRepo.findByRole(role));
+            }
         }
 
         if (recipients.isEmpty()) return;
 
+        // Re-attach actor nếu có (cũng bị detach khi REQUIRES_NEW)
+        Account freshActor = null;
+        if (actor != null && actor.getId() != null) {
+            freshActor = accountRepo.findById(actor.getId()).orElse(null);
+        }
+
+        // 2. TẠO DỮ LIỆU ĐỂ LƯU VÀO DATABASE (PERSISTENCE DATA)
+        // Quan trọng: Phải loại bỏ các Object không Serializable như Account, List<Account>
+        Map<String, Object> cleanContext = new HashMap<>();
+        if (contextData != null) {
+            contextData.forEach((key, value) -> {
+                // Chỉ giữ lại các kiểu dữ liệu cơ bản để lưu vào cột JSON của DB
+                if (!(value instanceof Account) && !(value instanceof Iterable)) {
+                    cleanContext.put(key, value);
+                }
+            });
+        }
+
+        // Build template dựa trên dữ liệu đã làm sạch
+        NotificationTemplate template = buildTemplate(config, eventType, freshActor, cleanContext);
+
+        // 3. LƯU THÔNG BÁO VÀO BẢNG NOTIFICATIONS
         Notifications notification = Notifications.builder()
                 .eventType(eventType)
-                .actorUser(actor)
+                .actorUser(freshActor)   // null-safe: actor là optional
                 .title(template.title())
                 .body(template.body())
                 .data(template.payload())
@@ -202,7 +231,6 @@ public class NotificationServiceImpl implements NotificationService {
         notificationsRepo.save(notification);
 
         for (Account recipient : recipients) {
-            // 1. lưu DB
             NotificationRecipients item = NotificationRecipients.builder()
                     .notification(notification)
                     .recipientUser(recipient)
@@ -210,19 +238,15 @@ public class NotificationServiceImpl implements NotificationService {
                     .isRead(false)
                     .createdAt(now)
                     .build();
-
             notificationRecipientsRepo.save(item);
 
             try {
                 pushService.sendToUser(recipient, notification);
-
                 item.setDeliveryStatus(Status.NOTIFICATION_SENT);
                 item.setDeliveredAt(LocalDateTime.now());
-
             } catch (Exception e) {
                 item.setDeliveryStatus(Status.NOTIFICATION_FAILED);
             }
-
             notificationRecipientsRepo.save(item);
         }
     }
@@ -244,17 +268,28 @@ public class NotificationServiceImpl implements NotificationService {
                                                Map<String, Object> contextData) {
         String actorName = resolveActorName(eventType, actor, contextData);
         String packageName = resolvePackageName(contextData);
+        String parentName = (contextData != null && contextData.get("parentName") != null)
+                ? contextData.get("parentName").toString() : "Phụ huynh";
+        String appointmentDate = (contextData != null && contextData.get("appointmentDate") != null)
+                ? contextData.get("appointmentDate").toString() : "";
+
         String title = config.titleTemplate()
                 .replace("{actorName}", actorName)
-                .replace("{packageName}", packageName);
+                .replace("{packageName}", packageName)
+                .replace("{parentName}", parentName)
+                .replace("{appointmentDate}", appointmentDate);
+
         String body = config.bodyTemplate()
                 .replace("{actorName}", actorName)
-                .replace("{packageName}", packageName);
+                .replace("{packageName}", packageName)
+                .replace("{parentName}", parentName)
+                .replace("{appointmentDate}", appointmentDate);
 
         Map<String, Object> payload = new HashMap<>();
         payload.put("eventType", eventType.name());
         payload.put("route", config.route());
         payload.put("actorName", actorName);
+        payload.put("parentName", parentName);
         if (contextData != null && !contextData.isEmpty()) {
             payload.putAll(contextData);
         }
@@ -263,7 +298,7 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     private String resolveSchoolName(Account actor) {
-        if (actor != null && actor.getCampus() != null && actor.getCampus().getSchool() != null) {
+        if (actor != null && actor.getCampus().getSchool() != null) {
             return actor.getCampus().getSchool().getName();
         }
         return "Trường học";
@@ -287,14 +322,16 @@ public class NotificationServiceImpl implements NotificationService {
         return packageName.toString().trim();
     }
 
-//
-//    private String resolveParentName(Account actor) {
-//        if (actor != null && Role.PARENT.equals(actor.getRole())) {
-//            return "Phụ huynh";
-//        }
-//        return "Phụ huynh";
-//    }
-
+    private String resolveParentName(Account actor) {
+        if (actor != null && Role.PARENT.equals(actor.getRole())) {
+            com.sp26se041.edubridgehcm.models.Parent p = actor.getParent();
+            if (p != null && p.getName() != null && !p.getName().isBlank()) {
+                return p.getName();
+            }
+            return actor.getEmail() != null ? actor.getEmail() : "Một phụ huynh";
+        }
+        return "Một phụ huynh";
+    }
 
     private String resolveActorName(NotificationEventType eventType, Account actor, Map<String, Object> contextData) {
         if (contextData != null) {
@@ -324,9 +361,31 @@ public class NotificationServiceImpl implements NotificationService {
             return resolveAdminName(actor);
         }
 
-//        if (eventType == NotificationEventType.FAVORITE_SCHOOL) {
-//            return resolveParentName(actor);
-//        }
+        if (eventType == NotificationEventType.FAVORITE_SCHOOL
+                || eventType == NotificationEventType.REMOVE_FAVORITE_SCHOOL
+                || eventType == NotificationEventType.CONSULTATION_BOOKED) {
+            return resolveParentName(actor);
+        }
+
+        // Consultation events directed at parent → show campus name
+        if (eventType == NotificationEventType.CONSULTATION_CONFIRMED
+                || eventType == NotificationEventType.CONSULTATION_CANCELLED
+                || eventType == NotificationEventType.CONSULTATION_COMPLETED
+                || eventType == NotificationEventType.CONSULTATION_NO_SHOW) {
+            if (contextData != null && contextData.get("campusName") != null) {
+                return contextData.get("campusName").toString();
+            }
+            return "Cơ sở trường";
+        }
+
+        // Counsellor slot assign/unassign → show campus name
+        if (eventType == NotificationEventType.COUNSELLOR_SLOT_ASSIGNED
+                || eventType == NotificationEventType.COUNSELLOR_SLOT_UNASSIGNED) {
+            if (contextData != null && contextData.get("campusName") != null) {
+                return contextData.get("campusName").toString();
+            }
+            return resolveSchoolName(actor);
+        }
 
         return "Hệ thống EduBridge";
     }
@@ -381,15 +440,97 @@ public class NotificationServiceImpl implements NotificationService {
                 )
         );
 
-//        configs.put(
-//                NotificationEventType.FAVORITE_SCHOOL,
-//                new EventTemplateConfig(
-//                        "Thêm trường yêu thích",
-//                        "{actorName} vừa tạo gói doanh nghiệp mới {packageName}.",
-//                        "/saved-schools",
-//                        List.of(Role.SCHOOL)
-//                )
-//        );
+        configs.put(
+                NotificationEventType.FAVORITE_SCHOOL,
+                new EventTemplateConfig(
+                        "Phụ huynh mới quan tâm",
+                        "{actorName} vừa thêm trường bạn vào danh sách yêu thích.",
+                        "/school/parents-interest",
+                        List.of()
+                )
+        );
+
+        configs.put(
+                NotificationEventType.REMOVE_FAVORITE_SCHOOL,
+                new EventTemplateConfig(
+                        "Phụ huynh bỏ quan tâm trường",
+                        "{actorName} đã xoá trường bạn khỏi danh sách yêu thích.",
+                        "/school/parents-interest",
+                        List.of()
+                )
+        );
+
+        configs.put(
+                NotificationEventType.CONSULTATION_BOOKED,
+                new EventTemplateConfig(
+                        "Lịch hẹn tư vấn mới",
+                        "{actorName} vừa đặt lịch tư vấn tại cơ sở vào ngày {appointmentDate}.",
+                        "/school/consultation",
+                        List.of()
+                )
+        );
+
+        configs.put(
+                NotificationEventType.CONSULTATION_CONFIRMED,
+                new EventTemplateConfig(
+                        "Lịch hẹn đã được xác nhận",
+                        "Lịch tư vấn ngày {appointmentDate} của bạn đã được xác nhận. Vui lòng đến đúng giờ.",
+                        "/parent/consultation",
+                        List.of()
+                )
+        );
+
+        configs.put(
+                NotificationEventType.CONSULTATION_CANCELLED,
+                new EventTemplateConfig(
+                        "Lịch hẹn tư vấn bị huỷ",
+                        "Lịch tư vấn ngày {appointmentDate} của bạn đã bị huỷ.",
+                        "/parent/consultation",
+                        List.of()
+                )
+        );
+
+        configs.put(
+                NotificationEventType.CONSULTATION_COMPLETED,
+                new EventTemplateConfig(
+                        "Buổi tư vấn đã hoàn thành",
+                        "Buổi tư vấn ngày {appointmentDate} của bạn đã kết thúc. Cảm ơn bạn đã tin tưởng.",
+                        "/parent/consultation",
+                        List.of()
+                )
+        );
+
+        configs.put(
+                NotificationEventType.CONSULTATION_NO_SHOW,
+                new EventTemplateConfig(
+                        "Vắng mặt buổi tư vấn",
+                        "Bạn đã không đến buổi tư vấn ngày {appointmentDate}. Vui lòng liên hệ cơ sở để được hỗ trợ.",
+                        "/parent/consultation",
+                        List.of()
+                )
+        );
+
+        // ── Counsellor slot assignment ─────────────────────────────────────────
+        configs.put(
+                NotificationEventType.COUNSELLOR_SLOT_ASSIGNED,
+                new EventTemplateConfig(
+                        "Bạn được phân công lịch tư vấn",
+                        "Cơ sở {actorName} vừa phân công lịch tư vấn cho bạn trong chiến dịch {packageName}.",
+                        "/counsellor/schedule",
+                        List.of()   // specificRecipients: counsellor accounts
+                )
+        );
+
+        configs.put(
+                NotificationEventType.COUNSELLOR_SLOT_UNASSIGNED,
+                new EventTemplateConfig(
+                        "Lịch tư vấn của bạn bị huỷ phân công",
+                        "Cơ sở {actorName} vừa huỷ phân công một số lịch tư vấn của bạn.",
+                        "/counsellor/schedule",
+                        List.of()   // specificRecipients: counsellor accounts
+                )
+        );
+
         return configs;
     }
 

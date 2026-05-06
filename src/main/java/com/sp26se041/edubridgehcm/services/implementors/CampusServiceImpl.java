@@ -2,18 +2,56 @@ package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.CategoryTemplate;
+import com.sp26se041.edubridgehcm.enums.NotificationEventType;
 import com.sp26se041.edubridgehcm.enums.OfferingProgramAction;
 import com.sp26se041.edubridgehcm.enums.ResourceType;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.SessionType;
 import com.sp26se041.edubridgehcm.enums.Status;
-import com.sp26se041.edubridgehcm.models.*;
-import com.sp26se041.edubridgehcm.repositories.*;
-import com.sp26se041.edubridgehcm.requests.*;
+
+import com.sp26se041.edubridgehcm.models.Account;
+import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
+import com.sp26se041.edubridgehcm.models.Campus;
+import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
+import com.sp26se041.edubridgehcm.models.CampusResourceQuota;
+import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
+import com.sp26se041.edubridgehcm.models.ChatMessage;
+import com.sp26se041.edubridgehcm.models.ConsultationOfflineRequest;
+import com.sp26se041.edubridgehcm.models.Conversation;
+import com.sp26se041.edubridgehcm.models.Counsellor;
+import com.sp26se041.edubridgehcm.models.CounsellorSlot;
+import com.sp26se041.edubridgehcm.models.Program;
+import com.sp26se041.edubridgehcm.models.School;
+import com.sp26se041.edubridgehcm.models.SchoolConfig;
+import com.sp26se041.edubridgehcm.models.SchoolHoliday;
+import com.sp26se041.edubridgehcm.models.TemplateDocx;
+import com.sp26se041.edubridgehcm.repositories.AccountRepo;
+import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
+import com.sp26se041.edubridgehcm.repositories.AdmissionReservationFormRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusResourceQuotaRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
+import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
+import com.sp26se041.edubridgehcm.repositories.ConsultationOfflineRequestRepo;
+import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
+import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
+import com.sp26se041.edubridgehcm.repositories.CounsellorSlotRepo;
+import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolHolidayRepo;
+import com.sp26se041.edubridgehcm.repositories.TemplateDocxRepo;
+import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
+import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
+import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
+import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.responses.StorageTreeNode;
 import com.sp26se041.edubridgehcm.services.CampusService;
+import com.sp26se041.edubridgehcm.services.NotificationService;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
@@ -51,6 +89,8 @@ import tools.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.Normalizer;
@@ -115,6 +155,8 @@ public class CampusServiceImpl implements CampusService {
     private final SchoolHolidayRepo schoolHolidayRepo;
 
     private final TemplateDocxRepo templateDocxRepo;
+
+    private final NotificationService notificationService;
 
     private final EntityManager entityManager;
 
@@ -820,18 +862,15 @@ public class CampusServiceImpl implements CampusService {
         if (actorCampus == null)
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy cơ sở trường học.", null);
 
-        // 1. Lấy thông tin Quota hiện tại của Campus phụ
         var quotaOpt = campusResourceQuotaRepo.findByCampusIdAndResourceType(actorCampus.getId(), ResourceType.COUNSELLOR);
         int maxQuota = quotaOpt.map(CampusResourceQuota::getMaxQuota).orElse(0);
         long currentUsage = counsellorRepo.countByCampusId(actorCampus.getId());
 
-        // 2. Tìm thông tin Campus chính (để lấy Email nhận)
         Campus primaryCampus = campusRepo.findAllBySchoolId(actorCampus.getSchool().getId()).stream()
                 .filter(Campus::getIsPrimaryBranch)
                 .findFirst()
                 .orElse(null);
 
-        // 3. Đóng gói dữ liệu trả về cho FE
         Map<String, Object> summary = new HashMap<>();
         summary.put("campusName", actorCampus.getName());
         summary.put("currentUsage", currentUsage);
@@ -1449,7 +1488,11 @@ public class CampusServiceImpl implements CampusService {
             }
             counsellorSlotRepo.flush();
             clearPersistenceContextBeforeSnapshot();
-            List<Map<String, Object>> snapshotById = loadAssignedSlotsSnapshot(actorCampus.getId());
+            // Post-filter: loại bỏ những slot vừa bị xóa khỏi snapshot (tránh JPA L1 cache trả cũ)
+            List<Map<String, Object>> snapshotById = loadAssignedSlotsSnapshot(actorCampus.getId())
+                    .stream()
+                    .filter(s -> !unassignSlotIds.contains((Integer) s.get("slotId")))
+                    .collect(Collectors.toList());
             Map<String, Object> bodyById = new LinkedHashMap<>();
             bodyById.put("action", actionInput);
             bodyById.put("removedSlotIds", List.copyOf(unassignSlotIds));
@@ -1544,6 +1587,32 @@ public class CampusServiceImpl implements CampusService {
         }
         resultBody.put("slots", slotsSnapshot);
 
+        // ── Notify counsellors ─────────────────────────────────────────────────
+        try {
+            List<Counsellor> affectedCounsellors = counsellorRepo.findAllById(
+                    request.getCounsellorIds() != null ? request.getCounsellorIds() : List.of());
+            List<Account> counsellorAccounts = affectedCounsellors.stream()
+                    .map(Counsellor::getAccount)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            if (!counsellorAccounts.isEmpty()) {
+                NotificationEventType slotEvent = isAssign
+                        ? NotificationEventType.COUNSELLOR_SLOT_ASSIGNED
+                        : NotificationEventType.COUNSELLOR_SLOT_UNASSIGNED;
+
+                Map<String, Object> ctx = new HashMap<>();
+                ctx.put("campusName", actorCampus.getName());
+                ctx.put("packageName", matchedCampaign != null ? matchedCampaign.getName() : "");
+                ctx.put("specificRecipients", counsellorAccounts);
+
+                Account actorAccount = AuthRequestUtil.extractAuthenticatedAccount();
+                notificationService.publish(slotEvent, actorAccount, ctx);
+            }
+        } catch (Exception ignored) {
+            // notification lỗi không block nghiệp vụ chính
+        }
+
         return ResponseBuilder.build(HttpStatus.OK, (isAssign ? "Gán" : "Hủy gán") + " chuyên viên tư vấn thành công.", resultBody);
     }
 
@@ -1592,8 +1661,7 @@ public class CampusServiceImpl implements CampusService {
                 throw new IllegalArgumentException("slotId=" + sid + " không khớp danh sách counsellorIds.");
             }
             CounsellorSlotValidation.assertNoBlockingConsultationForUnassignDelete(slot);
-            counsellorSlotRepo.delete(slot);
-            counsellorSlotRepo.flush();
+            safeDeleteSlot(slot);
         }
     }
 
@@ -1655,7 +1723,7 @@ public class CampusServiceImpl implements CampusService {
                     }
                 }
             } else {
-                counsellorSlotRepo.delete(slot);
+                safeDeleteSlot(slot);
                 deletedIds.add(slot.getId());
             }
         }
@@ -1779,7 +1847,26 @@ public class CampusServiceImpl implements CampusService {
                             + (request.getCampaignId() != null ? " (campaignId=" + request.getCampaignId() + ")." : "."));
         }
         CounsellorSlotValidation.assertNoBlockingConsultationForUnassignDelete(targetSlot);
-        counsellorSlotRepo.delete(targetSlot);
+        safeDeleteSlot(targetSlot);
+    }
+
+    private void safeDeleteSlot(CounsellorSlot slot) {
+        // Step 1: Nullify FK trên consultation → giữ lịch sử, tránh FK violation
+        List<ConsultationOfflineRequest> linked = consultationOfflineRequestRepo.findByCounsellorSlotId(slot.getId());
+        if (!linked.isEmpty()) {
+            linked.forEach(c -> c.setCounsellorSlot(null));
+            consultationOfflineRequestRepo.saveAll(linked);
+            consultationOfflineRequestRepo.flush();
+        }
+        // Step 2: Tách slot khỏi Counsellor.counsellorSlotList (EAGER + CascadeType.ALL)
+        // Nếu không làm bước này, Hibernate flush Counsellor thấy list vẫn còn slot
+        // → re-persist lại slot vừa delete → DB không thay đổi
+        Counsellor counsellor = slot.getCounsellor();
+        if (counsellor != null && counsellor.getCounsellorSlotList() != null) {
+            counsellor.getCounsellorSlotList().remove(slot);
+        }
+        // Step 3: Delete slot
+        counsellorSlotRepo.delete(slot);
         counsellorSlotRepo.flush();
     }
 
@@ -1872,130 +1959,6 @@ public class CampusServiceImpl implements CampusService {
         }
 
         return ResponseBuilder.build(HttpStatus.OK, "Lấy các khung giờ có chuyên viên rảnh theo ngày thành công.", groupedByTime);
-    }
-
-    @Override
-    @Transactional
-    public ResponseEntity<ResponseObject> reassignConsultationRequests(ReassignConsultationsRequest request) {
-
-        if (AccountRestrictionUtil.isRestrictedActor()) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế, không thể thực hiện thao tác này.", null);
-        }
-
-        Campus actorCampus = extractActorCampus();
-        if (actorCampus == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
-        }
-
-        if (request.getFromSlotId() == null || request.getToSlotId() == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Cần gửi fromSlotId và toSlotId.", null);
-        }
-        if (request.getFromSlotId().equals(request.getToSlotId())) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Slot nguồn và slot đích phải khác nhau.", null);
-        }
-
-        CounsellorSlot fromSlot = counsellorSlotRepo.findById(request.getFromSlotId()).orElse(null);
-        CounsellorSlot toSlot = counsellorSlotRepo.findById(request.getToSlotId()).orElse(null);
-        if (fromSlot == null || toSlot == null) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy slot nguồn hoặc slot đích.", null);
-        }
-        if (!fromSlot.getCampusScheduleTemplate().getCampus().getId().equals(actorCampus.getId())
-                || !toSlot.getCampusScheduleTemplate().getCampus().getId().equals(actorCampus.getId())) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Slot không thuộc cơ sở của tài khoản hiện tại.", null);
-        }
-        if (toSlot.getStatus() != Status.AVAILABLE) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Slot đích phải đang ở trạng thái sẵn sàng (AVAILABLE).", null);
-        }
-
-        CampusScheduleTemplate fromT = fromSlot.getCampusScheduleTemplate();
-        CampusScheduleTemplate toT = toSlot.getCampusScheduleTemplate();
-        if (!templatesAlignedForConsultationReassign(fromT, toT)) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Slot đích phải cùng thứ trong tuần, cùng khung giờ và cùng buổi (session) với slot nguồn.", null);
-        }
-        if (!campaignsAlignedForConsultationReassign(fromSlot, toSlot)) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Slot đích phải cùng chiến dịch tuyển sinh với slot nguồn (hoặc cả hai chưa gắn campaign — không hỗ trợ điều chuyển).", null);
-        }
-
-        List<ConsultationOfflineRequest> candidates = fromSlot.getConsultationOfflineRequests() == null
-                ? List.of()
-                : fromSlot.getConsultationOfflineRequests();
-        List<ConsultationOfflineRequest> toMove = candidates.stream()
-                .filter(r -> CounsellorSlotValidation.BLOCKING_CONSULTATION_STATUSES_FOR_UNASSIGN.contains(r.getStatus()))
-                .filter(r -> request.getConsultationRequestIds() == null
-                        || request.getConsultationRequestIds().isEmpty()
-                        || request.getConsultationRequestIds().contains(r.getId()))
-                .toList();
-
-        if (toMove.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Không có lịch hẹn ở trạng thái chờ / đã xác nhận / đang diễn ra để điều chuyển trên slot nguồn.", null);
-        }
-
-        List<Long> movedIds = new ArrayList<>();
-        for (ConsultationOfflineRequest r : toMove) {
-            if (r.getAppointmentDate() == null) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Lịch hẹn thiếu ngày hẹn (appointmentDate), không thể điều chuyển.", null);
-            }
-            if (!appointmentWithinSlotDateRange(r.getAppointmentDate(), toSlot)) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, String.format(
-                        "Ngày hẹn %s nằm ngoài khoảng ngày hiệu lực của slot đích (%s → %s).",
-                        r.getAppointmentDate(), toSlot.getStartDate(), toSlot.getEndDate()), null);
-            }
-            if (!appointmentMatchesTemplateDayOfWeek(r.getAppointmentDate(), toT)) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                        "Ngày hẹn không khớp thứ trong tuần của khung slot đích.", null);
-            }
-            if (!isSlotAvailable(toSlot, r.getAppointmentDate())) {
-                return ResponseBuilder.build(HttpStatus.CONFLICT,
-                        "Slot đích đã có lịch hẹn trùng ngày ở trạng thái chặn. Chọn slot khác hoặc ngày khác.", null);
-            }
-            r.setCounsellorSlot(toSlot);
-            if (toSlot.getCounsellor() != null) {
-                r.setCounsellor(toSlot.getCounsellor());
-            }
-            consultationOfflineRequestRepo.save(r);
-            counsellorSlotRepo.flush();
-            entityManager.refresh(toSlot);
-            movedIds.add(r.getId());
-        }
-
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("fromSlotId", request.getFromSlotId());
-        body.put("toSlotId", request.getToSlotId());
-        body.put("movedConsultationRequestIds", movedIds);
-        body.put("movedCount", movedIds.size());
-
-        return ResponseBuilder.build(HttpStatus.OK, "Điều chuyển lịch hẹn sang chuyên viên / slot mới thành công.", body);
-    }
-
-    private static boolean templatesAlignedForConsultationReassign(CampusScheduleTemplate from, CampusScheduleTemplate to) {
-        if (from == null || to == null) {
-            return false;
-        }
-        return from.getDayOfWeek().equalsIgnoreCase(to.getDayOfWeek())
-                && from.getStartTime().equals(to.getStartTime())
-                && from.getEndTime().equals(to.getEndTime())
-                && Objects.equals(from.getSessionType(), to.getSessionType());
-    }
-
-    private static boolean campaignsAlignedForConsultationReassign(CounsellorSlot from, CounsellorSlot to) {
-        if (from.getAdmissionCampaign() == null || to.getAdmissionCampaign() == null) {
-            return false;
-        }
-        return from.getAdmissionCampaign().getId().equals(to.getAdmissionCampaign().getId());
-    }
-
-    private static boolean appointmentWithinSlotDateRange(LocalDate appointmentDate, CounsellorSlot slot) {
-        return slot.getStartDate() != null && slot.getEndDate() != null
-                && !appointmentDate.isBefore(slot.getStartDate())
-                && !appointmentDate.isAfter(slot.getEndDate());
-    }
-
-    private static boolean appointmentMatchesTemplateDayOfWeek(LocalDate appointmentDate, CampusScheduleTemplate template) {
-        String dow = appointmentDate.getDayOfWeek().name().substring(0, 3);
-        return template.getDayOfWeek() != null && dow.equalsIgnoreCase(template.getDayOfWeek());
     }
 
     private Map<String, Object> buildCounsellorSlotData(CounsellorSlot slot) {
@@ -2526,8 +2489,276 @@ public class CampusServiceImpl implements CampusService {
         };
     }
 
+    @Override
+    public ResponseEntity<ResponseObject> getConsultationStats(String period, LocalDate from, LocalDate to) {
+
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND,
+                    "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
+        }
+
+        LocalDate[] range = resolveConsultationDateRange(period, from, to);
+        if (range == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Period không hợp lệ. Giá trị hợp lệ: THIS_WEEK, THIS_MONTH, THIS_QUARTER, THIS_YEAR, CUSTOM. "
+                            + "Khi chọn CUSTOM cần truyền thêm from và to.", null);
+        }
+        LocalDate dateFrom = range[0];
+        LocalDate dateTo   = range[1];
+        String normalizedPeriod = (period != null && !period.isBlank()) ? period.trim().toUpperCase() : "CUSTOM";
+        boolean isPrimaryBranch = Boolean.TRUE.equals(actorCampus.getIsPrimaryBranch());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("period", normalizedPeriod);
+        result.put("from", dateFrom.toString());
+        result.put("to", dateTo.toString());
+        result.put("isPrimaryBranch", isPrimaryBranch);
+
+        if (isPrimaryBranch) {
+            List<Campus> allCampuses = campusRepo.findAllBySchoolId(actorCampus.getSchool().getId());
+            List<Integer> campusIds  = allCampuses.stream().map(Campus::getId).collect(Collectors.toList());
+
+            List<ConsultationOfflineRequest> allRequests =
+                    consultationOfflineRequestRepo.findByCampusIdInAndAppointmentDateBetween(campusIds, dateFrom, dateTo);
+
+            result.put("cards", buildConsultationCards(allRequests));
+
+            result.put("trend", buildConsultationTrend(allRequests, dateFrom, dateTo, normalizedPeriod));
+
+            result.put("byDayOfWeek", buildConsultationByDayOfWeek(allRequests));
+
+            Integer schoolId = actorCampus.getSchool().getId();
+            long totalCampuses     = campusRepo.countBySchoolId(schoolId);
+            long totalCounsellors  = counsellorRepo.countByCampusSchoolId(schoolId);
+            // Đếm active counsellors toàn trường
+            long activeCounsellorsSchool = allCampuses.stream()
+                    .mapToLong(c -> counsellorRepo.findByCampus_IdAndAccount_Status(
+                            c.getId(), com.sp26se041.edubridgehcm.enums.Status.ACTIVE).size())
+                    .sum();
+
+            Map<String, Object> schoolSummary = new LinkedHashMap<>();
+            schoolSummary.put("totalCampuses", totalCampuses);
+            schoolSummary.put("totalCounsellors", totalCounsellors);
+            schoolSummary.put("activeCounsellors", activeCounsellorsSchool);
+            schoolSummary.put("totalConsultationsInPeriod", (long) allRequests.size());
+            result.put("schoolSummary", schoolSummary);
+
+            // 5. So sánh từng cơ sở (bar chart)
+            Map<Integer, List<ConsultationOfflineRequest>> byCampusId = allRequests.stream()
+                    .collect(Collectors.groupingBy(r -> r.getCampus().getId()));
+
+            List<Map<String, Object>> byCampusList = new ArrayList<>();
+            for (Campus c : allCampuses) {
+                List<ConsultationOfflineRequest> campusReqs =
+                        byCampusId.getOrDefault(c.getId(), Collections.emptyList());
+                Map<String, Object> entry = new LinkedHashMap<>();
+                entry.put("campusId", c.getId());
+                entry.put("campusName", c.getName());
+                entry.put("isPrimaryBranch", Boolean.TRUE.equals(c.getIsPrimaryBranch()));
+                entry.put("counsellorCount", counsellorRepo.countByCampusId(c.getId()));
+                entry.put("activeCounsellorCount",
+                        (long) counsellorRepo.findByCampus_IdAndAccount_Status(
+                                c.getId(), com.sp26se041.edubridgehcm.enums.Status.ACTIVE).size());
+                entry.putAll(buildConsultationCards(campusReqs));
+                byCampusList.add(entry);
+            }
+            result.put("byCampus", byCampusList);
+
+        } else {
+            // ── Campus chi nhánh: chỉ dữ liệu của cơ sở đó ──
+            List<ConsultationOfflineRequest> requests =
+                    consultationOfflineRequestRepo.findByCampusIdAndAppointmentDateBetween(
+                            actorCampus.getId(), dateFrom, dateTo);
+
+            result.put("cards", buildConsultationCards(requests));
+            result.put("trend", buildConsultationTrend(requests, dateFrom, dateTo, normalizedPeriod));
+            result.put("byDayOfWeek", buildConsultationByDayOfWeek(requests));
+        }
+
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy thống kê tư vấn thành công.", result);
+    }
+
+    private LocalDate[] resolveConsultationDateRange(String period, LocalDate from, LocalDate to) {
+        if (period == null || period.isBlank()) {
+            if (from != null && to != null) return new LocalDate[]{from, to};
+            return null;
+        }
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+        return switch (period.trim().toUpperCase()) {
+            case "THIS_WEEK" -> {
+                LocalDate start = today.with(java.time.DayOfWeek.MONDAY);
+                LocalDate end   = today.with(java.time.DayOfWeek.SUNDAY);
+                yield new LocalDate[]{start, end};
+            }
+            case "THIS_MONTH" -> {
+                LocalDate start = today.withDayOfMonth(1);
+                LocalDate end   = today.withDayOfMonth(today.lengthOfMonth());
+                yield new LocalDate[]{start, end};
+            }
+            case "THIS_QUARTER" -> {
+                int q = (today.getMonthValue() - 1) / 3;
+                LocalDate start = today.withMonth(q * 3 + 1).withDayOfMonth(1);
+                LocalDate end   = start.plusMonths(2).withDayOfMonth(start.plusMonths(2).lengthOfMonth());
+                yield new LocalDate[]{start, end};
+            }
+            case "THIS_YEAR" -> {
+                LocalDate start = today.withDayOfYear(1);
+                LocalDate end   = today.withDayOfYear(today.lengthOfYear());
+                yield new LocalDate[]{start, end};
+            }
+            case "CUSTOM" -> {
+                if (from == null || to == null || from.isAfter(to)) yield null;
+                yield new LocalDate[]{from, to};
+            }
+            default -> null;
+        };
+    }
+
+    private Map<String, Object> buildConsultationCards(List<ConsultationOfflineRequest> requests) {
+        long pending = 0, confirmed = 0, inProgress = 0, completed = 0, cancelled = 0, noShow = 0;
+        for (ConsultationOfflineRequest r : requests) {
+            switch (r.getStatus()) {
+                case CONSULTATION_PENDING    -> pending++;
+                case CONSULTATION_CONFIRMED  -> confirmed++;
+                case CONSULTATION_IN_PROGRESS -> inProgress++;
+                case CONSULTATION_COMPLETED  -> completed++;
+                case CONSULTATION_CANCELLED  -> cancelled++;
+                case CONSULTATION_NO_SHOW    -> noShow++;
+                default -> { }
+            }
+        }
+        long total     = requests.size();
+        long finalized = completed + cancelled + noShow;
+        long responded = total - pending;
+
+        Map<String, Object> cards = new LinkedHashMap<>();
+        cards.put("total",      total);
+        cards.put("pending",    pending);
+        cards.put("confirmed",  confirmed);
+        cards.put("inProgress", inProgress);
+        cards.put("completed",  completed);
+        cards.put("cancelled",  cancelled);
+        cards.put("noShow",     noShow);
+        // Rates
+        cards.put("completionRate",   pct(completed, finalized));   // % hoàn thành
+        cards.put("cancellationRate", pct(cancelled, responded));   // % huỷ
+        return cards;
+    }
+
+    private List<Map<String, Object>> buildConsultationTrend(
+            List<ConsultationOfflineRequest> requests,
+            LocalDate dateFrom, LocalDate dateTo, String normalizedPeriod) {
+
+        boolean byMonth = "THIS_YEAR".equals(normalizedPeriod)
+                || ("CUSTOM".equals(normalizedPeriod) && !dateFrom.plusMonths(3).isAfter(dateTo));
+        boolean byWeek  = "THIS_QUARTER".equals(normalizedPeriod);
+
+        List<Map<String, Object>> trend = new ArrayList<>();
+
+        if (byMonth) {
+            // Group by yyyy-MM
+            Map<String, List<ConsultationOfflineRequest>> grouped = requests.stream()
+                    .collect(Collectors.groupingBy(
+                            r -> r.getAppointmentDate().format(DateTimeFormatter.ofPattern("yyyy-MM"))));
+
+            LocalDate cursor = dateFrom.withDayOfMonth(1);
+            while (!cursor.isAfter(dateTo)) {
+                String key   = cursor.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+                String label = cursor.format(DateTimeFormatter.ofPattern("MM/yyyy"));
+                trend.add(buildTrendEntry(label, grouped.getOrDefault(key, Collections.emptyList())));
+                cursor = cursor.plusMonths(1);
+            }
+
+        } else if (byWeek) {
+            // Weekly buckets (Monday → Sunday)
+            LocalDate weekStart = dateFrom.with(java.time.DayOfWeek.MONDAY);
+            if (weekStart.isAfter(dateFrom)) weekStart = weekStart.minusWeeks(1);
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM");
+
+            while (!weekStart.isAfter(dateTo)) {
+                LocalDate weekEnd = weekStart.plusDays(6);
+                String label      = weekStart.format(fmt) + " - " + weekEnd.format(fmt);
+                final LocalDate ws = weekStart;
+                final LocalDate we = weekEnd;
+                List<ConsultationOfflineRequest> group = requests.stream()
+                        .filter(r -> !r.getAppointmentDate().isBefore(ws)
+                                  && !r.getAppointmentDate().isAfter(we))
+                        .collect(Collectors.toList());
+                trend.add(buildTrendEntry(label, group));
+                weekStart = weekStart.plusWeeks(1);
+            }
+
+        } else {
+            // Daily (THIS_WEEK / THIS_MONTH)
+            Map<LocalDate, List<ConsultationOfflineRequest>> grouped = requests.stream()
+                    .collect(Collectors.groupingBy(ConsultationOfflineRequest::getAppointmentDate));
+
+            LocalDate cursor = dateFrom;
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM");
+            while (!cursor.isAfter(dateTo)) {
+                trend.add(buildTrendEntry(cursor.format(fmt),
+                        grouped.getOrDefault(cursor, Collections.emptyList())));
+                cursor = cursor.plusDays(1);
+            }
+        }
+
+        return trend;
+    }
+
+    private Map<String, Object> buildTrendEntry(String label, List<ConsultationOfflineRequest> group) {
+        long completed = group.stream().filter(r -> r.getStatus() == Status.CONSULTATION_COMPLETED).count();
+        long cancelled = group.stream().filter(r -> r.getStatus() == Status.CONSULTATION_CANCELLED).count();
+        long noShow    = group.stream().filter(r -> r.getStatus() == Status.CONSULTATION_NO_SHOW).count();
+        long pending   = group.stream().filter(r -> r.getStatus() == Status.CONSULTATION_PENDING).count();
+        long confirmed = group.stream().filter(r -> r.getStatus() == Status.CONSULTATION_CONFIRMED).count();
+        Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("label",     label);
+        entry.put("total",     (long) group.size());
+        entry.put("completed", completed);
+        entry.put("confirmed", confirmed);
+        entry.put("pending",   pending);
+        entry.put("cancelled", cancelled);
+        entry.put("noShow",    noShow);
+        return entry;
+    }
+
+    private List<Map<String, Object>> buildConsultationByDayOfWeek(List<ConsultationOfflineRequest> requests) {
+        Map<java.time.DayOfWeek, Long> countMap = requests.stream()
+                .collect(Collectors.groupingBy(
+                        r -> r.getAppointmentDate().getDayOfWeek(),
+                        Collectors.counting()));
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (java.time.DayOfWeek dow : java.time.DayOfWeek.values()) {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("day",   dow.name().substring(0, 3));
+            entry.put("label", translateDayOfWeek(dow.name().substring(0, 3)));
+            entry.put("total", countMap.getOrDefault(dow, 0L));
+            result.add(entry);
+        }
+        return result;
+    }
+
+    private double pct(long numerator, long denominator) {
+        if (denominator == 0) return 0.0;
+        return BigDecimal.valueOf(numerator)
+                .divide(BigDecimal.valueOf(denominator), 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100))
+                .setScale(1, RoundingMode.HALF_UP)
+                .doubleValue();
+    }
+
     private ResponseEntity<Resource> buildFileResponse(Path path, String fileName) throws IOException {
         Resource resource = new UrlResource(path.toUri());
-        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"").contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")).body(resource);
+        String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        String contentDisposition = "attachment; filename=\""
+                + fileName.replaceAll("[^\\x20-\\x7E]", "_")
+                + "\"; filename*=UTF-8''" + encodedFileName;
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition)
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(resource);
     }
 }

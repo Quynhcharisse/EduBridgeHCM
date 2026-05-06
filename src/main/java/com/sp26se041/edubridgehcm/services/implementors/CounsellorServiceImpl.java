@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.sp26se041.edubridgehcm.enums.ConsultationAction;
+import com.sp26se041.edubridgehcm.enums.NotificationEventType;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.*;
 import com.sp26se041.edubridgehcm.repositories.*;
@@ -9,6 +10,7 @@ import com.sp26se041.edubridgehcm.requests.UpdateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.CounsellorService;
+import com.sp26se041.edubridgehcm.services.NotificationService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.PaginationUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
@@ -61,6 +63,7 @@ public class CounsellorServiceImpl implements CounsellorService {
     private final AdmissionCampaignRepo admissionCampaignRepo;
 
     private final SchoolConfigRepo schoolConfigRepo;
+    private final NotificationService notificationService;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -772,7 +775,47 @@ public class CounsellorServiceImpl implements CounsellorService {
 
         consultationOfflineRequestRepo.save(offlineRequest);
 
+        // ── Gửi notification sau khi cập nhật trạng thái ──────────────────────
+        try {
+            publishConsultationNotification(consultationAction, offlineRequest);
+        } catch (Exception ignored) {
+            // notification lỗi không block nghiệp vụ chính
+        }
+
         return ResponseBuilder.build(HttpStatus.OK, "Cập nhật lịch hẹn thành công", null);
+    }
+
+    /**
+     * Gửi notification tương ứng với từng ConsultationAction.
+     * - CONFIRM / END / NO_SHOW → notify parent
+     * - CANCEL → notify parent (counsellor huỷ)
+     */
+    private void publishConsultationNotification(ConsultationAction action,
+                                                 ConsultationOfflineRequest req) {
+        NotificationEventType eventType = switch (action) {
+            case CONFIRM  -> NotificationEventType.CONSULTATION_CONFIRMED;
+            case END      -> NotificationEventType.CONSULTATION_COMPLETED;
+            case CANCEL   -> NotificationEventType.CONSULTATION_CANCELLED;
+            case NO_SHOW  -> NotificationEventType.CONSULTATION_NO_SHOW;
+            default       -> null;
+        };
+        if (eventType == null) return;
+
+        // Recipient = parent
+        Account parentAccount = req.getParent() != null ? req.getParent().getAccount() : null;
+        if (parentAccount == null) return;
+
+        String campusName = req.getCampus() != null ? req.getCampus().getName() : "Cơ sở trường";
+        String appointmentDate = req.getAppointmentDate() != null
+                ? req.getAppointmentDate().toString() : "";
+
+        Map<String, Object> context = new HashMap<>();
+        context.put("campusName", campusName);
+        context.put("appointmentDate", appointmentDate);
+        context.put("consultationId", req.getId());
+        context.put("specificRecipients", List.of(parentAccount));
+
+        notificationService.publish(eventType, null, context);
     }
 
     @Override

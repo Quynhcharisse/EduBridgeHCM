@@ -1,10 +1,20 @@
 package com.sp26se041.edubridgehcm.controllers;
 
 import com.sp26se041.edubridgehcm.enums.OfferingProgramAction;
-import com.sp26se041.edubridgehcm.requests.*;
+
+import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
+import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
+import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
+import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
+
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.CampusService;
 import com.sp26se041.edubridgehcm.services.WebSocketService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
@@ -116,12 +126,6 @@ public class CampusController {
         return campusService.getAvailableSlots(targetDate, campaignId);
     }
 
-    @PostMapping("/counsellor/consultations/reassign")
-    @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> reassignConsultations(@RequestBody ReassignConsultationsRequest request) {
-        return campusService.reassignConsultationRequests(request);
-    }
-
     @GetMapping("/counsellor/slots/assigned")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> getAssignedSlots(@RequestParam(required = false) Integer counsellorId) {
@@ -134,13 +138,17 @@ public class CampusController {
         return campusService.getCounsellorAvailableList();
     }
 
-    @GetMapping("/counsellor/list/export")
+    @Operation(summary = "Xuất danh sách tư vấn viên ra file Excel")
+    @ApiResponse(responseCode = "200", content = @Content(mediaType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+    @GetMapping(value = "/counsellor/list/export", produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<Resource> exportCounsellorList() throws IOException {
         return campusService.exportCounsellorList();
     }
 
-    @GetMapping("/schedule/template/list/export")
+    @Operation(summary = "Xuất thời khoá biểu mẫu ra file Excel")
+    @ApiResponse(responseCode = "200", content = @Content(mediaType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+    @GetMapping(value = "/schedule/template/list/export",   produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<Resource> exportCampusScheduleMatrix() throws IOException {
         return campusService.exportCampusScheduleMatrix();
@@ -168,6 +176,15 @@ public class CampusController {
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> getConversationWithAdmin() {
         return campusService.getConversation();
+    }
+
+    @GetMapping("/consultation/stats")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> getConsultationStats(
+            @RequestParam(defaultValue = "THIS_MONTH") String period,
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to) {
+        return campusService.getConsultationStats(period, from, to);
     }
 
     @PutMapping("/messages/read/{conversationId}")

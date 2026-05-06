@@ -1,7 +1,13 @@
 package com.sp26se041.edubridgehcm.services;
 
 import com.sp26se041.edubridgehcm.enums.OfferingProgramAction;
-import com.sp26se041.edubridgehcm.requests.*;
+
+import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
+import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
+import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
+import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
@@ -10,6 +16,8 @@ import java.io.IOException;
 import java.time.LocalDate;
 
 public interface CampusService {
+
+    ResponseEntity<ResponseObject> getConsultationStats(String period, LocalDate from, LocalDate to);
 
     ResponseEntity<ResponseObject> createCampusProgramOffering(CreateCampusProgramOfferingRequest request);
 
@@ -37,8 +45,6 @@ public interface CampusService {
 
     ResponseEntity<ResponseObject> getAvailableSlots(LocalDate targetDate, Integer campaignId);
 
-    ResponseEntity<ResponseObject> reassignConsultationRequests(ReassignConsultationsRequest request);
-
     ResponseEntity<ResponseObject> getAssignedSlots(Integer counsellorId);
 
     ResponseEntity<ResponseObject> getCounsellorAvailableList();
@@ -50,7 +56,7 @@ public interface CampusService {
     ResponseEntity<ResponseObject> getDocuments();
 
     ResponseEntity<ResponseObject> getChatHistoryWithAdmin(Long cursorId);
-    
+
     ResponseEntity<ResponseObject> createConversationWithAdmin();
 
     ResponseEntity<ResponseObject> getConversation();
