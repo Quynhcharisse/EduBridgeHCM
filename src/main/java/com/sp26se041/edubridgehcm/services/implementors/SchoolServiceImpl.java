@@ -505,8 +505,20 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chiến dịch tuyển sinh đang ở trạng thái nháp, không thể nhân bản", null);
         }
 
-        // case 1: tạo bản clone cho năm kế tiếp khi ko muốn tạo
-        // case 2: clone từ bản bị cancelled
+        int targetYear = oldCampaign.getYear() + 1;
+        int schoolId = actorCampus.getSchool().getId();
+
+        // case này : giải quyêt đã clone rồi laij muon clone nua
+        if (admissionCampaignRepo.existsBySchoolIdAndYearAndStatus(schoolId, targetYear, Status.OPEN_ADMISSION_CAMPAIGN)) {
+            return ResponseBuilder.build(HttpStatus.CONFLICT,
+                    "Năm " + targetYear + " đã có chiến dịch đang mở. Không cần nhân bản", null);
+        }
+
+        // Không cho clone nếu năm kế tiếp đã có campaign DRAFT
+        if (admissionCampaignRepo.existsBySchoolIdAndYearAndStatus(schoolId, targetYear, Status.DRAFT_ADMISSION_CAMPAIGN)) {
+            return ResponseBuilder.build(HttpStatus.CONFLICT,
+                    "Năm " + targetYear + " đã có bản nháp. Vui lòng chỉnh sửa bản nháp hiện có thay vì tạo mới", null);
+        }
 
         LocalDate newStartDate = oldCampaign.getStartDate().plusYears(1);
         LocalDate newEndDate = oldCampaign.getEndDate().plusYears(1);
@@ -524,7 +536,7 @@ public class SchoolServiceImpl implements SchoolService {
                         .toList();
 
         CreateAdmissionCampaignTemplateRequest request = new CreateAdmissionCampaignTemplateRequest();
-        request.setName("Chiến dịch tuyển sinh " + oldCampaign.getYear() + 1);
+        request.setName("Chiến dịch tuyển sinh " + (oldCampaign.getYear() + 1));
         request.setDescription(oldCampaign.getDescription());
         request.setYear(oldCampaign.getYear() + 1);
         request.setStartDate(newStartDate);
