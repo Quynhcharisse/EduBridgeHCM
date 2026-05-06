@@ -11,7 +11,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
@@ -31,7 +37,7 @@ public class CounsellorController {
 
 
     @GetMapping("/messages/history/{parentEmail}/{counsellorEmail}/{studentProfileId}")
-    public ResponseEntity<ResponseObject> getChatHistory(@PathVariable String parentEmail, @PathVariable String counsellorEmail, @PathVariable int studentProfileId,@RequestParam(required = false) Long cursorId) {
+    public ResponseEntity<ResponseObject> getChatHistory(@PathVariable String parentEmail, @PathVariable String counsellorEmail, @PathVariable int studentProfileId, @RequestParam(required = false) Long cursorId) {
         return counsellorService.getChatHistory(parentEmail, counsellorEmail, studentProfileId, cursorId);
     }
 
