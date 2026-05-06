@@ -1,6 +1,13 @@
 package com.sp26se041.edubridgehcm.services;
 
-import com.sp26se041.edubridgehcm.requests.*;
+import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateRequest;
+import com.sp26se041.edubridgehcm.requests.CreateCampusRequest;
+import com.sp26se041.edubridgehcm.requests.CreateOpenDayEventRequest;
+import com.sp26se041.edubridgehcm.requests.CreateSubscriptionRequest;
+import com.sp26se041.edubridgehcm.requests.CurriculumRequest;
+import com.sp26se041.edubridgehcm.requests.ProgramRequest;
+import com.sp26se041.edubridgehcm.requests.SubscriptionPreviewRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.io.Resource;
