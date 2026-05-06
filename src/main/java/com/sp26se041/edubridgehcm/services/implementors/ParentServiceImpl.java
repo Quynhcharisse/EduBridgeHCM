@@ -135,7 +135,6 @@ public class ParentServiceImpl implements ParentService {
     private final AdmissionCampaignRepo admissionCampaignRepo;
 
     private final SchoolConfigRepo schoolConfigRepo;
-    private final CampusProgramOfferingRepo campusProgramOfferingRepo;
 
     @Override
     public ResponseEntity<ResponseObject> getConversations(Long cursorId) {
