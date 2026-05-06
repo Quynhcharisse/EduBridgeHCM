@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.controllers;
 
+import com.sp26se041.edubridgehcm.requests.ChatMessageForChatBot;
 import com.sp26se041.edubridgehcm.requests.UpdateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.CounsellorService;
@@ -12,7 +13,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,7 +37,7 @@ public class CounsellorController {
 
 
     @GetMapping("/messages/history/{parentEmail}/{counsellorEmail}/{studentProfileId}")
-    public ResponseEntity<ResponseObject> getChatHistory(@PathVariable String parentEmail, @PathVariable String counsellorEmail, @PathVariable int studentProfileId,@RequestParam(required = false) Long cursorId) {
+    public ResponseEntity<ResponseObject> getChatHistory(@PathVariable String parentEmail, @PathVariable String counsellorEmail, @PathVariable int studentProfileId, @RequestParam(required = false) Long cursorId) {
         return counsellorService.getChatHistory(parentEmail, counsellorEmail, studentProfileId, cursorId);
     }
 
@@ -83,8 +86,14 @@ public class CounsellorController {
 
     @PutMapping("/consultation/offline")
     @PreAuthorize("hasAnyRole('COUNSELLOR')")
-    public ResponseEntity<ResponseObject> updateConsultationOfflineRequest(UpdateConsultationOfflineRequest updateConsultationOfflineRequest){
+    public ResponseEntity<ResponseObject> updateConsultationOfflineRequest(@RequestBody UpdateConsultationOfflineRequest updateConsultationOfflineRequest){
         return counsellorService.updateConsultationOfflineRequest(updateConsultationOfflineRequest);
+    }
+
+    @PostMapping("/chat-with-AI-chatbot")
+    @PreAuthorize("hasAnyRole('COUNSELLOR')")
+    public ResponseEntity<ResponseObject> chatWithAIChatBotSchool(@RequestBody ChatMessageForChatBot chatMessageForChatBot) {
+        return counsellorService.chatWithChatbotForSchool(chatMessageForChatBot);
     }
 
 }

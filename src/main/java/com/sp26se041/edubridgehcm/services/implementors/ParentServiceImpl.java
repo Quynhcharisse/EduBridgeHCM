@@ -24,6 +24,7 @@ import com.sp26se041.edubridgehcm.models.StudentProfile;
 import com.sp26se041.edubridgehcm.models.Subject;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
 import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
@@ -134,6 +135,7 @@ public class ParentServiceImpl implements ParentService {
     private final AdmissionCampaignRepo admissionCampaignRepo;
 
     private final SchoolConfigRepo schoolConfigRepo;
+    private final CampusProgramOfferingRepo campusProgramOfferingRepo;
 
     @Override
     public ResponseEntity<ResponseObject> getConversations(Long cursorId) {
@@ -1893,6 +1895,19 @@ public class ParentServiceImpl implements ParentService {
                 pageResponse
         );
     }
+
+//    @Override
+//    public ResponseEntity<ResponseObject> createAdmissionReservationForm(CreateAdmissionReservationFormRequest request) {
+//
+//        Optional<CampusProgramOffering> campusProgramOffering = campusProgramOfferingRepo.findById(request.getCampusProgramOfferingId());
+//
+//        if (campusProgramOffering.isEmpty()) {
+//            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy chương trình tuyển sinh", null);
+//        }
+//
+//
+//
+//    }
 
     private Sort buildConsultationSort(Status status) {
 
