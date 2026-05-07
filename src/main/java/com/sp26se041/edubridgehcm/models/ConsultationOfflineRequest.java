@@ -60,6 +60,9 @@ public class ConsultationOfflineRequest {
     @Column(name = "created_date")
     LocalDate createdDate;
 
+    @Column(name = "locked_until")
+    private LocalDateTime lockedUntil;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     Status status;

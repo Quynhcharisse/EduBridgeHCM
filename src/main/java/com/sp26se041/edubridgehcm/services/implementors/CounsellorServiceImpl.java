@@ -44,6 +44,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
@@ -289,11 +290,7 @@ public class CounsellorServiceImpl implements CounsellorService {
 
             List<ConsultationOfflineRequest> requests =
                     consultationOfflineRequestRepo
-                            .findByCounsellorAndAppointmentDateAndAppointmentTime(
-                                    counsellor,
-                                    slotDate,
-                                    scheduleTemplate.getStartTime()
-                            );
+                            .findByCounsellorSlotId(counsellorSlot.getId());
 
             List<Map<String, Object>> consultationOfflineRequests = requests.stream()
                     .map(this::buildConsultationOfflineRequest)
@@ -587,7 +584,10 @@ public class CounsellorServiceImpl implements CounsellorService {
         );
     }
 
+
+
     @Override
+    @Transactional
     public ResponseEntity<ResponseObject> updateConsultationOfflineRequest(UpdateConsultationOfflineRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {
@@ -614,11 +614,78 @@ public class CounsellorServiceImpl implements CounsellorService {
 
         ConsultationOfflineRequest offlineRequest = consultationOfflineRequest.get();
 
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        Optional<Account> currentAccount = accountRepo.findByEmail(email);
+
+        if (currentAccount.isEmpty()) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Không tìm thấy tài khoản",
+                    null
+            );
+        }
+
+        Counsellor currentCounsellor = counsellorRepo.findByAccountId(currentAccount.get().getId());
+
+        if (currentCounsellor == null) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Không tìm thấy thông tin tư vấn viên",
+                    null
+            );
+        }
+
         Status currentStatus = offlineRequest.getStatus();
 
         switch (consultationAction) {
 
+            case CONFIRMING -> {
+
+                if (currentStatus != Status.CONSULTATION_PENDING) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Chỉ có thể tiếp nhận lịch hẹn đang chờ xác nhận",
+                            null
+                    );
+                }
+
+                boolean lockedByOther = offlineRequest.getCounsellor() != null
+                        && offlineRequest.getLockedUntil() != null
+                        && offlineRequest.getLockedUntil().isAfter(LocalDateTime.now())
+                        && !offlineRequest.getCounsellor().getId().equals(currentCounsellor.getId());
+
+                if (lockedByOther) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Lịch hẹn đang được xử lý bởi: "
+                                    + offlineRequest.getCounsellor().getName(),
+                            null
+                    );
+                }
+
+                offlineRequest.setCounsellor(currentCounsellor);
+                offlineRequest.setLockedUntil(LocalDateTime.now().plusMinutes(15));
+
+            }
+
             case CONFIRM -> {
+
+                LocalDateTime now = LocalDateTime.now();
+
+                boolean isOwner = offlineRequest.getCounsellor() != null
+                        && offlineRequest.getLockedUntil() != null
+                        && offlineRequest.getLockedUntil().isAfter(now)
+                        && offlineRequest.getCounsellor().getId().equals(currentCounsellor.getId());
+
+                if (!isOwner) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Bạn không phải người đang tiếp nhận lịch hẹn này",
+                            null
+                    );
+                }
+
                 if (currentStatus != Status.CONSULTATION_PENDING) {
                     return ResponseBuilder.build(
                             HttpStatus.BAD_REQUEST,
@@ -691,6 +758,8 @@ public class CounsellorServiceImpl implements CounsellorService {
                 offlineRequest.setAppointmentDate(slotDate);
                 offlineRequest.setAppointmentTime(slotTime);
                 offlineRequest.setCounsellorSlot(counsellorSlotOpt.get());
+                offlineRequest.setCounsellor(null);
+                offlineRequest.setLockedUntil(null);
                 offlineRequest.setStatus(Status.CONSULTATION_CONFIRMED);
             }
 
@@ -745,7 +814,23 @@ public class CounsellorServiceImpl implements CounsellorService {
                     );
                 }
 
-                String email = SecurityContextHolder.getContext().getAuthentication().getName();
+                if (currentStatus == Status.CONSULTATION_PENDING
+                        && offlineRequest.getCounsellor() != null
+                        && offlineRequest.getLockedUntil() != null
+                        && offlineRequest.getLockedUntil().isAfter(LocalDateTime.now())) {
+
+                    boolean isOwner = offlineRequest.getCounsellor().getId()
+                            .equals(currentCounsellor.getId());
+
+                    if (!isOwner) {
+                        return ResponseBuilder.build(
+                                HttpStatus.CONFLICT,
+                                "Lịch hẹn đang được xử lý bởi: "
+                                        + offlineRequest.getCounsellor().getName(),
+                                null
+                        );
+                    }
+                }
 
                 // Validate cancelReason
                 if (request.getCancelReason() == null || request.getCancelReason().trim().isEmpty()) {
@@ -1127,6 +1212,31 @@ public class CounsellorServiceImpl implements CounsellorService {
         } else {
             map.put("counsellorId", request.getCounsellor().getId());
             map.put("counsellorName", request.getCounsellor().getAccount().getEmail());
+        }
+
+        // ── Người đang tiếp nhận + thời gian xác nhận còn lại ───────
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime lockedUntil = request.getLockedUntil();
+
+        if (request.getCounsellor() != null
+                && lockedUntil != null
+                && lockedUntil.isAfter(now)) {
+
+            // Còn bao nhiêu giây
+            long secondsRemaining = java.time.Duration.between(now, lockedUntil).getSeconds();
+
+            map.put("confirmingBy", request.getCounsellor().getAccount().getEmail());
+            map.put("confirmingByName", request.getCounsellor().getName());
+            map.put("lockedUntil", lockedUntil);
+            map.put("secondsRemaining", secondsRemaining);        // FE dùng đếm ngược
+            map.put("minutesRemaining", secondsRemaining / 60);   // hiển thị dạng phút
+        } else {
+            // Không có ai đang tiếp nhận hoặc lock đã hết hạn
+            map.put("confirmingBy", null);
+            map.put("confirmingByName", null);
+            map.put("lockedUntil", null);
+            map.put("secondsRemaining", null);
+            map.put("minutesRemaining", null);
         }
 
         if (request.getCancelReason() == null) {
