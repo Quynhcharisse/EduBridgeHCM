@@ -46,6 +46,7 @@ import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
 import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
 import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
 import com.sp26se041.edubridgehcm.requests.AutoFillTranscriptRequest;
+import com.sp26se041.edubridgehcm.requests.CancelAdmissionFormRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionReservationFormRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
@@ -101,6 +102,7 @@ import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_CONFIRMED;
 import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_IN_PROGRESS;
 import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_NO_SHOW;
 import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_PENDING;
+import static com.sp26se041.edubridgehcm.enums.Status.RESERVATION_CANCELLED;
 
 @Service
 @RequiredArgsConstructor
@@ -1948,6 +1950,21 @@ public class ParentServiceImpl implements ParentService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Bạn đã có hồ sơ bảo lưu đang chờ xét duyệt, vui lòng chờ nhà trường phản hồi trước khi nộp lại.", null);
         }
 
+        boolean alreadyApproved = admissionReservationFormRepo
+                .existsByCampusProgramOfferingAndStudentProfileAndStatus(
+                        campusProgramOffering.get(),
+                        studentProfile.get(),
+                        Status.RESERVATION_APPROVAL
+                );
+
+        if (alreadyApproved) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    "Hồ sơ này đã được duyệt giữ chỗ thành công, không thể tạo thêm đơn mới.",
+                    null
+            );
+        }
+
         List<Map<String, Object>> admissionMethodTimelines = (List<Map<String, Object>>) campusProgramOffering.get().getAdmissionCampaign().getAdmissionMethodTimelines();
 
         Map<String, Object> matchedMethod = admissionMethodTimelines.stream()
@@ -2141,6 +2158,28 @@ public class ParentServiceImpl implements ParentService {
 
         return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách đơn thành công.", result);
     }
+
+    @Override
+    public ResponseEntity<ResponseObject> cancelAdmissionReservationForm(CancelAdmissionFormRequest request) {
+
+        Optional<AdmissionReservationForm> admissionReservationForm = admissionReservationFormRepo.findById(request.getAdmissionFormId());
+
+        if (admissionReservationForm.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy đơn giữ chỗ", null);
+        }
+
+        if (request.getCancelReason() == null || request.getCancelReason().trim().isBlank()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Vui lòng nhập lý do hủy đơn giữ chỗ", null);
+        }
+
+        admissionReservationForm.get().setCancelReason(request.getCancelReason().trim());
+        admissionReservationForm.get().setStatus(RESERVATION_CANCELLED);
+
+        admissionReservationFormRepo.save(admissionReservationForm.get());
+
+        return ResponseBuilder.build(HttpStatus.OK, "Hủy đơn giữ chỗ thành công", null);
+    }
+
 
     private List<Map<String, Object>> buildAdmissionReservationForms(List<AdmissionReservationForm> admissionReservationForms) {
         return admissionReservationForms.stream()
