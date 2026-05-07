@@ -130,7 +130,11 @@ public class SystemServiceImpl implements SystemService {
             }
         }
 
-        updateConfig(request);
+        try {
+            updateConfig(request);
+        } catch (RuntimeException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
+        }
         return ResponseBuilder.build(
                 HttpStatus.OK,
                 "Cập nhật thành công",
