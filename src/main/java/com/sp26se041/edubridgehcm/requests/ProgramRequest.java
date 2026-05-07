@@ -25,7 +25,7 @@ public class ProgramRequest {
 
     List<SubjectExtraRequest> extraSubjectList;
 
-    List<Long> languageOfInstructionList;
+    List<String> languageOfInstructionList;
 
     String graduationStandard;
 
