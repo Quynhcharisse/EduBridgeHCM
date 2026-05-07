@@ -1331,6 +1331,17 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Chương trình của trường không tồn tại trong hệ thống", null);
         }
 
+        if (!isNew) {
+            if (Status.PRO_ACTIVE.equals(program.getStatus())) {
+                return ResponseBuilder.build(HttpStatus.CONFLICT,
+                        "Chương trình đang hoạt động không thể chỉnh sửa. Vui lòng sử dụng chức năng nhân bản", null);
+            }
+            if (Status.PRO_INACTIVE.equals(program.getStatus())) {
+                return ResponseBuilder.build(HttpStatus.CONFLICT,
+                        "Chương trình đã ngừng hoạt động không thể chỉnh sửa", null);
+            }
+        }
+
         Curriculum curriculum = curriculumRepo.findById(request.getCurriculumId()).orElse(null);
 
         if (curriculum == null || !curriculum.getSchool().getId().equals(actorCampus.getSchool().getId())) {
@@ -1498,7 +1509,6 @@ public class SchoolServiceImpl implements SchoolService {
         Program newProgram = new Program();
         newProgram.setName(oldProgram.getName() + " - Bản sao (" + LocalDateTime.now().getYear() + ")");
         newProgram.setCurriculum(oldProgram.getCurriculum());
-
         //copy danh sách ngôn ngữ giảng dạy
         if (oldProgram.getLanguageOfInstructionList() != null) {
             List<?> oldLangList = (List<?>) oldProgram.getLanguageOfInstructionList();
@@ -1552,14 +1562,18 @@ public class SchoolServiceImpl implements SchoolService {
             );
         }
 
+        if (!program.getCurriculum().getSchool().getId().equals(actorCampus.getSchool().getId())) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Không có quyền thực hiện thao tác trên chương trình này", null);
+        }
+
         switch (action.toUpperCase()) {
 
             case "ACTIVATE":
 
-                if (Status.PRO_ACTIVE.equals(program.getStatus())) {
+                if (!Status.PRO_DRAFT.equals(program.getStatus())) {
                     return ResponseBuilder.build(
-                            HttpStatus.OK,
-                            "Chương trình đã ở trạng thái hoạt động",
+                            HttpStatus.BAD_REQUEST,
+                            "Chỉ chương trình đang ở trạng thái nháp mới được kích hoạt",
                             null
                     );
                 }
@@ -1574,10 +1588,10 @@ public class SchoolServiceImpl implements SchoolService {
 
             case "DEACTIVATE":
 
-                if (Status.PRO_INACTIVE.equals(program.getStatus())) {
+                if (!Status.PRO_ACTIVE.equals(program.getStatus())) {
                     return ResponseBuilder.build(
-                            HttpStatus.OK,
-                            "Chương trình đã ở trạng thái ngừng hoạt động",
+                            HttpStatus.BAD_REQUEST,
+                            "Chỉ chương trình đang hoạt động mới được ngừng hoạt động",
                             null
                     );
                 }
