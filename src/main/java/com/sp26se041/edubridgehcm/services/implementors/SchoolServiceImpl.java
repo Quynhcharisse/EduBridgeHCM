@@ -1036,7 +1036,6 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     private Map<String, Object> buildParentProfileData(Parent parent) {
-
         Map<String, Object> parentData = new HashMap<>();
         parentData.put("name", parent.getName());
         parentData.put("gender", parent.getGender());
@@ -1731,10 +1730,10 @@ public class SchoolServiceImpl implements SchoolService {
         Map<String, Object> schoolDocReq = getSchoolConfigMapValue(schoolId, "documentRequirementsData");
 
         result.put(
-            "allowedMethods",
-            schoolAdmission != null
-                ? toListOfMaps(schoolAdmission.get("allowedMethods"))
-                : Collections.emptyList()
+                "allowedMethods",
+                schoolAdmission != null
+                        ? toListOfMaps(schoolAdmission.get("allowedMethods"))
+                        : Collections.emptyList()
         );
 
         result.put(
@@ -2168,8 +2167,8 @@ public class SchoolServiceImpl implements SchoolService {
     private Status resolveEffectiveOperationalStatus(CampusProgramOffering offering) {
         Status current = offering.getApplicationStatus();
 
-        if (current == Status.PAUSED) {
-            return current; // campus chủ động paused
+        if (current == Status.PAUSED || current == Status.CLOSED || current == Status.FULL) {
+            return current;
         }
 
         int activeReservationCount = admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIn(
