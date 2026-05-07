@@ -1505,7 +1505,7 @@ public class SchoolServiceImpl implements SchoolService {
         if (!Status.PRO_ACTIVE.equals(oldProgram.getStatus())) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ chương trình đang hoạt động mới được phép nhân bản", null);
         }
-        
+
         Program newProgram = new Program();
         newProgram.setName(oldProgram.getName() + " - Bản sao (" + LocalDateTime.now().getYear() + ")");
         newProgram.setCurriculum(oldProgram.getCurriculum());
@@ -2058,9 +2058,6 @@ public class SchoolServiceImpl implements SchoolService {
 
         data.put("campusList", school.getCampusList().stream().filter(campus -> Status.ACTIVE.equals(campus.getStatus())).map(this::buildPublicCampusData).toList());
 
-        data.put("curriculumList", school.getCurriculumList().stream().filter(curriculum -> Status.CUR_ACTIVE.equals(curriculum.getCurriculumStatus())).map(this::buildPublicCurriculumData).toList());
-
-
         return ResponseBuilder.build(HttpStatus.OK, "Hiển thị chi tiết trường thành công", data);
 
     }
@@ -2124,20 +2121,6 @@ public class SchoolServiceImpl implements SchoolService {
         List<String> consultantEmails = campus.getCounsellorList().stream().map(Counsellor::getAccount).filter(Objects::nonNull).filter(acc -> Role.COUNSELLOR.equals(acc.getRole())).filter(acc -> Status.ACCOUNT_ACTIVE.equals(acc.getStatus())).map(Account::getEmail).toList();
 
         data.put("consultantEmails", consultantEmails);
-        return data;
-    }
-
-    Map<String, Object> buildPublicCurriculumData(Curriculum curriculum) {
-        Map<String, Object> data = new HashMap<>();
-        data.put("name", curriculum.getName());
-        data.put("description", curriculum.getDescription());
-        data.put("curriculumType", curriculum.getCurriculumType());
-        data.put("methodLearningList", curriculum.getLearningMethodList());
-        data.put("subjectsJsonb", curriculum.getSubjectsJsonb());
-        data.put("applicationYear", curriculum.getApplicationYear());
-        data.put("groupCode", curriculum.getGroupCode());
-        data.put("curriculumStatus", curriculum.getCurriculumStatus());
-        data.put("programList", buildPublicProgramDataList(curriculum.getPrograms()));
         return data;
     }
 
