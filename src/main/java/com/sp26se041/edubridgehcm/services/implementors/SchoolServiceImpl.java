@@ -1360,22 +1360,13 @@ public class SchoolServiceImpl implements SchoolService {
 
         program.setCurriculum(curriculum);
         program.setName(normalize(request.getName()));
+
         if (request.getLanguageOfInstructionList() != null && !request.getLanguageOfInstructionList().isEmpty()) {
-            List<Subject> langSubjects = subjectRepo.findAllByTypeIn(List.of(SubjectType.FOREIGN_LANGUAGE_SUBJECT));
-            List<Long> validIds = langSubjects.stream().map(Subject::getId).toList();
-            List<Long> requestIds = request.getLanguageOfInstructionList().stream().map(Long::valueOf).toList();
-            List<Long> invalidIds = requestIds.stream().filter(id -> !validIds.contains(id)).toList();
-            if (!invalidIds.isEmpty()) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Môn ngoại ngữ không hợp lệ: " + invalidIds, null);
-            }
-            List<Map<String, Object>> langData = langSubjects.stream()
-                    .filter(s -> requestIds.contains(s.getId()))
-                    .map(s -> Map.<String, Object>of("id", s.getId(), "name", s.getName()))
-                    .toList();
-            program.setLanguageOfInstructionList(langData);
+            program.setLanguageOfInstructionList(request.getLanguageOfInstructionList());
         } else {
             program.setLanguageOfInstructionList(Collections.emptyList());
         }
+
         program.setGraduationStandard(normalize(request.getGraduationStandard()));
         program.setTargetStudentDescription(normalize(request.getTargetStudentDescription()));
 
