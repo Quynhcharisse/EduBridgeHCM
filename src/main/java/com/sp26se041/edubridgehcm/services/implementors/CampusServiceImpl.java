@@ -8,9 +8,9 @@ import com.sp26se041.edubridgehcm.enums.ResourceType;
 import com.sp26se041.edubridgehcm.enums.Role;
 import com.sp26se041.edubridgehcm.enums.SessionType;
 import com.sp26se041.edubridgehcm.enums.Status;
-
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
+import com.sp26se041.edubridgehcm.models.AdmissionReservationForm;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
 import com.sp26se041.edubridgehcm.models.CampusResourceQuota;
@@ -48,9 +48,9 @@ import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.ChatMessageForChatBot;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.ProcessApplicantRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
-
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.responses.StorageTreeNode;
@@ -113,7 +113,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -264,7 +263,7 @@ public class CampusServiceImpl implements CampusService {
         // Kiểm tra trùng: campus + campaign + program + method
         boolean alreadyExists = existingOfferings.stream()
                 .anyMatch(o -> o.getProgram().getId().equals(program.getId())
-                            && requestedMethod.equals(o.getAdmissionMethod()));
+                        && requestedMethod.equals(o.getAdmissionMethod()));
         if (alreadyExists) {
             return ResponseBuilder.build(HttpStatus.CONFLICT,
                     "Gói tuyển sinh cho phương thức '" + requestedMethod + "' đã tồn tại.", null);
@@ -538,7 +537,7 @@ public class CampusServiceImpl implements CampusService {
                     .findByAdmissionCampaignId(offering.getAdmissionCampaign().getId())
                     .stream()
                     .filter(o -> o.getCampus().getId().equals(offering.getCampus().getId())
-                              && !o.getId().equals(offering.getId()))
+                            && !o.getId().equals(offering.getId()))
                     .mapToInt(CampusProgramOffering::getQuota)
                     .sum();
 
@@ -806,6 +805,7 @@ public class CampusServiceImpl implements CampusService {
         }
         return deriveApplicationStatusByDateWindow(openDate, closeDate); // Nếu còn chỗ mới xét đến ngày tháng
     }
+
     private LocalDate parseLocalDateSafe(Object value) {
         if (value == null) return null;
         if (value instanceof LocalDate ld) return ld;
@@ -2379,7 +2379,7 @@ public class CampusServiceImpl implements CampusService {
         Map<String, Object> payload = new LinkedHashMap<>();
 
         payload.put("chatInput", messageForChatBot.getChatInput());
-        payload.put("schoolId",  actorCampus.getSchool().getId());
+        payload.put("schoolId", actorCampus.getSchool().getId());
         payload.put("sessionId", actorCampus.getAccount().getEmail());
 
         HttpHeaders headers = new HttpHeaders();
@@ -2553,7 +2553,7 @@ public class CampusServiceImpl implements CampusService {
                             + "Khi chọn CUSTOM cần truyền thêm from và to.", null);
         }
         LocalDate dateFrom = range[0];
-        LocalDate dateTo   = range[1];
+        LocalDate dateTo = range[1];
         String normalizedPeriod = (period != null && !period.isBlank()) ? period.trim().toUpperCase() : "CUSTOM";
         boolean isPrimaryBranch = Boolean.TRUE.equals(actorCampus.getIsPrimaryBranch());
 
@@ -2565,7 +2565,7 @@ public class CampusServiceImpl implements CampusService {
 
         if (isPrimaryBranch) {
             List<Campus> allCampuses = campusRepo.findAllBySchoolId(actorCampus.getSchool().getId());
-            List<Integer> campusIds  = allCampuses.stream().map(Campus::getId).collect(Collectors.toList());
+            List<Integer> campusIds = allCampuses.stream().map(Campus::getId).collect(Collectors.toList());
 
             List<ConsultationOfflineRequest> allRequests =
                     consultationOfflineRequestRepo.findByCampusIdInAndAppointmentDateBetween(campusIds, dateFrom, dateTo);
@@ -2577,8 +2577,8 @@ public class CampusServiceImpl implements CampusService {
             result.put("byDayOfWeek", buildConsultationByDayOfWeek(allRequests));
 
             Integer schoolId = actorCampus.getSchool().getId();
-            long totalCampuses     = campusRepo.countBySchoolId(schoolId);
-            long totalCounsellors  = counsellorRepo.countByCampusSchoolId(schoolId);
+            long totalCampuses = campusRepo.countBySchoolId(schoolId);
+            long totalCounsellors = counsellorRepo.countByCampusSchoolId(schoolId);
             // Đếm active counsellors toàn trường
             long activeCounsellorsSchool = allCampuses.stream()
                     .mapToLong(c -> counsellorRepo.findByCampus_IdAndAccount_Status(
@@ -2636,23 +2636,23 @@ public class CampusServiceImpl implements CampusService {
         return switch (period.trim().toUpperCase()) {
             case "THIS_WEEK" -> {
                 LocalDate start = today.with(java.time.DayOfWeek.MONDAY);
-                LocalDate end   = today.with(java.time.DayOfWeek.SUNDAY);
+                LocalDate end = today.with(java.time.DayOfWeek.SUNDAY);
                 yield new LocalDate[]{start, end};
             }
             case "THIS_MONTH" -> {
                 LocalDate start = today.withDayOfMonth(1);
-                LocalDate end   = today.withDayOfMonth(today.lengthOfMonth());
+                LocalDate end = today.withDayOfMonth(today.lengthOfMonth());
                 yield new LocalDate[]{start, end};
             }
             case "THIS_QUARTER" -> {
                 int q = (today.getMonthValue() - 1) / 3;
                 LocalDate start = today.withMonth(q * 3 + 1).withDayOfMonth(1);
-                LocalDate end   = start.plusMonths(2).withDayOfMonth(start.plusMonths(2).lengthOfMonth());
+                LocalDate end = start.plusMonths(2).withDayOfMonth(start.plusMonths(2).lengthOfMonth());
                 yield new LocalDate[]{start, end};
             }
             case "THIS_YEAR" -> {
                 LocalDate start = today.withDayOfYear(1);
-                LocalDate end   = today.withDayOfYear(today.lengthOfYear());
+                LocalDate end = today.withDayOfYear(today.lengthOfYear());
                 yield new LocalDate[]{start, end};
             }
             case "CUSTOM" -> {
@@ -2667,29 +2667,30 @@ public class CampusServiceImpl implements CampusService {
         long pending = 0, confirmed = 0, inProgress = 0, completed = 0, cancelled = 0, noShow = 0;
         for (ConsultationOfflineRequest r : requests) {
             switch (r.getStatus()) {
-                case CONSULTATION_PENDING    -> pending++;
-                case CONSULTATION_CONFIRMED  -> confirmed++;
+                case CONSULTATION_PENDING -> pending++;
+                case CONSULTATION_CONFIRMED -> confirmed++;
                 case CONSULTATION_IN_PROGRESS -> inProgress++;
-                case CONSULTATION_COMPLETED  -> completed++;
-                case CONSULTATION_CANCELLED  -> cancelled++;
-                case CONSULTATION_NO_SHOW    -> noShow++;
-                default -> { }
+                case CONSULTATION_COMPLETED -> completed++;
+                case CONSULTATION_CANCELLED -> cancelled++;
+                case CONSULTATION_NO_SHOW -> noShow++;
+                default -> {
+                }
             }
         }
-        long total     = requests.size();
+        long total = requests.size();
         long finalized = completed + cancelled + noShow;
         long responded = total - pending;
 
         Map<String, Object> cards = new LinkedHashMap<>();
-        cards.put("total",      total);
-        cards.put("pending",    pending);
-        cards.put("confirmed",  confirmed);
+        cards.put("total", total);
+        cards.put("pending", pending);
+        cards.put("confirmed", confirmed);
         cards.put("inProgress", inProgress);
-        cards.put("completed",  completed);
-        cards.put("cancelled",  cancelled);
-        cards.put("noShow",     noShow);
+        cards.put("completed", completed);
+        cards.put("cancelled", cancelled);
+        cards.put("noShow", noShow);
         // Rates
-        cards.put("completionRate",   pct(completed, finalized));   // % hoàn thành
+        cards.put("completionRate", pct(completed, finalized));   // % hoàn thành
         cards.put("cancellationRate", pct(cancelled, responded));   // % huỷ
         return cards;
     }
@@ -2700,7 +2701,7 @@ public class CampusServiceImpl implements CampusService {
 
         boolean byMonth = "THIS_YEAR".equals(normalizedPeriod)
                 || ("CUSTOM".equals(normalizedPeriod) && !dateFrom.plusMonths(3).isAfter(dateTo));
-        boolean byWeek  = "THIS_QUARTER".equals(normalizedPeriod);
+        boolean byWeek = "THIS_QUARTER".equals(normalizedPeriod);
 
         List<Map<String, Object>> trend = new ArrayList<>();
 
@@ -2712,7 +2713,7 @@ public class CampusServiceImpl implements CampusService {
 
             LocalDate cursor = dateFrom.withDayOfMonth(1);
             while (!cursor.isAfter(dateTo)) {
-                String key   = cursor.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+                String key = cursor.format(DateTimeFormatter.ofPattern("yyyy-MM"));
                 String label = cursor.format(DateTimeFormatter.ofPattern("MM/yyyy"));
                 trend.add(buildTrendEntry(label, grouped.getOrDefault(key, Collections.emptyList())));
                 cursor = cursor.plusMonths(1);
@@ -2726,12 +2727,12 @@ public class CampusServiceImpl implements CampusService {
 
             while (!weekStart.isAfter(dateTo)) {
                 LocalDate weekEnd = weekStart.plusDays(6);
-                String label      = weekStart.format(fmt) + " - " + weekEnd.format(fmt);
+                String label = weekStart.format(fmt) + " - " + weekEnd.format(fmt);
                 final LocalDate ws = weekStart;
                 final LocalDate we = weekEnd;
                 List<ConsultationOfflineRequest> group = requests.stream()
                         .filter(r -> !r.getAppointmentDate().isBefore(ws)
-                                  && !r.getAppointmentDate().isAfter(we))
+                                && !r.getAppointmentDate().isAfter(we))
                         .collect(Collectors.toList());
                 trend.add(buildTrendEntry(label, group));
                 weekStart = weekStart.plusWeeks(1);
@@ -2757,17 +2758,17 @@ public class CampusServiceImpl implements CampusService {
     private Map<String, Object> buildTrendEntry(String label, List<ConsultationOfflineRequest> group) {
         long completed = group.stream().filter(r -> r.getStatus() == Status.CONSULTATION_COMPLETED).count();
         long cancelled = group.stream().filter(r -> r.getStatus() == Status.CONSULTATION_CANCELLED).count();
-        long noShow    = group.stream().filter(r -> r.getStatus() == Status.CONSULTATION_NO_SHOW).count();
-        long pending   = group.stream().filter(r -> r.getStatus() == Status.CONSULTATION_PENDING).count();
+        long noShow = group.stream().filter(r -> r.getStatus() == Status.CONSULTATION_NO_SHOW).count();
+        long pending = group.stream().filter(r -> r.getStatus() == Status.CONSULTATION_PENDING).count();
         long confirmed = group.stream().filter(r -> r.getStatus() == Status.CONSULTATION_CONFIRMED).count();
         Map<String, Object> entry = new LinkedHashMap<>();
-        entry.put("label",     label);
-        entry.put("total",     (long) group.size());
+        entry.put("label", label);
+        entry.put("total", (long) group.size());
         entry.put("completed", completed);
         entry.put("confirmed", confirmed);
-        entry.put("pending",   pending);
+        entry.put("pending", pending);
         entry.put("cancelled", cancelled);
-        entry.put("noShow",    noShow);
+        entry.put("noShow", noShow);
         return entry;
     }
 
@@ -2780,7 +2781,7 @@ public class CampusServiceImpl implements CampusService {
         List<Map<String, Object>> result = new ArrayList<>();
         for (java.time.DayOfWeek dow : java.time.DayOfWeek.values()) {
             Map<String, Object> entry = new LinkedHashMap<>();
-            entry.put("day",   dow.name().substring(0, 3));
+            entry.put("day", dow.name().substring(0, 3));
             entry.put("label", translateDayOfWeek(dow.name().substring(0, 3)));
             entry.put("total", countMap.getOrDefault(dow, 0L));
             result.add(entry);
@@ -2808,5 +2809,84 @@ public class CampusServiceImpl implements CampusService {
                 .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition)
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(resource);
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<ResponseObject> processApplicant(ProcessApplicantRequest request) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế, không thể thực hiện thao tác này.", null);
+        }
+
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
+        }
+
+        if (request.getCampusId() != null && !actorCampus.getId().equals(request.getCampusId())) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền tạo chương trình tuyển sinh cho cơ sở khác.", null);
+        }
+
+        AdmissionReservationForm form = admissionReservationFormRepo.findById(request.getFormId()).orElse(null);
+
+        if (form == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy đơn đăng ký tuyển sinh", null);
+        }
+
+        CampusProgramOffering offering = form.getCampusProgramOffering();
+        if (!actorCampus.getId().equals(offering.getCampus().getId())) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Đơn này không thuộc cơ sở của bạn.", null);
+        }
+
+        if (form.getStatus() != Status.RESERVATION_PENDING) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Đơn đăng ký này đã được xử lý hoặc không hợp lệ.", null);
+        }
+
+        String action = request.getAction() != null ? request.getAction().toUpperCase() : "";
+        String successMessage;
+
+        switch (action) {
+            case "APPROVE":
+                form.setStatus(Status.RESERVATION_APPROVAL);
+                successMessage = "Phê duyệt đơn đăng ký thành công.";
+
+                offering.setRemainingQuota(offering.getRemainingQuota() - 1);
+                long activeCount = admissionReservationFormRepo
+                        .countByCampusProgramOfferingIdAndStatusIn(offering.getId(), Status.activeReservationStatuses());
+
+                Status newAppStatus = deriveApplicationStatusByWindowAndQuota(
+                        offering.getOpenDate(),
+                        offering.getCloseDate(),
+                        offering.getQuota(),
+                        offering.getRemainingQuota(),
+                        (int) activeCount);
+                offering.setApplicationStatus(newAppStatus);
+                campusProgramOfferingRepo.save(offering);
+                break;
+
+            case "REJECT":
+                if (request.getRejectReason() == null || request.getRejectReason().isBlank()) {
+                    return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Vui lòng cung cấp lý do từ chối.", null);
+                }
+                form.setStatus(Status.RESERVATION_REJECTED);
+                form.setRejectReason(request.getRejectReason());
+                successMessage = "Từ chối đơn đăng ký thành công.";
+                break;
+
+            default:
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Hành động không hợp lệ.", null);
+        }
+
+        Account actor = AuthRequestUtil.extractAuthenticatedAccount();
+
+        if (actor != null) {
+            form.setVerifiedBy(actor.getEmail());
+        }
+
+        form.setUpdatedTime(LocalDateTime.now());
+        admissionReservationFormRepo.save(form);
+
+        return ResponseBuilder.build(HttpStatus.OK, successMessage, null);
     }
 }

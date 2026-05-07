@@ -1,13 +1,12 @@
 package com.sp26se041.edubridgehcm.controllers;
 
 import com.sp26se041.edubridgehcm.enums.OfferingProgramAction;
-
-
 import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.ChatMessageForChatBot;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.ProcessApplicantRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -155,7 +154,7 @@ public class CampusController {
 
     @Operation(summary = "Xuất thời khoá biểu mẫu ra file Excel")
     @ApiResponse(responseCode = "200", content = @Content(mediaType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-    @GetMapping(value = "/schedule/template/list/export",   produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    @GetMapping(value = "/schedule/template/list/export", produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<Resource> exportCampusScheduleMatrix() throws IOException {
         return campusService.exportCampusScheduleMatrix();
@@ -211,4 +210,9 @@ public class CampusController {
         return campusService.chatWithChatbotForSchool(chatMessageForChatBot);
     }
 
+    @PutMapping("/process/admission/reservation/form")
+    @PreAuthorize("hasAnyRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> processApplicant(@RequestBody ProcessApplicantRequest request) {
+        return campusService.processApplicant(request);
+    }
 }
