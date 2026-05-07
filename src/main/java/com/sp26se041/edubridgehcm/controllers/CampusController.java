@@ -215,4 +215,10 @@ public class CampusController {
     public ResponseEntity<ResponseObject> processApplicant(@RequestBody ProcessApplicantRequest request) {
         return campusService.processApplicant(request);
     }
+    @GetMapping("/admission/reservation/form")
+    @PreAuthorize("hasAnyRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> getAdmissionReservationForm(@RequestParam (required = false) String status) {
+        return campusService.getAdmissionReservationForms(status);
+    }
+
 }
