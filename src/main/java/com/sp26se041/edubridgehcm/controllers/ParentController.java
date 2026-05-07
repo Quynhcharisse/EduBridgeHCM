@@ -4,6 +4,7 @@ import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
 import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
 import com.sp26se041.edubridgehcm.requests.AutoFillTranscriptRequest;
+import com.sp26se041.edubridgehcm.requests.CreateAdmissionReservationFormRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
@@ -198,5 +199,24 @@ public class ParentController {
     public ResponseEntity<ResponseObject> getConsultationOfflineRequests(@RequestParam (required = false) String status ,@RequestParam int page, @RequestParam int pageSize) {
         return parentService.getConsultationOfflineRequests(status, page, pageSize);
     }
+
+    @PostMapping("/admission/reservation/form")
+    @PreAuthorize("hasAnyRole('PARENT')")
+    public ResponseEntity<ResponseObject> createAdmissionReservationForm(@RequestBody CreateAdmissionReservationFormRequest request) {
+        return parentService.createAdmissionReservationForm(request);
+    }
+
+    @GetMapping("/documents")
+    @PreAuthorize("hasAnyRole('PARENT')")
+    public ResponseEntity<ResponseObject> getDocuments(@RequestParam int campusProgramOfferingId) {
+        return parentService.getDocumentRequirements(campusProgramOfferingId);
+    }
+
+    @GetMapping("/admission/reservation/form")
+    @PreAuthorize("hasAnyRole('PARENT')")
+    public ResponseEntity<ResponseObject> getAdmissionReservationForm(@RequestParam (required = false) String status) {
+        return parentService.getAdmissionReservationForms(status);
+    }
+
 }
 

@@ -89,6 +89,7 @@ public class CounsellorServiceImpl implements CounsellorService {
     private final AdmissionCampaignRepo admissionCampaignRepo;
 
     private final SchoolConfigRepo schoolConfigRepo;
+
     private final NotificationService notificationService;
 
     private final RestTemplate restTemplate = new RestTemplate();
@@ -689,7 +690,6 @@ public class CounsellorServiceImpl implements CounsellorService {
                 // ===== UPDATE DATA =====
                 offlineRequest.setAppointmentDate(slotDate);
                 offlineRequest.setAppointmentTime(slotTime);
-                offlineRequest.setCounsellor(counsellorSlotOpt.get().getCounsellor());
                 offlineRequest.setCounsellorSlot(counsellorSlotOpt.get());
                 offlineRequest.setStatus(Status.CONSULTATION_CONFIRMED);
             }

@@ -3,6 +3,7 @@ package com.sp26se041.edubridgehcm.services;
 import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
 import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
 import com.sp26se041.edubridgehcm.requests.AutoFillTranscriptRequest;
+import com.sp26se041.edubridgehcm.requests.CreateAdmissionReservationFormRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
@@ -53,6 +54,10 @@ public interface ParentService {
 
     ResponseEntity<ResponseObject> getConsultationOfflineRequests(String status, int page, int size);
 
-//    ResponseEntity<ResponseObject> createAdmissionReservationForm(CreateAdmissionReservationFormRequest request);
+    ResponseEntity<ResponseObject> createAdmissionReservationForm(CreateAdmissionReservationFormRequest request);
+
+    ResponseEntity<ResponseObject> getDocumentRequirements( int campusProgramOfferingId);
+
+    ResponseEntity<ResponseObject> getAdmissionReservationForms(String status);
 
 }
