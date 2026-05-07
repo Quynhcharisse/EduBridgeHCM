@@ -367,7 +367,7 @@ public class PostServiceImpl implements PostService {
         data.put("imageJson", post.getImageJson());
         data.put("thumbnail", post.getThumbnail());
         data.put("totalPosition", post.getTotalPosition());
-        data.put("typeFile", post.getTypeFile());
+        data.put("fileUrl", post.getTypeFile());
         data.put("categoryPost", post.getCategoryPost());
         data.put("status", post.getStatus());
         data.put("publishedDate", post.getPublishedDate());
