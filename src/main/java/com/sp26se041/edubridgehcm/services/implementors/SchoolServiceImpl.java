@@ -2393,16 +2393,18 @@ public class SchoolServiceImpl implements SchoolService {
 
         Path path = Files.createTempFile("export_campaigns_", ".xlsx");
 
-        String[] headers = {"ID", "Tên Chiến Dịch", "Năm Học", "Miêu tả", "Ngày Bắt Đầu", "Ngày Kết Thúc", "Trạng Thái"};
+        String[] headers = {"ID", "Tên Chiến Dịch", "Năm Học", "Miêu tả", "Lý Do", "Ngày Bắt Đầu", "Ngày Kết Thúc", "Lịch Phương Thức Xét Tuyển", "Trạng Thái"};
 
         ExcelUtil.exportToExcel(path, "AdmissionCampaigns", headers, campaigns, (campaign, row) -> {
             row.createCell(0).setCellValue(campaign.getId());
             row.createCell(1).setCellValue(campaign.getName());
             row.createCell(2).setCellValue(campaign.getYear());
             row.createCell(3).setCellValue(campaign.getDescription());
-            row.createCell(4).setCellValue(campaign.getStartDate().toString());
-            row.createCell(5).setCellValue(campaign.getEndDate().toString());
-            row.createCell(6).setCellValue(autoCheckAndExpireStatus(campaign).name());
+            row.createCell(4).setCellValue(campaign.getReason() != null ? campaign.getReason() : "");
+            row.createCell(5).setCellValue(campaign.getStartDate() != null ? campaign.getStartDate().toString() : "");
+            row.createCell(6).setCellValue(campaign.getEndDate() != null ? campaign.getEndDate().toString() : "");
+            row.createCell(7).setCellValue(campaign.getAdmissionMethodTimelines() != null ? campaign.getAdmissionMethodTimelines().toString() : "");
+            row.createCell(8).setCellValue(autoCheckAndExpireStatus(campaign).name());
         });
 
         String fileName = year > 0 ? "Chien_Dich_Tuyen_Sinh_" + year + ".xlsx" : "Danh_Sach_Chien_Dich_Tuyen_Sinh.xlsx";
