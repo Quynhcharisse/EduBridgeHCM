@@ -1571,13 +1571,6 @@ public class CampusServiceImpl implements CampusService {
 
         List<SchoolHoliday> holidayList = mergeSchoolHolidaysForCampus(actorCampus.getSchool().getId(), actorCampus.getId());
 
-        if (isAssign && effectiveRequest.getStartDate() != null && effectiveRequest.getEndDate() != null) {
-            String holidayBlock = SchoolConfigUtil.validateAssignmentRangeAgainstBlockingHolidays(
-                    effectiveRequest.getStartDate(), effectiveRequest.getEndDate(), holidayList, actorCampus.getId());
-            if (holidayBlock != null) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, holidayBlock, null);
-            }
-        }
 
         try {
             for (Integer tid : templateIdList) {
@@ -1659,7 +1652,7 @@ public class CampusServiceImpl implements CampusService {
     private List<Map<String, Object>> loadAssignedSlotsSnapshot(Integer campusId) {
         List<CounsellorSlot> slots = counsellorSlotRepo.findByCampusScheduleTemplate_Campus_Id(campusId);
         return slots.stream()
-                .filter(s -> s.getStatus() != Status.SLOT_UNASSIGNED)
+                .filter(s -> s.getStatus() != Status.SLOT_UNASSIGNED && s.getStatus() != Status.DISABLED)
                 .map(this::buildManagementSlotData)
                 .toList();
     }
