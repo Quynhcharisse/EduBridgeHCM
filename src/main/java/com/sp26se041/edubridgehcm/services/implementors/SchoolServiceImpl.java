@@ -1714,9 +1714,8 @@ public class SchoolServiceImpl implements SchoolService {
             item.put("admissionMethod", offering.getAdmissionMethod());
             item.put("openDate", offering.getOpenDate());
             item.put("closeDate", offering.getCloseDate());
-            item.put("applicationStatus", effectiveOperationalStatus);
+            item.put("applicationStatus", effectiveOperationalStatus); // hồ sơ status
             item.put("status", CheckCampusOfferingStatus.checkOfferingStatus(offering, campusProgramOfferingRepo).getStatus());
-            item.put("statusContext", buildOfferingStatusContext(offering));
             item.put("program", programData);
             item.put("curriculum", curriculumData);
             return item;
@@ -2123,46 +2122,10 @@ public class SchoolServiceImpl implements SchoolService {
             data.put("targetStudentDescription", program.getTargetStudentDescription());
             data.put("baseTuitionFee", program.getBaseTuitionFee());
             data.put("isActive", program.getStatus());
-            data.put("campusProgramOfferingList", buildPublicCampusProgramOfferingDataList(program.getCampusProgramOfferingList()));
             return data;
         }).toList();
     }
 
-    List<Map<String, Object>> buildPublicCampusProgramOfferingDataList(List<CampusProgramOffering> campusProgramOfferingList) {
-
-        if (campusProgramOfferingList == null) return Collections.emptyList();
-
-        return campusProgramOfferingList.stream().map(campusProgramOffering -> {
-            Map<String, Object> data = new HashMap<>();
-            Status effectiveOperationalStatus = resolveEffectiveOperationalStatus(campusProgramOffering);
-            data.put("learningMode", campusProgramOffering.getLearningMode());
-            data.put("quota", campusProgramOffering.getQuota());
-            data.put("tuitionFee", campusProgramOffering.getFinalTuitionFee());
-            data.put("openDate", campusProgramOffering.getOpenDate());
-            data.put("closeDate", campusProgramOffering.getCloseDate());
-            data.put("applicationStatus", effectiveOperationalStatus); // backward-compatible semantic
-            data.put("operationalStatus", effectiveOperationalStatus);
-            data.put("status", campusProgramOffering.getStatus()); // backward-compatible key
-            data.put("lifecycleStatus", campusProgramOffering.getStatus());
-            data.put("statusContext", buildOfferingStatusContext(campusProgramOffering));
-            return data;
-        }).toList();
-    }
-
-    private Map<String, Object> buildOfferingStatusContext(CampusProgramOffering offering) {
-        Map<String, Object> ctx = new LinkedHashMap<>();
-        Status lifecycle = offering.getStatus();
-        Status operational = resolveEffectiveOperationalStatus(offering);
-        boolean lifecycleActive = lifecycle == Status.OFFERING_ACTIVE;
-        boolean canReceiveApplications = lifecycleActive && operational == Status.OPEN;
-
-        ctx.put("lifecycleStatus", lifecycle);
-        ctx.put("operationalStatus", operational);
-        ctx.put("lifecycleActive", lifecycleActive);
-        ctx.put("canReceiveApplications", canReceiveApplications);
-        ctx.put("isTerminal", operational == Status.CLOSED || operational == Status.FULL || lifecycle == Status.OFFERING_INACTIVE);
-        return ctx;
-    }
 
     private Status resolveEffectiveOperationalStatus(CampusProgramOffering offering) {
         Status current = offering.getApplicationStatus();
@@ -2180,9 +2143,11 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         LocalDate today = LocalDate.now();
+
         if (today.isBefore(offering.getOpenDate())) {
             return Status.UPCOMING_OFFERING;
         }
+
         if (today.isAfter(offering.getCloseDate())) {
             return Status.CLOSED;
         }
