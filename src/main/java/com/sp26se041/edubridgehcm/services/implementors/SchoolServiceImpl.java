@@ -80,7 +80,6 @@ import com.sp26se041.edubridgehcm.services.SchoolService;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
-import com.sp26se041.edubridgehcm.utils.CheckCampusOfferingStatus;
 import com.sp26se041.edubridgehcm.utils.ConfigSystemUtil;
 import com.sp26se041.edubridgehcm.utils.CurriculumNamingUtil;
 import com.sp26se041.edubridgehcm.utils.ExcelUtil;
@@ -1678,7 +1677,6 @@ public class SchoolServiceImpl implements SchoolService {
         return offerings.stream().map(offering -> {
             Program program = offering.getProgram();
             Curriculum curriculum = program.getCurriculum();
-            Status effectiveOperationalStatus = resolveEffectiveOperationalStatus(offering);
 
             Map<String, Object> curriculumData = new LinkedHashMap<>();
             curriculumData.put("id", curriculum.getId());
@@ -1714,8 +1712,8 @@ public class SchoolServiceImpl implements SchoolService {
             item.put("admissionMethod", offering.getAdmissionMethod());
             item.put("openDate", offering.getOpenDate());
             item.put("closeDate", offering.getCloseDate());
-            item.put("applicationStatus", effectiveOperationalStatus); // hồ sơ status
-            item.put("status", CheckCampusOfferingStatus.checkOfferingStatus(offering, campusProgramOfferingRepo).getStatus());
+            item.put("applicationStatus", offering.getApplicationStatus()); // hồ sơ status
+            item.put("status", offering.getStatus());
             item.put("program", programData);
             item.put("curriculum", curriculumData);
             return item;

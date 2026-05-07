@@ -1533,7 +1533,7 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.OK, "Hủy gán chuyên viên tư vấn thành công.", bodyById);
         }
 
-        if (!isAssign && unassignSlotIds.isEmpty() && isRangeBulkUnassignRequest(request)) {
+        if (!isAssign && isRangeBulkUnassignRequest(request)) {
             return rangeBulkUnassignCounsellorSlots(request, actorCampus);
         }
 
@@ -1610,7 +1610,7 @@ public class CampusServiceImpl implements CampusService {
         List<Map<String, Object>> slotsSnapshot = loadAssignedSlotsSnapshot(actorCampus.getId());
         Map<String, Object> resultBody = new LinkedHashMap<>();
         resultBody.put("action", actionInput);
-        if (isAssign && matchedCampaign != null) {
+        if (isAssign) {
             Map<String, Object> campaignData = new LinkedHashMap<>();
             campaignData.put("campaignId", matchedCampaign.getId());
             campaignData.put("campaignName", matchedCampaign.getName());
