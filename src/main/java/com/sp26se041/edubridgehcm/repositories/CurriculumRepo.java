@@ -13,4 +13,6 @@ public interface CurriculumRepo extends JpaRepository<Curriculum, Integer> {
     Curriculum findByGroupCodeAndApplicationYearAndCurriculumStatus(String groupCode, int enrollmentYear, Status status);
 
     boolean existsByGroupCodeAndCurriculumStatusAndIdNot(String targetGroupCode, Status status, int i);
+
+    boolean existsByParentIdAndCurriculumStatus(Integer parentId, Status status);
 }

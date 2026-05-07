@@ -922,9 +922,8 @@ public class SchoolServiceImpl implements SchoolService {
                 applyRequestToCurriculum(existingCurriculum, request);
                 targetCurriculum = existingCurriculum;
             } else {
-                // Nếu là ACTIVE, cấm sửa đè -> Tự động CLONE ra bản mới (DRAFT)
-                // Bản cũ (ACTIVE) vẫn còn đó cho các Program cũ dùng
-                targetCurriculum = evolveFromExisting(existingCurriculum, request);
+                return ResponseBuilder.build(HttpStatus.CONFLICT,
+                        "Khung chương trình đang hoạt động không thể chỉnh sửa trực tiếp. Vui lòng sử dụng chức năng nhân bản", null);
             }
         }
 
@@ -936,7 +935,7 @@ public class SchoolServiceImpl implements SchoolService {
         // Frontend vẫn cầm ID của bản ACTIVE. Khi người dùng nhấn "Lưu" lần 2,
         // Backend lại thấy ID đó là ACTIVE và lại tiếp tục clone ra thêm một bản DRAFT nữa ==> Sinh ra hàng loạt bản nháp trùng lặp.
 
-        return ResponseBuilder.build(isNew ? HttpStatus.CREATED : HttpStatus.OK, isNew ? "Tạo khung chương trình (nháp) thành công" : "Cập nhật khung chương trình thành công", saved.getId());
+        return ResponseBuilder.build(isNew ? HttpStatus.CREATED : HttpStatus.OK, isNew ? "Tạo khung chương trình nháp thành công" : "Cập nhật khung chương trình thành công", saved.getId());
     }
 
     @Override
@@ -1119,15 +1118,19 @@ public class SchoolServiceImpl implements SchoolService {
                 curriculumRepo.save(target);
                 return ResponseBuilder.build(HttpStatus.OK, "Công bố khung chương trình" + yearToPublish + "thành công", target.getId());
 
-            case "REVISE":
-                // Chỉnh sửa, cập nhật dựa trên bản cũ để tạo bản mới
-                // Chỉ cho phép REVISE nếu đang là ACTIVE
+            case "CLONE":
+                // Chỉ cho phép CLONE nếu đang là ACTIVE
                 if (!Status.CUR_ACTIVE.equals(target.getCurriculumStatus())) {
                     return ResponseBuilder.build(
                             HttpStatus.BAD_REQUEST,
-                            "Chỉ khung chương trình đang hoạt động mới được phép chỉnh sửa",
+                            "Chỉ khung chương trình đang hoạt động mới được phép nhân bản",
                             null
                     );
+                }
+
+                if (curriculumRepo.existsByParentIdAndCurriculumStatus(target.getId(), Status.CUR_DRAFT)) {
+                    return ResponseBuilder.build(HttpStatus.CONFLICT,
+                            "Đã tồn tại bản nháp cho khung chương trình này. Vui lòng cập nhật bản nháp đó.", null);
                 }
 
                 //GIỮ NGUYÊN bản cũ là ACTIVE, chỉ đơn giản là CLONE ra bản DRAFT mới để sửa
@@ -1143,7 +1146,7 @@ public class SchoolServiceImpl implements SchoolService {
                     return ResponseBuilder.build(
                             HttpStatus.CONFLICT,
                             "Không thể lưu trữ khung chương trình vì vẫn còn chương trình đào tạo đang gắn với khung này. "
-                                    + "Vui lòng gỡ hoặc chuyển các chương trình sang khung khác trước, hoặc dùng luồng REVISE/PUBLISH để thay thế phiên bản.",
+                                    + "Vui lòng gỡ hoặc chuyển các chương trình sang khung khác trước, hoặc dùng luồng nhân bản để thay thế phiên bản.",
                             null
                     );
                 }
