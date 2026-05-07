@@ -13,6 +13,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Collection;
 import java.util.List;
@@ -83,4 +84,7 @@ public interface ConsultationOfflineRequestRepo extends JpaRepository<Consultati
     // Thống kê tư vấn theo nhiều campus (dành cho HQ xem tổng)
     List<ConsultationOfflineRequest> findByCampusIdInAndAppointmentDateBetween(
             List<Integer> campusIds, LocalDate from, LocalDate to);
+
+
+    List<ConsultationOfflineRequest> findByLockedUntilIsNotNullAndLockedUntilBefore(LocalDateTime now);
 }

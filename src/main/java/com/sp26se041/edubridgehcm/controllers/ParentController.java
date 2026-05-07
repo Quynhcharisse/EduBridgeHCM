@@ -145,6 +145,7 @@ public class ParentController {
     public ResponseEntity<ResponseObject> getSubjects() {
         return parentService.getAllSubjects();
     }
+
     @GetMapping("/major")
     @PreAuthorize("hasRole('PARENT')")
     public ResponseEntity<ResponseObject> getMajors() {

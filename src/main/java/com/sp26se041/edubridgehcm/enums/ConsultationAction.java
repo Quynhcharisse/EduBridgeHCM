@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum ConsultationAction {
+    CONFIRMING("confirming"),
     CONFIRM("confirm"),
     START("start"),
     END("end"),
