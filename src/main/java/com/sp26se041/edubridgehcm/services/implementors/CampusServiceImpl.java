@@ -714,7 +714,6 @@ public class CampusServiceImpl implements CampusService {
         data.put("admissionMethod", offering.getAdmissionMethod());
         data.put("allowReservationSubmission", offering.getAllowReservationSubmission());
         data.put("status", CheckCampusOfferingStatus.checkOfferingStatus(offering, campusProgramOfferingRepo).getStatus());
-        data.put("statusContext", buildOfferingStatusContext(offering));
 
         // Trả block chi tiết để FE không cần gọi thêm API khi mở detail từ list offering.
         Map<String, Object> curriculumData = new LinkedHashMap<>();
@@ -743,21 +742,6 @@ public class CampusServiceImpl implements CampusService {
         data.put("program", programData);
         data.put("curriculum", curriculumData);
         return data;
-    }
-
-    private Map<String, Object> buildOfferingStatusContext(CampusProgramOffering offering) {
-        Map<String, Object> ctx = new LinkedHashMap<>();
-        Status lifecycle = offering.getStatus();
-        Status operational = resolveEffectiveOperationalStatus(offering);
-        boolean lifecycleActive = lifecycle == Status.OFFERING_ACTIVE;
-        boolean canReceiveApplications = lifecycleActive && operational == Status.OPEN;
-
-        ctx.put("lifecycleStatus", lifecycle);
-        ctx.put("operationalStatus", operational);
-        ctx.put("lifecycleActive", lifecycleActive);
-        ctx.put("canReceiveApplications", canReceiveApplications);
-        ctx.put("isTerminal", operational == Status.CLOSED || operational == Status.FULL || lifecycle == Status.OFFERING_INACTIVE);
-        return ctx;
     }
 
     private Status resolveEffectiveOperationalStatus(CampusProgramOffering offering) {
