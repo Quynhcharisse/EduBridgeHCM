@@ -262,10 +262,11 @@ public class CounsellorServiceImpl implements CounsellorService {
                 .findByAccountId(accountRepo.findByEmail(email).get().getId());
 
         List<CounsellorSlot> counsellorSlotList =
-                counsellorSlotRepo.findByCounsellorIdAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+                counsellorSlotRepo.findByCounsellorIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatus(
                         counsellor.getId(),
                         endDate,
-                        startDate
+                        startDate,
+                        Status.AVAILABLE
                 );
 
         List<Map<String, Object>> result = new ArrayList<>();
@@ -289,8 +290,11 @@ public class CounsellorServiceImpl implements CounsellorService {
             );
 
             List<ConsultationOfflineRequest> requests =
-                    consultationOfflineRequestRepo
-                            .findByCounsellorSlotId(counsellorSlot.getId());
+                    consultationOfflineRequestRepo.findByCounsellorSlot_CounsellorAndAppointmentDateAndAppointmentTime(
+                    counsellor,
+                    slotDate,
+                    scheduleTemplate.getStartTime()
+            );
 
             List<Map<String, Object>> consultationOfflineRequests = requests.stream()
                     .map(this::buildConsultationOfflineRequest)

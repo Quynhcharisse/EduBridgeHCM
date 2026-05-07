@@ -77,7 +77,6 @@ public interface ConsultationOfflineRequestRepo extends JpaRepository<Consultati
 
     boolean existsByCounsellorSlotAndAppointmentDateAndAppointmentTimeAndStatusInAndIdNot(CounsellorSlot counsellorSlot, LocalDate appointmentDate, LocalTime appointmentTime, Collection<Status> statuses, Long id);
 
-    List<ConsultationOfflineRequest> findByCounsellorAndAppointmentDateAndAppointmentTime(Counsellor counsellor, LocalDate appointmentDate, LocalTime appointmentTime);
 
     List<ConsultationOfflineRequest> findByCounsellorSlotId(Integer slotId);
 
@@ -85,6 +84,7 @@ public interface ConsultationOfflineRequestRepo extends JpaRepository<Consultati
     List<ConsultationOfflineRequest> findByCampusIdInAndAppointmentDateBetween(
             List<Integer> campusIds, LocalDate from, LocalDate to);
 
+    List<ConsultationOfflineRequest> findByCounsellorSlot_CounsellorAndAppointmentDateAndAppointmentTime(Counsellor counsellorSlot_counsellor, LocalDate appointmentDate, LocalTime appointmentTime);
 
     List<ConsultationOfflineRequest> findByLockedUntilIsNotNullAndLockedUntilBefore(LocalDateTime now);
 }
