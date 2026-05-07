@@ -168,12 +168,12 @@ public class SystemServiceImpl implements SystemService {
             throw new RuntimeException("Thiếu cấu hình giá nền cho một hoặc nhiều gói (trial/standard/enterprise).");
         }
 
-        if (trialBasePrice.compareTo(standardBasePrice) > 0 || standardBasePrice.compareTo(enterpriseBasePrice) > 0) {
-            throw new RuntimeException("Giá nền gói dịch vụ phải tăng dần: Trial <= Standard <= Enterprise.");
+        if (standardBasePrice.compareTo(enterpriseBasePrice) > 0) {
+            throw new RuntimeException("Giá nền gói dịch vụ phải tăng dần: Standard <= Enterprise.");
         }
 
         Map<String, Object> basePrices = new HashMap<>();
-        basePrices.put("trial", business.getSubscriptionPricing().getBasePrices().getTrial());
+        basePrices.put("trial", BigDecimal.ZERO);
         basePrices.put("standard", business.getSubscriptionPricing().getBasePrices().getStandard());
         basePrices.put("enterprise", business.getSubscriptionPricing().getBasePrices().getEnterprise());
 
