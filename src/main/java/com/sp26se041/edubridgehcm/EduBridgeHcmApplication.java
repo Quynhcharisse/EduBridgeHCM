@@ -19,6 +19,7 @@ import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
 import com.sp26se041.edubridgehcm.repositories.TemplateDocxRepo;
 import com.sp26se041.edubridgehcm.requests.CreatePersonalityTypeRequest;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
@@ -32,6 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TimeZone;
 import java.util.UUID;
 
 @SpringBootApplication
@@ -56,6 +58,12 @@ public class EduBridgeHcmApplication {
     public static void main(String[] args) {
         SpringApplication.run(EduBridgeHcmApplication.class, args);
     }
+
+    @PostConstruct
+    void init() {
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
+    }
+
 
     @Bean
     public CommandLineRunner initData() {

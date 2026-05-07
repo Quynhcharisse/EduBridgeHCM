@@ -1,7 +1,6 @@
 package com.sp26se041.edubridgehcm.models;
 
 import com.sp26se041.edubridgehcm.enums.FeeUnit;
-import com.sp26se041.edubridgehcm.enums.LanguageInstruction;
 import com.sp26se041.edubridgehcm.enums.Status;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;

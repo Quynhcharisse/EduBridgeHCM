@@ -1,7 +1,6 @@
 package com.sp26se041.edubridgehcm.validations.school;
 
 import com.sp26se041.edubridgehcm.enums.FeeUnit;
-import com.sp26se041.edubridgehcm.enums.LanguageInstruction;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.Curriculum;
@@ -55,11 +54,6 @@ public class ProgramValidation {
 
         if (request.getLanguageOfInstructionList() == null || request.getLanguageOfInstructionList().isEmpty()) {
             return "Yêu cầu ít nhất một ngôn ngữ giảng dạy.";
-        }
-        for (String lang : request.getLanguageOfInstructionList()) {
-            if (!isValidLanguageOfInstruction(lang)) {
-                return "Ngôn ngữ không hợp lệ: " + lang + ". Phải là một trong: " + Arrays.toString(LanguageInstruction.values());
-            }
         }
 
         if (request.getBaseTuitionFee() == null) return "Học phí không được để trống";
@@ -169,16 +163,6 @@ public class ProgramValidation {
         }
 
         return null;
-    }
-
-    private static boolean isValidLanguageOfInstruction(String languageOfInstruction) {
-        if (languageOfInstruction == null) return false;
-        for (LanguageInstruction language : LanguageInstruction.values()) {
-            if (language.name().equalsIgnoreCase(languageOfInstruction)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static boolean isValidFeeUnit(String feeUnit) {

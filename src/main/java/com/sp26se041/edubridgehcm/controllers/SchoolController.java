@@ -153,6 +153,11 @@ public class SchoolController {
         return schoolService.viewProgramList(page, pageSize);
     }
 
+    @GetMapping("/public/language-options")
+    public ResponseEntity<ResponseObject> getLanguageSubject() {
+        return schoolService.getLanguageSubject();
+    }
+
     @PostMapping("/program")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> upsertProgram(@RequestBody ProgramRequest request) {

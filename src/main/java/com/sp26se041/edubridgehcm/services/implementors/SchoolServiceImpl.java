@@ -16,7 +16,6 @@ import com.sp26se041.edubridgehcm.enums.BoardingType;
 import com.sp26se041.edubridgehcm.enums.CategoryTemplate;
 import com.sp26se041.edubridgehcm.enums.CurriculumType;
 import com.sp26se041.edubridgehcm.enums.FeeUnit;
-import com.sp26se041.edubridgehcm.enums.LanguageInstruction;
 import com.sp26se041.edubridgehcm.enums.LearningMethod;
 import com.sp26se041.edubridgehcm.enums.NotificationEventType;
 import com.sp26se041.edubridgehcm.enums.PackageType;
@@ -862,18 +861,20 @@ public class SchoolServiceImpl implements SchoolService {
             admissionCampaignRepo.save(admissionCampaign);
         }
 
-        // Chiến dịch hết hạn: campaign = EXPIRED; mọi offering lifecycle = OFFERING_INACTIVE
-        List<CampusProgramOffering> offerings = campusProgramOfferingRepo.findByAdmissionCampaignId(admissionCampaign.getId());
-        if (offerings != null && !offerings.isEmpty()) {
-            for (CampusProgramOffering offering : offerings) {
-                if (offering.getApplicationStatus() == Status.OPEN
-                        || offering.getApplicationStatus() == Status.PAUSED
-                        || offering.getApplicationStatus() == Status.UPCOMING_OFFERING) {
-                    offering.setApplicationStatus(Status.CLOSED);
+        // Chỉ đóng offering khi campaign đã EXPIRED
+        if (admissionCampaign.getStatus().equals(Status.EXPIRED)) {
+            List<CampusProgramOffering> offerings = campusProgramOfferingRepo.findByAdmissionCampaignId(admissionCampaign.getId());
+            if (offerings != null && !offerings.isEmpty()) {
+                for (CampusProgramOffering offering : offerings) {
+                    if (offering.getApplicationStatus() == Status.OPEN
+                            || offering.getApplicationStatus() == Status.PAUSED
+                            || offering.getApplicationStatus() == Status.UPCOMING_OFFERING) {
+                        offering.setApplicationStatus(Status.CLOSED);
+                    }
+                    offering.setStatus(Status.OFFERING_INACTIVE);
                 }
-                offering.setStatus(Status.OFFERING_INACTIVE);
+                campusProgramOfferingRepo.saveAll(offerings);
             }
-            campusProgramOfferingRepo.saveAll(offerings);
         }
         return admissionCampaign.getStatus();
     }
@@ -1359,7 +1360,22 @@ public class SchoolServiceImpl implements SchoolService {
 
         program.setCurriculum(curriculum);
         program.setName(normalize(request.getName()));
-        program.setLanguageOfInstructionList(request.getLanguageOfInstructionList().stream().map(LanguageInstruction::valueOf).collect(Collectors.toList()));
+        if (request.getLanguageOfInstructionList() != null && !request.getLanguageOfInstructionList().isEmpty()) {
+            List<Subject> langSubjects = subjectRepo.findAllByTypeIn(List.of(SubjectType.FOREIGN_LANGUAGE_SUBJECT));
+            List<Long> validIds = langSubjects.stream().map(Subject::getId).toList();
+            List<Long> requestIds = request.getLanguageOfInstructionList().stream().map(Long::valueOf).toList();
+            List<Long> invalidIds = requestIds.stream().filter(id -> !validIds.contains(id)).toList();
+            if (!invalidIds.isEmpty()) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Môn ngoại ngữ không hợp lệ: " + invalidIds, null);
+            }
+            List<Map<String, Object>> langData = langSubjects.stream()
+                    .filter(s -> requestIds.contains(s.getId()))
+                    .map(s -> Map.<String, Object>of("id", s.getId(), "name", s.getName()))
+                    .toList();
+            program.setLanguageOfInstructionList(langData);
+        } else {
+            program.setLanguageOfInstructionList(Collections.emptyList());
+        }
         program.setGraduationStandard(normalize(request.getGraduationStandard()));
         program.setTargetStudentDescription(normalize(request.getTargetStudentDescription()));
 
@@ -1438,6 +1454,15 @@ public class SchoolServiceImpl implements SchoolService {
             return "true".equalsIgnoreCase(mandatoryCell.getStringCellValue().trim());
         }
         return false;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getLanguageSubject() {
+        List<Subject> languages = subjectRepo.findAllByTypeIn(List.of(SubjectType.FOREIGN_LANGUAGE_SUBJECT));
+        List<Map<String, Object>> result = languages.stream()
+                .map(s -> Map.<String, Object>of("id", s.getId(), "name", s.getName()))
+                .toList();
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách ngôn ngữ giảng dạy thành công.", result);
     }
 
     @Override
@@ -2122,34 +2147,6 @@ public class SchoolServiceImpl implements SchoolService {
             data.put("isActive", program.getStatus());
             return data;
         }).toList();
-    }
-
-
-    private Status resolveEffectiveOperationalStatus(CampusProgramOffering offering) {
-        Status current = offering.getApplicationStatus();
-
-        if (current == Status.PAUSED || current == Status.CLOSED || current == Status.FULL) {
-            return current;
-        }
-
-        int activeReservationCount = admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIn(
-                offering.getId(), Status.activeReservationStatuses())
-                + admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIsNull(offering.getId());
-
-        if (activeReservationCount >= offering.getQuota() || offering.getRemainingQuota() <= 0) {
-            return Status.FULL;
-        }
-
-        LocalDate today = LocalDate.now();
-
-        if (today.isBefore(offering.getOpenDate())) {
-            return Status.UPCOMING_OFFERING;
-        }
-
-        if (today.isAfter(offering.getCloseDate())) {
-            return Status.CLOSED;
-        }
-        return Status.OPEN;
     }
 
     @Override

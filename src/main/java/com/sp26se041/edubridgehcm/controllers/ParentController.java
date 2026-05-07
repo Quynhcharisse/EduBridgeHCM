@@ -131,8 +131,6 @@ public class ParentController {
         return parentService.getFavouriteSchools(page, pageSize);
     }
 
-
-
     //Personality Type, Subject
     @GetMapping("/personality/type")
     @PreAuthorize("hasRole('PARENT')")
