@@ -1498,12 +1498,6 @@ public class SchoolServiceImpl implements SchoolService {
         Program newProgram = new Program();
         newProgram.setName(oldProgram.getName() + " - Bản sao (" + LocalDateTime.now().getYear() + ")");
         newProgram.setCurriculum(oldProgram.getCurriculum());
-        //copy danh sách môn học bổ sung
-        if (oldProgram.getExtraSubjectsJsonb() != null) {
-            // Ép kiểu về List và bọc trong new ArrayList để tách biệt vùng nhớ
-            List<?> oldExtraList = (List<?>) oldProgram.getExtraSubjectsJsonb();
-            newProgram.setExtraSubjectsJsonb(new ArrayList<>(oldExtraList));
-        }
 
         //copy danh sách ngôn ngữ giảng dạy
         if (oldProgram.getLanguageOfInstructionList() != null) {
