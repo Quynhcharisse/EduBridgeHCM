@@ -8,8 +8,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
-import java.time.LocalDate;
-
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -29,8 +27,4 @@ public class UpdateCampusProgramOfferingRequest {
     LearningMode learningMode;
 
     Float priceAdjustmentPercentage;
-
-    LocalDate openDate;
-
-    LocalDate closeDate;
 }
