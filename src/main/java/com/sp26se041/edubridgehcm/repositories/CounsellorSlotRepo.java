@@ -50,9 +50,7 @@ public interface CounsellorSlotRepo extends JpaRepository<CounsellorSlot, Intege
             List<Status> statuses
     );
 
-    List<CounsellorSlot> findByCounsellorIdAndStartDateLessThanEqualAndEndDateGreaterThanEqual(Integer counsellorId, LocalDate startDateIsLessThan, LocalDate endDateIsGreaterThan);
-
-    boolean existsByCampusScheduleTemplate(CampusScheduleTemplate campusScheduleTemplate);
-
     List<CounsellorSlot> findByCampusScheduleTemplateInAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatus(Collection<CampusScheduleTemplate> campusScheduleTemplates, LocalDate startDateIsLessThan, LocalDate endDateIsGreaterThan, Status status);
+
+    List<CounsellorSlot> findByCounsellorIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatus(Integer counsellorId, LocalDate startDateIsLessThan, LocalDate endDateIsGreaterThan, Status status);
 }
