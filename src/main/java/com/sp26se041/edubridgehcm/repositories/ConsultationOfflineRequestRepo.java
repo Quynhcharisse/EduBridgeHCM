@@ -16,9 +16,9 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface ConsultationOfflineRequestRepo extends JpaRepository<ConsultationOfflineRequest, Long> {
-    int countByAppointmentDateAndAppointmentTimeAndCampus(LocalDate appointmentDate, LocalTime appointmentTime, Campus campus);
 
     boolean existsByParentAndCampusAndAppointmentDateAndStatusIn(Parent parent, Campus campus, LocalDate appointmentDate, Collection<Status> statuses);
 
