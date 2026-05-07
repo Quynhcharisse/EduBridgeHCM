@@ -1571,6 +1571,10 @@ public class CampusServiceImpl implements CampusService {
 
         List<SchoolHoliday> holidayList = mergeSchoolHolidaysForCampus(actorCampus.getSchool().getId(), actorCampus.getId());
 
+        if (isAssign && holidayList.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Chưa có ngày nghỉ lễ nào được cấu hình. Vui lòng thiết lập lịch nghỉ trước khi gán tư vấn viên.", null);
+        }
 
         try {
             for (Integer tid : templateIdList) {
