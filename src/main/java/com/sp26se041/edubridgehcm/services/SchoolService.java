@@ -86,4 +86,5 @@ public interface SchoolService {
 
     ResponseEntity<byte[]> exportPaymentReceipt(String txnRef);
 
+    ResponseEntity<ResponseObject> getLanguageSubject();
 }
