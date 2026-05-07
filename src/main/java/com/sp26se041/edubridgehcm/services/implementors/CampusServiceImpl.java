@@ -20,11 +20,13 @@ import com.sp26se041.edubridgehcm.models.ConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.models.Conversation;
 import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.CounsellorSlot;
+import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.SchoolHoliday;
 import com.sp26se041.edubridgehcm.models.SchoolSubscription;
+import com.sp26se041.edubridgehcm.models.StudentProfile;
 import com.sp26se041.edubridgehcm.models.TemplateDocx;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
@@ -2873,5 +2875,77 @@ public class CampusServiceImpl implements CampusService {
         admissionReservationFormRepo.save(form);
 
         return ResponseBuilder.build(HttpStatus.OK, successMessage, null);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getAdmissionReservationForms(String status) {
+
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
+        }
+
+        List<AdmissionReservationForm> forms;
+
+        if (status != null && !status.isBlank()) {
+            Status filterStatus;
+            try {
+                filterStatus = Status.valueOf(status);
+            } catch (IllegalArgumentException e) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Trạng thái không hợp lệ. Các trạng thái hợp lệ: RESERVATION_PENDING, RESERVATION_APPROVAL, RESERVATION_REJECTED, RESERVATION_CANCELLED.", null);
+            }
+            forms = admissionReservationFormRepo.findByCampusProgramOffering_CampusAndStatus(actorCampus, filterStatus);
+        } else {
+            forms = admissionReservationFormRepo.findByCampusProgramOffering_Campus(actorCampus);
+        }
+
+        List<Map<String, Object>> result = buildAdmissionReservationForms(forms);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách đơn thành công.", result);
+    }
+    private List<Map<String, Object>> buildAdmissionReservationForms(List<AdmissionReservationForm> admissionReservationForms) {
+        return admissionReservationForms.stream()
+                .map(this::buildAdmissionReservationForm)
+                .toList();
+    }
+
+    private Map<String, Object> buildAdmissionReservationForm(AdmissionReservationForm form) {
+        Map<String, Object> map = new HashMap<>();
+
+        map.put("id", form.getId());
+        map.put("status", form.getStatus());
+        map.put("methodName", form.getMethodName());
+        map.put("profileMetadata", form.getProfileMetadata());
+        map.put("createdTime", form.getCreatedTime());
+        map.put("updatedTime", form.getUpdatedTime());
+        map.put("cancelReason", form.getCancelReason());
+        map.put("rejectReason", form.getRejectReason());
+        map.put("verifiedBy", form.getVerifiedBy());
+
+        // CampusProgramOffering info
+        CampusProgramOffering offering = form.getCampusProgramOffering();
+        map.put("campusProgramOfferingId", offering.getId());
+        map.put("admissionMethodCode", offering.getAdmissionMethod());
+        map.put("programName", offering.getProgram().getName());
+        map.put("campusName", offering.getCampus().getName());
+        map.put("schoolName", offering.getCampus().getSchool().getName());
+
+
+        // StudentProfile info
+        StudentProfile student = form.getStudentProfile();
+        map.put("studentProfileId", student.getId());
+        map.put("studentName", student.getStudentName());
+        map.put("gender", student.getGender());
+
+        Parent parent = student.getParent();
+        map.put("parentProfileId", parent.getId());
+        map.put("parentName", parent.getName());
+        map.put("parentPhone", parent.getPhone());
+        map.put("parentEmail", parent.getAccount().getEmail());
+        map.put("identityCard", parent.getIdCardNumber());
+        map.put("address", parent.getCurrentAddress());
+
+        return map;
     }
 }

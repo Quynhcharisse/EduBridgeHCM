@@ -68,4 +68,7 @@ public interface CampusService {
     ResponseEntity<ResponseObject> chatWithChatbotForSchool(ChatMessageForChatBot messageForChatBot);
 
     ResponseEntity<ResponseObject> processApplicant(ProcessApplicantRequest request);
+
+    ResponseEntity<ResponseObject> getAdmissionReservationForms(String status);
+
 }
