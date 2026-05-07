@@ -1359,6 +1359,7 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         program.setCurriculum(curriculum);
+
         program.setName(normalize(request.getName()));
 
         if (request.getLanguageOfInstructionList() != null && !request.getLanguageOfInstructionList().isEmpty()) {
@@ -1382,14 +1383,21 @@ public class SchoolServiceImpl implements SchoolService {
                     })
                     .collect(Collectors.toList());
         }
-        program.setExtraSubjectsJsonb(extraSubjects);
 
+        program.setExtraSubjectsJsonb(extraSubjects);
         program.setBaseTuitionFee(request.getBaseTuitionFee());
         program.setFeeUnit(FeeUnit.valueOf(request.getFeeUnit()));
-        program.setStatus(Status.PRO_DRAFT);
+        if (isNew) {
+            program.setStatus(Status.PRO_DRAFT);
+        }
 
         try {
-            programRepo.save(program);
+            Program saved = programRepo.save(program);
+            return ResponseBuilder.build(
+                    isNew ? HttpStatus.CREATED : HttpStatus.OK,
+                    isNew ? "Tạo chương trình thành công" : "Cập nhật chương trình thành công",
+                    buildProgramData(saved)
+            );
         } catch (DataIntegrityViolationException e) {
             return ResponseBuilder.build(
                     HttpStatus.CONFLICT,
@@ -1397,12 +1405,6 @@ public class SchoolServiceImpl implements SchoolService {
                     null
             );
         }
-
-        return ResponseBuilder.build(
-                isNew ? HttpStatus.CREATED : HttpStatus.OK,
-                isNew ? "Tạo chương trình thành công" : "Cập nhật chương trình thành công",
-                null
-        );
     }
 
     @Override
@@ -1485,6 +1487,14 @@ public class SchoolServiceImpl implements SchoolService {
             );
         }
 
+        if (!oldProgram.getCurriculum().getSchool().getId().equals(actorCampus.getSchool().getId())) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Không có quyền thực hiện thao tác trên chương trình này", null);
+        }
+
+        if (!Status.PRO_ACTIVE.equals(oldProgram.getStatus())) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ chương trình đang hoạt động mới được phép nhân bản", null);
+        }
+        
         Program newProgram = new Program();
         newProgram.setName(oldProgram.getName() + " - Bản sao (" + LocalDateTime.now().getYear() + ")");
         newProgram.setCurriculum(oldProgram.getCurriculum());
@@ -1503,7 +1513,6 @@ public class SchoolServiceImpl implements SchoolService {
 
         newProgram.setGraduationStandard(oldProgram.getGraduationStandard());
         newProgram.setTargetStudentDescription(oldProgram.getTargetStudentDescription());
-        newProgram.setExtraSubjectsJsonb(oldProgram.getExtraSubjectsJsonb());
         newProgram.setBaseTuitionFee(oldProgram.getBaseTuitionFee());
         newProgram.setFeeUnit(oldProgram.getFeeUnit());
         newProgram.setStatus(Status.PRO_DRAFT);
