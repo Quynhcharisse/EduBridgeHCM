@@ -862,18 +862,20 @@ public class SchoolServiceImpl implements SchoolService {
             admissionCampaignRepo.save(admissionCampaign);
         }
 
-        // Chiến dịch hết hạn: campaign = EXPIRED; mọi offering lifecycle = OFFERING_INACTIVE
-        List<CampusProgramOffering> offerings = campusProgramOfferingRepo.findByAdmissionCampaignId(admissionCampaign.getId());
-        if (offerings != null && !offerings.isEmpty()) {
-            for (CampusProgramOffering offering : offerings) {
-                if (offering.getApplicationStatus() == Status.OPEN
-                        || offering.getApplicationStatus() == Status.PAUSED
-                        || offering.getApplicationStatus() == Status.UPCOMING_OFFERING) {
-                    offering.setApplicationStatus(Status.CLOSED);
+        // Chỉ đóng offering khi campaign đã EXPIRED
+        if (admissionCampaign.getStatus().equals(Status.EXPIRED)) {
+            List<CampusProgramOffering> offerings = campusProgramOfferingRepo.findByAdmissionCampaignId(admissionCampaign.getId());
+            if (offerings != null && !offerings.isEmpty()) {
+                for (CampusProgramOffering offering : offerings) {
+                    if (offering.getApplicationStatus() == Status.OPEN
+                            || offering.getApplicationStatus() == Status.PAUSED
+                            || offering.getApplicationStatus() == Status.UPCOMING_OFFERING) {
+                        offering.setApplicationStatus(Status.CLOSED);
+                    }
+                    offering.setStatus(Status.OFFERING_INACTIVE);
                 }
-                offering.setStatus(Status.OFFERING_INACTIVE);
+                campusProgramOfferingRepo.saveAll(offerings);
             }
-            campusProgramOfferingRepo.saveAll(offerings);
         }
         return admissionCampaign.getStatus();
     }
