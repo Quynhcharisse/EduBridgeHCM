@@ -213,7 +213,7 @@ public class ParentController {
     }
 
     @GetMapping("/admission/reservation/form")
-    @PreAuthorize("hasAnyRole('PARENT')")
+    @PreAuthorize("hasAnyRole('PARENT', 'SCHOOL')")
     public ResponseEntity<ResponseObject> getAdmissionReservationForm(@RequestParam (required = false) String status) {
         return parentService.getAdmissionReservationForms(status);
     }
