@@ -19,9 +19,9 @@ public class CreateAdmissionReservationFormRequest {
 
     List<SubmissionDocument> submissionDocuments;
 
-    String methodCode;
-
     int campusProgramOfferingId;
+
+    int studentProfileId;
 
     @Data
     @NoArgsConstructor

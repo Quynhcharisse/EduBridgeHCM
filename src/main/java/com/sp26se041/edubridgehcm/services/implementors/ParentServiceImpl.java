@@ -8,7 +8,9 @@ import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.enums.SubjectType;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
+import com.sp26se041.edubridgehcm.models.AdmissionReservationForm;
 import com.sp26se041.edubridgehcm.models.Campus;
+import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
 import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
 import com.sp26se041.edubridgehcm.models.ChatMessage;
 import com.sp26se041.edubridgehcm.models.ConsultationOfflineRequest;
@@ -24,6 +26,7 @@ import com.sp26se041.edubridgehcm.models.StudentProfile;
 import com.sp26se041.edubridgehcm.models.Subject;
 import com.sp26se041.edubridgehcm.repositories.AccountRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
+import com.sp26se041.edubridgehcm.repositories.AdmissionReservationFormRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusRepo;
 import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
@@ -31,6 +34,7 @@ import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
 import com.sp26se041.edubridgehcm.repositories.ConsultationOfflineRequestRepo;
 import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
+import com.sp26se041.edubridgehcm.repositories.CounsellorSlotRepo;
 import com.sp26se041.edubridgehcm.repositories.FavouriteSchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.MajorRepo;
 import com.sp26se041.edubridgehcm.repositories.ParentRepo;
@@ -42,6 +46,7 @@ import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
 import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
 import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
 import com.sp26se041.edubridgehcm.requests.AutoFillTranscriptRequest;
+import com.sp26se041.edubridgehcm.requests.CreateAdmissionReservationFormRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
@@ -88,6 +93,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_CANCELLED;
 import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_COMPLETED;
@@ -124,6 +130,8 @@ public class ParentServiceImpl implements ParentService {
 
     private final CounsellorRepo counsellorRepo;
 
+    private final CounsellorSlotRepo counsellorSlotRepo;
+
     private final NotificationService notificationService;
 
     private final RestTemplate restTemplate = new RestTemplate();
@@ -135,6 +143,9 @@ public class ParentServiceImpl implements ParentService {
     private final AdmissionCampaignRepo admissionCampaignRepo;
 
     private final SchoolConfigRepo schoolConfigRepo;
+
+    private final CampusProgramOfferingRepo campusProgramOfferingRepo;
+    private final AdmissionReservationFormRepo admissionReservationFormRepo;
 
     @Override
     public ResponseEntity<ResponseObject> getConversations(Long cursorId) {
@@ -1895,18 +1906,287 @@ public class ParentServiceImpl implements ParentService {
         );
     }
 
-//    @Override
-//    public ResponseEntity<ResponseObject> createAdmissionReservationForm(CreateAdmissionReservationFormRequest request) {
-//
-//        Optional<CampusProgramOffering> campusProgramOffering = campusProgramOfferingRepo.findById(request.getCampusProgramOfferingId());
-//
-//        if (campusProgramOffering.isEmpty()) {
-//            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy chương trình tuyển sinh", null);
-//        }
-//
-//
-//
-//    }
+    @Override
+    public ResponseEntity<ResponseObject> createAdmissionReservationForm(CreateAdmissionReservationFormRequest request) {
+
+        Optional<StudentProfile> studentProfile = studentInfoRepo.findById(request.getStudentProfileId());
+
+        if (studentProfile.isEmpty()){
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy hồ sơ học sinh, vui lòng kiểm tra lại.", null);
+        }
+
+
+        if (request.getSubmissionDocuments() == null || request.getSubmissionDocuments().isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Vui lòng cung cấp hồ sơ tài liệu trước khi nộp.", null);
+        }
+
+        Optional<CampusProgramOffering> campusProgramOffering = campusProgramOfferingRepo.findById(request.getCampusProgramOfferingId());
+
+        if (campusProgramOffering.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy gói chương trình tuyển sinh", null);
+        }
+
+        if (campusProgramOffering.get().getStatus().equals(Status.OFFERING_INACTIVE)){
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Gói tuyển sinh đã ngừng hoạt động, không thể nộp hồ sơ.", null);
+        }
+
+        if (campusProgramOffering.get().getApplicationStatus().equals(Status.UPCOMING_OFFERING)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Thời gian nộp đơn gói chương trình tuyển sinh chưa mở, vui lòng quay lại sau.", null);
+        }
+
+        if (campusProgramOffering.get().getApplicationStatus().equals(Status.CLOSED)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Thời hạn nộp đơn gói chương trình tuyển sinh đã kết thúc, không thể nộp hồ sơ.", null);
+        }
+
+        boolean alreadyPending = admissionReservationFormRepo.existsByCampusProgramOfferingAndStudentProfileAndStatus(
+                campusProgramOffering.get(),
+                studentProfile.get(),
+                Status.RESERVATION_PENDING
+        );
+
+        if (alreadyPending) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Bạn đã có hồ sơ bảo lưu đang chờ xét duyệt, vui lòng chờ nhà trường phản hồi trước khi nộp lại.", null);
+        }
+
+        List<Map<String, Object>> admissionMethodTimelines = (List<Map<String, Object>>) campusProgramOffering.get().getAdmissionCampaign().getAdmissionMethodTimelines();
+
+        Map<String, Object> matchedMethod = admissionMethodTimelines.stream()
+                .filter(method -> Objects.equals(method.get("methodCode"), campusProgramOffering.get().getAdmissionMethod()))
+                .findFirst().orElse(null);
+
+        if (matchedMethod == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy phương thức tuyên sinh với method code " + campusProgramOffering.get().getAdmissionMethod() + " trong chiến dịch tuyển sinh", null);
+        }
+
+        boolean allowReservationSubmission = (boolean) matchedMethod.get("allowReservationSubmission");
+
+        if (!allowReservationSubmission) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Phương thức tuyển sinh này hiện không hỗ trợ nộp hồ sơ bảo lưu. Vui lòng chọn phương thức khác.", null);
+        }
+
+        int remainingQuota = campusProgramOffering.get().getRemainingQuota();
+
+        if (remainingQuota <= 0) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Phương thức tuyển sinh này đã đủ chỉ tiêu, không thể nộp thêm hồ sơ bảo lưu.", null);
+        }
+
+        Optional<SchoolConfig> documentRequirementsData = schoolConfigRepo.findBySchoolIdAndKey(
+                campusProgramOffering.get().getCampus().getSchool().getId(),
+                "documentRequirementsData"
+        );
+
+        if (documentRequirementsData.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Trường chưa cấu hình danh sách hồ sơ yêu cầu, vui lòng liên hệ nhà trường để được hỗ trợ.", null);
+        }
+
+        Map<String, Object> docConfig = (Map<String, Object>) documentRequirementsData.get().getValue();
+
+        List<Map<String, Object>> mandatoryAll = (List<Map<String, Object>>) docConfig.get("mandatoryAll");
+
+        List<Map<String, Object>> byMethod = (List<Map<String, Object>>) docConfig.get("byMethod");
+
+        List<Map<String, Object>> methodDocs = byMethod.stream()
+                .filter(m -> Objects.equals(m.get("methodCode"), campusProgramOffering.get().getAdmissionMethod()))
+                .map(m -> (List<Map<String, Object>>) m.get("documents"))
+                .findFirst()
+                .orElse(List.of());
+
+        List<String> requiredCodes = Stream.concat(mandatoryAll.stream(), methodDocs.stream())
+                .filter(doc -> Boolean.TRUE.equals(doc.get("required")))
+                .map(doc -> (String) doc.get("code"))
+                .toList();
+
+        List<String> submittedCodes = request.getSubmissionDocuments().stream()
+                .map(doc ->  doc.getKey())
+                .toList();
+
+        // Kiểm tra thiếu document nào
+        List<String> missingCodes = requiredCodes.stream()
+                .filter(code -> !submittedCodes.contains(code))
+                .toList();
+
+        if (!missingCodes.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Hồ sơ còn thiếu các giấy tờ bắt buộc: " + String.join(", ", missingCodes), null);
+        }
+
+        // Chỉ check imageUrl với các document required
+        List<String> emptyImageDocs = request.getSubmissionDocuments().stream()
+                .filter(doc -> requiredCodes.contains(doc.getKey()))
+                .filter(doc -> doc.getImageUrl() == null || doc.getImageUrl().isEmpty())
+                .map(CreateAdmissionReservationFormRequest.SubmissionDocument::getKey)
+                .toList();
+
+        if (!emptyImageDocs.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Các giấy tờ bắt buộc sau chưa có hình ảnh đính kèm: " + String.join(", ", emptyImageDocs), null);
+        }
+
+        List<Map<String, Object>> profileMetaData = request.getSubmissionDocuments().stream()
+                .map(doc -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("key", doc.getKey());
+                    map.put("imageUrl", doc.getImageUrl());
+                    return map;
+                })
+                .toList();
+
+        admissionReservationFormRepo.save(
+                AdmissionReservationForm.builder()
+                        .createdTime(LocalDateTime.now())
+                        .status(Status.RESERVATION_PENDING)
+                        .studentProfile(studentProfile.get())
+                        .campusProgramOffering(campusProgramOffering.get())
+                        .methodName(campusProgramOffering.get().getAdmissionMethod())
+                        .profileMetadata(profileMetaData)
+                        .updatedTime(LocalDateTime.now())
+                        .build()
+        );
+
+        return ResponseBuilder.build(HttpStatus.OK, "Nộp hồ sơ giữ chỗ thành công, vui lòng chờ nhà trường xét duyệt.", null);
+
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getDocumentRequirements(int campusProgramOfferingId) {
+
+        Optional<CampusProgramOffering> campusProgramOffering = campusProgramOfferingRepo.findById(campusProgramOfferingId);
+
+        if (campusProgramOffering.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy gói chương trình tuyển sinh", null);
+        }
+
+        if (campusProgramOffering.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy gói tuyển sinh", null);
+        }
+
+        if (campusProgramOffering.get().getStatus().equals(Status.OFFERING_INACTIVE)){
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Gói tuyển sinh đã ngừng hoạt động, không thể nộp hồ sơ.", null);
+        }
+
+        if (campusProgramOffering.get().getApplicationStatus().equals(Status.UPCOMING_OFFERING)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Thời gian nộp đơn gói chương trình tuyển sinh chưa mở, vui lòng quay lại sau.", null);
+        }
+
+        if (campusProgramOffering.get().getApplicationStatus().equals(Status.CLOSED)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Thời hạn nộp đơn gói chương trình tuyển sinh đã kết thúc, không thể nộp hồ sơ.", null);
+        }
+
+
+        Optional<SchoolConfig> documentRequirementsData = schoolConfigRepo.findBySchoolIdAndKey(
+                campusProgramOffering.get().getCampus().getSchool().getId(),
+                "documentRequirementsData"
+        );
+
+        if (documentRequirementsData.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Trường chưa cấu hình danh sách hồ sơ yêu cầu.", null);
+        }
+
+        Map<String, Object> docConfig = (Map<String, Object>) documentRequirementsData.get().getValue();
+
+        List<Map<String, Object>> mandatoryAll = (List<Map<String, Object>>) docConfig.get("mandatoryAll");
+
+        List<Map<String, Object>> byMethod = (List<Map<String, Object>>) docConfig.get("byMethod");
+
+        List<Map<String, Object>> methodDocs = byMethod.stream()
+                .filter(m -> Objects.equals(m.get("methodCode"), campusProgramOffering.get().getAdmissionMethod()))
+                .map(m -> (List<Map<String, Object>>) m.get("documents"))
+                .findFirst()
+                .orElse(List.of());
+
+        List<Map<String, Object>> allDocs = Stream.concat(mandatoryAll.stream(), methodDocs.stream()).toList();
+
+        List<Map<String, Object>> requiredDocs = allDocs.stream()
+                .filter(doc -> Boolean.TRUE.equals(doc.get("required")))
+                .toList();
+
+        List<Map<String, Object>> optionalDocs = allDocs.stream()
+                .filter(doc -> !Boolean.TRUE.equals(doc.get("required")))
+                .toList();
+
+        Map<String, Object> result = Map.of(
+                "required", requiredDocs,
+                "optional", optionalDocs
+        );
+
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách tài liệu thành công.", result);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getAdmissionReservationForms(String status) {
+        // Lấy parent đang đăng nhập
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        Optional<Account> account = accountRepo.findByEmail(email);
+        if (account.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "Không tìm thấy tài khoản.", null);
+        }
+
+        List<AdmissionReservationForm> forms;
+
+        if (status != null && !status.isBlank()) {
+            Status filterStatus;
+            try {
+                filterStatus = Status.valueOf(status);
+            } catch (IllegalArgumentException e) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Trạng thái không hợp lệ. Các trạng thái hợp lệ: RESERVATION_PENDING, RESERVATION_APPROVAL, RESERVATION_REJECTED, RESERVATION_CANCELLED.", null);
+            }
+            forms = admissionReservationFormRepo.findByStudentProfile_Parent_Account_IdAndStatus(account.get().getId(), filterStatus);
+        } else {
+            forms = admissionReservationFormRepo.findByStudentProfile_Parent_Account_Id(account.get().getId());
+        }
+
+        List<Map<String, Object>> result = buildAdmissionReservationForms(forms);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách đơn thành công.", result);
+    }
+
+    private List<Map<String, Object>> buildAdmissionReservationForms(List<AdmissionReservationForm> admissionReservationForms) {
+        return admissionReservationForms.stream()
+                .map(this::buildAdmissionReservationForm)
+                .toList();
+    }
+
+    private Map<String, Object> buildAdmissionReservationForm(AdmissionReservationForm form) {
+        Map<String, Object> map = new HashMap<>();
+
+        map.put("id", form.getId());
+        map.put("status", form.getStatus());
+        map.put("methodName", form.getMethodName());
+        map.put("profileMetadata", form.getProfileMetadata());
+        map.put("createdTime", form.getCreatedTime());
+        map.put("updatedTime", form.getUpdatedTime());
+        map.put("cancelReason", form.getCancelReason());
+        map.put("rejectReason", form.getRejectReason());
+        map.put("verifiedBy", form.getVerifiedBy());
+
+        // CampusProgramOffering info
+        CampusProgramOffering offering = form.getCampusProgramOffering();
+        map.put("campusProgramOfferingId", offering.getId());
+        map.put("admissionMethodCode", offering.getAdmissionMethod());
+        map.put("programName", offering.getProgram().getName());
+        map.put("campusName", offering.getCampus().getName());
+        map.put("schoolName", offering.getCampus().getSchool().getName());
+
+
+        // StudentProfile info
+        StudentProfile student = form.getStudentProfile();
+        map.put("studentProfileId", student.getId());
+        map.put("studentName", student.getStudentName());
+        map.put("gender", student.getGender());
+
+        Parent parent = student.getParent();
+        map.put("parentProfileId", parent.getId());
+        map.put("parentName", parent.getName());
+        map.put("parentPhone", parent.getPhone());
+        map.put("parentEmail", parent.getAccount().getEmail());
+        map.put("identityCard", parent.getIdCardNumber());
+        map.put("address", parent.getCurrentAddress());
+
+        return map;
+    }
+
 
     private Sort buildConsultationSort(Status status) {
 
