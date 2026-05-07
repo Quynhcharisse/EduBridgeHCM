@@ -508,7 +508,6 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Gói tuyển sinh đã ngừng hoạt động, không thể cập nhật.", null);
         }
 
-        // Only allow update if status is PAUSED
         if (offering.getApplicationStatus() != Status.PAUSED) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ được cập nhật khi chương trình đang ở trạng thái tạm dừng (PAUSED).", null);
         }
@@ -557,7 +556,7 @@ public class CampusServiceImpl implements CampusService {
 
         if (request.getPriceAdjustmentPercentage() != null) {
             BigDecimal pricingBase = offering.getBaseTuitionSnapshot();
-            if (pricingBase == null || pricingBase.compareTo(BigDecimal.ZERO) <= 0) {
+            if (pricingBase.compareTo(BigDecimal.ZERO) <= 0) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
                         "Không thể cập nhật học phí vì thiếu giá gốc hợp lệ.", null);
             }
@@ -764,8 +763,10 @@ public class CampusServiceImpl implements CampusService {
     private Status resolveEffectiveOperationalStatus(CampusProgramOffering offering) {
         Status current = offering.getApplicationStatus();
 
-        if (current == Status.PAUSED) {
-            return current; // campus chủ động paused
+        if (current == Status.PAUSED
+                || current == Status.CLOSED
+                || current == Status.FULL) {
+            return current; // campus chủ động paused / closed / full
         }
 
         int activeReservationCount = admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIn(
