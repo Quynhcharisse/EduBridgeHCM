@@ -816,7 +816,7 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         int schoolId = actorCampus.getSchool().getId();
-        return buildAdmissionCampaignTemplateResponse(schoolId, year);
+        return buildAdmissionCampaignTemplateResponse(schoolId, year, false);
     }
 
     @Override
@@ -824,14 +824,16 @@ public class SchoolServiceImpl implements SchoolService {
         if (!schoolRepo.existsById(schoolId)) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy trường học", null);
         }
-        return buildAdmissionCampaignTemplateResponse(schoolId, year);
+        return buildAdmissionCampaignTemplateResponse(schoolId, year, true);
     }
 
-    private ResponseEntity<ResponseObject> buildAdmissionCampaignTemplateResponse(int schoolId, int year) {
+    private ResponseEntity<ResponseObject> buildAdmissionCampaignTemplateResponse(int schoolId, int year, boolean publicOnly) {
+
         Map<String, Object> admissionConfig = resolveAdmissionConfigForCampaignView(schoolId);
 
         Map<String, List<Map<String, Object>>> processByMethod = indexNestedListByMethodCode(
                 toListOfMaps(admissionConfig.get("admissionProcesses")), "steps");
+
         Map<String, List<Map<String, Object>>> docsByMethod = indexNestedListByMethodCode(
                 toListOfMaps(admissionConfig.get("byMethod")), "documents");
 
@@ -848,7 +850,9 @@ public class SchoolServiceImpl implements SchoolService {
 
         List<AdmissionCampaign> campaignList = admissionCampaignRepo.findBySchoolIdOrderByYearDesc(schoolId);
         List<Map<String, Object>> data = campaignList.stream()
+                .filter(c -> !publicOnly || c.getStatus() == Status.OPEN_ADMISSION_CAMPAIGN) // thêm dòng này
                 .map(campaign -> buildCampaignData(campaign, processByMethod, docsByMethod)).toList();
+
         responseBody.put("campaigns", data);
 
         return ResponseBuilder.build(HttpStatus.OK, "Hiển thị danh sách chiến dịch tuyển sinh", responseBody);
