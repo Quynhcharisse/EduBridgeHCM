@@ -2,7 +2,8 @@ package com.sp26se041.edubridgehcm.services.implementors;
 
 import com.deepoove.poi.XWPFTemplate;
 import com.deepoove.poi.config.Configure;
-import com.deepoove.poi.config.ConfigureBuilder;
+import com.deepoove.poi.policy.AbstractRenderPolicy;
+import com.deepoove.poi.render.RenderContext;
 import com.deepoove.poi.plugin.table.LoopRowTableRenderPolicy;
 import com.sp26se041.edubridgehcm.responses.StorageTreeNode;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
@@ -163,7 +164,10 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
     @Override
     public String generateDocFileFromTemplate(Map<String, Object> data, String templatePath, String folderName, String fileName) throws Exception {
 
+        System.out.println("[docgen] downloading template: " + templatePath);
         byte[] templateBytes = downloadTemplate(templatePath);
+        System.out.println("[docgen] template downloaded, size=" + templateBytes.length + " bytes");
+        System.out.println("[docgen] data keys: " + data.keySet());
 
         byte[] generatedDocx;
 
@@ -243,23 +247,17 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
 
     @Override
     public void removeFile(String folderName, String fileName) {
+        if (folderName == null || fileName == null || fileName.isBlank()) return;
         String url = supabaseUrl + "/storage/v1/object/" + bucketName + "/" + folderName + "/" + fileName;
 
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(serviceRoleKey);
         headers.set("apikey", serviceRoleKey);
 
-        HttpEntity<Void> entity = new HttpEntity<>(headers);
-
-        ResponseEntity<String> response = restTemplate.exchange(
-                url,
-                HttpMethod.DELETE,
-                entity,
-                String.class
-        );
-
-        if (!response.getStatusCode().is2xxSuccessful()) {
-            throw new RuntimeException("Delete file failed");
+        try {
+            restTemplate.exchange(url, HttpMethod.DELETE, new HttpEntity<>(headers), String.class);
+        } catch (Exception e) {
+            System.out.println("removeFile skipped (file may not exist): " + e.getMessage());
         }
     }
 
@@ -296,6 +294,8 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
 
             Configure config = Configure.builder()
                     .bind("facilityItems", new LoopRowTableRenderPolicy(true))
+                    .bind("curriculums", new LoopRowTableRenderPolicy(true))
+                    .bind("programs", new LoopRowTableRenderPolicy(true))
                     .build();
 
             XWPFTemplate template = XWPFTemplate.compile(in, config).render(data);
@@ -303,7 +303,8 @@ public class SupabaseStorageServiceImpl implements SupabaseStorageService {
             return out.toByteArray();
 
         } catch (Exception ex) {
-            throw new Exception("Failed to render DOCX template", ex);
+            ex.printStackTrace();
+            throw new Exception("Failed to render DOCX template: " + ex.getMessage(), ex);
         }
     }
 

@@ -2135,6 +2135,7 @@ public class ParentServiceImpl implements ParentService {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
         Optional<Account> account = accountRepo.findByEmail(email);
+
         if (account.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "Không tìm thấy tài khoản.", null);
         }

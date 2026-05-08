@@ -22,5 +22,8 @@ public interface SchoolConfigService {
     ResponseEntity<ResponseObject> getSchoolConfigByKey(String k);
 
     ResponseEntity<ResponseObject> getCampusConfigList();
+
+    void regenerateSchoolInfoDoc(int schoolId);
+
 }
 

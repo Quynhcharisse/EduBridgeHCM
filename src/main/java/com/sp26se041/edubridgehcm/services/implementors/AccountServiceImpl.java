@@ -28,6 +28,7 @@ import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AccountService;
 import com.sp26se041.edubridgehcm.services.JWTService;
+import com.sp26se041.edubridgehcm.services.SchoolConfigService;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.CookieUtil;
@@ -75,6 +76,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AccountServiceImpl implements AccountService {
 
+    private final SchoolConfigService schoolConfigService;
     @Value("${AI_SERVICE_N8N}")
     private String n8nUrl;
 
@@ -448,6 +450,7 @@ public class AccountServiceImpl implements AccountService {
     }
 
     private void updateCampusProfile(Campus campus, UpdateProfileRequest.CampusData campusData) {
+
         if (campus.getIsPrimaryBranch()) {
 
             School school = campus.getSchool();
@@ -455,64 +458,13 @@ public class AccountServiceImpl implements AccountService {
             school.setLogoUrl(normalize(campusData.getSchoolData().getLogoUrl()));
             school.setWebsiteUrl(normalize(campusData.getSchoolData().getWebsiteUrl()));
 
-            try {
-                supabaseStorageService.removeFile(school.getFolderPath(), school.getFileName());
-            } catch (Exception ex) {
-                System.out.println(ex.getMessage());
-            }
-
-            try {
-
-                Optional<TemplateDocx> schoolTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.SCHOOL_INFO_TEMPLATE);
-
-                if (schoolTemplateDocx.isEmpty()) {
-                    throw new Exception("Không tìm thấy mẫu tài liệu trường (docx) hoặc đã bị xóa.");
-                }
-
-                String uuid = UUID.randomUUID().toString();
-
-                Map<String, Object> fields = new LinkedHashMap<>();
-                fields.put("name", school.getName());
-                fields.put("description", school.getDescription());
-                fields.put("taxCode", school.getTaxCode());
-                fields.put("websiteUrl", school.getWebsiteUrl());
-                fields.put("representativeName", school.getRepresentativeName());
-                fields.put("foundingDate", school.getFoundingDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
-                fields.put("logoUrl", school.getLogoUrl());
-                fields.put("businessLicenseUrl", school.getBusinessLicenseUrl());
-
-                String folderName = school.getFolderPath();
-                String fileName = "school_info_" + uuid + ".docx";
-
-                String templatePath = schoolTemplateDocx.get().getFolderName() + "/" + schoolTemplateDocx.get().getFileName();
-
-                String schoolFileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
-
-                Map<String, Object> payload = new LinkedHashMap<>();
-                payload.put("type", "school_info");
-                payload.put("schoolId", school.getId());
-                payload.put("schoolName", school.getName());
-                payload.put("schoolInfoFileUrl", schoolFileUrl);
-
-                HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(MediaType.APPLICATION_JSON);
-
-                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
-
-                restTemplate.postForEntity(
-                        n8nUrl,
-                        entity,
-                        String.class
-                );
-
-                school.setFileName(fileName);
-
-            } catch (Exception ex) {
-                System.out.println(ex.getMessage());
-            }
-
             schoolRepo.save(school);
 
+            try {
+                schoolConfigService.regenerateSchoolInfoDoc(campus.getSchool().getId());
+            } catch (Exception ex) {
+                System.out.println(ex.getMessage());
+            }
             campus.setAddress(normalize(campusData.getAddress()));
             campus.setCity(normalize(campusData.getCity()));
             campus.setDistrict(normalize(campusData.getDistrict()));
