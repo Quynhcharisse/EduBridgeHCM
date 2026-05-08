@@ -278,6 +278,24 @@ public class CampusServiceImpl implements CampusService {
                             usedQuota, requestedQuota, allocatedQuota), null);
         }
 
+        // Validate quota theo từng phương thức tuyển sinh (không vượt quota PTTS trong campaign)
+        Object methodQuotaRaw = matchedTimeline.get("quota");
+        if (methodQuotaRaw != null) {
+            try {
+                int methodQuota = Integer.parseInt(methodQuotaRaw.toString());
+                int usedQuotaForMethod = existingOfferings.stream()
+                        .filter(o -> requestedMethod.equals(normalize(o.getAdmissionMethod())))
+                        .mapToInt(CampusProgramOffering::getQuota)
+                        .sum();
+                if (usedQuotaForMethod + requestedQuota > methodQuota) {
+                    return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                            String.format("Quota cho phương thức '%s' vượt giới hạn chiến dịch. Đã dùng: %d, Thêm: %d, Giới hạn PTTS: %d.",
+                                    requestedMethod, usedQuotaForMethod, requestedQuota, methodQuota), null);
+                }
+            } catch (NumberFormatException ignored) {
+            }
+        }
+
         // Tính học phí
         BigDecimal basePrice = program.getBaseTuitionFee();
         BigDecimal adjustmentPercent = request.getPriceAdjustmentPercentage() != null
@@ -478,6 +496,97 @@ public class CampusServiceImpl implements CampusService {
     }
 
     @Override
+    public ResponseEntity<ResponseObject> getOfferingQuotaBreakdown(int campaignId) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế.", null);
+        }
+
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học.", null);
+        }
+
+        AdmissionCampaign campaign = admissionCampaignRepo.findById(campaignId).orElse(null);
+        if (campaign == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy chiến dịch tuyển sinh.", null);
+        }
+
+        if (!campaign.getSchool().getId().equals(actorCampus.getSchool().getId())) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Chiến dịch không thuộc trường của cơ sở này.", null);
+        }
+
+        // Lấy danh sách offerings của chiến dịch
+        List<CampusProgramOffering> offerings = campusProgramOfferingRepo.findByAdmissionCampaignId(campaignId);
+
+        // Non-primary campus chỉ thấy dữ liệu của mình
+        if (!Boolean.TRUE.equals(actorCampus.getIsPrimaryBranch())) {
+            int myId = actorCampus.getId();
+            offerings = offerings.stream()
+                    .filter(o -> o.getCampus().getId().equals(myId))
+                    .collect(Collectors.toList());
+        }
+
+        // Group: methodCode -> campusId -> tổng quota; lưu tên campus
+        Map<String, Map<Integer, Integer>> breakdown = new LinkedHashMap<>();
+        Map<Integer, String> campusNameMap = new LinkedHashMap<>();
+
+        for (CampusProgramOffering o : offerings) {
+            String method = normalize(o.getAdmissionMethod());
+            if (method == null) continue;
+            breakdown
+                    .computeIfAbsent(method, k -> new LinkedHashMap<>())
+                    .merge(o.getCampus().getId(), o.getQuota(), Integer::sum);
+            campusNameMap.putIfAbsent(o.getCampus().getId(), o.getCampus().getName());
+        }
+
+        // Build response theo thứ tự admissionMethodTimelines trong chiến dịch
+        List<Map<String, Object>> methodList = new ArrayList<>();
+
+        if (campaign.getAdmissionMethodTimelines() instanceof List<?> rawTimelines) {
+            for (Object rawItem : rawTimelines) {
+                if (!(rawItem instanceof Map<?, ?> tl)) continue;
+
+                String methodCode = normalize(Objects.toString(tl.get("methodCode"), null));
+                if (methodCode == null) continue;
+
+                int totalMethodQuota = 0;
+                try {
+                    Object q = tl.get("quota");
+                    if (q != null) totalMethodQuota = Integer.parseInt(q.toString());
+                } catch (NumberFormatException ignored) {
+                }
+
+                Map<Integer, Integer> campusMap = breakdown.getOrDefault(methodCode, Collections.emptyMap());
+                int totalUsed = campusMap.values().stream().mapToInt(Integer::intValue).sum();
+
+                List<Map<String, Object>> campusBreakdown = new ArrayList<>();
+                campusMap.forEach((campusId, usedQuota) -> {
+                    Map<String, Object> entry = new LinkedHashMap<>();
+                    entry.put("campusId", campusId);
+                    entry.put("campusName", campusNameMap.getOrDefault(campusId, ""));
+                    entry.put("usedQuota", usedQuota);
+                    campusBreakdown.add(entry);
+                });
+
+                Map<String, Object> methodEntry = new LinkedHashMap<>();
+                methodEntry.put("methodCode", methodCode);
+                methodEntry.put("totalMethodQuota", totalMethodQuota);
+                methodEntry.put("totalUsedQuota", totalUsed);
+                methodEntry.put("campusBreakdown", campusBreakdown);
+                methodList.add(methodEntry);
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("campaignId", campaignId);
+        result.put("campaignYear", campaign.getYear());
+        result.put("methods", methodList);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy thông tin quota theo phương thức tuyển sinh thành công.", result);
+    }
+
+    @Override
     @Transactional
     public ResponseEntity<ResponseObject> updateCampusProgramOffering(UpdateCampusProgramOfferingRequest request) {
 
@@ -546,6 +655,37 @@ public class CampusServiceImpl implements CampusService {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
                         String.format("Tổng quota vượt mức được phân bổ. Các gói khác: %d, Quota mới: %d, Giới hạn: %d.",
                                 otherUsedQuota, request.getQuota(), allocatedQuota), null);
+            }
+
+            // Validate quota theo từng phương thức tuyển sinh (không vượt quota PTTS trong campaign)
+            String offeringMethod = normalize(offering.getAdmissionMethod());
+            if (offeringMethod != null && offering.getAdmissionCampaign().getAdmissionMethodTimelines() instanceof List<?> rawTimelines) {
+                for (Object rawItem : rawTimelines) {
+                    if (!(rawItem instanceof Map<?, ?> tl)) continue;
+                    if (!offeringMethod.equals(normalize(Objects.toString(tl.get("methodCode"), null)))) continue;
+                    Object methodQuotaRaw = tl.get("quota");
+                    if (methodQuotaRaw == null) break;
+                    try {
+                        int methodQuota = Integer.parseInt(methodQuotaRaw.toString());
+                        List<CampusProgramOffering> allCampusOfferings = campusProgramOfferingRepo
+                                .findByAdmissionCampaignId(offering.getAdmissionCampaign().getId())
+                                .stream()
+                                .filter(o -> o.getCampus().getId().equals(offering.getCampus().getId()))
+                                .toList();
+                        int otherUsedForMethod = allCampusOfferings.stream()
+                                .filter(o -> !o.getId().equals(offering.getId())
+                                        && offeringMethod.equals(normalize(o.getAdmissionMethod())))
+                                .mapToInt(CampusProgramOffering::getQuota)
+                                .sum();
+                        if (otherUsedForMethod + request.getQuota() > methodQuota) {
+                            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                                    String.format("Quota cho phương thức '%s' vượt giới hạn chiến dịch. Các gói khác: %d, Quota mới: %d, Giới hạn PTTS: %d.",
+                                            offeringMethod, otherUsedForMethod, request.getQuota(), methodQuota), null);
+                        }
+                    } catch (NumberFormatException ignored) {
+                    }
+                    break;
+                }
             }
 
             offering.setQuota(request.getQuota());
