@@ -1,5 +1,6 @@
 package com.sp26se041.edubridgehcm.repositories;
 
+import com.sp26se041.edubridgehcm.enums.PackageType;
 import com.sp26se041.edubridgehcm.models.SchoolSubscription;
 import com.sp26se041.edubridgehcm.models.Subscription;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,6 +19,8 @@ public interface SchoolSubscriptionRepo extends JpaRepository<SchoolSubscription
     );
 
     List<SchoolSubscription> findBySchoolIdAndIsSelected(Integer schoolId, boolean selected);
+
+    boolean existsBySchoolIdAndSubscription_PackageType(Integer schoolId, PackageType packageType);
 
     // 1. Dành cho Admin: Lấy toàn bộ gói đang có hiệu lực trên toàn hệ thống
     List<SchoolSubscription> findAllByIsSelectedTrueAndEndDateGreaterThanEqualOrderByEndDateAsc(LocalDate today);
