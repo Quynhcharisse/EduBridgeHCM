@@ -75,6 +75,7 @@ import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateReques
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.NotificationService;
+import com.sp26se041.edubridgehcm.services.SchoolConfigService;
 import com.sp26se041.edubridgehcm.services.SchoolService;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
@@ -204,6 +205,8 @@ public class SchoolServiceImpl implements SchoolService {
     private final TemplateDocxRepo templateDocxRepo;
 
     private final NotificationService notificationService;
+
+    private final SchoolConfigService schoolConfigService;
 
     private final SupabaseStorageService supabaseStorageService;
 
@@ -1120,6 +1123,13 @@ public class SchoolServiceImpl implements SchoolService {
                 target.setCurriculumStatus(Status.CUR_ACTIVE);
                 target.setApplicationYear(yearToPublish);
                 curriculumRepo.save(target);
+
+                try {
+                    schoolConfigService.regenerateSchoolInfoDoc(actorCampus.getSchool().getId());
+                } catch (Exception ex) {
+                    System.out.println(ex.getMessage());
+                }
+
                 return ResponseBuilder.build(HttpStatus.OK, "Công bố khung chương trình" + yearToPublish + "thành công", target.getId());
 
             case "CLONE":
@@ -1587,6 +1597,11 @@ public class SchoolServiceImpl implements SchoolService {
 
                 program.setStatus(Status.PRO_ACTIVE);
                 programRepo.save(program);
+                try {
+                    schoolConfigService.regenerateSchoolInfoDoc(actorCampus.getSchool().getId());
+                } catch (Exception ex) {
+                    System.out.println(ex.getMessage());
+                }
                 return ResponseBuilder.build(
                         HttpStatus.OK,
                         "Kích hoạt chương trình thành công",

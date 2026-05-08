@@ -42,6 +42,7 @@ import com.sp26se041.edubridgehcm.requests.UpsertServicePackageFeeRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.AdminService;
 import com.sp26se041.edubridgehcm.services.NotificationService;
+import com.sp26se041.edubridgehcm.services.SchoolConfigService;
 import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AccountRestrictionUtil;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
@@ -95,6 +96,8 @@ import java.util.stream.Collectors;
 public class AdminServiceImpl implements AdminService {
 
     private final NotificationService notificationService;
+
+    private final SchoolConfigService schoolConfigService;
 
     @Value("${AI_SERVICE_N8N}")
     private String n8nUrl;
@@ -514,32 +517,6 @@ public class AdminServiceImpl implements AdminService {
             System.out.println(ex.getMessage());
         }
 
-        try {
-
-            Map<String, Object> fields = new LinkedHashMap<>();
-            fields.put("name", request.getSchoolName().trim());
-            fields.put("description", request.getDescription().trim());
-            fields.put("taxCode", request.getTaxCode().trim());
-            fields.put("websiteUrl", request.getWebsiteUrl());
-            fields.put("representativeName", request.getRepresentativeName());
-            fields.put("foundingDate", request.getFoundingDate()
-                    .format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
-            fields.put("logoUrl", request.getLogoUrl());
-            fields.put("businessLicenseUrl", newBusinessLicenseUrl);
-            fields.put("overview", "UPDATING");
-
-            String schoolName = toSafeObjectKey(request.getSchoolName());
-            String folderName = schoolName + "_" + uuid;
-            String fileName = "school_info_" + uuid + ".docx";
-
-            String templatePath = schoolTemplateDocx.get().getFolderName() + "/" + schoolTemplateDocx.get().getFileName();
-
-            schoolFileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
-
-        } catch (Exception ex) {
-            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
-        }
-
         Account account = accountRepo.save(Account.builder().role(Role.SCHOOL)
                 .email(request.getEmail().trim())
                 .registerDate(LocalDate.now())
@@ -559,28 +536,10 @@ public class AdminServiceImpl implements AdminService {
                 .businessLicenseUrl(newBusinessLicenseUrl)
                 .build());
 
-        if (!schoolFileUrl.isEmpty()) {
-            try {
-                Map<String, Object> payload = new LinkedHashMap<>();
-                payload.put("type", "school_info");
-                payload.put("schoolId", school.getId());
-                payload.put("schoolName", request.getSchoolName().trim());
-                payload.put("schoolInfoFileUrl", schoolFileUrl);
-
-                HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(MediaType.APPLICATION_JSON);
-
-                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
-
-                restTemplate.postForEntity(
-                        n8nUrl,
-                        entity,
-                        String.class
-                );
-
-            } catch (Exception e) {
-                System.out.println(e.getMessage());
-            }
+        try {
+            schoolConfigService.regenerateSchoolInfoDoc(school.getId());
+        } catch (Exception ex) {
+            System.out.println(ex.getMessage());
         }
 
         Campus campus = campusRepo.save(

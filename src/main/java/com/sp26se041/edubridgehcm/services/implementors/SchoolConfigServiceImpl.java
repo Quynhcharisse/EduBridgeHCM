@@ -6,10 +6,13 @@ import com.sp26se041.edubridgehcm.enums.CategoryTemplate;
 import com.sp26se041.edubridgehcm.enums.ImportType;
 import com.sp26se041.edubridgehcm.enums.ResourceType;
 import com.sp26se041.edubridgehcm.enums.Role;
+import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusResourceQuota;
+import com.sp26se041.edubridgehcm.models.Curriculum;
 import com.sp26se041.edubridgehcm.models.PlatformConfig;
+import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.SchoolSubscription;
@@ -522,69 +525,7 @@ public class    SchoolConfigServiceImpl implements SchoolConfigService {
 
         SchoolConfigRequest.FacilityData facilityData = request.getFacilityData();
 
-        try {
-
-            Optional<School> school = schoolRepo.findById(schoolId);
-
-            if (school.isEmpty()) {
-                throw new Exception("Trường không tồn tại trong hệ thống");
-            }
-
-            Optional<TemplateDocx> schoolTemplateDocx = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.SCHOOL_INFO_TEMPLATE);
-
-            if (schoolTemplateDocx.isEmpty()) {
-                throw new Exception("Tài liệu mẫu thông tin trường không được tìm thấy hoặc đã bị xóa");
-            }
-
-            supabaseStorageService.removeFile(school.get().getFolderPath(), school.get().getFileName());
-
-            String uuid = UUID.randomUUID().toString();
-
-            Map<String, Object> fields = new LinkedHashMap<>();
-            fields.put("name", school.get().getName());
-            fields.put("description", school.get().getDescription());
-            fields.put("taxCode", school.get().getTaxCode());
-            fields.put("websiteUrl", school.get().getWebsiteUrl());
-            fields.put("representativeName", school.get().getRepresentativeName());
-            fields.put("foundingDate", school.get().getFoundingDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
-            fields.put("logoUrl", school.get().getLogoUrl());
-            fields.put("businessLicenseUrl", school.get().getBusinessLicenseUrl());
-
-            String folderName = school.get().getFolderPath();
-            String fileName = "school_info_" + uuid + ".docx";
-
-            String templatePath = schoolTemplateDocx.get().getFolderName() + "/" + schoolTemplateDocx.get().getFileName();
-
-            String schoolFileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
-
-            try {
-                Map<String, Object> payload = new LinkedHashMap<>();
-                payload.put("type", "school_info");
-                payload.put("schoolId", school.get().getId());
-                payload.put("schoolName", school.get().getName());
-                payload.put("schoolInfoFileUrl", schoolFileUrl);
-
-                HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(MediaType.APPLICATION_JSON);
-
-                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
-
-                restTemplate.postForEntity(
-                        n8nUrl,
-                        entity,
-                        String.class
-                );
-
-            } catch (Exception e) {
-                System.out.println(e.getMessage());
-            }
-
-            school.get().setFileName(fileName);
-            schoolRepo.save(school.get());
-
-        } catch (Exception ex) {
-            System.out.println(ex.getMessage());
-        }
+        regenerateSchoolInfoDoc(schoolId);
 
 
         // 1. Xử lý phần Hình ảnh (ImageData)
@@ -1024,6 +965,141 @@ public class    SchoolConfigServiceImpl implements SchoolConfigService {
             case BOTH ->
                     "Cơ sở cung cấp cả dịch vụ nội trú toàn phần và bán trú, mang đến lựa chọn linh hoạt về lưu trú và chăm sóc ban ngày để đáp ứng nhu cầu đa dạng của học sinh.";
         };
+    }
+
+    @Override
+    @Transactional
+    public void regenerateSchoolInfoDoc(int schoolId) {
+
+        Optional<School> school = schoolRepo.findById(schoolId);
+        if (school.isEmpty()) {
+            System.out.println("regenerateSchoolInfoDoc: school not found id=" + schoolId);
+            return;
+        }
+
+        try {
+
+            Optional<TemplateDocx> tpl = templateDocxRepo.findTopByTypeOrderByVersionDesc(CategoryTemplate.SCHOOL_INFO_TEMPLATE);
+            if (tpl.isEmpty()) {
+                System.out.println("regenerateSchoolInfoDoc: no SCHOOL_INFO_TEMPLATE found");
+                return;
+            }
+
+            supabaseStorageService.removeFile(school.get().getFolderPath(), school.get().getFileName());
+
+            Map<String, Object> fields = new LinkedHashMap<>();
+            fields.put("name", school.get().getName());
+            fields.put("description", school.get().getDescription() != null ? school.get().getDescription() : "");
+            fields.put("taxCode", school.get().getTaxCode() != null ? school.get().getTaxCode() : "");
+            fields.put("websiteUrl", school.get().getWebsiteUrl() != null ? school.get().getWebsiteUrl() : "");
+            fields.put("representativeName", school.get().getRepresentativeName() != null ? school.get().getRepresentativeName() : "");
+            fields.put("foundingDate", school.get().getFoundingDate() != null
+                    ? school.get().getFoundingDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "");
+            fields.put("logoUrl", school.get().getLogoUrl() != null ? school.get().getLogoUrl() : "");
+            fields.put("businessLicenseUrl", school.get().getBusinessLicenseUrl() != null ? school.get().getBusinessLicenseUrl() : "");
+
+            // Build curriculum rows cho template {{curriculums}}
+            List<Map<String, Object>> curriculumRows = new ArrayList<>();
+            List<Map<String, Object>> programRows = new ArrayList<>();
+
+            List<Curriculum> curriculumList =
+                    school.get().getCurriculumList() == null
+                            ? Collections.emptyList()
+                            : school.get().getCurriculumList()
+                            .stream()
+                            .filter(c -> c.getCurriculumStatus() == Status.CUR_ACTIVE)
+                            .toList();
+
+            if (curriculumList != null) {
+                int currIdx = 1;
+                for (Curriculum curriculum : curriculumList) {
+                    Map<String, Object> cRow = new LinkedHashMap<>();
+                    cRow.put("stt", currIdx++);
+                    cRow.put("curName", curriculum.getName() != null ? curriculum.getName() : "");
+                    cRow.put("curType", curriculum.getCurriculumType() != null ? curriculum.getCurriculumType().getValue() : "");
+                    cRow.put("curYear", curriculum.getApplicationYear() != null ? String.valueOf(curriculum.getApplicationYear()) : "");
+                    cRow.put("curDesc", curriculum.getDescription() != null ? curriculum.getDescription() : "");
+                    cRow.put("curSubjects", buildSubjectsText(curriculum.getSubjectsJsonb(), null));
+                    curriculumRows.add(cRow);
+
+                    // Build program rows cho template {{programs}}
+                    if (curriculum.getPrograms() != null) {
+                        int progIdx = 1;
+                        for (Program program : curriculum.getPrograms()) {
+                            Map<String, Object> pRow = new LinkedHashMap<>();
+                            pRow.put("stt", progIdx++);
+                            pRow.put("progCurName", curriculum.getName() != null ? curriculum.getName() : "");
+                            pRow.put("progName", program.getName() != null ? program.getName() : "");
+                            pRow.put("progFee", program.getBaseTuitionFee() != null
+                                    ? program.getBaseTuitionFee().toPlainString()
+                                      + (program.getFeeUnit() != null ? " / " + program.getFeeUnit().name() : "")
+                                    : "");
+                            pRow.put("progStandard", program.getGraduationStandard() != null ? program.getGraduationStandard() : "");
+                            // Môn học = môn của khung + môn bổ sung của chương trình
+                            pRow.put("progSubjects", buildSubjectsText(curriculum.getSubjectsJsonb(), program.getExtraSubjectsJsonb()));
+                            programRows.add(pRow);
+                        }
+                    }
+                }
+            }
+
+            fields.put("curriculums", curriculumRows);
+            fields.put("programs", programRows);
+
+            String folderName = school.get().getFolderPath();
+            String fileName = school.get().getFileName();
+            String templatePath = tpl.get().getFolderName() + "/" + tpl.get().getFileName();
+
+            String fileUrl = supabaseStorageService.generateDocFileFromTemplate(fields, templatePath, folderName, fileName);
+
+            try {
+                Map<String, Object> payload = new LinkedHashMap<>();
+                payload.put("type", "school_info");
+                payload.put("schoolId", school.get().getId());
+                payload.put("schoolName", school.get().getName());
+                payload.put("schoolInfoFileUrl", fileUrl);
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                restTemplate.postForEntity(n8nUrl, new HttpEntity<>(payload, headers), String.class);
+            } catch (Exception e) {
+                System.out.println("regenerateSchoolInfoDoc n8n error: " + e.getMessage());
+            }
+
+            school.get().setFileName(fileName);
+            schoolRepo.save(school.get());
+
+        } catch (Exception ex) {
+            System.out.println("regenerateSchoolInfoDoc error: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private String buildSubjectsText(Object baseJsonb, Object extraJsonb) {
+        List<Map<String, Object>> subjects = new ArrayList<>();
+        if (baseJsonb instanceof List<?> base) {
+            for (Object item : base) {
+                if (item instanceof Map<?, ?> m) subjects.add((Map<String, Object>) m);
+            }
+        }
+        if (extraJsonb instanceof List<?> extra) {
+            for (Object item : extra) {
+                if (item instanceof Map<?, ?> m) subjects.add((Map<String, Object>) m);
+            }
+        }
+        if (subjects.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < subjects.size(); i++) {
+            Map<String, Object> s = subjects.get(i);
+            String subjectName = s.getOrDefault("name", "").toString();
+            String type = Boolean.TRUE.equals(s.get("isMandatory")) ? "Bắt buộc" : "Tự chọn";
+            Object desc = s.get("description");
+            sb.append(i + 1).append(". ").append(subjectName).append(" (").append(type).append(")");
+            if (desc != null && !desc.toString().isBlank()) sb.append(": ").append(desc);
+            if (i < subjects.size() - 1) sb.append("\n");
+        }
+        return sb.toString();
     }
 }
 
