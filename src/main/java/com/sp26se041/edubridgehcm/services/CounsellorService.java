@@ -26,4 +26,6 @@ public interface CounsellorService {
 
     ResponseEntity<ResponseObject> getSlotsOfCampus(LocalDate startDate, LocalDate endDate);
 
+    ResponseEntity<ResponseObject> getCounsellorSlotsByDate(LocalDate date);
+
 }

@@ -991,6 +991,66 @@ public class CounsellorServiceImpl implements CounsellorService {
     }
 
     @Override
+    public ResponseEntity<ResponseObject> getCounsellorSlotsByDate(LocalDate date) {
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        Counsellor counsellor = counsellorRepo.findByAccountId(accountRepo.findByEmail(email).get().getId());
+
+        if (counsellor == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tài khoản tư vấn viên không tồn tại trong hệ thống", null);
+        }
+
+        String dayOfWeekCode = date.getDayOfWeek().name().substring(0, 3);
+
+        List<CounsellorSlot> counsellorSlots =
+                counsellorSlotRepo.findByCounsellorIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatus(
+                        counsellor.getId(), date, date, Status.AVAILABLE
+                );
+
+        List<Map<String, Object>> result = counsellorSlots.stream()
+                .filter(slot -> dayOfWeekCode.equals(slot.getCampusScheduleTemplate().getDayOfWeek()))
+                .map(slot -> {
+                    CampusScheduleTemplate template = slot.getCampusScheduleTemplate();
+
+                    List<ConsultationOfflineRequest> requests =
+                            consultationOfflineRequestRepo.findByCounsellorSlot_CounsellorAndAppointmentDateAndAppointmentTime(
+                                    counsellor, date, template.getStartTime()
+                            );
+
+                    List<Map<String, Object>> appointments = requests.stream()
+                            .map(this::buildConsultationOfflineRequest)
+                            .toList();
+
+                    Status slotStatus = getSlotStatus(date, template.getStartTime(), template.getEndTime());
+
+                    String sessionTypeLabel = switch (template.getSessionType()) {
+                        case MORNING -> "Ca sáng";
+                        case AFTERNOON -> "Ca chiều";
+                        case EVENING -> "Ca tối";
+                    };
+
+                    Map<String, Object> slotMap = new HashMap<>();
+                    slotMap.put("counsellorSlotId", slot.getId());
+                    slotMap.put("sessionType", template.getSessionType());
+                    slotMap.put("sessionTypeLabel", sessionTypeLabel);
+                    slotMap.put("startTime", template.getStartTime());
+                    slotMap.put("endTime", template.getEndTime());
+                    slotMap.put("date", date);
+                    slotMap.put("dayOfWeek", template.getDayOfWeek());
+                    slotMap.put("slotStatus", slotStatus);
+                    slotMap.put("slotStatusLabel", slotStatus.getValue());
+                    slotMap.put("appointments", appointments);
+
+                    return slotMap;
+                })
+                .sorted(Comparator.comparing(m -> (LocalTime) m.get("startTime")))
+                .collect(java.util.stream.Collectors.toList());
+
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách slot thành công", result);
+    }
+
+    @Override
     public ResponseEntity<ResponseObject> getSlotsOfCampus(LocalDate startDate, LocalDate endDate) {
 
         if (startDate.getDayOfWeek() != DayOfWeek.MONDAY) {

@@ -84,6 +84,12 @@ public class CounsellorController {
         return counsellorService.getSlotsOfCampus(startDate, endDate);
     }
 
+    @GetMapping("/slots/by-date")
+    @PreAuthorize("hasAnyRole('COUNSELLOR')")
+    public ResponseEntity<ResponseObject> getCounsellorSlotsByDate(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date){
+        return counsellorService.getCounsellorSlotsByDate(date);
+    }
+
     @PutMapping("/consultation/offline")
     @PreAuthorize("hasAnyRole('COUNSELLOR')")
     public ResponseEntity<ResponseObject> updateConsultationOfflineRequest(@RequestBody UpdateConsultationOfflineRequest updateConsultationOfflineRequest){
