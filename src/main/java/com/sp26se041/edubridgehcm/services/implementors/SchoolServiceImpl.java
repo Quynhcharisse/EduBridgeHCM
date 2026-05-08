@@ -841,6 +841,7 @@ public class SchoolServiceImpl implements SchoolService {
         if (year > 0) {
             List<AdmissionCampaign> campaigns = admissionCampaignRepo.findBySchoolIdAndYearOrderByStatusAsc(schoolId, year);
             List<Map<String, Object>> data = campaigns.stream()
+                    .filter(campaign -> campaign.getStatus() == Status.OPEN_ADMISSION_CAMPAIGN)
                     .map(campaign -> buildCampaignData(campaign, processByMethod, docsByMethod)).toList();
             responseBody.put("campaigns", data);
             return ResponseBuilder.build(HttpStatus.OK, "Hiển thị danh sách chiến dịch tuyển sinh năm " + year + " thành công", responseBody);
@@ -2458,6 +2459,18 @@ public class SchoolServiceImpl implements SchoolService {
                     "Tổng tiền gói dịch vụ không hợp lệ",
                     null
             );
+        }
+
+        if (subscription.getPackageType() == PackageType.TRIAL) {
+            boolean alreadyUsedTrial = schoolSubscriptionRepo
+                    .existsBySchoolIdAndSubscription_PackageType(school.getId(), PackageType.TRIAL);
+            if (alreadyUsedTrial) {
+                return ResponseBuilder.build(
+                        HttpStatus.FORBIDDEN,
+                        "Trường đã sử dụng gói dùng thử. Vui lòng chọn gói dịch vụ khác.",
+                        null
+                );
+            }
         }
 
         //ktra upgrade vs renew
