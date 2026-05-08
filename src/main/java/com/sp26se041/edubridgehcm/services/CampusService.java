@@ -27,6 +27,8 @@ public interface CampusService {
 
     ResponseEntity<ResponseObject> getOfferingQuotaSummary(int campaignId);
 
+    ResponseEntity<ResponseObject> getOfferingQuotaBreakdown(int campaignId);
+
     ResponseEntity<ResponseObject> updateCampusProgramOffering(UpdateCampusProgramOfferingRequest request);
 
     ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(int offeringId, OfferingProgramAction action);

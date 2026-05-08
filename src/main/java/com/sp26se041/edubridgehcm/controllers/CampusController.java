@@ -63,6 +63,12 @@ public class CampusController {
         return campusService.getOfferingQuotaSummary(campaignId);
     }
 
+    @GetMapping("/offering/quota-breakdown")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> getOfferingQuotaBreakdown(@RequestParam int campaignId) {
+        return campusService.getOfferingQuotaBreakdown(campaignId);
+    }
+
     @PutMapping("/offering")
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<ResponseObject> updateCampusProgramOffering(@RequestBody UpdateCampusProgramOfferingRequest request) {
