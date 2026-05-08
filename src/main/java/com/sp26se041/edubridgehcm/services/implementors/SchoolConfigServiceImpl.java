@@ -67,7 +67,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class SchoolConfigServiceImpl implements SchoolConfigService {
+public class    SchoolConfigServiceImpl implements SchoolConfigService {
 
     @Value("${AI_SERVICE_N8N}")
     private String n8nUrl;
@@ -359,8 +359,15 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
     @Override
     public ResponseEntity<ResponseObject> importConfirm(ImportConfirmRequest request, ImportType type) {
         try {
-            SchoolConfig config = schoolConfigRepo.findByKey("documentRequirementsData")
+            Campus actorCampus = extractActorCampus();
+            if (actorCampus == null || actorCampus.getSchool() == null) {
+                return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Không tìm thấy tài khoản cơ sở trường học", null);
+            }
+            int schoolId = actorCampus.getSchool().getId();
+
+            SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData")
                     .orElse(SchoolConfig.builder()
+                            .schoolId(schoolId)
                             .key("documentRequirementsData")
                             .value(new HashMap<String, Object>())
                             .build());
