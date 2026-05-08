@@ -3658,12 +3658,24 @@ public class SchoolServiceImpl implements SchoolService {
                 }
             }
 
-            var breakdown = calculateBreakdownFromNet(netAmount);
+            // Determine target subscription for feature details
+            Subscription subForFeatures = null;
+            if (action == SubscriptionAction.BUY_NEW || action == SubscriptionAction.SWITCH_PLAN) {
+                subForFeatures = subscriptionRepo.findById(request.getTargetPackageId()).orElse(null);
+            } else if (action == SubscriptionAction.RENEW && activeSub != null) {
+                subForFeatures = activeSub.getSubscription();
+            }
+
+            var breakdownResult = calculateBreakdownFromNet(netAmount, subForFeatures);
 
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("action", action);
             response.put("netAmount", netAmount);
-            response.put("breakdown", breakdown);
+            response.put("breakdown", breakdownResult.breakdown());
+            Map<String, Object> featuresMap = new LinkedHashMap<>();
+            featuresMap.put("amount", breakdownResult.breakdown().totalFeatureAmount());
+            featuresMap.put("details", breakdownResult.featureDetails());
+            response.put("features", featuresMap);
             response.put("current", currentDetails);
             response.put("target", targetDetails);
             response.put("warnings", warnings);
@@ -3674,25 +3686,83 @@ public class SchoolServiceImpl implements SchoolService {
         }
     }
 
-    private ConfigSystemUtil.SubscriptionPriceBreakdown calculateBreakdownFromNet(BigDecimal netAmount) {
+    private record BreakdownResult(ConfigSystemUtil.SubscriptionPriceBreakdown breakdown, 
+                                   Map<String, Object> featureDetails) {}
+
+    private BreakdownResult calculateBreakdownFromNet(BigDecimal netAmount, Subscription subscription) {
         BigDecimal serviceRate = PreviewSubscriptionValidation.resolveBusinessRate("serviceRate", platformConfigRepo);
         BigDecimal taxRate = PreviewSubscriptionValidation.resolveBusinessRate("taxRate", platformConfigRepo);
 
-        BigDecimal normalizedNet = netAmount == null ? BigDecimal.ZERO : netAmount.max(BigDecimal.ZERO);
-        BigDecimal serviceFee = normalizedNet.multiply(serviceRate).setScale(0, RoundingMode.HALF_UP);
-        BigDecimal taxFee = normalizedNet.add(serviceFee).multiply(taxRate).setScale(0, RoundingMode.HALF_UP);
+        // Step 1: basePrice = giá gói gốc
+        BigDecimal basePrice = netAmount == null ? BigDecimal.ZERO : netAmount.max(BigDecimal.ZERO);
 
-        BigDecimal finalPrice = normalizedNet.add(serviceFee).add(taxFee);
+        // Step 2: tính phí tính năng bổ sung
+        BigDecimal totalFeatureAmount = BigDecimal.ZERO;
+        Map<String, Object> featureDetails = new LinkedHashMap<>();
+
+        if (subscription != null && subscription.getFeatures() instanceof Map<?, ?> features) {
+            Map<String, Object> featureMap = (Map<String, Object>) features;
+
+            try {
+                Map<String, Object> businessMap = PreviewSubscriptionValidation.getBusinessMap(platformConfigRepo);
+                Map<String, Object> subscriptionPricing = (Map<String, Object>) businessMap.get("subscriptionPricing");
+
+                if (subscriptionPricing != null) {
+                    Map<String, Object> unitPrices = (Map<String, Object>) subscriptionPricing.get("featureUnitPrices");
+
+                    if (unitPrices != null) {
+                        if (Boolean.TRUE.equals(featureMap.get("hasAiAssistant"))) {
+                            BigDecimal aiChatbotFee = toBigDecimal(unitPrices.get("aiChatbotMonthlyFee"));
+                            featureDetails.put("aiAssistantFee", aiChatbotFee);
+                            totalFeatureAmount = totalFeatureAmount.add(aiChatbotFee);
+                        }
+
+                        String supportLevel = (String) featureMap.get("supportLevel");
+                        if (supportLevel != null && "PREMIUM_SUPPORT".equals(supportLevel)) {
+                            BigDecimal premiumSupportFee = toBigDecimal(unitPrices.get("premiumSupportFee"));
+                            featureDetails.put("premiumSupportFee", premiumSupportFee);
+                            totalFeatureAmount = totalFeatureAmount.add(premiumSupportFee);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("Error calculating feature prices: {}", e.getMessage());
+            }
+        }
+
+        // Step 3: netPrice = tạm tính (giá nền + phí tính năng, chưa gồm phí dịch vụ & thuế)
+        BigDecimal netPrice = basePrice.add(totalFeatureAmount);
+
+        // Step 4: serviceFee và taxFee tính trên netPrice
+        BigDecimal serviceFee = netPrice.multiply(serviceRate).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal taxFee = netPrice.add(serviceFee).multiply(taxRate).setScale(0, RoundingMode.HALF_UP);
+
+        // Step 5: finalPrice làm tròn lên 1.000đ
+        BigDecimal finalPrice = netPrice.add(serviceFee).add(taxFee);
         finalPrice = finalPrice
                 .divide(new BigDecimal("1000"), 0, RoundingMode.CEILING)
                 .multiply(new BigDecimal("1000"));
 
-        return new ConfigSystemUtil.SubscriptionPriceBreakdown(
-                normalizedNet,    // basePrice: Coi netAmount là giá gốc của giao dịch này
-                BigDecimal.ZERO,  // totalFeatureAmount: Ở preview ta không bóc tách chi tiết add-on nữa
-                normalizedNet,    // netPrice: Tổng giá trị thuần
-                serviceFee,       // serviceFee
-                taxFee,           // taxFee
-                finalPrice);        // finalPrice
+        ConfigSystemUtil.SubscriptionPriceBreakdown breakdown = new ConfigSystemUtil.SubscriptionPriceBreakdown(
+                basePrice,           // basePrice: giá nền của gói
+                totalFeatureAmount,  // totalFeatureAmount: tổng phí tính năng bổ sung
+                netPrice,            // netPrice: tạm tính = basePrice + totalFeatureAmount
+                serviceFee,          // serviceFee: tính trên netPrice
+                taxFee,              // taxFee: tính trên netPrice + serviceFee
+                finalPrice);         // finalPrice: tổng cuối làm tròn
+
+        return new BreakdownResult(breakdown, featureDetails);
+    }
+
+    private BigDecimal toBigDecimal(Object obj) {
+        if (obj instanceof Number n) return BigDecimal.valueOf(n.doubleValue());
+        if (obj instanceof String s) {
+            try {
+                return new BigDecimal(s);
+            } catch (NumberFormatException e) {
+                return BigDecimal.ZERO;
+            }
+        }
+        return BigDecimal.ZERO;
     }
 }
