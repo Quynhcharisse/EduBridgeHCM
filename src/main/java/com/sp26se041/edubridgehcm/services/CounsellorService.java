@@ -26,4 +26,7 @@ public interface CounsellorService {
 
     ResponseEntity<ResponseObject> getSlotsOfCampus(LocalDate startDate, LocalDate endDate);
 
+    ResponseEntity<ResponseObject> getAdmissionCampaigns();
+
+    ResponseEntity<ResponseObject> getAppointmentsByCampaign(Integer campaignId);
 }

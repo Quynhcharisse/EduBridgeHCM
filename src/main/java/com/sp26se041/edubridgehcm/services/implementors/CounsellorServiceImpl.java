@@ -258,8 +258,10 @@ public class CounsellorServiceImpl implements CounsellorService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Phải chọn đúng 1 tuần (7 ngày)", null);
         }
 
+        Optional<Account> account = accountRepo.findByEmail(email);
+
         Counsellor counsellor = counsellorRepo
-                .findByAccountId(accountRepo.findByEmail(email).get().getId());
+                .findByAccountId(account.get().getId());
 
         List<CounsellorSlot> counsellorSlotList =
                 counsellorSlotRepo.findByCounsellorIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndStatus(
@@ -297,9 +299,10 @@ public class CounsellorServiceImpl implements CounsellorService {
             );
 
             List<Map<String, Object>> consultationOfflineRequests = requests.stream()
+                    .filter(r -> r.getStatus() != Status.CONSULTATION_CANCELLED)
                     .map(this::buildConsultationOfflineRequest)
                     .toList();
-
+            
             Map<String, Object> slotMap = new HashMap<>();
 
             slotMap.put("counsellorSlotId", counsellorSlot.getId());
@@ -762,12 +765,15 @@ public class CounsellorServiceImpl implements CounsellorService {
                 offlineRequest.setAppointmentDate(slotDate);
                 offlineRequest.setAppointmentTime(slotTime);
                 offlineRequest.setCounsellorSlot(counsellorSlotOpt.get());
-                offlineRequest.setCounsellor(null);
+                offlineRequest.setCounsellor(counsellorSlotOpt.get().getCounsellor());
                 offlineRequest.setLockedUntil(null);
                 offlineRequest.setStatus(Status.CONSULTATION_CONFIRMED);
             }
 
             case START -> {
+
+                LocalTime now = LocalTime.now();
+
                 if (currentStatus != Status.CONSULTATION_CONFIRMED) {
                     return ResponseBuilder.build(
                             HttpStatus.BAD_REQUEST,
@@ -775,7 +781,13 @@ public class CounsellorServiceImpl implements CounsellorService {
                             null
                     );
                 }
-
+                if (now.isAfter(offlineRequest.getCounsellorSlot().getCampusScheduleTemplate().getEndTime())) {
+                    return ResponseBuilder.build(
+                            HttpStatus.BAD_REQUEST,
+                            "Không thể bắt đầu vì lịch hẹn đã quá thời gian kết thúc dự kiến",
+                            null
+                    );
+                }
                 offlineRequest.setStatus(Status.CONSULTATION_IN_PROGRESS);
             }
 
@@ -818,22 +830,16 @@ public class CounsellorServiceImpl implements CounsellorService {
                     );
                 }
 
-                if (currentStatus == Status.CONSULTATION_PENDING
-                        && offlineRequest.getCounsellor() != null
-                        && offlineRequest.getLockedUntil() != null
-                        && offlineRequest.getLockedUntil().isAfter(LocalDateTime.now())) {
+                boolean isOwner = offlineRequest.getCounsellor().getId()
+                        .equals(currentCounsellor.getId());
 
-                    boolean isOwner = offlineRequest.getCounsellor().getId()
-                            .equals(currentCounsellor.getId());
-
-                    if (!isOwner) {
-                        return ResponseBuilder.build(
-                                HttpStatus.CONFLICT,
-                                "Lịch hẹn đang được xử lý bởi: "
-                                        + offlineRequest.getCounsellor().getName(),
-                                null
-                        );
-                    }
+                if (!isOwner) {
+                    return ResponseBuilder.build(
+                            HttpStatus.CONFLICT,
+                            "Lịch hẹn đang được xử lý bởi: "
+                                    + offlineRequest.getCounsellor().getName(),
+                            null
+                    );
                 }
 
                 // Validate cancelReason
@@ -1132,6 +1138,81 @@ public class CounsellorServiceImpl implements CounsellorService {
                 "Lấy danh sách slot thành công",
                 result
         );
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getAdmissionCampaigns() {
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        Counsellor counsellor = counsellorRepo.findByAccountId(accountRepo.findByEmail(email).get().getId());
+
+        if (counsellor == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tài khoản tư vấn viên không tồn tại", null);
+        }
+
+        List<AdmissionCampaign> campaigns =
+                admissionCampaignRepo.findBySchoolIdOrderByYearDesc(counsellor.getCampus().getSchool().getId());
+
+        List<Map<String, Object>> result = campaigns.stream()
+                .map(c -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", c.getId());
+                    map.put("name", c.getName());
+                    map.put("isActive", c.getStatus() == Status.OPEN_ADMISSION_CAMPAIGN);
+                    return map;
+                })
+                .toList();
+
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách chiến dịch tuyển sinh thành công", result);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getAppointmentsByCampaign(Integer campaignId) {
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        Counsellor counsellor = counsellorRepo.findByAccountId(accountRepo.findByEmail(email).get().getId());
+
+        if (counsellor == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Tài khoản tư vấn viên không tồn tại", null);
+        }
+
+        Optional<AdmissionCampaign> campaignOpt = admissionCampaignRepo.findById(campaignId);
+
+        if (campaignOpt.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy chiến dịch tuyển sinh", null);
+        }
+
+        if (!campaignOpt.get().getSchool().getId().equals(counsellor.getCampus().getSchool().getId())) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Chiến dịch tuyển sinh không thuộc trường của bạn", null);
+        }
+
+        List<ConsultationOfflineRequest> requests =
+                consultationOfflineRequestRepo
+                        .findByCounsellorSlot_AdmissionCampaign_IdAndCampusIdOrderByAppointmentDateAscAppointmentTimeAsc(
+                                campaignId, counsellor.getCampus().getId()
+                        );
+
+        Map<LocalDate, List<Map<String, Object>>> grouped = new LinkedHashMap<>();
+
+        for (ConsultationOfflineRequest r : requests) {
+            LocalDate date = r.getAppointmentDate();
+            grouped.computeIfAbsent(date, d -> new ArrayList<>())
+                    .add(buildConsultationOfflineRequest(r));
+        }
+
+        List<Map<String, Object>> result = grouped.entrySet().stream()
+                .map(entry -> {
+                    Map<String, Object> group = new HashMap<>();
+                    group.put("date", entry.getKey());
+                    group.put("totalCount", entry.getValue().size());
+                    group.put("appointments", entry.getValue());
+                    return group;
+                })
+                .toList();
+
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách lịch hẹn theo chiến dịch thành công", result);
     }
 
     private ConsultationAction parseConsultationAction(String action) {
