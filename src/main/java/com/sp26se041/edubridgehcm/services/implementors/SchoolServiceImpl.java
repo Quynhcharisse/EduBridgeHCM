@@ -850,7 +850,7 @@ public class SchoolServiceImpl implements SchoolService {
 
         List<AdmissionCampaign> campaignList = admissionCampaignRepo.findBySchoolIdOrderByYearDesc(schoolId);
         List<Map<String, Object>> data = campaignList.stream()
-                .filter(c -> !publicOnly || c.getStatus() == Status.OPEN_ADMISSION_CAMPAIGN) // thêm dòng này
+                .filter(c -> !publicOnly || c.getStatus() == Status.OPEN_ADMISSION_CAMPAIGN)
                 .map(campaign -> buildCampaignData(campaign, processByMethod, docsByMethod)).toList();
 
         responseBody.put("campaigns", data);
