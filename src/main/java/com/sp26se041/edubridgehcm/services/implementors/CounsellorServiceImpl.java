@@ -562,7 +562,17 @@ public class CounsellorServiceImpl implements CounsellorService {
 
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        Counsellor counsellor = counsellorRepo.findByAccountId(accountRepo.findByEmail(email).get().getId());
+        Optional<Account> account = accountRepo.findByEmail(email);
+
+        if (account.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy tài khoản",null);
+        }
+
+        Counsellor counsellor = counsellorRepo.findByAccountId(account.get().getId());
+
+        if (counsellor == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy tư vấn viên trong hệ thống", null);
+        }
 
         Status parsedStatus;
 
