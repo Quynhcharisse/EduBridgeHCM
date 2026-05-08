@@ -269,7 +269,7 @@ public class CampusServiceImpl implements CampusService {
         if (alreadyExists) {
             return ResponseBuilder.build(HttpStatus.CONFLICT,
                     "Gói tuyển sinh cho phương thức '" + requestedMethod + "' đã tồn tại.", null);
-        }
+        } // lỗi đây    Gói tuyển sinh cho phương thức 'HOC_BA' đã tồn tại.
 
         int usedQuota = existingOfferings.stream().mapToInt(CampusProgramOffering::getQuota).sum();
         if (usedQuota + requestedQuota > allocatedQuota) {
@@ -632,6 +632,9 @@ public class CampusServiceImpl implements CampusService {
             if (offering.getApplicationStatus() == Status.CLOSED || offering.getApplicationStatus() == Status.FULL) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chương trình này đã được đóng trước đó.", null);
             }
+            if (offering.getApplicationStatus() == Status.PAUSED) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chương trình đang tạm dừng, vui lòng mở lại trước khi đóng.", null);
+            }
 
             int formCount = admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIn(offeringId, Status.activeReservationStatuses())
                     + admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIsNull(offeringId);
@@ -649,22 +652,26 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.OK, (formCount >= offering.getQuota()) ? "Chương trình đã đạt chỉ tiêu và được đóng tự động." : "Chương trình đã được quản trị viên đóng thành công.", null);
         }
 
-        if (offering.getApplicationStatus().equals(Status.FULL)) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chương trình đã đóng hoặc đã đủ chỉ tiêu, không thể đổi trạng thái.", null);
+        if (offering.getApplicationStatus() == Status.FULL) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chương trình đã đủ chỉ tiêu, không thể đổi trạng thái.", null);
         }
 
         if (action == OfferingProgramAction.PAUSE) {
 
-            if (offering.getApplicationStatus().equals(Status.PAUSED)) {
+            if (offering.getApplicationStatus() == Status.PAUSED) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chương trình đã ở trạng thái tạm dừng, không thể tạm dừng lại.", null);
+            }
+
+            if (offering.getApplicationStatus() == Status.CLOSED) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chương trình đã đóng, không thể tạm dừng.", null);
             }
 
             offering.setApplicationStatus(Status.PAUSED);
 
         } else if (action == OfferingProgramAction.PUBLISH) {
 
-            if (offering.getApplicationStatus() != Status.PAUSED && offering.getApplicationStatus() != Status.CLOSED) {
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ có thể mở lại chương trình khi đang ở trạng thái tạm dừng hoặc đã đóng (PAUSED/CLOSED).", null);
+            if (offering.getApplicationStatus() != Status.PAUSED) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ có thể mở lại chương trình khi đang ở trạng thái tạm dừng (PAUSED).", null);
             }
 
             int formCount = admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIn(offeringId, Status.activeReservationStatuses())
