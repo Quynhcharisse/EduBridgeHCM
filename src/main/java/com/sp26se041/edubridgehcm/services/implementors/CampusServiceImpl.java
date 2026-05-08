@@ -514,30 +514,37 @@ public class CampusServiceImpl implements CampusService {
 
         if (!campaign.getSchool().getId().equals(actorCampus.getSchool().getId())) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Chiến dịch không thuộc trường của cơ sở này.", null);
-        }
+        }// Lấy toàn bộ offerings để tính global total (dùng cho remainingQuota)
+        List<CampusProgramOffering> allOfferings = campusProgramOfferingRepo.findByAdmissionCampaignId(campaignId);
 
-        // Lấy danh sách offerings của chiến dịch
-        List<CampusProgramOffering> offerings = campusProgramOfferingRepo.findByAdmissionCampaignId(campaignId);
-
-        // Non-primary campus chỉ thấy dữ liệu của mình
+        // displayOfferings: non-primary campus chỉ thấy dữ liệu của mình trong campusBreakdown
+        List<CampusProgramOffering> displayOfferings = allOfferings;
         if (!Boolean.TRUE.equals(actorCampus.getIsPrimaryBranch())) {
             int myId = actorCampus.getId();
-            offerings = offerings.stream()
+            displayOfferings = allOfferings.stream()
                     .filter(o -> o.getCampus().getId().equals(myId))
                     .collect(Collectors.toList());
         }
 
-        // Group: methodCode -> campusId -> tổng quota; lưu tên campus
+        // Group display: methodCode -> campusId -> tổng quota; lưu tên campus
         Map<String, Map<Integer, Integer>> breakdown = new LinkedHashMap<>();
         Map<Integer, String> campusNameMap = new LinkedHashMap<>();
 
-        for (CampusProgramOffering o : offerings) {
+        for (CampusProgramOffering o : displayOfferings) {
             String method = normalize(o.getAdmissionMethod());
             if (method == null) continue;
             breakdown
                     .computeIfAbsent(method, k -> new LinkedHashMap<>())
                     .merge(o.getCampus().getId(), o.getQuota(), Integer::sum);
             campusNameMap.putIfAbsent(o.getCampus().getId(), o.getCampus().getName());
+        }
+
+        // Tổng toàn trường theo method (để tính totalUsedQuota và remainingQuota chính xác)
+        Map<String, Integer> globalTotalUsedMap = new LinkedHashMap<>();
+        for (CampusProgramOffering o : allOfferings) {
+            String method = normalize(o.getAdmissionMethod());
+            if (method == null) continue;
+            globalTotalUsedMap.merge(method, o.getQuota(), Integer::sum);
         }
 
         // Build response theo thứ tự admissionMethodTimelines trong chiến dịch
@@ -557,8 +564,10 @@ public class CampusServiceImpl implements CampusService {
                 } catch (NumberFormatException ignored) {
                 }
 
+                int totalUsed = globalTotalUsedMap.getOrDefault(methodCode, 0);
+                int remainingQuota = Math.max(0, totalMethodQuota - totalUsed);
+
                 Map<Integer, Integer> campusMap = breakdown.getOrDefault(methodCode, Collections.emptyMap());
-                int totalUsed = campusMap.values().stream().mapToInt(Integer::intValue).sum();
 
                 List<Map<String, Object>> campusBreakdown = new ArrayList<>();
                 campusMap.forEach((campusId, usedQuota) -> {
@@ -573,6 +582,7 @@ public class CampusServiceImpl implements CampusService {
                 methodEntry.put("methodCode", methodCode);
                 methodEntry.put("totalMethodQuota", totalMethodQuota);
                 methodEntry.put("totalUsedQuota", totalUsed);
+                methodEntry.put("remainingQuota", remainingQuota);
                 methodEntry.put("campusBreakdown", campusBreakdown);
                 methodList.add(methodEntry);
             }
