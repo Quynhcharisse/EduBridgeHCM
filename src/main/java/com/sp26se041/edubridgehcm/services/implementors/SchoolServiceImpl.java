@@ -36,6 +36,7 @@ import com.sp26se041.edubridgehcm.models.FavouriteSchool;
 import com.sp26se041.edubridgehcm.models.OpenDayEvent;
 import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.PaymentTransaction;
+import com.sp26se041.edubridgehcm.models.PlatformConfig;
 import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
@@ -3564,11 +3565,13 @@ public class SchoolServiceImpl implements SchoolService {
                         "Cơ sở hiện không có gói dịch vụ nào đang hoạt động để gia hạn hoặc chuyển gói.", null);
             }
 
-            // netAmount là tiền chênh lệch gốc
+            // netAmount là số tiền phải thanh toán sau khi áp dụng đúng công thức
             BigDecimal netAmount = BigDecimal.ZERO;
             Map<String, Object> warnings = new LinkedHashMap<>();
             Map<String, Object> currentDetails = new LinkedHashMap<>();
             Map<String, Object> targetDetails = new LinkedHashMap<>();
+            BreakdownResult currentBreakdown = null;
+            BreakdownResult targetBreakdown = null;
 
             switch (action) {
                 case BUY_NEW -> {
@@ -3583,12 +3586,16 @@ public class SchoolServiceImpl implements SchoolService {
                         throw new RuntimeException("Gói dịch vụ này hiện không còn phát hành.");
                     }
 
-                    netAmount = targetSub.getPrice();
+                    targetBreakdown = calculateBreakdownFromSubscription(targetSub);
+                    netAmount = targetBreakdown.breakdown().finalPrice();
                     LocalDate startDate = LocalDate.now();
                     LocalDate expiryDate = startDate.plusDays(targetSub.getDurationDays());
 
                     targetDetails.put("packageName", targetSub.getName());
+                    targetDetails.put("basePrice", targetBreakdown.breakdown().basePrice());
+                    targetDetails.put("totalFeatureAmount", targetBreakdown.breakdown().totalFeatureAmount());
                     targetDetails.put("price", netAmount);
+                    targetDetails.put("finalPrice", netAmount);
                     targetDetails.put("durationDays", targetSub.getDurationDays());
                     targetDetails.put("newStartDate", startDate);
                     targetDetails.put("newExpiryDate", expiryDate);
@@ -3611,8 +3618,11 @@ public class SchoolServiceImpl implements SchoolService {
 
                     boolean isTrial = activeSub.getSubscription().getPackageType() == PackageType.TRIAL;
 
-                    BigDecimal currentVal = isTrial ? BigDecimal.ZERO : activeSub.getSubscription().getPrice();
-                    BigDecimal targetVal = targetSub.getPrice();
+                    currentBreakdown = calculateBreakdownFromSubscription(activeSub.getSubscription());
+                    targetBreakdown = calculateBreakdownFromSubscription(targetSub);
+
+                    BigDecimal currentVal = isTrial ? BigDecimal.ZERO : currentBreakdown.breakdown().finalPrice();
+                    BigDecimal targetVal = targetBreakdown.breakdown().finalPrice();
 
                     if (!isTrial && targetVal.compareTo(currentVal) <= 0)
                         throw new RuntimeException("Không thể chuyển xuống gói thấp hơn. Vui lòng chọn gói có giá trị cao hơn.");
@@ -3634,16 +3644,25 @@ public class SchoolServiceImpl implements SchoolService {
                             : 0L;
 
                     LocalDate newEndDate = LocalDate.now().plusDays(targetDurationDays + bonusDays);
-                    netAmount = targetSub.getPrice(); // full price gói mới
+                    netAmount = targetVal.subtract(currentVal);
+                    if (netAmount.compareTo(BigDecimal.ZERO) < 0) {
+                        throw new RuntimeException("Không thể chuyển xuống gói thấp hơn. Vui lòng chọn gói có giá trị cao hơn.");
+                    }
 
 
                     currentDetails.put("packageName", activeSub.getSubscription().getName());
+                    currentDetails.put("basePrice", currentBreakdown.breakdown().basePrice());
+                    currentDetails.put("totalFeatureAmount", currentBreakdown.breakdown().totalFeatureAmount());
                     currentDetails.put("price", currentVal);
+                    currentDetails.put("finalPrice", currentVal);
                     currentDetails.put("remainingDays", remainingDays);
                     currentDetails.put("expiryDate", activeSub.getEndDate());
 
                     targetDetails.put("packageName", targetSub.getName());
+                    targetDetails.put("basePrice", targetBreakdown.breakdown().basePrice());
+                    targetDetails.put("totalFeatureAmount", targetBreakdown.breakdown().totalFeatureAmount());
                     targetDetails.put("price", targetVal);
+                    targetDetails.put("finalPrice", targetVal);
                     targetDetails.put("durationDays", targetDurationDays);
                     targetDetails.put("bonusDays", bonusDays);
                     targetDetails.put("newExpiryDate", newEndDate);
@@ -3652,7 +3671,8 @@ public class SchoolServiceImpl implements SchoolService {
                 }
 
                 case RENEW -> {
-                    netAmount = activeSub.getSubscription().getPrice();
+                    currentBreakdown = calculateBreakdownFromSubscription(activeSub.getSubscription());
+                    netAmount = currentBreakdown.breakdown().finalPrice();
                     int durationDays = activeSub.getSubscription().getDurationDays();
 
                     if (durationDays <= 0) {
@@ -3664,7 +3684,10 @@ public class SchoolServiceImpl implements SchoolService {
                             : activeSub.getEndDate();
 
                     currentDetails.put("packageName", activeSub.getSubscription().getName());
+                            currentDetails.put("basePrice", currentBreakdown.breakdown().basePrice());
+                            currentDetails.put("totalFeatureAmount", currentBreakdown.breakdown().totalFeatureAmount());
                     currentDetails.put("price", netAmount);
+                            currentDetails.put("finalPrice", netAmount);
                     currentDetails.put("expiryDate", activeSub.getEndDate());
                     targetDetails.put("packageName", activeSub.getSubscription().getName());
                     targetDetails.put("baseDate", baseDate);
@@ -3673,15 +3696,18 @@ public class SchoolServiceImpl implements SchoolService {
                 }
             }
 
-            // Determine target subscription for feature details
-            Subscription subForFeatures = null;
-            if (action == SubscriptionAction.BUY_NEW || action == SubscriptionAction.SWITCH_PLAN) {
-                subForFeatures = subscriptionRepo.findById(request.getTargetPackageId()).orElse(null);
-            } else if (action == SubscriptionAction.RENEW && activeSub != null) {
-                subForFeatures = activeSub.getSubscription();
+            BreakdownResult breakdownResult = targetBreakdown != null ? targetBreakdown : currentBreakdown;
+
+            if (breakdownResult == null && action == SubscriptionAction.BUY_NEW && request.getTargetPackageId() != null) {
+                Subscription targetSub = subscriptionRepo.findById(request.getTargetPackageId()).orElse(null);
+                if (targetSub != null) {
+                    breakdownResult = calculateBreakdownFromSubscription(targetSub);
+                }
             }
 
-            var breakdownResult = calculateBreakdownFromNet(netAmount, subForFeatures);
+            if (breakdownResult == null && action == SubscriptionAction.RENEW && activeSub != null) {
+                breakdownResult = calculateBreakdownFromSubscription(activeSub.getSubscription());
+            }
 
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("action", action);
@@ -3704,12 +3730,12 @@ public class SchoolServiceImpl implements SchoolService {
     private record BreakdownResult(ConfigSystemUtil.SubscriptionPriceBreakdown breakdown, 
                                    Map<String, Object> featureDetails) {}
 
-    private BreakdownResult calculateBreakdownFromNet(BigDecimal netAmount, Subscription subscription) {
+    private BreakdownResult calculateBreakdownFromSubscription(Subscription subscription) {
         BigDecimal serviceRate = PreviewSubscriptionValidation.resolveBusinessRate("serviceRate", platformConfigRepo);
         BigDecimal taxRate = PreviewSubscriptionValidation.resolveBusinessRate("taxRate", platformConfigRepo);
 
-        // Step 1: basePrice = giá gói gốc
-        BigDecimal basePrice = netAmount == null ? BigDecimal.ZERO : netAmount.max(BigDecimal.ZERO);
+        // Step 1: basePrice = giá gốc theo PackageType
+        BigDecimal basePrice = resolveBasePriceForSubscription(subscription);
 
         // Step 2: tính phí tính năng bổ sung
         BigDecimal totalFeatureAmount = BigDecimal.ZERO;
@@ -3745,7 +3771,7 @@ public class SchoolServiceImpl implements SchoolService {
             }
         }
 
-        // Step 3: netPrice = tạm tính (giá nền + phí tính năng, chưa gồm phí dịch vụ & thuế)
+        // Step 3: netPrice = giá nền + phí tính năng
         BigDecimal netPrice = basePrice.add(totalFeatureAmount);
 
         // Step 4: serviceFee và taxFee tính trên netPrice
@@ -3767,6 +3793,22 @@ public class SchoolServiceImpl implements SchoolService {
                 finalPrice);         // finalPrice: tổng cuối làm tròn
 
         return new BreakdownResult(breakdown, featureDetails);
+    }
+
+    private BigDecimal resolveBasePriceForSubscription(Subscription subscription) {
+        if (subscription == null || subscription.getPackageType() == null) {
+            return BigDecimal.ZERO;
+        }
+
+        try {
+            Map<String, Object> businessMap = PreviewSubscriptionValidation.getBusinessMap(platformConfigRepo);
+            Map<String, Object> pricingConfigs = ConfigSystemUtil.getPricingConfig(businessMap);
+            Map<String, Object> basePrices = (Map<String, Object>) pricingConfigs.get("basePricing");
+            return ConfigSystemUtil.resolveBasePrice(basePrices, subscription.getPackageType());
+        } catch (Exception e) {
+            log.debug("Error resolving base price for subscription {}: {}", subscription.getId(), e.getMessage());
+            return BigDecimal.ZERO;
+        }
     }
 
     private BigDecimal toBigDecimal(Object obj) {
