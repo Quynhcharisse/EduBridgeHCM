@@ -841,7 +841,6 @@ public class SchoolServiceImpl implements SchoolService {
         if (year > 0) {
             List<AdmissionCampaign> campaigns = admissionCampaignRepo.findBySchoolIdAndYearOrderByStatusAsc(schoolId, year);
             List<Map<String, Object>> data = campaigns.stream()
-                    .filter(campaign -> campaign.getStatus() == Status.OPEN_ADMISSION_CAMPAIGN)
                     .map(campaign -> buildCampaignData(campaign, processByMethod, docsByMethod)).toList();
             responseBody.put("campaigns", data);
             return ResponseBuilder.build(HttpStatus.OK, "Hiển thị danh sách chiến dịch tuyển sinh năm " + year + " thành công", responseBody);
