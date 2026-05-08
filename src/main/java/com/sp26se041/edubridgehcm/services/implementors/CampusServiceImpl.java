@@ -279,11 +279,14 @@ public class CampusServiceImpl implements CampusService {
         }
 
         // Validate quota theo từng phương thức tuyển sinh (không vượt quota PTTS trong campaign)
+        // Đếm tổng quota đã dùng của TẤT CẢ campus cho method này trong campaign
         Object methodQuotaRaw = matchedTimeline.get("quota");
         if (methodQuotaRaw != null) {
             try {
                 int methodQuota = Integer.parseInt(methodQuotaRaw.toString());
-                int usedQuotaForMethod = existingOfferings.stream()
+                int usedQuotaForMethod = campusProgramOfferingRepo
+                        .findByAdmissionCampaignId(campaign.getId())
+                        .stream()
                         .filter(o -> requestedMethod.equals(normalize(o.getAdmissionMethod())))
                         .mapToInt(CampusProgramOffering::getQuota)
                         .sum();
@@ -677,12 +680,10 @@ public class CampusServiceImpl implements CampusService {
                     if (methodQuotaRaw == null) break;
                     try {
                         int methodQuota = Integer.parseInt(methodQuotaRaw.toString());
-                        List<CampusProgramOffering> allCampusOfferings = campusProgramOfferingRepo
+                        // Đếm tổng quota đã dùng của TẤT CẢ campus cho method này (trừ offering đang update)
+                        int otherUsedForMethod = campusProgramOfferingRepo
                                 .findByAdmissionCampaignId(offering.getAdmissionCampaign().getId())
                                 .stream()
-                                .filter(o -> o.getCampus().getId().equals(offering.getCampus().getId()))
-                                .toList();
-                        int otherUsedForMethod = allCampusOfferings.stream()
                                 .filter(o -> !o.getId().equals(offering.getId())
                                         && offeringMethod.equals(normalize(o.getAdmissionMethod())))
                                 .mapToInt(CampusProgramOffering::getQuota)
