@@ -87,4 +87,6 @@ public interface ConsultationOfflineRequestRepo extends JpaRepository<Consultati
     List<ConsultationOfflineRequest> findByCounsellorSlot_CounsellorAndAppointmentDateAndAppointmentTime(Counsellor counsellorSlot_counsellor, LocalDate appointmentDate, LocalTime appointmentTime);
 
     List<ConsultationOfflineRequest> findByLockedUntilIsNotNullAndLockedUntilBefore(LocalDateTime now);
+
+    List<ConsultationOfflineRequest> findByCounsellorSlot_AdmissionCampaign_IdAndCampusIdOrderByAppointmentDateAscAppointmentTimeAsc(Integer counsellorSlotAdmissionCampaignId, Integer campusId);
 }

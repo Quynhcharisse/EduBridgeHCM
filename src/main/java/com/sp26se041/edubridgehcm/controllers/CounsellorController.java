@@ -90,6 +90,18 @@ public class CounsellorController {
         return counsellorService.updateConsultationOfflineRequest(updateConsultationOfflineRequest);
     }
 
+    @GetMapping("/admission-campaigns")
+    @PreAuthorize("hasAnyRole('COUNSELLOR')")
+    public ResponseEntity<ResponseObject> getAdmissionCampaigns() {
+        return counsellorService.getAdmissionCampaigns();
+    }
+
+    @GetMapping("/consultation/offline/by-campaign/{campaignId}")
+    @PreAuthorize("hasAnyRole('COUNSELLOR')")
+    public ResponseEntity<ResponseObject> getAppointmentsByCampaign(@PathVariable Integer campaignId) {
+        return counsellorService.getAppointmentsByCampaign(campaignId);
+    }
+
     @PostMapping("/chat-with-AI-chatbot")
     @PreAuthorize("hasAnyRole('COUNSELLOR')")
     public ResponseEntity<ResponseObject> chatWithAIChatBotSchool(@RequestBody ChatMessageForChatBot chatMessageForChatBot) {
