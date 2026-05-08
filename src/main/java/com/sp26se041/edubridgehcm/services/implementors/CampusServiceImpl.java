@@ -269,21 +269,52 @@ public class CampusServiceImpl implements CampusService {
         if (alreadyExists) {
             return ResponseBuilder.build(HttpStatus.CONFLICT,
                     "Gói tuyển sinh cho phương thức '" + requestedMethod + "' đã tồn tại.", null);
-        } // lỗi đây    Gói tuyển sinh cho phương thức 'HOC_BA' đã tồn tại.
+        }
 
         int usedQuota = existingOfferings.stream().mapToInt(CampusProgramOffering::getQuota).sum();
+        int remainingCampusQuota = allocatedQuota - usedQuota;
         if (usedQuota + requestedQuota > allocatedQuota) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    String.format("Tổng quota vượt mức được phân bổ. Đã dùng: %d, Thêm: %d, Giới hạn: %d.",
-                            usedQuota, requestedQuota, allocatedQuota), null);
+            // Thêm thông tin rõ ràng: đã dùng của campus này, bạn đang thêm bao nhiêu, còn lại cho campus này
+            // và nếu có quota của phương thức trong campaign thì hiển thị remaining toàn trường cho method đó
+            int usedQuotaForMethod = campusProgramOfferingRepo
+                    .findByAdmissionCampaignId(campaign.getId())
+                    .stream()
+                    .filter(o -> requestedMethod.equals(normalize(o.getAdmissionMethod())))
+                    .mapToInt(CampusProgramOffering::getQuota)
+                    .sum();
+
+            int methodQuota = -1;
+            Object methodQuotaRawForMsg = matchedTimeline != null ? matchedTimeline.get("quota") : null;
+            if (methodQuotaRawForMsg != null) {
+                try {
+                    methodQuota = Integer.parseInt(methodQuotaRawForMsg.toString());
+                } catch (NumberFormatException ignored) {
+                }
+            }
+
+            String detailMsg;
+            if (methodQuota > -1) {
+                int remainingMethodQuota = Math.max(0, methodQuota - usedQuotaForMethod);
+                detailMsg = String.format("Tổng quota vượt mức phân bổ cho cơ sở. Cơ sở đã dùng: %d, bạn đang thêm: %d, giới hạn cơ sở: %d (còn lại cho cơ sở này: %d). Phương thức '%s' toàn trường đã dùng %d/%d, còn lại %d.",
+                        usedQuota, requestedQuota, allocatedQuota, Math.max(0, remainingCampusQuota),
+                        requestedMethod, usedQuotaForMethod, methodQuota, remainingMethodQuota);
+            } else {
+                detailMsg = String.format("Tổng quota vượt mức phân bổ cho cơ sở. Cơ sở đã dùng: %d, bạn đang thêm: %d, giới hạn cơ sở: %d (còn lại cho cơ sở này: %d).",
+                        usedQuota, requestedQuota, allocatedQuota, Math.max(0, remainingCampusQuota));
+            }
+
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, detailMsg, null);
         }
 
         // Validate quota theo từng phương thức tuyển sinh (không vượt quota PTTS trong campaign)
+        // Đếm tổng quota đã dùng của TẤT CẢ campus cho method này trong campaign
         Object methodQuotaRaw = matchedTimeline.get("quota");
         if (methodQuotaRaw != null) {
             try {
                 int methodQuota = Integer.parseInt(methodQuotaRaw.toString());
-                int usedQuotaForMethod = existingOfferings.stream()
+                int usedQuotaForMethod = campusProgramOfferingRepo
+                        .findByAdmissionCampaignId(campaign.getId())
+                        .stream()
                         .filter(o -> requestedMethod.equals(normalize(o.getAdmissionMethod())))
                         .mapToInt(CampusProgramOffering::getQuota)
                         .sum();
@@ -575,6 +606,8 @@ public class CampusServiceImpl implements CampusService {
                     entry.put("campusId", campusId);
                     entry.put("campusName", campusNameMap.getOrDefault(campusId, ""));
                     entry.put("usedQuota", usedQuota);
+                    // Chỉ tiêu còn lại mà campus này có thể tạo thêm cho method này
+                    entry.put("maxAdditionalQuota", remainingQuota);
                     campusBreakdown.add(entry);
                 });
 
@@ -583,6 +616,7 @@ public class CampusServiceImpl implements CampusService {
                 methodEntry.put("totalMethodQuota", totalMethodQuota);
                 methodEntry.put("totalUsedQuota", totalUsed);
                 methodEntry.put("remainingQuota", remainingQuota);
+                methodEntry.put("isFull", remainingQuota == 0);
                 methodEntry.put("campusBreakdown", campusBreakdown);
                 methodList.add(methodEntry);
             }
@@ -677,12 +711,10 @@ public class CampusServiceImpl implements CampusService {
                     if (methodQuotaRaw == null) break;
                     try {
                         int methodQuota = Integer.parseInt(methodQuotaRaw.toString());
-                        List<CampusProgramOffering> allCampusOfferings = campusProgramOfferingRepo
+                        // Đếm tổng quota đã dùng của TẤT CẢ campus cho method này (trừ offering đang update)
+                        int otherUsedForMethod = campusProgramOfferingRepo
                                 .findByAdmissionCampaignId(offering.getAdmissionCampaign().getId())
                                 .stream()
-                                .filter(o -> o.getCampus().getId().equals(offering.getCampus().getId()))
-                                .toList();
-                        int otherUsedForMethod = allCampusOfferings.stream()
                                 .filter(o -> !o.getId().equals(offering.getId())
                                         && offeringMethod.equals(normalize(o.getAdmissionMethod())))
                                 .mapToInt(CampusProgramOffering::getQuota)
