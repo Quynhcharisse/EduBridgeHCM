@@ -262,15 +262,6 @@ public class CampusServiceImpl implements CampusService {
                 .filter(o -> o.getCampus().getId().equals(targetCampus.getId()))
                 .toList();
 
-        // Kiểm tra trùng: campus + campaign + program + method
-        boolean alreadyExists = existingOfferings.stream()
-                .anyMatch(o -> o.getProgram().getId().equals(program.getId())
-                        && requestedMethod.equals(o.getAdmissionMethod()));
-        if (alreadyExists) {
-            return ResponseBuilder.build(HttpStatus.CONFLICT,
-                    "Gói tuyển sinh cho phương thức '" + requestedMethod + "' đã tồn tại.", null);
-        }
-
         int usedQuota = existingOfferings.stream().mapToInt(CampusProgramOffering::getQuota).sum();
         int remainingCampusQuota = allocatedQuota - usedQuota;
         if (usedQuota + requestedQuota > allocatedQuota) {
