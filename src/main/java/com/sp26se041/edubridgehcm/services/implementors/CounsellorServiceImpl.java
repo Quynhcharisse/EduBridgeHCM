@@ -782,7 +782,7 @@ public class CounsellorServiceImpl implements CounsellorService {
 
             case START -> {
 
-                LocalTime now = LocalTime.now();
+                LocalDateTime now = LocalDateTime.now();
 
                 if (currentStatus != Status.CONSULTATION_CONFIRMED) {
                     return ResponseBuilder.build(
@@ -791,13 +791,25 @@ public class CounsellorServiceImpl implements CounsellorService {
                             null
                     );
                 }
-                if (now.isAfter(offlineRequest.getCounsellorSlot().getCampusScheduleTemplate().getEndTime())) {
+
+                LocalDate appointmentDate = offlineRequest.getAppointmentDate();
+
+                LocalTime endTime = offlineRequest
+                        .getCounsellorSlot()
+                        .getCampusScheduleTemplate()
+                        .getEndTime();
+
+                LocalDateTime endDateTime = LocalDateTime.of(appointmentDate, endTime);
+
+                // Quá giờ kết thúc
+                if (now.isAfter(endDateTime)) {
                     return ResponseBuilder.build(
                             HttpStatus.BAD_REQUEST,
                             "Không thể bắt đầu vì lịch hẹn đã quá thời gian kết thúc dự kiến",
                             null
                     );
                 }
+
                 offlineRequest.setStatus(Status.CONSULTATION_IN_PROGRESS);
             }
 

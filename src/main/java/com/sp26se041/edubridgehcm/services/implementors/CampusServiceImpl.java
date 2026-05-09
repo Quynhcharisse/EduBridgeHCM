@@ -633,7 +633,6 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ được cập nhật khi chương trình đang ở trạng thái tạm dừng (PAUSED).", null);
         }
 
-        // Validate quota nếu campus muốn thay đổi
         if (request.getQuota() != null) {
             if (request.getQuota() <= 0) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Quota phải lớn hơn 0.", null);
