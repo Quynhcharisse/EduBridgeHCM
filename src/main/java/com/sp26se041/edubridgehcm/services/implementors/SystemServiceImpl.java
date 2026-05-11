@@ -483,7 +483,7 @@ public class SystemServiceImpl implements SystemService {
                             Map<String, Object> docData = new HashMap<>();
                             docData.put("code", doc.getCode());
                             docData.put("name", doc.getName());
-                            docData.put("required", doc.isRequired());
+                            docData.put("required", true);
                             return docData;
                         })
                         .collect(Collectors.toList());
@@ -657,27 +657,6 @@ public class SystemServiceImpl implements SystemService {
                 SystemConfigValidation.cascadeDeleteOnMethodChange(configValue, nestedData);
             }
 
-            if (type == ImportType.MANDATORY_ALL) {
-                Set<String> protectedCodes = getMandatoryAllProtectedCodes(configValue);
-                rows.stream()
-                        .filter(r -> Boolean.TRUE.equals(r.getIsDeleted()))
-                        .forEach(r -> {
-                            String code = SystemConfigValidation.normalize(
-                                    ((Map<String, Object>) r.getRowData()).get("code")
-                            );
-                            if (protectedCodes.contains(code)) {
-                                r.setError(new ImportConfirmRequest.Error(
-                                        List.of(new ImportConfirmRequest.Fields("code", "Giấy tờ này bắt buộc phải có trong hồ sơ chung, không thể xoá"))
-                                ));
-                                r.setIsError(true);
-                            }
-                        });
-
-                if (rows.stream().anyMatch(r -> Boolean.TRUE.equals(r.getIsError()))) {
-                    return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Dữ liệu không hợp lệ", rows);
-                }
-            }
-
             PlatformConfig config = platformConfigRepo.findByKey("admissionSettingsData")
                     .orElse(PlatformConfig.builder().key("admissionSettingsData").value(new HashMap<>()).build());
 
@@ -689,17 +668,6 @@ public class SystemServiceImpl implements SystemService {
         } catch (Exception e) {
             return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi lưu dữ liệu: " + e.getMessage(), null);
         }
-    }
-
-    private Set<String> getMandatoryAllProtectedCodes(Map<String, Object> configValue) {
-        Object data = configValue.get("mandatoryAll");
-        if (!(data instanceof List<?> list)) return new HashSet<>();
-        return list.stream()
-                .filter(Map.class::isInstance)
-                .map(m -> (Map<String, Object>) m)
-                .filter(m -> Boolean.TRUE.equals(m.get("nonRemovable")))
-                .map(m -> SystemConfigValidation.normalize(m.get("code")))
-                .collect(Collectors.toSet());
     }
 
     @Override
