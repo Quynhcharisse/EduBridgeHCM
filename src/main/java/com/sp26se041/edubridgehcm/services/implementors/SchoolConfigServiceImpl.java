@@ -70,7 +70,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class    SchoolConfigServiceImpl implements SchoolConfigService {
+public class SchoolConfigServiceImpl implements SchoolConfigService {
 
     @Value("${AI_SERVICE_N8N}")
     private String n8nUrl;
@@ -252,6 +252,20 @@ public class    SchoolConfigServiceImpl implements SchoolConfigService {
                 })
                 .collect(Collectors.toList());
 
+        Map<String, Object> platformConfig = platformConfigRepo
+                .findByKey("admissionSettingsData")
+                .map(c -> (Map<String, Object>) c.getValue())
+                .orElse(new HashMap<>());
+
+        List<Map<String, Object>> adminMandatoryAll = new ArrayList<>();
+        Object docReqData = platformConfig.get("documentRequirementsData");
+        if (docReqData instanceof Map<?, ?> docMap) {
+            Object adminMandatory = ((Map<String, Object>) docMap).get("mandatoryAll");
+            if (adminMandatory instanceof List<?>) {
+                adminMandatoryAll = (List<Map<String, Object>>) adminMandatory;
+            }
+        }
+
         Map<String, Object> admissionJson = new HashMap<>();
         admissionJson.put("mandatoryAll", mandatoryAllJson);
         admissionJson.put("byMethod", byMethodJson);
@@ -346,12 +360,10 @@ public class    SchoolConfigServiceImpl implements SchoolConfigService {
     private ImportConfirmRequest.Error validateMandatoryRow(Map<String, Object> rowData) {
         List<ImportConfirmRequest.Fields> fieldErrors = new ArrayList<>();
 
-        // Kiểm tra mã hồ sơ
         if (String.valueOf(rowData.get("code")).isBlank()) {
             fieldErrors.add(new ImportConfirmRequest.Fields("code", "Mã hồ sơ không được để trống"));
         }
 
-        // Kiểm tra tên hồ sơ
         if (String.valueOf(rowData.get("name")).isBlank()) {
             fieldErrors.add(new ImportConfirmRequest.Fields("name", "Tên hồ sơ không được để trống"));
         }
@@ -1032,7 +1044,7 @@ public class    SchoolConfigServiceImpl implements SchoolConfigService {
                             pRow.put("progName", program.getName() != null ? program.getName() : "");
                             pRow.put("progFee", program.getBaseTuitionFee() != null
                                     ? program.getBaseTuitionFee().toPlainString()
-                                      + (program.getFeeUnit() != null ? " / " + program.getFeeUnit().name() : "")
+                                    + (program.getFeeUnit() != null ? " / " + program.getFeeUnit().name() : "")
                                     : "");
                             pRow.put("progStandard", program.getGraduationStandard() != null ? program.getGraduationStandard() : "");
                             // Môn học = môn của khung + môn bổ sung của chương trình

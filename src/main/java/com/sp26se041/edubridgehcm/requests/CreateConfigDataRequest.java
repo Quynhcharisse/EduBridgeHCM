@@ -196,7 +196,6 @@ public class CreateConfigDataRequest {
         String code;
         String name;
         boolean required;
-        boolean nonRemovable;
     }
 
     @Data
