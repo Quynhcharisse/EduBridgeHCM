@@ -649,7 +649,9 @@ public class SystemServiceImpl implements SystemService {
             List<Map<String, Object>> finalData = new ArrayList<>(mergedMap.values());
 
             List<Map<String, Object>> nestedData = SystemConfigValidation.groupToNestedStructure(finalData, type);
-            configValue.put(type.getSheetName(), nestedData);
+            if (type != ImportType.METHOD_DOCUMENTS && type != ImportType.MANDATORY_ALL) {
+                configValue.put(type.getSheetName(), nestedData);
+            }
 
             SystemConfigValidation.syncLegacyData(configValue, nestedData, type);
 
