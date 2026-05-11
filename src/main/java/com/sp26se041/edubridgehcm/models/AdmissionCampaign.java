@@ -21,7 +21,6 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.experimental.FieldDefaults;
-import org.jspecify.annotations.NullMarked;
 import org.hibernate.annotations.Type;
 
 import java.time.LocalDate;
@@ -65,10 +64,12 @@ public class AdmissionCampaign {
     @Column(name = "end_date")
     LocalDate endDate;
 
+    @Column(name = "enrollment_start_date")
+    LocalDate enrollmentStartDate;
+
     @Type(JsonBinaryType.class)
-    @Column(name = "admission_method_timelines" ,columnDefinition = "jsonb")
+    @Column(name = "admission_method_timelines", columnDefinition = "jsonb")
     Object admissionMethodTimelines;
-    // HOC BA --> START - END , QUOTA PTTS HỌC BẠ
 
     @Enumerated(EnumType.STRING)
     Status status;
@@ -76,6 +77,5 @@ public class AdmissionCampaign {
     @OneToMany(mappedBy = "admissionCampaign")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    List<CounsellorSlot> counsellorSlotList ;
-
+    List<CounsellorSlot> counsellorSlotList;
 }

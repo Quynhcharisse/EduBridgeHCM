@@ -28,6 +28,8 @@ public class CreateAdmissionCampaignTemplateRequest {
 
     LocalDate endDate;
 
+    LocalDate enrollmentStartDate;
+
     List<AdmissionMethodTimelineRequest> admissionMethodTimelines;
 
     @Data
@@ -48,11 +50,9 @@ public class CreateAdmissionCampaignTemplateRequest {
 
         BigDecimal reservationFee;
 
-        LocalDate confirmationStartDate;
+        LocalDate depositStartDate;
 
-        LocalDate confirmationEndDate;
-
-        Integer depositDeadlineDays;
+        LocalDate depositEndDate;
     }
 }
 

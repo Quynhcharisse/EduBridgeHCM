@@ -297,24 +297,6 @@ public class AdmissionCampaignValidation {
                 if (entry.getReservationFee() == null || entry.getReservationFee().compareTo(BigDecimal.ZERO) < 0) {
                     return "Phí đặt cọc của phương thức '" + code.trim() + "' phải được thiết lập và không âm";
                 }
-                if (entry.getConfirmationStartDate() == null) {
-                    return "Ngày bắt đầu giai đoạn xác nhận của phương thức '" + code.trim() + "' không được để trống";
-                }
-                if (entry.getConfirmationEndDate() == null) {
-                    return "Ngày kết thúc giai đoạn xác nhận của phương thức '" + code.trim() + "' không được để trống";
-                }
-                if (!entry.getConfirmationStartDate().isAfter(entry.getEndDate())) {
-                    return "Ngày bắt đầu xác nhận của phương thức '" + code.trim() + "' phải sau ngày kết thúc nhận hồ sơ";
-                }
-                if (!entry.getConfirmationEndDate().isAfter(entry.getConfirmationStartDate())) {
-                    return "Ngày kết thúc xác nhận của phương thức '" + code.trim() + "' phải sau ngày bắt đầu xác nhận";
-                }
-                if (campaignEnd != null && entry.getConfirmationEndDate().isAfter(campaignEnd)) {
-                    return "Ngày kết thúc xác nhận của phương thức '" + code.trim() + "' không được vượt quá ngày kết thúc chiến dịch";
-                }
-                if (entry.getDepositDeadlineDays() == null || entry.getDepositDeadlineDays() <= 0) {
-                    return "Số ngày hạn đặt cọc của phương thức '" + code.trim() + "' phải lớn hơn 0";
-                }
             }
         }
 
@@ -331,9 +313,9 @@ public class AdmissionCampaignValidation {
         // Jackson serialize LocalDate thành array [year, month, day] khi lưu vào JSONB
         if (value instanceof List<?> list && list.size() == 3) {
             try {
-                int year  = ((Number) list.get(0)).intValue();
+                int year = ((Number) list.get(0)).intValue();
                 int month = ((Number) list.get(1)).intValue();
-                int day   = ((Number) list.get(2)).intValue();
+                int day = ((Number) list.get(2)).intValue();
                 return LocalDate.of(year, month, day);
             } catch (Exception ignored) {
             }

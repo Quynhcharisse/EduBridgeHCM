@@ -536,9 +536,6 @@ public class SchoolServiceImpl implements SchoolService {
                                 .allowReservationSubmission(t.getAllowReservationSubmission())
                                 .quota(t.getQuota())
                                 .reservationFee(t.getReservationFee())
-                                .confirmationStartDate(t.getConfirmationStartDate() != null ? t.getConfirmationStartDate().plusYears(yearDifference) : null)
-                                .confirmationEndDate(t.getConfirmationEndDate() != null ? t.getConfirmationEndDate().plusYears(yearDifference) : null)
-                                .depositDeadlineDays(t.getDepositDeadlineDays())
                                 .build())
                         .toList();
 
@@ -1915,9 +1912,6 @@ public class SchoolServiceImpl implements SchoolService {
             boolean allowReservationSubmission = !Boolean.FALSE.equals(timelineRequest.getAllowReservationSubmission());
             Integer quota = timelineRequest.getQuota();
             BigDecimal reservationFee = timelineRequest.getReservationFee();
-            LocalDate confirmationStartDate = timelineRequest.getConfirmationStartDate();
-            LocalDate confirmationEndDate = timelineRequest.getConfirmationEndDate();
-            Integer depositDeadlineDays = timelineRequest.getDepositDeadlineDays();
 
             if (methodStartDate == null || methodEndDate == null) {
                 throw new IllegalArgumentException("Mỗi phương thức tuyển sinh phải có ngày bắt đầu và ngày kết thúc");
@@ -1938,21 +1932,6 @@ public class SchoolServiceImpl implements SchoolService {
                 if (reservationFee == null || reservationFee.compareTo(BigDecimal.ZERO) < 0) {
                     throw new IllegalArgumentException("Phí đặt cọc của phương thức " + methodCode + " phải được thiết lập và không âm");
                 }
-                if (confirmationStartDate == null || confirmationEndDate == null) {
-                    throw new IllegalArgumentException("Giai đoạn xác nhận của phương thức " + methodCode + " phải được thiết lập đầy đủ");
-                }
-                if (!confirmationStartDate.isAfter(methodEndDate)) {
-                    throw new IllegalArgumentException("Ngày bắt đầu xác nhận của phương thức " + methodCode + " phải sau ngày kết thúc nhận hồ sơ");
-                }
-                if (!confirmationEndDate.isAfter(confirmationStartDate)) {
-                    throw new IllegalArgumentException("Ngày kết thúc xác nhận phải sau ngày bắt đầu xác nhận cho phương thức: " + methodCode);
-                }
-                if (confirmationEndDate.isAfter(campaignEndDate)) {
-                    throw new IllegalArgumentException("Ngày kết thúc xác nhận của phương thức " + methodCode + " không được vượt quá ngày kết thúc chiến dịch");
-                }
-                if (depositDeadlineDays == null || depositDeadlineDays <= 0) {
-                    throw new IllegalArgumentException("Số ngày hạn đặt cọc của phương thức " + methodCode + " phải lớn hơn 0");
-                }
             }
 
             Map<String, Object> timeline = new LinkedHashMap<>();
@@ -1964,9 +1943,6 @@ public class SchoolServiceImpl implements SchoolService {
             timeline.put("allowReservationSubmission", allowReservationSubmission);
             timeline.put("quota", quota);
             timeline.put("reservationFee", reservationFee);
-            timeline.put("confirmationStartDate", confirmationStartDate);
-            timeline.put("confirmationEndDate", confirmationEndDate);
-            timeline.put("depositDeadlineDays", depositDeadlineDays);
             resolved.add(timeline);
         }
 
@@ -2004,9 +1980,6 @@ public class SchoolServiceImpl implements SchoolService {
                     .allowReservationSubmission(allowReservationSubmission == null ? Boolean.TRUE : allowReservationSubmission)
                     .quota(quota)
                     .reservationFee(reservationFee)
-                    .confirmationStartDate(confirmationStartDate)
-                    .confirmationEndDate(confirmationEndDate)
-                    .depositDeadlineDays(depositDeadlineDays)
                     .build());
         }
         return requests;
@@ -2188,23 +2161,6 @@ public class SchoolServiceImpl implements SchoolService {
         return data;
     }
 
-    List<Map<String, Object>> buildPublicProgramDataList(List<Program> programList) {
-
-        if (programList == null) return Collections.emptyList();
-
-        return programList.stream().map(program -> {
-
-            Map<String, Object> data = new HashMap<>();
-            data.put("name", program.getName());
-            data.put("graduationStandard", program.getGraduationStandard());
-            data.put("targetStudentDescription", program.getTargetStudentDescription());
-            data.put("baseTuitionFee", program.getBaseTuitionFee());
-            data.put("isActive", program.getStatus());
-            return data;
-        }).toList();
-    }
-
-    @Override
     public ResponseEntity<ResponseObject> createOpenDayEvent(CreateOpenDayEventRequest request) {
 
         if (AccountRestrictionUtil.isRestrictedActor()) {

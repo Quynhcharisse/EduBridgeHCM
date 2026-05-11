@@ -520,8 +520,6 @@ public class SystemServiceImpl implements SystemService {
         Map<String, Object> admissionJson = new HashMap<>();
         admissionJson.put("allowedMethods", allowedMethodsJson);
         admissionJson.put("admissionProcesses", admissionProcessesJson);
-        admissionJson.put("mandatoryAll", mandatoryAllJson);
-        admissionJson.put("byMethod", byMethodJson);
         admissionJson.put("documentRequirementsData", documentRequirementsTemplateJson);
 
         PlatformConfig config = platformConfigRepo.findByKey("admissionSettingsData").orElse(

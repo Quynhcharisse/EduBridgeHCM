@@ -104,10 +104,7 @@ public enum Status {
     SLOT_UNASSIGNED("slot_unassigned"),
 
     RESERVATION_APPROVAL("reservation approval"), // Parent chốt xác nhận muốn vào trường này
-    RESERVATION_CONFIRMED("reservation confirmed"), //Parent đặt cọc thành công
-    RESERVATION_DEPOSITED("reservation deposited"), // Hồ sơ ở các trường khác bị đánh dấu
-    RESERVATION_GHOST_DEACTIVATED("reservation ghost deactivated"), //hồ sơ ảo ở trường khác
-    RESERVATION_ENROLLED("reservation enrolled"), //chính thức nhập học
+    RESERVATION_SUCCESS("reservation success"), //Parent đặt cọc thành công
     RESERVATION_PENDING("reservation pending"),
     RESERVATION_CANCELLED("reservation cancelled"),
     RESERVATION_REJECTED("reservation rejected"),
