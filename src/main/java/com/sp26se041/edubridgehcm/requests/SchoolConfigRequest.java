@@ -30,7 +30,6 @@ public class SchoolConfigRequest {
 
     QuotaConfigData quotaConfigData;
 
-    // 2. PHÂN BỔ TÀI NGUYÊN GÓI CƯỚC (Chia nhỏ gói cước đã mua cho các Campus)
     ResourceDistributionData resourceDistributionData;
 
     @Data
@@ -40,7 +39,7 @@ public class SchoolConfigRequest {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class AdmissionSettingsData {
         List<AdmissionMethodDetail> allowedMethods;
-        List<MethodAdmissionProcess> methodAdmissionProcess; // quy trình tuyển sinh theo từng phương thức
+        List<MethodAdmissionProcess> methodAdmissionProcess;
         int quotaAlertThresholdPercent;
         boolean autoCloseOnFull;
     }

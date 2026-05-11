@@ -10,6 +10,7 @@ import com.sp26se041.edubridgehcm.requests.CreateAdmissionCampaignTemplateReques
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionCampaignTemplateRequest;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
@@ -290,6 +291,31 @@ public class AdmissionCampaignValidation {
             if (entry.getQuota() == null || entry.getQuota() <= 0) {
                 return "Chỉ tiêu của phương thức '" + code.trim() + "' phải lớn hơn 0";
             }
+
+            boolean allowReservation = !Boolean.FALSE.equals(entry.getAllowReservationSubmission());
+            if (allowReservation) {
+                if (entry.getReservationFee() == null || entry.getReservationFee().compareTo(BigDecimal.ZERO) < 0) {
+                    return "Phí đặt cọc của phương thức '" + code.trim() + "' phải được thiết lập và không âm";
+                }
+                if (entry.getConfirmationStartDate() == null) {
+                    return "Ngày bắt đầu giai đoạn xác nhận của phương thức '" + code.trim() + "' không được để trống";
+                }
+                if (entry.getConfirmationEndDate() == null) {
+                    return "Ngày kết thúc giai đoạn xác nhận của phương thức '" + code.trim() + "' không được để trống";
+                }
+                if (!entry.getConfirmationStartDate().isAfter(entry.getEndDate())) {
+                    return "Ngày bắt đầu xác nhận của phương thức '" + code.trim() + "' phải sau ngày kết thúc nhận hồ sơ";
+                }
+                if (!entry.getConfirmationEndDate().isAfter(entry.getConfirmationStartDate())) {
+                    return "Ngày kết thúc xác nhận của phương thức '" + code.trim() + "' phải sau ngày bắt đầu xác nhận";
+                }
+                if (campaignEnd != null && entry.getConfirmationEndDate().isAfter(campaignEnd)) {
+                    return "Ngày kết thúc xác nhận của phương thức '" + code.trim() + "' không được vượt quá ngày kết thúc chiến dịch";
+                }
+                if (entry.getDepositDeadlineDays() == null || entry.getDepositDeadlineDays() <= 0) {
+                    return "Số ngày hạn đặt cọc của phương thức '" + code.trim() + "' phải lớn hơn 0";
+                }
+            }
         }
 
         return null;
@@ -348,6 +374,17 @@ public class AdmissionCampaignValidation {
         }
         try {
             return Integer.parseInt(String.valueOf(value).trim());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    public static BigDecimal parseBigDecimalSafe(Object value) {
+        if (value == null) return null;
+        if (value instanceof BigDecimal bd) return bd;
+        if (value instanceof Number n) return BigDecimal.valueOf(n.doubleValue());
+        try {
+            return new BigDecimal(String.valueOf(value).trim());
         } catch (NumberFormatException ignored) {
             return null;
         }

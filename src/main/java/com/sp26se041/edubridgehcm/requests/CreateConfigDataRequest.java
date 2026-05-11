@@ -33,7 +33,6 @@ public class CreateConfigDataRequest {
         double serviceRate; // Phí dịch vụ mà nền tảng thu
         BigDecimal minPay; // Số tiền thanh toán tối thiểu
         BigDecimal maxPay; //Số tiền thanh toán tối đa
-
         SubscriptionPricing subscriptionPricing; //config chung của package fee
     }
 
@@ -143,7 +142,7 @@ public class CreateConfigDataRequest {
     public static class AdmissionSettingsData {
         List<AdmissionMethodDetail> allowedMethods;
         List<MethodAdmissionProcess> methodAdmissionProcess;
-        List<MethodDocumentRequirement> methodDocumentRequirements;
+        DocumentRequirementsData documentRequirements;
     }
 
     @Data
@@ -197,5 +196,16 @@ public class CreateConfigDataRequest {
         String code;
         String name;
         boolean required;
+        boolean nonRemovable;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class DocumentRequirementsData {
+        List<DocumentDetail> mandatoryAll;
+        List<MethodDocumentRequirement> byMethod;
     }
 }

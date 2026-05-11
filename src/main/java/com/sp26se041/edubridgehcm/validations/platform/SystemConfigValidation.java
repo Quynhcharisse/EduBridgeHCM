@@ -13,7 +13,7 @@ import java.util.Set;
 public class SystemConfigValidation {
 
     public static List<Map<String, Object>> groupToNestedStructure(List<Map<String, Object>> flatData, ImportType type) {
-        if (type == ImportType.ALLOWED_METHODS) {
+        if (type == ImportType.ALLOWED_METHODS || type == ImportType.MANDATORY_ALL) {
             return flatData;
         }
 
@@ -41,17 +41,15 @@ public class SystemConfigValidation {
 
     public static String getBusinessKey(Map<String, Object> row, ImportType type) {
         return switch (type) {
-            case ALLOWED_METHODS -> normalize(row.get("code"));
+            case ALLOWED_METHODS, MANDATORY_ALL -> normalize(row.get("code"));
             case ADMISSION_PROCESSES -> buildCompositeKey(row.get("methodCode"), row.get("stepOrder"));
             case METHOD_DOCUMENTS -> buildCompositeKey(row.get("methodCode"), row.get("code"));
-            case MANDATORY_ALL -> "";
         };
     }
 
     public static void syncLegacyData(Map<String, Object> configValue, List<Map<String, Object>> data, ImportType type) {
         switch (type) {
             case METHOD_DOCUMENTS -> {
-                configValue.put("methodDocumentRequirements", data);
                 configValue.put("byMethod", data);
                 Map<String, Object> docData = configValue.get("documentRequirementsData") instanceof Map
                         ? new HashMap<>((Map<String, Object>) configValue.get("documentRequirementsData"))
@@ -60,18 +58,23 @@ public class SystemConfigValidation {
                 configValue.put("documentRequirementsData", docData);
             }
             case ALLOWED_METHODS -> {
-                // Đảm bảo key này luôn đồng bộ với sheet name
                 configValue.put("allowedMethods", data);
             }
             case ADMISSION_PROCESSES -> {
-                // Đảm bảo key này luôn đồng bộ với sheet name
                 configValue.put("admissionProcesses", data);
+            }
+            case MANDATORY_ALL -> {
+                configValue.put("mandatoryAll", data);
+                Map<String, Object> docData = configValue.get("documentRequirementsData") instanceof Map
+                        ? new HashMap<>((Map<String, Object>) configValue.get("documentRequirementsData"))
+                        : new HashMap<>();
+                docData.put("mandatoryAll", data);
+                configValue.put("documentRequirementsData", docData);
             }
         }
     }
 
     public static void cascadeDeleteOnMethodChange(Map<String, Object> configValue, List<Map<String, Object>> allowedMethods) {
-        // Extract valid methodCodes from updated allowedMethods
         Set<String> validMethodCodes = new java.util.HashSet<>();
         for (Map<String, Object> method : allowedMethods) {
             String code = normalize(method.get("code"));
@@ -88,12 +91,12 @@ public class SystemConfigValidation {
                 if (!methodCode.isBlank() && validMethodCodes.contains(methodCode)) {
                     validProcesses.add(process);
                 }
-              
+
             }
             configValue.put("admissionProcesses", validProcesses);
         }
 
-        List<Map<String, Object>> methodDocuments = (List<Map<String, Object>>) configValue.get("methodDocumentRequirements");
+        List<Map<String, Object>> methodDocuments = (List<Map<String, Object>>) configValue.get("byMethod");
         if (methodDocuments != null) {
             List<Map<String, Object>> validDocuments = new ArrayList<>();
             for (Map<String, Object> doc : methodDocuments) {
@@ -101,9 +104,8 @@ public class SystemConfigValidation {
                 if (!methodCode.isBlank() && validMethodCodes.contains(methodCode)) {
                     validDocuments.add(doc);
                 }
-           
+
             }
-            configValue.put("methodDocumentRequirements", validDocuments);
 
             Map<String, Object> docData = configValue.get("documentRequirementsData") instanceof Map
                     ? new HashMap<>((Map<String, Object>) configValue.get("documentRequirementsData"))
@@ -164,10 +166,15 @@ public class SystemConfigValidation {
                     fieldErrors.add(new ImportConfirmRequest.Fields("code", "Mã giấy tờ đã tồn tại trong file import này"));
                 }
             }
+            case MANDATORY_ALL -> {
+                if (!businessKey.isBlank() && !fileLevelCodes.add(businessKey)) {
+                    fieldErrors.add(new ImportConfirmRequest.Fields("code", "Mã giấy tờ đã tồn tại trong file import này"));
+                }
+            }
         }
 
         String mCode = normalize(rowData.get("methodCode"));
-        if (type != ImportType.ALLOWED_METHODS && !mCode.isBlank() && !dbCodes.contains(mCode)) {
+        if (type != ImportType.ALLOWED_METHODS && type != ImportType.MANDATORY_ALL && !mCode.isBlank() && !dbCodes.contains(mCode)) {
             fieldErrors.add(new ImportConfirmRequest.Fields("methodCode", "Mã phương thức không tồn tại"));
         }
 
