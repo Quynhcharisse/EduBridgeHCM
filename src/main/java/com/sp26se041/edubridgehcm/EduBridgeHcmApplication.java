@@ -29,6 +29,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -100,37 +101,37 @@ public class EduBridgeHcmApplication {
             return;
         }
 
-      Map<String, Object> business = new HashMap<>();
-business.put("taxRate", 0.05);
-business.put("serviceRate", 0.05);
-business.put("minPay", 100000);
-business.put("maxPay", 200000000);
+        Map<String, Object> business = new HashMap<>();
+        business.put("taxRate", 0.05);
+        business.put("serviceRate", 0.05);
+        business.put("minPay", 100000);
+        business.put("maxPay", 200000000);
 
-Map<String, Object> basePrices = new HashMap<>();
-basePrices.put("trial", 0);
-basePrices.put("standard", 500000);
-basePrices.put("enterprise", 2000000);
+        Map<String, Object> basePrices = new HashMap<>();
+        basePrices.put("trial", 0);
+        basePrices.put("standard", 500000);
+        basePrices.put("enterprise", 2000000);
 
-Map<String, Object> featureUnitPrices = new HashMap<>();
-featureUnitPrices.put("aiChatbotMonthlyFee", 300000);
-featureUnitPrices.put("premiumSupportFee", 200000);
+        Map<String, Object> featureUnitPrices = new HashMap<>();
+        featureUnitPrices.put("aiChatbotMonthlyFee", 300000);
+        featureUnitPrices.put("premiumSupportFee", 200000);
 
-Map<String, Object> packageQuotas = new HashMap<>();
-packageQuotas.put("durationDays", 30);
-packageQuotas.put("trialCounsellor", 3);
-packageQuotas.put("standardCounsellor", 20);
-packageQuotas.put("enterpriseCounsellor", 80);
-packageQuotas.put("trialPostLimit", 6);
-packageQuotas.put("standardPostLimit", 20);
-packageQuotas.put("enterprisePostLimit", 80);
+        Map<String, Object> packageQuotas = new HashMap<>();
+        packageQuotas.put("durationDays", 30);
+        packageQuotas.put("trialCounsellor", 3);
+        packageQuotas.put("standardCounsellor", 20);
+        packageQuotas.put("enterpriseCounsellor", 80);
+        packageQuotas.put("trialPostLimit", 6);
+        packageQuotas.put("standardPostLimit", 20);
+        packageQuotas.put("enterprisePostLimit", 80);
 
-Map<String, Object> subscriptionPricing = new HashMap<>();
-subscriptionPricing.put("basePrices", basePrices);
-subscriptionPricing.put("featureUnitPrices", featureUnitPrices);
-subscriptionPricing.put("packageQuotas", packageQuotas);
-subscriptionPricing.put("trialRatioCap", 0.3);
+        Map<String, Object> subscriptionPricing = new HashMap<>();
+        subscriptionPricing.put("basePrices", basePrices);
+        subscriptionPricing.put("featureUnitPrices", featureUnitPrices);
+        subscriptionPricing.put("packageQuotas", packageQuotas);
+        subscriptionPricing.put("trialRatioCap", 0.3);
 
-business.put("subscriptionPricing", subscriptionPricing);
+        business.put("subscriptionPricing", subscriptionPricing);
 
         Map<String, Object> media = new HashMap<>();
         media.put("maxImgSize", 10);
@@ -182,6 +183,21 @@ business.put("subscriptionPricing", subscriptionPricing);
                 )
         );
         admissionSettingsData.put("allowedMethods", allowedMethods);
+        admissionSettingsData.put("admissionProcesses", new ArrayList<>());
+
+        List<Map<String, Object>> mandatoryAll = List.of(
+                Map.of("code", "CCCD", "name", "Căn cước công dân (bản sao công chứng)", "required", true, "nonRemovable", true),
+                Map.of("code", "GIAY_KHAI_SINH", "name", "Giấy khai sinh (bản sao công chứng)", "required", true, "nonRemovable", true),
+                Map.of("code", "HOC_BA_THCS", "name", "Học bạ THCS (bản gốc có xác nhận)", "required", true, "nonRemovable", true)
+        );
+
+        admissionSettingsData.put("mandatoryAll", mandatoryAll);
+        admissionSettingsData.put("byMethod", new ArrayList<>());
+
+        Map<String, Object> documentRequirementsData = new HashMap<>();
+        documentRequirementsData.put("mandatoryAll", mandatoryAll);
+        documentRequirementsData.put("byMethod", new ArrayList<>());
+        admissionSettingsData.put("documentRequirementsData", documentRequirementsData);
 
         LocalDateTime today = LocalDateTime.now();
 

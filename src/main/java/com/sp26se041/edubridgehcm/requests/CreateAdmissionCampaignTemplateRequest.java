@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -36,10 +37,22 @@ public class CreateAdmissionCampaignTemplateRequest {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class AdmissionMethodTimelineRequest {
         String methodCode;
+
         LocalDate startDate;
+
         LocalDate endDate;
-        Boolean allowReservationSubmission; //đc nộp hồ sơ hay ko?
+
+        Boolean allowReservationSubmission;
+
         Integer quota;
+
+        BigDecimal reservationFee;
+
+        LocalDate confirmationStartDate;
+
+        LocalDate confirmationEndDate;
+
+        Integer depositDeadlineDays;
     }
 }
 

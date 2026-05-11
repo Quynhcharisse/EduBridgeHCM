@@ -53,7 +53,7 @@ public class SystemController {
             @Parameter(
                     description = "Loại dữ liệu import cấu hình",
                     schema = @Schema(
-                            allowableValues = {"ALLOWED_METHODS", "ADMISSION_PROCESSES", "METHOD_DOCUMENTS"}
+                            allowableValues = {"ALLOWED_METHODS", "ADMISSION_PROCESSES", "METHOD_DOCUMENTS", "MANDATORY_ALL"}
                     )
             )
             @RequestParam("type") ImportType type) {
@@ -67,7 +67,7 @@ public class SystemController {
             @Parameter(
                     description = "Loại dữ liệu import cấu hình",
                     schema = @Schema(
-                            allowableValues = {"ALLOWED_METHODS", "ADMISSION_PROCESSES", "METHOD_DOCUMENTS"}
+                            allowableValues = {"ALLOWED_METHODS", "ADMISSION_PROCESSES", "METHOD_DOCUMENTS", "MANDATORY_ALL"}
                     )
             )
             @RequestParam("type") ImportType type) {
@@ -80,7 +80,7 @@ public class SystemController {
             @Parameter(
                     description = "Loại dữ liệu import cấu hình",
                     schema = @Schema(
-                            allowableValues = {"ALLOWED_METHODS", "ADMISSION_PROCESSES", "METHOD_DOCUMENTS"}
+                            allowableValues = {"ALLOWED_METHODS", "ADMISSION_PROCESSES", "METHOD_DOCUMENTS", "MANDATORY_ALL"}
                     )
             )
             @RequestParam("type") ImportType type) {

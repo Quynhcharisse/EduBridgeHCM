@@ -472,18 +472,13 @@ public class SystemServiceImpl implements SystemService {
             }
         }
 
-        List<Map<String, Object>> methodDocumentRequirementsJson = new ArrayList<>();
-        if (admissionSettingsData.getMethodDocumentRequirements() != null) {
-            for (var methodRequirement : admissionSettingsData.getMethodDocumentRequirements()) {
-                if (!validMethodCodes.contains(methodRequirement.getMethodCode())) {
-                    throw new RuntimeException("Mã phương pháp " + methodRequirement.getMethodCode() + " không hợp lệ.");
-                }
+        List<Map<String, Object>> mandatoryAllJson = new ArrayList<>();
+        List<Map<String, Object>> byMethodJson = new ArrayList<>();
 
-                Map<String, Object> requirementMap = new HashMap<>();
-                requirementMap.put("methodCode", methodRequirement.getMethodCode());
-                requirementMap.put("documents", methodRequirement.getDocuments() == null
-                        ? Collections.emptyList()
-                        : methodRequirement.getDocuments().stream()
+        CreateConfigDataRequest.DocumentRequirementsData documentRequirementsData = admissionSettingsData.getDocumentRequirements();
+        if (documentRequirementsData != null) {
+            if (documentRequirementsData.getMandatoryAll() != null) {
+                mandatoryAllJson = documentRequirementsData.getMandatoryAll().stream()
                         .map(doc -> {
                             Map<String, Object> docData = new HashMap<>();
                             docData.put("code", doc.getCode());
@@ -491,19 +486,42 @@ public class SystemServiceImpl implements SystemService {
                             docData.put("required", doc.isRequired());
                             return docData;
                         })
-                        .collect(Collectors.toList()));
-                methodDocumentRequirementsJson.add(requirementMap);
+                        .collect(Collectors.toList());
+            }
+
+            if (documentRequirementsData.getByMethod() != null) {
+                for (var methodRequirement : documentRequirementsData.getByMethod()) {
+                    if (!validMethodCodes.contains(methodRequirement.getMethodCode())) {
+                        throw new RuntimeException("Mã phương pháp " + methodRequirement.getMethodCode() + " không hợp lệ.");
+                    }
+
+                    Map<String, Object> requirementMap = new HashMap<>();
+                    requirementMap.put("methodCode", methodRequirement.getMethodCode());
+                    requirementMap.put("documents", methodRequirement.getDocuments() == null
+                            ? Collections.emptyList()
+                            : methodRequirement.getDocuments().stream()
+                            .map(doc -> {
+                                Map<String, Object> docData = new HashMap<>();
+                                docData.put("code", doc.getCode());
+                                docData.put("name", doc.getName());
+                                docData.put("required", doc.isRequired());
+                                return docData;
+                            })
+                            .collect(Collectors.toList()));
+                    byMethodJson.add(requirementMap);
+                }
             }
         }
+
+        Map<String, Object> documentRequirementsTemplateJson = new HashMap<>();
+        documentRequirementsTemplateJson.put("mandatoryAll", mandatoryAllJson);
+        documentRequirementsTemplateJson.put("byMethod", byMethodJson);
 
         Map<String, Object> admissionJson = new HashMap<>();
         admissionJson.put("allowedMethods", allowedMethodsJson);
         admissionJson.put("admissionProcesses", admissionProcessesJson);
-        admissionJson.put("byMethod", methodDocumentRequirementsJson);
-        admissionJson.put("methodDocumentRequirements", methodDocumentRequirementsJson);
-
-        Map<String, Object> documentRequirementsTemplateJson = new HashMap<>();
-        documentRequirementsTemplateJson.put("byMethod", methodDocumentRequirementsJson);
+        admissionJson.put("mandatoryAll", mandatoryAllJson);
+        admissionJson.put("byMethod", byMethodJson);
         admissionJson.put("documentRequirementsData", documentRequirementsTemplateJson);
 
         PlatformConfig config = platformConfigRepo.findByKey("admissionSettingsData").orElse(
@@ -532,8 +550,6 @@ public class SystemServiceImpl implements SystemService {
 
             Map<String, Object> configValue = getAdmissionConfigMap();
             Set<String> dbValidCodes = getExistingKeys(configValue, ImportType.ALLOWED_METHODS);
-//            Set<String> dbAdmissionProcessKeys = getExistingKeys(configValue, ImportType.ADMISSION_PROCESSES);
-//            Set<String> dbMethodDocumentKeys = getExistingKeys(configValue, ImportType.METHOD_DOCUMENTS);
 
             Set<String> fileLevelCodes = new HashSet<>();
             Set<String> fileLevelAdmissionKeys = new HashSet<>();
@@ -572,7 +588,8 @@ public class SystemServiceImpl implements SystemService {
         List<ImportType> allowedTypes = List.of(
                 ImportType.ALLOWED_METHODS,
                 ImportType.ADMISSION_PROCESSES,
-                ImportType.METHOD_DOCUMENTS
+                ImportType.METHOD_DOCUMENTS,
+                ImportType.MANDATORY_ALL
         );
         if (!allowedTypes.contains(type)) {
             throw new IllegalArgumentException("Loại import không hợp lệ hoặc không được hỗ trợ.");
@@ -596,7 +613,7 @@ public class SystemServiceImpl implements SystemService {
             Set<String> fileLevelMethodDocKeys = new HashSet<>();
 
             List<ImportConfirmRequest.ImportRow> rows = request.getRows();
-            
+
             rows.stream()
                     .filter(r -> !Boolean.TRUE.equals(r.getIsDeleted()))
                     .forEach(row -> {
@@ -622,7 +639,7 @@ public class SystemServiceImpl implements SystemService {
 
             rows.forEach(r -> {
                 String businessKey = SystemConfigValidation.getBusinessKey((Map<String, Object>) r.getRowData(), type);
-                
+
                 if (Boolean.TRUE.equals(r.getIsDeleted())) {
                     mergedMap.remove(businessKey);
                 } else {
@@ -642,6 +659,27 @@ public class SystemServiceImpl implements SystemService {
                 SystemConfigValidation.cascadeDeleteOnMethodChange(configValue, nestedData);
             }
 
+            if (type == ImportType.MANDATORY_ALL) {
+                Set<String> protectedCodes = getMandatoryAllProtectedCodes(configValue);
+                rows.stream()
+                        .filter(r -> Boolean.TRUE.equals(r.getIsDeleted()))
+                        .forEach(r -> {
+                            String code = SystemConfigValidation.normalize(
+                                    ((Map<String, Object>) r.getRowData()).get("code")
+                            );
+                            if (protectedCodes.contains(code)) {
+                                r.setError(new ImportConfirmRequest.Error(
+                                        List.of(new ImportConfirmRequest.Fields("code", "Giấy tờ này bắt buộc phải có trong hồ sơ chung, không thể xoá"))
+                                ));
+                                r.setIsError(true);
+                            }
+                        });
+
+                if (rows.stream().anyMatch(r -> Boolean.TRUE.equals(r.getIsError()))) {
+                    return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Dữ liệu không hợp lệ", rows);
+                }
+            }
+
             PlatformConfig config = platformConfigRepo.findByKey("admissionSettingsData")
                     .orElse(PlatformConfig.builder().key("admissionSettingsData").value(new HashMap<>()).build());
 
@@ -655,6 +693,17 @@ public class SystemServiceImpl implements SystemService {
         }
     }
 
+    private Set<String> getMandatoryAllProtectedCodes(Map<String, Object> configValue) {
+        Object data = configValue.get("mandatoryAll");
+        if (!(data instanceof List<?> list)) return new HashSet<>();
+        return list.stream()
+                .filter(Map.class::isInstance)
+                .map(m -> (Map<String, Object>) m)
+                .filter(m -> Boolean.TRUE.equals(m.get("nonRemovable")))
+                .map(m -> SystemConfigValidation.normalize(m.get("code")))
+                .collect(Collectors.toSet());
+    }
+
     @Override
     public ResponseEntity<ResponseObject> validateSingleRow(ImportConfirmRequest request, ImportType type) {
         if (request.getRows() == null || request.getRows().isEmpty()) {
@@ -666,7 +715,7 @@ public class SystemServiceImpl implements SystemService {
         Map<String, Object> configValue = getAdmissionConfigMap();
 
         Set<String> dbValidCodes = getExistingKeys(configValue, ImportType.ALLOWED_METHODS);
-       
+
         Set<String> fileLevelCodes = new HashSet<>();
         Set<String> fileLevelAdmissionKeys = new HashSet<>();
         Set<String> fileLevelMethodDocKeys = new HashSet<>();
@@ -707,6 +756,12 @@ public class SystemServiceImpl implements SystemService {
                 rowData.put("code", cellText(row.getCell(1), formatter));
                 rowData.put("name", cellText(row.getCell(2), formatter));
                 rowData.put("required", parseBoolean(cellText(row.getCell(3), formatter)));
+            }
+
+            case MANDATORY_ALL -> {
+                rowData.put("code", cellText(row.getCell(0), formatter));
+                rowData.put("name", cellText(row.getCell(1), formatter));
+                rowData.put("required", parseBoolean(cellText(row.getCell(2), formatter)));
             }
         }
         return rowData;

@@ -36,7 +36,6 @@ import com.sp26se041.edubridgehcm.models.FavouriteSchool;
 import com.sp26se041.edubridgehcm.models.OpenDayEvent;
 import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.PaymentTransaction;
-import com.sp26se041.edubridgehcm.models.PlatformConfig;
 import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
@@ -536,6 +535,10 @@ public class SchoolServiceImpl implements SchoolService {
                                 .endDate(t.getEndDate() != null ? t.getEndDate().plusYears(yearDifference) : null)
                                 .allowReservationSubmission(t.getAllowReservationSubmission())
                                 .quota(t.getQuota())
+                                .reservationFee(t.getReservationFee())
+                                .confirmationStartDate(t.getConfirmationStartDate() != null ? t.getConfirmationStartDate().plusYears(yearDifference) : null)
+                                .confirmationEndDate(t.getConfirmationEndDate() != null ? t.getConfirmationEndDate().plusYears(yearDifference) : null)
+                                .depositDeadlineDays(t.getDepositDeadlineDays())
                                 .build())
                         .toList();
 
@@ -1911,6 +1914,11 @@ public class SchoolServiceImpl implements SchoolService {
             LocalDate methodEndDate = timelineRequest.getEndDate();
             boolean allowReservationSubmission = !Boolean.FALSE.equals(timelineRequest.getAllowReservationSubmission());
             Integer quota = timelineRequest.getQuota();
+            BigDecimal reservationFee = timelineRequest.getReservationFee();
+            LocalDate confirmationStartDate = timelineRequest.getConfirmationStartDate();
+            LocalDate confirmationEndDate = timelineRequest.getConfirmationEndDate();
+            Integer depositDeadlineDays = timelineRequest.getDepositDeadlineDays();
+
             if (methodStartDate == null || methodEndDate == null) {
                 throw new IllegalArgumentException("Mỗi phương thức tuyển sinh phải có ngày bắt đầu và ngày kết thúc");
             }
@@ -1926,6 +1934,27 @@ public class SchoolServiceImpl implements SchoolService {
                 throw new IllegalArgumentException("Chỉ tiêu của phương thức " + methodCode + " phải lớn hơn 0");
             }
 
+            if (allowReservationSubmission) {
+                if (reservationFee == null || reservationFee.compareTo(BigDecimal.ZERO) < 0) {
+                    throw new IllegalArgumentException("Phí đặt cọc của phương thức " + methodCode + " phải được thiết lập và không âm");
+                }
+                if (confirmationStartDate == null || confirmationEndDate == null) {
+                    throw new IllegalArgumentException("Giai đoạn xác nhận của phương thức " + methodCode + " phải được thiết lập đầy đủ");
+                }
+                if (!confirmationStartDate.isAfter(methodEndDate)) {
+                    throw new IllegalArgumentException("Ngày bắt đầu xác nhận của phương thức " + methodCode + " phải sau ngày kết thúc nhận hồ sơ");
+                }
+                if (!confirmationEndDate.isAfter(confirmationStartDate)) {
+                    throw new IllegalArgumentException("Ngày kết thúc xác nhận phải sau ngày bắt đầu xác nhận cho phương thức: " + methodCode);
+                }
+                if (confirmationEndDate.isAfter(campaignEndDate)) {
+                    throw new IllegalArgumentException("Ngày kết thúc xác nhận của phương thức " + methodCode + " không được vượt quá ngày kết thúc chiến dịch");
+                }
+                if (depositDeadlineDays == null || depositDeadlineDays <= 0) {
+                    throw new IllegalArgumentException("Số ngày hạn đặt cọc của phương thức " + methodCode + " phải lớn hơn 0");
+                }
+            }
+
             Map<String, Object> timeline = new LinkedHashMap<>();
             timeline.put("methodCode", configuredMethod.get("code"));
             timeline.put("displayName", configuredMethod.get("displayName"));
@@ -1934,6 +1963,10 @@ public class SchoolServiceImpl implements SchoolService {
             timeline.put("endDate", methodEndDate);
             timeline.put("allowReservationSubmission", allowReservationSubmission);
             timeline.put("quota", quota);
+            timeline.put("reservationFee", reservationFee);
+            timeline.put("confirmationStartDate", confirmationStartDate);
+            timeline.put("confirmationEndDate", confirmationEndDate);
+            timeline.put("depositDeadlineDays", depositDeadlineDays);
             resolved.add(timeline);
         }
 
@@ -1956,6 +1989,10 @@ public class SchoolServiceImpl implements SchoolService {
             LocalDate endDate = AdmissionCampaignValidation.parseLocalDateSafe(map.get("endDate"));
             Boolean allowReservationSubmission = AdmissionCampaignValidation.parseBooleanSafe(map.get("allowReservationSubmission"));
             Integer quota = AdmissionCampaignValidation.parseIntegerSafe(map.get("quota"));
+            BigDecimal reservationFee = AdmissionCampaignValidation.parseBigDecimalSafe(map.get("reservationFee"));
+            LocalDate confirmationStartDate = AdmissionCampaignValidation.parseLocalDateSafe(map.get("confirmationStartDate"));
+            LocalDate confirmationEndDate = AdmissionCampaignValidation.parseLocalDateSafe(map.get("confirmationEndDate"));
+            Integer depositDeadlineDays = AdmissionCampaignValidation.parseIntegerSafe(map.get("depositDeadlineDays"));
             if (methodCode == null || startDate == null || endDate == null) {
                 continue;
             }
@@ -1966,6 +2003,10 @@ public class SchoolServiceImpl implements SchoolService {
                     .endDate(endDate)
                     .allowReservationSubmission(allowReservationSubmission == null ? Boolean.TRUE : allowReservationSubmission)
                     .quota(quota)
+                    .reservationFee(reservationFee)
+                    .confirmationStartDate(confirmationStartDate)
+                    .confirmationEndDate(confirmationEndDate)
+                    .depositDeadlineDays(depositDeadlineDays)
                     .build());
         }
         return requests;
@@ -3684,10 +3725,10 @@ public class SchoolServiceImpl implements SchoolService {
                             : activeSub.getEndDate();
 
                     currentDetails.put("packageName", activeSub.getSubscription().getName());
-                            currentDetails.put("basePrice", currentBreakdown.breakdown().basePrice());
-                            currentDetails.put("totalFeatureAmount", currentBreakdown.breakdown().totalFeatureAmount());
+                    currentDetails.put("basePrice", currentBreakdown.breakdown().basePrice());
+                    currentDetails.put("totalFeatureAmount", currentBreakdown.breakdown().totalFeatureAmount());
                     currentDetails.put("price", netAmount);
-                            currentDetails.put("finalPrice", netAmount);
+                    currentDetails.put("finalPrice", netAmount);
                     currentDetails.put("expiryDate", activeSub.getEndDate());
                     targetDetails.put("packageName", activeSub.getSubscription().getName());
                     targetDetails.put("baseDate", baseDate);
@@ -3727,8 +3768,9 @@ public class SchoolServiceImpl implements SchoolService {
         }
     }
 
-    private record BreakdownResult(ConfigSystemUtil.SubscriptionPriceBreakdown breakdown, 
-                                   Map<String, Object> featureDetails) {}
+    private record BreakdownResult(ConfigSystemUtil.SubscriptionPriceBreakdown breakdown,
+                                   Map<String, Object> featureDetails) {
+    }
 
     private BreakdownResult calculateBreakdownFromSubscription(Subscription subscription) {
         BigDecimal serviceRate = PreviewSubscriptionValidation.resolveBusinessRate("serviceRate", platformConfigRepo);
