@@ -520,8 +520,6 @@ public class SystemServiceImpl implements SystemService {
         Map<String, Object> admissionJson = new HashMap<>();
         admissionJson.put("allowedMethods", allowedMethodsJson);
         admissionJson.put("admissionProcesses", admissionProcessesJson);
-        admissionJson.put("mandatoryAll", mandatoryAllJson);
-        admissionJson.put("byMethod", byMethodJson);
         admissionJson.put("documentRequirementsData", documentRequirementsTemplateJson);
 
         PlatformConfig config = platformConfigRepo.findByKey("admissionSettingsData").orElse(
@@ -651,7 +649,9 @@ public class SystemServiceImpl implements SystemService {
             List<Map<String, Object>> finalData = new ArrayList<>(mergedMap.values());
 
             List<Map<String, Object>> nestedData = SystemConfigValidation.groupToNestedStructure(finalData, type);
-            configValue.put(type.getSheetName(), nestedData);
+            if (type != ImportType.METHOD_DOCUMENTS && type != ImportType.MANDATORY_ALL) {
+                configValue.put(type.getSheetName(), nestedData);
+            }
 
             SystemConfigValidation.syncLegacyData(configValue, nestedData, type);
 

@@ -50,7 +50,6 @@ public class SystemConfigValidation {
     public static void syncLegacyData(Map<String, Object> configValue, List<Map<String, Object>> data, ImportType type) {
         switch (type) {
             case METHOD_DOCUMENTS -> {
-                configValue.put("byMethod", data);
                 Map<String, Object> docData = configValue.get("documentRequirementsData") instanceof Map
                         ? new HashMap<>((Map<String, Object>) configValue.get("documentRequirementsData"))
                         : new HashMap<>();
@@ -64,7 +63,6 @@ public class SystemConfigValidation {
                 configValue.put("admissionProcesses", data);
             }
             case MANDATORY_ALL -> {
-                configValue.put("mandatoryAll", data);
                 Map<String, Object> docData = configValue.get("documentRequirementsData") instanceof Map
                         ? new HashMap<>((Map<String, Object>) configValue.get("documentRequirementsData"))
                         : new HashMap<>();
@@ -96,7 +94,10 @@ public class SystemConfigValidation {
             configValue.put("admissionProcesses", validProcesses);
         }
 
-        List<Map<String, Object>> methodDocuments = (List<Map<String, Object>>) configValue.get("byMethod");
+        Map<String, Object> docData = configValue.get("documentRequirementsData") instanceof Map
+                ? new HashMap<>((Map<String, Object>) configValue.get("documentRequirementsData"))
+                : new HashMap<>();
+        List<Map<String, Object>> methodDocuments = (List<Map<String, Object>>) docData.get("byMethod");
         if (methodDocuments != null) {
             List<Map<String, Object>> validDocuments = new ArrayList<>();
             for (Map<String, Object> doc : methodDocuments) {
@@ -104,15 +105,9 @@ public class SystemConfigValidation {
                 if (!methodCode.isBlank() && validMethodCodes.contains(methodCode)) {
                     validDocuments.add(doc);
                 }
-
             }
-
-            Map<String, Object> docData = configValue.get("documentRequirementsData") instanceof Map
-                    ? new HashMap<>((Map<String, Object>) configValue.get("documentRequirementsData"))
-                    : new HashMap<>();
             docData.put("byMethod", validDocuments);
             configValue.put("documentRequirementsData", docData);
-            configValue.put("byMethod", validDocuments);
         }
     }
 
