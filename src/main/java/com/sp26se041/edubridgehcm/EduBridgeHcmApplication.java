@@ -29,7 +29,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -154,51 +153,6 @@ public class EduBridgeHcmApplication {
         );
         admissionQuota.put("quotas", quotas);
 
-        Map<String, Object> admissionSettingsData = new HashMap<>();
-        List<Map<String, Object>> allowedMethods = List.of(
-                Map.of(
-                        "code", "THI_TUYEN",
-                        "displayName", "Thi vào lớp 10",
-                        "description", "Sử dụng kết quả bài thi tốt nghiệp THCS (vào lớp 10) do Bộ Giáo Dục Đào Tạo Tổ Chức"
-                ),
-                Map.of(
-                        "code", "HOC_BA",
-                        "displayName", "Xét học bạ THCS",
-                        "description", "Sử dụng kết quả học tập lớp 6, 7, 8, 9"
-                ),
-                Map.of(
-                        "code", "HOC_BA + ĐGNL",
-                        "displayName", "Xét học bạ THCS + Thi đánh giá năng lực",
-                        "description", "Sử dụng kết quả học tập lớp 6, 7, 8, 9 kèm theo bài đánh giá năng lực do trường tổ chức"
-                ),
-                Map.of(
-                        "code", "HOC_BA + PV",
-                        "displayName", "Xét học bạ THCS + Phỏng vấn",
-                        "description", "Sử dụng kết quả học tập lớp 6, 7, 8, 9 kèm theo tham gia buổi phỏng vấn do trường tổ chức"
-                ),
-                Map.of(
-                        "code", "HOC_BA + KHOA_HOC_BAT_BUOC",
-                        "displayName", "Xét học bạ THCS + Tham gia khóa học bắt buộc do trường tổ chức",
-                        "description", "Sử dụng kết quả học tập lớp 6, 7, 8, 9 kèm theo tham gia khóa học đào tạo bắt buộc do trường tổ chức trước khi nhập học"
-                )
-        );
-        admissionSettingsData.put("allowedMethods", allowedMethods);
-        admissionSettingsData.put("admissionProcesses", new ArrayList<>());
-
-        List<Map<String, Object>> mandatoryAll = List.of(
-                Map.of("code", "CCCD", "name", "Căn cước công dân (bản sao công chứng)", "required", true, "nonRemovable", true),
-                Map.of("code", "GIAY_KHAI_SINH", "name", "Giấy khai sinh (bản sao công chứng)", "required", true, "nonRemovable", true),
-                Map.of("code", "HOC_BA_THCS", "name", "Học bạ THCS (bản gốc có xác nhận)", "required", true, "nonRemovable", true)
-        );
-
-        admissionSettingsData.put("mandatoryAll", mandatoryAll);
-        admissionSettingsData.put("byMethod", new ArrayList<>());
-
-        Map<String, Object> documentRequirementsData = new HashMap<>();
-        documentRequirementsData.put("mandatoryAll", mandatoryAll);
-        documentRequirementsData.put("byMethod", new ArrayList<>());
-        admissionSettingsData.put("documentRequirementsData", documentRequirementsData);
-
         LocalDateTime today = LocalDateTime.now();
 
         platformConfigRepo.saveAll(List.of(
@@ -217,11 +171,6 @@ public class EduBridgeHcmApplication {
                 PlatformConfig.builder()
                         .key("admissionQuota")
                         .value(admissionQuota)
-                        .creationDate(today)
-                        .modifiedDate(today).build(),
-                PlatformConfig.builder()
-                        .key("admissionSettingsData")
-                        .value(admissionSettingsData)
                         .creationDate(today)
                         .modifiedDate(today).build()));
     }
