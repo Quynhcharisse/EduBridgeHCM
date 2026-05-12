@@ -15,6 +15,5 @@ public interface SchoolConfigService {
     ResponseEntity<ResponseObject> getCampusConfigList();
 
     void regenerateSchoolInfoDoc(int schoolId);
-
 }
 

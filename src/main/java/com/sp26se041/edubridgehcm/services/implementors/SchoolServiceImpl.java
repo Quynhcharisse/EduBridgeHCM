@@ -432,6 +432,7 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         List<Map<String, Object>> methodTimelines;
+
         try {
             methodTimelines = resolveAdmissionMethodTimelines(
                     actorCampus.getSchool().getId(),
@@ -442,6 +443,7 @@ public class SchoolServiceImpl implements SchoolService {
         } catch (IllegalArgumentException e) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, e.getMessage(), null);
         }
+
         if (methodTimelines == null) {
             return ResponseBuilder.build(
                     HttpStatus.BAD_REQUEST,
@@ -466,6 +468,7 @@ public class SchoolServiceImpl implements SchoolService {
                 .year(request.getYear())
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
+                .enrollmentStartDate(request.getEnrollmentStartDate())
                 .admissionMethodTimelines(methodTimelines)
                 .status(Status.DRAFT_ADMISSION_CAMPAIGN)
                 .build();

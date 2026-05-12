@@ -110,9 +110,9 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                 request.getOperationSettingsData() == null &&
                 request.getFacilityData() == null &&
                 request.getQuotaConfigData() == null &&
-                request.getResourceDistributionData() == null
+                request.getResourceDistributionData() == null &&
+                request.getBankInfoData() == null
         ) {
-
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Dữ liệu cập nhật không được để trống.", null);
         }
 
@@ -129,6 +129,42 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         if (request.getFacilityData() != null) updateFacility(schoolId, request);
         if (request.getQuotaConfigData() != null) updateQuotaConfig(schoolId, request);
         if (request.getResourceDistributionData() != null) updateDistributeSchoolResourcesConfig(schoolId, request);
+        if (request.getBankInfoData() != null) updateBankSettings(schoolId, request);
+    }
+
+    @Transactional
+    public void updateBankSettings(int schoolId, SchoolConfigRequest request) {
+
+        SchoolConfigRequest.BankInfoData bankInfoData = request.getBankInfoData();
+
+        if (bankInfoData.getBankId() == null || bankInfoData.getBankId().isBlank()) {
+            throw new IllegalArgumentException("Mã ngân hàng không được để trống");
+        }
+        if (bankInfoData.getAccountNo() == null || bankInfoData.getAccountNo().isBlank()) {
+            throw new IllegalArgumentException("Số tài khoản không được để trống");
+        }
+        if (bankInfoData.getAccountName() == null || bankInfoData.getAccountName().isBlank()) {
+            throw new IllegalArgumentException("Tên tài khoản không được để trống");
+        }
+        if (bankInfoData.getBankName() == null || bankInfoData.getBankName().isBlank()) {
+            throw new IllegalArgumentException("Tên ngân hàng không được để trống");
+        }
+
+        Map<String, Object> bankInfoJson = new HashMap<>();
+        bankInfoJson.put("bankId", bankInfoData.getBankId().trim());
+        bankInfoJson.put("accountNo", bankInfoData.getAccountNo().trim());
+        bankInfoJson.put("accountName", bankInfoData.getAccountName().trim().toUpperCase());
+        bankInfoJson.put("bankName", bankInfoData.getBankName().trim());
+
+        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "bankInfoData")
+                .orElse(SchoolConfig.builder()
+                        .schoolId(schoolId)
+                        .key("bankInfoData")
+                        .build());
+
+        config.setValue(bankInfoJson);
+        config.setUpdatedAt(LocalDateTime.now());
+        schoolConfigRepo.save(config);
     }
 
     @Transactional

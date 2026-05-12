@@ -32,6 +32,21 @@ public class SchoolConfigRequest {
 
     ResourceDistributionData resourceDistributionData;
 
+    BankInfoData bankInfoData;
+
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class BankInfoData {
+        String bankId;
+        String accountNo;
+        String accountName;
+        String bankName;
+    }
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
