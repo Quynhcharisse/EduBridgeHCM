@@ -71,6 +71,7 @@ import com.sp26se041.edubridgehcm.validations.campus.CampusProgramOfferingValida
 import com.sp26se041.edubridgehcm.validations.campus.CampusScheduleTemplateValidation;
 import com.sp26se041.edubridgehcm.validations.campus.CounsellorSlotValidation;
 import com.sp26se041.edubridgehcm.validations.campus.CounsellorValidation;
+import com.sp26se041.edubridgehcm.validations.school.AdmissionCampaignValidation;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -959,6 +960,18 @@ public class CampusServiceImpl implements CampusService {
         }
 
         return Status.OPEN;
+    }
+
+    private Map<String, Object> findMethodTimeline(AdmissionCampaign campaign, String methodCode) {
+        if (campaign == null || methodCode == null) return null;
+        if (!(campaign.getAdmissionMethodTimelines() instanceof List<?> timelines)) return null;
+
+        return timelines.stream()
+                .filter(t -> t instanceof Map)
+                .map(t -> (Map<String, Object>) t)
+                .filter(t -> methodCode.equalsIgnoreCase(String.valueOf(t.get("methodCode"))))
+                .findFirst()
+                .orElse(null);
     }
 
     private static Status deriveApplicationStatusByWindowAndQuota(LocalDate openDate,
@@ -3009,6 +3022,8 @@ public class CampusServiceImpl implements CampusService {
         String action = request.getAction() != null ? request.getAction().toUpperCase() : "";
         String successMessage;
 
+        Map<String, Object> responseData = null;
+
         switch (action) {
             case "APPROVE":
                 form.setStatus(Status.RESERVATION_APPROVAL);
@@ -3026,6 +3041,36 @@ public class CampusServiceImpl implements CampusService {
                         (int) activeCount);
                 offering.setApplicationStatus(newAppStatus);
                 campusProgramOfferingRepo.save(offering);
+
+                // Sinh transferCode duy nhất cho form này
+                String transferCode = "GC" + form.getId() + form.getStudentProfile().getId();
+                form.setTransferCode(transferCode);
+
+                // Đọc reservationFee + depositEndDate từ campaign timeline
+                AdmissionCampaign campaign = offering.getAdmissionCampaign();
+                Map<String, Object> matchedTimeline = findMethodTimeline(campaign, form.getMethodName());
+
+                BigDecimal reservationFee = matchedTimeline != null
+                        ? AdmissionCampaignValidation.parseBigDecimalSafe(matchedTimeline.get("reservationFee"))
+                        : null;
+                LocalDate depositDeadline = matchedTimeline != null
+                        ? AdmissionCampaignValidation.parseLocalDateSafe(matchedTimeline.get("depositEndDate"))
+                        : null;
+
+                // Đọc bank info của trường
+                int schoolId = offering.getCampus().getSchool().getId();
+                Map<String, Object> bankInfo = schoolConfigRepo
+                        .findBySchoolIdAndKey(schoolId, "bankInfoData")
+                        .map(c -> (Map<String, Object>) c.getValue())
+                        .orElse(null);
+
+                // Build paymentInfo trả về cho FE gen QR
+                if (bankInfo != null) {
+                    responseData = new HashMap<>(bankInfo);
+                    responseData.put("transferCode", transferCode);
+                    responseData.put("amount", reservationFee);
+                    responseData.put("depositDeadline", depositDeadline);
+                }
                 break;
 
             case "REJECT":
@@ -3050,7 +3095,7 @@ public class CampusServiceImpl implements CampusService {
         form.setUpdatedTime(LocalDateTime.now());
         admissionReservationFormRepo.save(form);
 
-        return ResponseBuilder.build(HttpStatus.OK, successMessage, null);
+        return ResponseBuilder.build(HttpStatus.OK, successMessage, responseData);
     }
 
     @Override

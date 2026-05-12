@@ -2098,6 +2098,8 @@ public class SchoolServiceImpl implements SchoolService {
 
         data.put("campusList", school.getCampusList().stream().filter(campus -> Status.ACTIVE.equals(campus.getStatus())).map(this::buildPublicCampusData).toList());
 
+        data.put("bankInfo", getBankInfo(schoolId));
+
         return ResponseBuilder.build(HttpStatus.OK, "Hiển thị chi tiết trường thành công", data);
 
     }
@@ -2139,6 +2141,12 @@ public class SchoolServiceImpl implements SchoolService {
 
     private Map<String, Object> getOperationConfig(int schoolId) {
         return schoolConfigRepo.findBySchoolIdAndKey(schoolId, "operationSettingsData").map(config -> (Map<String, Object>) config.getValue()).orElse(new HashMap<>());
+    }
+
+    private Map<String, Object> getBankInfo(int schoolId) {
+        return schoolConfigRepo.findBySchoolIdAndKey(schoolId, "bankInfoData")
+                .map(config -> (Map<String, Object>) config.getValue())
+                .orElse(null);
     }
 
     Map<String, Object> buildPublicCampusData(Campus campus) {

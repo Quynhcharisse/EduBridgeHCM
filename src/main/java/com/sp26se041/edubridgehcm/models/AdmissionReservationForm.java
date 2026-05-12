@@ -59,6 +59,15 @@ public class AdmissionReservationForm {
     @Column(name = "reject_reason")
     String rejectReason;
 
+    @Column(name = "transfer_code", unique = true)
+    String transferCode;
+
+    @Column(name = "payment_proof_url")
+    String paymentProofUrl;
+
+    @Column(name = "payment_confirmed_by")
+    String paymentConfirmedBy;
+
     @ManyToOne
     @JoinColumn(name = "campus_program_offering_id")
     CampusProgramOffering campusProgramOffering;
