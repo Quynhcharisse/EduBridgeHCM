@@ -7,18 +7,15 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
-import java.util.List;
-
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class ProcessApplicantRequest {
+public class ConfirmPaymentDepositRequest {
     int formId;
-    Integer campusId;
-    String rejectReason;
+    // "CONFIRM" → DEPOSITED | "REJECT_PAYMENT" → quay lại OFFERING_SELECTED để PH upload lại
     String action;
-    // APPROVE: danh sách doc code school đã xác nhận hợp lệ (ví dụ: ["CCCD", "THPT_CERT"])
-    List<String> checkedDocuments;
+    // Bắt buộc khi action = REJECT_PAYMENT
+    String rejectReason;
 }

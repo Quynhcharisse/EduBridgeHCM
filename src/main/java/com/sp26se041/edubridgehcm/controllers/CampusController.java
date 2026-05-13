@@ -6,6 +6,7 @@ import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.ChatMessageForChatBot;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.ConfirmPaymentDepositRequest;
 import com.sp26se041.edubridgehcm.requests.ProcessApplicantRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
@@ -220,6 +221,12 @@ public class CampusController {
     @PreAuthorize("hasAnyRole('SCHOOL')")
     public ResponseEntity<ResponseObject> processApplicant(@RequestBody ProcessApplicantRequest request) {
         return campusService.processApplicant(request);
+    }
+
+    @PutMapping("/confirm/admission/reservation/payment")
+    @PreAuthorize("hasAnyRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> confirmPaymentDeposit(@RequestBody ConfirmPaymentDepositRequest request) {
+        return campusService.confirmPaymentDeposit(request);
     }
 
     @GetMapping("/admission/reservation/form")
