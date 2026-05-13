@@ -469,6 +469,8 @@ public class SchoolServiceImpl implements SchoolService {
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
                 .admissionMethodTimelines(methodTimelines)
+                .quota(systemQuota)        // snapshot từ system config lúc tạo
+                .remainingQuota(null)      // chưa publish → chưa mở nhận hồ sơ
                 .status(Status.DRAFT_ADMISSION_CAMPAIGN)
                 .build();
         admissionCampaignRepo.save(admissionCampaign);
@@ -593,6 +595,8 @@ public class SchoolServiceImpl implements SchoolService {
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
                 .admissionMethodTimelines(methodTimelines)
+                .quota(systemQuotaForClone)  // snapshot từ system config lúc clone
+                .remainingQuota(null)         // chưa publish → chưa mở nhận hồ sơ
                 .status(Status.DRAFT_ADMISSION_CAMPAIGN)
                 .build();
 
@@ -742,6 +746,10 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         campaign.setStatus(Status.OPEN_ADMISSION_CAMPAIGN);
+        // Khởi tạo remainingQuota = quota khi publish → PH bắt đầu có thể nộp hồ sơ
+        if (campaign.getQuota() != null) {
+            campaign.setRemainingQuota(campaign.getQuota());
+        }
         admissionCampaignRepo.save(campaign);
 
         return ResponseBuilder.build(
@@ -784,9 +792,9 @@ public class SchoolServiceImpl implements SchoolService {
 
         // block nếu còn đơn đang hoạt động — từng campus phải tự xử lý đơn của mình trước
         // việc liên quan đến admission campaign thì phải do campus chính họ làm
-        long activeFormsCount = admissionReservationFormRepo.countByCampusProgramOffering_AdmissionCampaign_IdAndStatusIn(id, Status.activeReservationStatuses())
-                + admissionReservationFormRepo
-                .countByCampusProgramOffering_AdmissionCampaign_IdAndStatusIsNull(id);
+        // Query trực tiếp theo admissionCampaign (bao gồm cả form phase 1 chưa có offering)
+        long activeFormsCount = admissionReservationFormRepo
+                .countByAdmissionCampaignIdAndStatusIn(id, Status.activeReservationStatuses());
         if (activeFormsCount > 0) {
             return ResponseBuilder.build(
                     HttpStatus.PRECONDITION_FAILED,
@@ -1741,6 +1749,8 @@ public class SchoolServiceImpl implements SchoolService {
             methodDetails.add(methodDetail);
         }
 
+        data.put("quota", campaign.getQuota());
+        data.put("remainingQuota", campaign.getRemainingQuota());
         data.put("admissionMethodTimelines", methodDetails);
         data.put("campusProgramOfferings", buildCampaignOfferingDetails(campaign.getId()));
         return data;
