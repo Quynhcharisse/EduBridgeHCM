@@ -318,32 +318,22 @@ public class AdmissionCampaignValidation {
                     return "Phí đặt cọc của phương thức '" + code.trim() + "' phải được thiết lập và không âm";
                 }
 
-                if (entry.getDepositStartDate() == null)
-                    return "Ngày bắt đầu đặt cọc của phương thức '" + code.trim() + "' không được để trống";
-
                 if (entry.getDepositEndDate() == null)
-                    return "Ngày kết thúc đặt cọc của phương thức '" + code.trim() + "' không được để trống";
-
-                if (entry.getConfirmationStartDate() == null)
-                    return "Ngày bắt đầu chốt trường của phương thức '" + code.trim() + "' không được để trống";
+                    return "Ngày hết hạn đặt cọc của phương thức '" + code.trim() + "' không được để trống";
 
                 if (entry.getConfirmationEndDate() == null)
-                    return "Ngày kết thúc chốt trường của phương thức '" + code.trim() + "' không được để trống";
+                    return "Ngày hết hạn chốt trường của phương thức '" + code.trim() + "' không được để trống";
 
-                if (entry.getEndDate().isAfter(entry.getDepositStartDate()))
-                    return "Ngày bắt đầu đặt cọc phải từ sau ngày kết thúc nộp hồ sơ của phương thức '" + code.trim() + "'";
+                // depositEndDate phải sau endDate (hết hạn nộp hồ sơ)
+                if (!entry.getDepositEndDate().isAfter(entry.getEndDate()))
+                    return "Ngày hết hạn đặt cọc phải sau ngày hết hạn nộp hồ sơ của phương thức '" + code.trim() + "'";
 
-                if (!entry.getDepositEndDate().isAfter(entry.getDepositStartDate()))
-                    return "Ngày kết thúc đặt cọc phải sau ngày bắt đầu đặt cọc của phương thức '" + code.trim() + "'";
-
-                if (entry.getDepositEndDate().isAfter(entry.getConfirmationStartDate()))
-                    return "Ngày bắt đầu chốt trường phải từ sau ngày kết thúc đặt cọc của phương thức '" + code.trim() + "'";
-
-                if (!entry.getConfirmationEndDate().isAfter(entry.getConfirmationStartDate()))
-                    return "Ngày kết thúc chốt trường phải sau ngày bắt đầu chốt trường của phương thức '" + code.trim() + "'";
+                // confirmationEndDate phải sau depositEndDate
+                if (!entry.getConfirmationEndDate().isAfter(entry.getDepositEndDate()))
+                    return "Ngày hết hạn chốt trường phải sau ngày hết hạn đặt cọc của phương thức '" + code.trim() + "'";
 
                 if (campaignEnd != null && entry.getConfirmationEndDate().isAfter(campaignEnd))
-                    return "Ngày kết thúc chốt trường của phương thức '" + code.trim() + "' không được sau ngày kết thúc chiến dịch";
+                    return "Ngày hết hạn chốt trường của phương thức '" + code.trim() + "' không được sau ngày kết thúc chiến dịch";
             }
         }
 

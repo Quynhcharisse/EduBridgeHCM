@@ -535,9 +535,7 @@ public class SchoolServiceImpl implements SchoolService {
                                 .methodCode(t.getMethodCode())
                                 .startDate(t.getStartDate() != null ? t.getStartDate().plusYears(yearDifference) : null)
                                 .endDate(t.getEndDate() != null ? t.getEndDate().plusYears(yearDifference) : null)
-                                .depositStartDate(t.getDepositStartDate() != null ? t.getDepositStartDate().plusYears(yearDifference) : null)
                                 .depositEndDate(t.getDepositEndDate() != null ? t.getDepositEndDate().plusYears(yearDifference) : null)
-                                .confirmationStartDate(t.getConfirmationStartDate() != null ? t.getConfirmationStartDate().plusYears(yearDifference) : null)
                                 .confirmationEndDate(t.getConfirmationEndDate() != null ? t.getConfirmationEndDate().plusYears(yearDifference) : null)
                                 .allowReservationSubmission(t.getAllowReservationSubmission())
                                 .quota(t.getQuota())
@@ -1986,9 +1984,7 @@ public class SchoolServiceImpl implements SchoolService {
             timeline.put("allowReservationSubmission", allowReservationSubmission);
             timeline.put("quota", quota);
             timeline.put("reservationFee", reservationFee);
-            timeline.put("depositStartDate", timelineRequest.getDepositStartDate());
             timeline.put("depositEndDate", timelineRequest.getDepositEndDate());
-            timeline.put("confirmationStartDate", timelineRequest.getConfirmationStartDate());
             timeline.put("confirmationEndDate", timelineRequest.getConfirmationEndDate());
             resolved.add(timeline);
         }
@@ -2015,9 +2011,7 @@ public class SchoolServiceImpl implements SchoolService {
             Boolean allowReservationSubmission = AdmissionCampaignValidation.parseBooleanSafe(map.get("allowReservationSubmission"));
             Integer quota = AdmissionCampaignValidation.parseIntegerSafe(map.get("quota"));
             BigDecimal reservationFee = AdmissionCampaignValidation.parseBigDecimalSafe(map.get("reservationFee"));
-            LocalDate depositStartDate = AdmissionCampaignValidation.parseLocalDateSafe(map.get("depositStartDate"));
             LocalDate depositEndDate = AdmissionCampaignValidation.parseLocalDateSafe(map.get("depositEndDate"));
-            LocalDate confirmationStartDate = AdmissionCampaignValidation.parseLocalDateSafe(map.get("confirmationStartDate"));
             LocalDate confirmationEndDate = AdmissionCampaignValidation.parseLocalDateSafe(map.get("confirmationEndDate"));
             if (methodCode == null || startDate == null || endDate == null) {
                 continue;
@@ -2030,9 +2024,7 @@ public class SchoolServiceImpl implements SchoolService {
                     .allowReservationSubmission(allowReservationSubmission == null ? Boolean.TRUE : allowReservationSubmission)
                     .quota(quota)
                     .reservationFee(reservationFee)
-                    .depositStartDate(depositStartDate)
                     .depositEndDate(depositEndDate)
-                    .confirmationStartDate(confirmationStartDate)
                     .confirmationEndDate(confirmationEndDate)
                     .build());
         }
