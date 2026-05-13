@@ -22,7 +22,7 @@ public class CreateAdmissionCampaignTemplateRequest {
 
     String description;
 
-    int year;
+    Integer year;
 
     LocalDate startDate;
 
@@ -48,11 +48,7 @@ public class CreateAdmissionCampaignTemplateRequest {
 
         BigDecimal reservationFee;
 
-        LocalDate depositStartDate;
-
         LocalDate depositEndDate;
-
-        LocalDate confirmationStartDate;
 
         LocalDate confirmationEndDate;
     }

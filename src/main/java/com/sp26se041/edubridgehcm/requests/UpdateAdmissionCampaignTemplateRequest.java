@@ -17,11 +17,11 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateAdmissionCampaignTemplateRequest {
 
-    int admissionCampaignTemplateId;
+    Integer admissionCampaignTemplateId;
 
     String name;
 
-    int year;
+    Integer year;
 
     String description;
 
