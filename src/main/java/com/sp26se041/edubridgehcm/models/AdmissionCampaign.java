@@ -43,11 +43,6 @@ public class AdmissionCampaign {
     @JoinColumn(name = "school_id")
     School school;
 
-    @OneToMany(mappedBy = "admissionCampaign")
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    List<CampusProgramOffering> campusProgramOfferingList;
-
     @Column(name = "academic_year")
     int year;
 
@@ -78,4 +73,15 @@ public class AdmissionCampaign {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     List<CounsellorSlot> counsellorSlotList;
+
+    @OneToMany(mappedBy = "admissionCampaign")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<CampusProgramOffering> campusProgramOfferingList;
+
+    @OneToMany(mappedBy = "admissionCampaign")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<AdmissionReservationForm> admissionReservationForms;
+
 }

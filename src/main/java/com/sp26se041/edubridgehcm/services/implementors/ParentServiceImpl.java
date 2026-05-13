@@ -147,6 +147,7 @@ public class ParentServiceImpl implements ParentService {
     private final SchoolConfigRepo schoolConfigRepo;
 
     private final CampusProgramOfferingRepo campusProgramOfferingRepo;
+
     private final AdmissionReservationFormRepo admissionReservationFormRepo;
 
     @Override
@@ -1924,154 +1925,15 @@ public class ParentServiceImpl implements ParentService {
 
         Optional<StudentProfile> studentProfile = studentInfoRepo.findById(request.getStudentProfileId());
 
-        if (studentProfile.isEmpty()){
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy hồ sơ học sinh, vui lòng kiểm tra lại.", null);
+        if (studentProfile.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy học sinh, vui lòng kiểm tra lại.", null);
         }
-
 
         if (request.getSubmissionDocuments() == null || request.getSubmissionDocuments().isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Vui lòng cung cấp hồ sơ tài liệu trước khi nộp.", null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Vui lòng cung cấp danh sách hồ sơ tài liệu bắt buộc trước khi nộp.", null);
         }
 
-        Optional<CampusProgramOffering> campusProgramOffering = campusProgramOfferingRepo.findById(request.getCampusProgramOfferingId());
-
-        if (campusProgramOffering.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy gói chương trình tuyển sinh", null);
-        }
-
-        if (campusProgramOffering.get().getStatus().equals(Status.OFFERING_INACTIVE)){
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Gói tuyển sinh đã ngừng hoạt động, không thể nộp hồ sơ.", null);
-        }
-
-        if (campusProgramOffering.get().getApplicationStatus().equals(Status.UPCOMING_OFFERING)) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Thời gian nộp đơn gói chương trình tuyển sinh chưa mở, vui lòng quay lại sau.", null);
-        }
-
-        if (campusProgramOffering.get().getApplicationStatus().equals(Status.CLOSED)) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Thời hạn nộp đơn gói chương trình tuyển sinh đã kết thúc, không thể nộp hồ sơ.", null);
-        }
-
-        boolean alreadyPending = admissionReservationFormRepo.existsByCampusProgramOfferingAndStudentProfileAndStatus(
-                campusProgramOffering.get(),
-                studentProfile.get(),
-                Status.RESERVATION_PENDING
-        );
-
-        if (alreadyPending) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Bạn đã có hồ sơ bảo lưu đang chờ xét duyệt, vui lòng chờ nhà trường phản hồi trước khi nộp lại.", null);
-        }
-
-        boolean alreadyApproved = admissionReservationFormRepo
-                .existsByCampusProgramOfferingAndStudentProfileAndStatus(
-                        campusProgramOffering.get(),
-                        studentProfile.get(),
-                        Status.RESERVATION_APPROVAL
-                );
-
-        if (alreadyApproved) {
-            return ResponseBuilder.build(
-                    HttpStatus.BAD_REQUEST,
-                    "Hồ sơ này đã được duyệt giữ chỗ thành công, không thể tạo thêm đơn mới.",
-                    null
-            );
-        }
-
-        List<Map<String, Object>> admissionMethodTimelines = (List<Map<String, Object>>) campusProgramOffering.get().getAdmissionCampaign().getAdmissionMethodTimelines();
-
-        Map<String, Object> matchedMethod = admissionMethodTimelines.stream()
-                .filter(method -> Objects.equals(method.get("methodCode"), campusProgramOffering.get().getAdmissionMethod()))
-                .findFirst().orElse(null);
-
-        if (matchedMethod == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy phương thức tuyên sinh với method code " + campusProgramOffering.get().getAdmissionMethod() + " trong chiến dịch tuyển sinh", null);
-        }
-
-        boolean allowReservationSubmission = (boolean) matchedMethod.get("allowReservationSubmission");
-
-        if (!allowReservationSubmission) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Phương thức tuyển sinh này hiện không hỗ trợ nộp hồ sơ bảo lưu. Vui lòng chọn phương thức khác.", null);
-        }
-
-        int remainingQuota = campusProgramOffering.get().getRemainingQuota();
-
-        if (remainingQuota <= 0) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Phương thức tuyển sinh này đã đủ chỉ tiêu, không thể nộp thêm hồ sơ bảo lưu.", null);
-        }
-
-        Optional<SchoolConfig> documentRequirementsData = schoolConfigRepo.findBySchoolIdAndKey(
-                campusProgramOffering.get().getCampus().getSchool().getId(),
-                "documentRequirementsData"
-        );
-
-        if (documentRequirementsData.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Trường chưa cấu hình danh sách hồ sơ yêu cầu, vui lòng liên hệ nhà trường để được hỗ trợ.", null);
-        }
-
-        Map<String, Object> docConfig = (Map<String, Object>) documentRequirementsData.get().getValue();
-
-        List<Map<String, Object>> mandatoryAll = (List<Map<String, Object>>) docConfig.get("mandatoryAll");
-
-        List<Map<String, Object>> byMethod = (List<Map<String, Object>>) docConfig.get("byMethod");
-
-        List<Map<String, Object>> methodDocs = byMethod.stream()
-                .filter(m -> Objects.equals(m.get("methodCode"), campusProgramOffering.get().getAdmissionMethod()))
-                .map(m -> (List<Map<String, Object>>) m.get("documents"))
-                .findFirst()
-                .orElse(List.of());
-
-        List<String> requiredCodes = Stream.concat(mandatoryAll.stream(), methodDocs.stream())
-                .filter(doc -> Boolean.TRUE.equals(doc.get("required")))
-                .map(doc -> (String) doc.get("code"))
-                .toList();
-
-        List<String> submittedCodes = request.getSubmissionDocuments().stream()
-                .map(doc ->  doc.getKey())
-                .toList();
-
-        // Kiểm tra thiếu document nào
-        List<String> missingCodes = requiredCodes.stream()
-                .filter(code -> !submittedCodes.contains(code))
-                .toList();
-
-        if (!missingCodes.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Hồ sơ còn thiếu các giấy tờ bắt buộc: " + String.join(", ", missingCodes), null);
-        }
-
-        // Chỉ check imageUrl với các document required
-        List<String> emptyImageDocs = request.getSubmissionDocuments().stream()
-                .filter(doc -> requiredCodes.contains(doc.getKey()))
-                .filter(doc -> doc.getImageUrl() == null || doc.getImageUrl().isEmpty())
-                .map(CreateAdmissionReservationFormRequest.SubmissionDocument::getKey)
-                .toList();
-
-        if (!emptyImageDocs.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Các giấy tờ bắt buộc sau chưa có hình ảnh đính kèm: " + String.join(", ", emptyImageDocs), null);
-        }
-
-        List<Map<String, Object>> profileMetaData = request.getSubmissionDocuments().stream()
-                .map(doc -> {
-                    Map<String, Object> map = new HashMap<>();
-                    map.put("key", doc.getKey());
-                    map.put("imageUrl", doc.getImageUrl());
-                    return map;
-                })
-                .toList();
-
-        admissionReservationFormRepo.save(
-                AdmissionReservationForm.builder()
-                        .createdTime(LocalDateTime.now())
-                        .status(Status.RESERVATION_PENDING)
-                        .studentProfile(studentProfile.get())
-                        .campusProgramOffering(campusProgramOffering.get())
-                        .methodName(campusProgramOffering.get().getAdmissionMethod())
-                        .profileMetadata(profileMetaData)
-                        .updatedTime(LocalDateTime.now())
-                        .build()
-        );
-
-        return ResponseBuilder.build(HttpStatus.OK, "Nộp hồ sơ giữ chỗ thành công, vui lòng chờ nhà trường xét duyệt.", null);
+        return null;
 
     }
 

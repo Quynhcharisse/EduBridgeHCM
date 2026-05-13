@@ -23,6 +23,11 @@ public interface AdmissionReservationFormRepo extends JpaRepository<AdmissionRes
 
     boolean existsByCampusProgramOfferingAndStudentProfileAndStatus(CampusProgramOffering campusProgramOffering, StudentProfile studentProfile, Status status);
 
+    List<AdmissionReservationForm> findByCampusProgramOffering_IdInAndStudentProfileAndStatusIn(
+            Collection<Integer> campusProgramOfferingIds,
+            StudentProfile studentProfile,
+            Collection<Status> statuses
+    );
 
     List<AdmissionReservationForm> findByStudentProfile_Parent_Account_IdAndStatus(Integer studentProfileParentAccountId, Status status);
 

@@ -79,4 +79,9 @@ public class AdmissionReservationForm {
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     Status status;
+
+    @ManyToOne
+    @JoinColumn(name = "admission_campaign_id")
+    AdmissionCampaign admissionCampaign;
+
 }
