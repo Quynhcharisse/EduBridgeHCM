@@ -1,6 +1,7 @@
 package com.sp26se041.edubridgehcm.models;
 
 import com.sp26se041.edubridgehcm.enums.Status;
+import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -15,6 +16,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.Type;
 import org.jspecify.annotations.NullMarked;
 
 import java.time.LocalDateTime;
@@ -50,6 +52,10 @@ public class ChatMessage {
 
     @Column(name = "message")
     String message;
+
+    @Type(JsonBinaryType.class)
+    @Column(columnDefinition = "jsonb", name = "files")
+    Object files;
 
     @Column(name = "conversation_id")
     Long conversationId;
