@@ -169,7 +169,6 @@ public class CampusServiceImpl implements CampusService {
     private final EntityManager entityManager;
 
     private final RestTemplate restTemplate = new RestTemplate();
-
     @Override
     @Transactional
     public ResponseEntity<ResponseObject> createCampusProgramOffering(CreateCampusProgramOfferingRequest request) {
@@ -240,6 +239,18 @@ public class CampusServiceImpl implements CampusService {
         Campus targetCampus = CampusProgramOfferingValidation.resolveTargetCampus(actorCampus, request.getCampusId(), campusRepo);
         if (targetCampus == null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không xác định được cơ sở áp dụng offering.", null);
+        }
+
+        // Check duplicate: cùng campus + cùng program + cùng method trong 1 campaign
+        boolean alreadyExists = campusProgramOfferingRepo
+                .findByAdmissionCampaignId(campaign.getId())
+                .stream()
+                .anyMatch(o -> o.getCampus().getId().equals(targetCampus.getId())
+                        && o.getProgram().getId().equals(program.getId())
+                        && requestedMethod.equals(normalize(o.getAdmissionMethod())));
+        if (alreadyExists) {
+            return ResponseBuilder.build(HttpStatus.CONFLICT,
+                    "Cơ sở đã có gói tuyển sinh cho chương trình này với phương thức '" + requestedMethod + "'.", null);
         }
 
         // Validate quota campus tự nhập
@@ -885,7 +896,9 @@ public class CampusServiceImpl implements CampusService {
         Status effectiveOperationalStatus = resolveEffectiveOperationalStatus(offering);
 
         data.put("id", offering.getId());
+        data.put("campusId", offering.getCampus().getId());
         data.put("campusName", offering.getCampus().getName());
+        data.put("admissionCampaignId", offering.getAdmissionCampaign() != null ? offering.getAdmissionCampaign().getId() : null);
         data.put("learningMode", offering.getLearningMode());
         data.put("tuitionFee", offering.getFinalTuitionFee());
         data.put("quota", offering.getQuota());
@@ -896,6 +909,16 @@ public class CampusServiceImpl implements CampusService {
         data.put("admissionMethod", offering.getAdmissionMethod());
         data.put("allowReservationSubmission", offering.getAllowReservationSubmission());
         data.put("status", CheckCampusOfferingStatus.checkOfferingStatus(offering, campusProgramOfferingRepo).getStatus());
+
+        if (Boolean.TRUE.equals(offering.getAllowReservationSubmission())) {
+            Map<String, Object> timeline = findMethodTimeline(
+                    offering.getAdmissionCampaign(), offering.getAdmissionMethod());
+            if (timeline != null) {
+                data.put("reservationFee", timeline.get("reservationFee"));
+                data.put("depositEndDate", timeline.get("depositEndDate"));
+                data.put("confirmationEndDate", timeline.get("confirmationEndDate"));
+            }
+        }
 
         // Trả block chi tiết để FE không cần gọi thêm API khi mở detail từ list offering.
         Map<String, Object> curriculumData = new LinkedHashMap<>();
@@ -922,7 +945,6 @@ public class CampusServiceImpl implements CampusService {
         programData.put("curriculum", curriculumData);
 
         data.put("program", programData);
-        data.put("curriculum", curriculumData);
         return data;
     }
 
@@ -994,6 +1016,7 @@ public class CampusServiceImpl implements CampusService {
             return null;
         }
     }
+
 
     @Override
     @Transactional
