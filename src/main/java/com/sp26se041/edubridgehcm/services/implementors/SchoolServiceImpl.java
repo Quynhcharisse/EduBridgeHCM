@@ -36,6 +36,7 @@ import com.sp26se041.edubridgehcm.models.FavouriteSchool;
 import com.sp26se041.edubridgehcm.models.OpenDayEvent;
 import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.PaymentTransaction;
+import com.sp26se041.edubridgehcm.models.PlatformConfig;
 import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
@@ -461,6 +462,11 @@ public class SchoolServiceImpl implements SchoolService {
                     "Tổng chỉ tiêu các phương thức (" + totalMethodQuota + ") vượt quá chỉ tiêu được cấp cho trường (" + systemQuota + ")", null);
         }
 
+        if (systemQuota != null && totalMethodQuota < systemQuota) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Tổng chỉ tiêu các phương thức (" + totalMethodQuota + ") chưa phân bổ đủ chỉ tiêu được cấp (" + systemQuota + "). Vui lòng phân bổ đủ " + systemQuota + " chỉ tiêu vào các phương thức", null);
+        }
+
         AdmissionCampaign admissionCampaign = AdmissionCampaign.builder()
                 .school(actorCampus.getSchool())
                 .name(normalize(request.getName()))
@@ -469,16 +475,11 @@ public class SchoolServiceImpl implements SchoolService {
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
                 .admissionMethodTimelines(methodTimelines)
-                .quota(systemQuota)        // snapshot từ system config lúc tạo
-                .remainingQuota(null)      // chưa publish → chưa mở nhận hồ sơ
+                .quota(systemQuota)
+                .remainingQuota(null)
                 .status(Status.DRAFT_ADMISSION_CAMPAIGN)
                 .build();
         admissionCampaignRepo.save(admissionCampaign);
-
-        if (systemQuota != null && totalMethodQuota < systemQuota) {
-            return ResponseBuilder.build(HttpStatus.CREATED,
-                    "Tạo chiến dịch tuyển sinh thành công. Lưu ý: Tổng chỉ tiêu các phương thức (" + totalMethodQuota + ") chưa phân bổ hết chỉ tiêu được cấp (" + systemQuota + ")", null);
-        }
 
         return ResponseBuilder.build(HttpStatus.CREATED, "Tạo chiến dịch tuyển sinh thành công", null);
     }
@@ -587,6 +588,11 @@ public class SchoolServiceImpl implements SchoolService {
                     "Tổng chỉ tiêu các phương thức (" + totalMethodQuotaForClone + ") vượt quá chỉ tiêu được cấp cho trường (" + systemQuotaForClone + ")", null);
         }
 
+        if (systemQuotaForClone != null && totalMethodQuotaForClone < systemQuotaForClone) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Tổng chỉ tiêu các phương thức (" + totalMethodQuotaForClone + ") chưa phân bổ đủ chỉ tiêu được cấp (" + systemQuotaForClone + "). Vui lòng phân bổ đủ " + systemQuotaForClone + " chỉ tiêu vào các phương thức", null);
+        }
+
         AdmissionCampaign newCampaign = AdmissionCampaign.builder()
                 .school(oldCampaign.getSchool())
                 .name(request.getName())
@@ -595,17 +601,14 @@ public class SchoolServiceImpl implements SchoolService {
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
                 .admissionMethodTimelines(methodTimelines)
-                .quota(systemQuotaForClone)  // snapshot từ system config lúc clone
-                .remainingQuota(null)         // chưa publish → chưa mở nhận hồ sơ
+                .quota(systemQuotaForClone)
+                .remainingQuota(null)
                 .status(Status.DRAFT_ADMISSION_CAMPAIGN)
                 .build();
 
         admissionCampaignRepo.save(newCampaign);
 
         String cloneMessage = "Nhân bản chiến dịch tuyển sinh thành công!";
-        if (systemQuotaForClone != null && totalMethodQuotaForClone < systemQuotaForClone) {
-            cloneMessage += " Lưu ý: Tổng chỉ tiêu các phương thức (" + totalMethodQuotaForClone + ") chưa phân bổ hết chỉ tiêu được cấp (" + systemQuotaForClone + ")";
-        }
         Map<String, Object> cloneAdmissionConfig = resolveAdmissionConfigForCampaignView(newCampaign.getSchool().getId());
         Map<String, List<Map<String, Object>>> cloneProcessByMethod = indexNestedListByMethodCode(
                 toListOfMaps(cloneAdmissionConfig.get("admissionProcesses")), "steps");
@@ -688,13 +691,13 @@ public class SchoolServiceImpl implements SchoolService {
                     "Tổng chỉ tiêu các phương thức (" + totalMethodQuotaForUpdate + ") vượt quá chỉ tiêu được cấp cho trường (" + systemQuotaForUpdate + ")", null);
         }
 
+        if (systemQuotaForUpdate != null && totalMethodQuotaForUpdate < systemQuotaForUpdate) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Tổng chỉ tiêu các phương thức (" + totalMethodQuotaForUpdate + ") chưa phân bổ đủ chỉ tiêu được cấp (" + systemQuotaForUpdate + "). Vui lòng phân bổ đủ " + systemQuotaForUpdate + " chỉ tiêu vào các phương thức", null);
+        }
+
         admissionCampaign.setAdmissionMethodTimelines(methodTimelines);
         admissionCampaignRepo.save(admissionCampaign);
-
-        if (systemQuotaForUpdate != null && totalMethodQuotaForUpdate < systemQuotaForUpdate) {
-            return ResponseBuilder.build(HttpStatus.OK,
-                    "Cập nhật chiến dịch tuyển sinh thành công. Lưu ý: Tổng chỉ tiêu các phương thức (" + totalMethodQuotaForUpdate + ") chưa phân bổ hết chỉ tiêu được cấp (" + systemQuotaForUpdate + ")", null);
-        }
 
         return ResponseBuilder.build(HttpStatus.OK, "Cập nhật chiến dịch tuyển sinh thành công", null);
     }
@@ -1749,8 +1752,8 @@ public class SchoolServiceImpl implements SchoolService {
             methodDetails.add(methodDetail);
         }
 
-        data.put("quota", campaign.getQuota());
-        data.put("remainingQuota", campaign.getRemainingQuota());
+        data.put("campaignTotalQuota", campaign.getQuota());
+        data.put("campaignRemainingQuota", campaign.getRemainingQuota());
         data.put("admissionMethodTimelines", methodDetails);
         data.put("campusProgramOfferings", buildCampaignOfferingDetails(campaign.getId()));
         return data;
@@ -2041,7 +2044,8 @@ public class SchoolServiceImpl implements SchoolService {
 
     private Integer resolveSchoolTotalQuota(int schoolId) {
 
-        SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "quotaConfigData").orElse(null);
+        SchoolConfig config = schoolConfigRepo
+                .findBySchoolIdAndKey(schoolId, "quotaConfigData").orElse(null);
 
         if (config == null || !(config.getValue() instanceof Map<?, ?> cfg)) return null;
 

@@ -676,10 +676,13 @@ public class CampusServiceImpl implements CampusService {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Quota phải lớn hơn 0.", null);
             }
 
-            int usedQuota = offering.getQuota() - offering.getRemainingQuota();
+            // Đếm slot thực tế đang được giữ (PAYMENT_PENDING + DEPOSITED) thay vì dùng quota-remainingQuota
+            // → tránh lỗi nếu remainingQuota bị lệch so với thực tế
+            int usedQuota = admissionReservationFormRepo
+                    .countByCampusProgramOfferingIdAndStatusIn(offering.getId(), Status.activeOfferingStatuses());
             if (request.getQuota() < usedQuota) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                        String.format("Quota mới (%d) không được nhỏ hơn số đã sử dụng (%d).", request.getQuota(), usedQuota), null);
+                        String.format("Quota mới (%d) không được nhỏ hơn số slot đang được giữ (%d).", request.getQuota(), usedQuota), null);
             }
 
             Integer allocatedQuota = resolveConfiguredCampusQuota(
