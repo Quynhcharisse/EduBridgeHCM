@@ -1,27 +1,23 @@
 package com.sp26se041.edubridgehcm.repositories;
 
 import com.sp26se041.edubridgehcm.enums.Status;
+import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
 import com.sp26se041.edubridgehcm.models.AdmissionReservationForm;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
 import com.sp26se041.edubridgehcm.models.StudentProfile;
-import org.springframework.data.domain.Limit;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Collection;
 import java.util.List;
 
 public interface AdmissionReservationFormRepo extends JpaRepository<AdmissionReservationForm, Integer> {
-    int countByCampusProgramOfferingIdAndStatusIn(Integer offeringId, Collection<Status> activeStatuses);
 
-    int countByCampusProgramOfferingIdAndStatusIsNull(Integer offeringId);
+    // ── Offering-level queries (phase 2) ──────────────────────────────────────
+    int countByCampusProgramOfferingIdAndStatusIn(Integer offeringId, Collection<Status> statuses);
 
-    int countByCampusProgramOffering_AdmissionCampaign_IdAndStatusIn(int campaignId, Collection<Status> activeStatuses);
-
-    int countByCampusProgramOffering_AdmissionCampaign_IdAndStatusIsNull(int campaignId);
-
-    boolean existsByCampusProgramOfferingAndStudentProfileAndStatus(CampusProgramOffering campusProgramOffering, StudentProfile studentProfile, Status status);
+    boolean existsByCampusProgramOfferingAndStudentProfileAndStatus(
+            CampusProgramOffering campusProgramOffering, StudentProfile studentProfile, Status status);
 
     List<AdmissionReservationForm> findByCampusProgramOffering_IdInAndStudentProfileAndStatusIn(
             Collection<Integer> campusProgramOfferingIds,
@@ -29,12 +25,21 @@ public interface AdmissionReservationFormRepo extends JpaRepository<AdmissionRes
             Collection<Status> statuses
     );
 
-    List<AdmissionReservationForm> findByStudentProfile_Parent_Account_IdAndStatus(Integer studentProfileParentAccountId, Status status);
+    // ── Campaign-level queries (phase 1 + school actor) ───────────────────────
+    int countByAdmissionCampaignIdAndStatusIn(Integer campaignId, Collection<Status> statuses);
 
-    List<AdmissionReservationForm> findByStudentProfile_Parent_Account_Id(Integer studentProfileParentAccountId);
+    boolean existsByAdmissionCampaignAndStudentProfileAndStatusIn(
+            AdmissionCampaign admissionCampaign, StudentProfile studentProfile, Collection<Status> statuses);
 
-    List<AdmissionReservationForm> findByCampusProgramOffering_CampusAndStatus(Campus campusProgramOfferingCampus, Status status);
+    // School actor: xem tất cả hồ sơ theo school (qua campaign)
+    List<AdmissionReservationForm> findByAdmissionCampaign_School_IdAndStatus(int schoolId, Status status);
 
-    List<AdmissionReservationForm> findByCampusProgramOffering_Campus(Campus campusProgramOfferingCampus);
+    List<AdmissionReservationForm> findByAdmissionCampaign_School_Id(int schoolId);
+
+    // ── Parent-level queries ──────────────────────────────────────────────────
+    List<AdmissionReservationForm> findByStudentProfile_Parent_Account_IdAndStatus(
+            Integer parentAccountId, Status status);
+
+    List<AdmissionReservationForm> findByStudentProfile_Parent_Account_Id(Integer parentAccountId);
 }
 

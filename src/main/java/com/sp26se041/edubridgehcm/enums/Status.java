@@ -103,14 +103,16 @@ public enum Status {
     DISABLED("disabled"),
     SLOT_UNASSIGNED("slot_unassigned"),
 
-    RESERVATION_PENDING("reservation pending"),          // Nộp xong, chờ trường duyệt
-    RESERVATION_APPROVAL("reservation approval"),        // Trường duyệt, chờ PH đặt cọc
-    RESERVATION_DEPOSITED("reservation deposited"),      // PH đã đặt cọc, giữ chỗ thành công
-    RESERVATION_DEPOSIT_EXPIRED("reservation deposit expired"), // Hết hạn đặt cọc
-    RESERVATION_CONFIRMED("reservation confirmed"),      // PH chốt trường này
-    RESERVATION_GHOST("reservation ghost"),              // PH đã chốt trường khác, hồ sơ này vô hiệu
-    RESERVATION_CANCELLED("reservation cancelled"),      // PH tự hủy (chỉ khi còn PENDING)
-    RESERVATION_REJECTED("reservation rejected"),        // Trường từ chối
+    RESERVATION_PENDING("reservation pending"),                   // Nộp xong, chờ trường duyệt
+    RESERVATION_APPROVAL("reservation approval"),                 // Trường duyệt, PH được phép chọn gói
+    RESERVATION_OFFERING_SELECTED("reservation offering selected"), // PH đã chọn gói, chờ đặt cọc
+    RESERVATION_PAYMENT_PENDING("reservation payment pending"),   // PH upload proof, chờ campus xác nhận
+    RESERVATION_DEPOSITED("reservation deposited"),               // Campus xác nhận tiền → giữ chỗ thành công
+    RESERVATION_DEPOSIT_EXPIRED("reservation deposit expired"),   // Hết hạn đặt cọc
+    RESERVATION_CONFIRMED("reservation confirmed"),               // PH chốt trường này
+    RESERVATION_GHOST("reservation ghost"),                       // PH đã chốt trường khác, hồ sơ này vô hiệu
+    RESERVATION_CANCELLED("reservation cancelled"),               // PH tự hủy
+    RESERVATION_REJECTED("reservation rejected"),                 // Trường từ chối
 
     UPCOMING("Sắp diễn ra"),
     ONGOING("Đang diễn ra"),
@@ -136,12 +138,22 @@ public enum Status {
         };
     }
 
-    // trạng thái hồ sơ còn hiệu lực (ảnh hưởng quota)
+    // trạng thái hồ sơ còn hiệu lực (ảnh hưởng campaign quota)
     public static Set<Status> activeReservationStatuses() {
         return Set.of(
                 RESERVATION_PENDING,
                 RESERVATION_APPROVAL,
-                RESERVATION_DEPOSITED // hồ sơ đã cọc vẫn đang chiếm quota cho đến khi CONFIRMED/GHOST
+                RESERVATION_OFFERING_SELECTED,
+                RESERVATION_PAYMENT_PENDING,
+                RESERVATION_DEPOSITED
+        );
+    }
+
+    // trạng thái hồ sơ đã chọn gói (ảnh hưởng offering quota)
+    public static Set<Status> activeOfferingStatuses() {
+        return Set.of(
+                RESERVATION_PAYMENT_PENDING,
+                RESERVATION_DEPOSITED
         );
     }
 }

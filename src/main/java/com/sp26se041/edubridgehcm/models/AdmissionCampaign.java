@@ -66,6 +66,12 @@ public class AdmissionCampaign {
     @Column(name = "admission_method_timelines", columnDefinition = "jsonb")
     Object admissionMethodTimelines;
 
+    @Column(name = "quota")
+    Integer quota; // Tổng chỉ tiêu toàn campaign
+
+    @Column(name = "remaining_quota")
+    Integer remainingQuota; // Chỉ tiêu còn lại
+
     @Enumerated(EnumType.STRING)
     Status status;
 

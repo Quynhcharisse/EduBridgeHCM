@@ -169,6 +169,7 @@ public class CampusServiceImpl implements CampusService {
     private final EntityManager entityManager;
 
     private final RestTemplate restTemplate = new RestTemplate();
+
     @Override
     @Transactional
     public ResponseEntity<ResponseObject> createCampusProgramOffering(CreateCampusProgramOfferingRequest request) {
@@ -820,8 +821,7 @@ public class CampusServiceImpl implements CampusService {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chương trình đang tạm dừng, vui lòng mở lại trước khi đóng.", null);
             }
 
-            int formCount = admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIn(offeringId, Status.activeReservationStatuses())
-                    + admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIsNull(offeringId);
+            int formCount = admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIn(offeringId, Status.activeReservationStatuses());
 
             if (formCount >= offering.getQuota() || offering.getRemainingQuota() <= 0) {
                 // Nếu đóng khi đã đủ hoặc vượt chỉ tiêu -> Hiển thị là FULL (Hết chỗ)
@@ -858,8 +858,7 @@ public class CampusServiceImpl implements CampusService {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Chỉ có thể mở lại chương trình khi đang ở trạng thái tạm dừng (PAUSED).", null);
             }
 
-            int formCount = admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIn(offeringId, Status.activeReservationStatuses())
-                    + admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIsNull(offeringId);
+            int formCount = admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIn(offeringId, Status.activeReservationStatuses());
 
             Status nextStatus = deriveApplicationStatusByWindowAndQuota(
                     offering.getOpenDate(),
@@ -958,8 +957,7 @@ public class CampusServiceImpl implements CampusService {
         }
 
         int activeReservationCount = admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIn(
-                offering.getId(), Status.activeReservationStatuses())
-                + admissionReservationFormRepo.countByCampusProgramOfferingIdAndStatusIsNull(offering.getId());
+                offering.getId(), Status.activeReservationStatuses());
 
         return deriveApplicationStatusByWindowAndQuota(
                 offering.getOpenDate(),
@@ -3131,23 +3129,26 @@ public class CampusServiceImpl implements CampusService {
 
         List<AdmissionReservationForm> forms;
 
+        int schoolId = actorCampus.getSchool().getId();
+
         if (status != null && !status.isBlank()) {
             Status filterStatus;
             try {
                 filterStatus = Status.valueOf(status);
             } catch (IllegalArgumentException e) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                        "Trạng thái không hợp lệ. Các trạng thái hợp lệ: RESERVATION_PENDING, RESERVATION_APPROVAL, RESERVATION_REJECTED, RESERVATION_CANCELLED.", null);
+                        "Trạng thái không hợp lệ. Các trạng thái hợp lệ: RESERVATION_PENDING, RESERVATION_APPROVAL, RESERVATION_OFFERING_SELECTED, RESERVATION_PAYMENT_PENDING, RESERVATION_DEPOSITED, RESERVATION_CONFIRMED, RESERVATION_REJECTED, RESERVATION_CANCELLED.", null);
             }
-            forms = admissionReservationFormRepo.findByCampusProgramOffering_CampusAndStatus(actorCampus, filterStatus);
+            forms = admissionReservationFormRepo.findByAdmissionCampaign_School_IdAndStatus(schoolId, filterStatus);
         } else {
-            forms = admissionReservationFormRepo.findByCampusProgramOffering_Campus(actorCampus);
+            forms = admissionReservationFormRepo.findByAdmissionCampaign_School_Id(schoolId);
         }
 
         List<Map<String, Object>> result = buildAdmissionReservationForms(forms);
 
         return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách đơn thành công.", result);
     }
+
     private List<Map<String, Object>> buildAdmissionReservationForms(List<AdmissionReservationForm> admissionReservationForms) {
         return admissionReservationForms.stream()
                 .map(this::buildAdmissionReservationForm)
