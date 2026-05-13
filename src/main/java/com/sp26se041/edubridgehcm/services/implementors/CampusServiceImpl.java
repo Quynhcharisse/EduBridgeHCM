@@ -48,6 +48,7 @@ import com.sp26se041.edubridgehcm.repositories.TemplateDocxRepo;
 import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.ChatMessageForChatBot;
+import com.sp26se041.edubridgehcm.requests.ConfirmPaymentDepositRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.ProcessApplicantRequest;
@@ -71,7 +72,6 @@ import com.sp26se041.edubridgehcm.validations.campus.CampusProgramOfferingValida
 import com.sp26se041.edubridgehcm.validations.campus.CampusScheduleTemplateValidation;
 import com.sp26se041.edubridgehcm.validations.campus.CounsellorSlotValidation;
 import com.sp26se041.edubridgehcm.validations.campus.CounsellorValidation;
-import com.sp26se041.edubridgehcm.validations.school.AdmissionCampaignValidation;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -983,6 +983,64 @@ public class CampusServiceImpl implements CampusService {
         }
 
         return Status.OPEN;
+    }
+
+    /**
+     * Validate school đã tích đủ required documents trước khi approve.
+     * Return null nếu hợp lệ, ResponseEntity BAD_REQUEST nếu thiếu.
+     */
+    private ResponseEntity<ResponseObject> validateCheckedDocuments(
+            int schoolId, String methodName, List<String> checkedDocuments) {
+
+        SchoolConfig docConfig = schoolConfigRepo
+                .findBySchoolIdAndKey(schoolId, "documentRequirementsData").orElse(null);
+        if (docConfig == null || !(docConfig.getValue() instanceof Map<?, ?> docMap)) {
+            // Trường chưa cấu hình document → bỏ qua validate
+            return null;
+        }
+
+        // Thu thập required doc codes: mandatoryAll + byMethod theo methodName
+        List<String> requiredCodes = new ArrayList<>();
+
+        List<?> mandatoryAll = docMap.get("mandatoryAll") instanceof List<?> m ? m : List.of();
+        for (Object item : mandatoryAll) {
+            if (item instanceof Map<?, ?> doc && Boolean.TRUE.equals(doc.get("required"))) {
+                Object code = doc.get("code");
+                if (code != null) requiredCodes.add(code.toString());
+            }
+        }
+
+        if (methodName != null) {
+            List<?> byMethod = docMap.get("byMethod") instanceof List<?> b ? b : List.of();
+            for (Object item : byMethod) {
+                if (!(item instanceof Map<?, ?> methodEntry)) continue;
+                if (!methodName.equalsIgnoreCase(Objects.toString(methodEntry.get("methodCode"), null))) continue;
+                List<?> docs = methodEntry.get("documents") instanceof List<?> d ? d : List.of();
+                for (Object docItem : docs) {
+                    if (docItem instanceof Map<?, ?> doc && Boolean.TRUE.equals(doc.get("required"))) {
+                        Object code = doc.get("code");
+                        if (code != null) requiredCodes.add(code.toString());
+                    }
+                }
+                break;
+            }
+        }
+
+        if (requiredCodes.isEmpty()) return null; // Không có doc bắt buộc → pass
+
+        List<String> checked = checkedDocuments != null
+                ? checkedDocuments.stream().map(String::toUpperCase).toList()
+                : List.of();
+
+        List<String> missing = requiredCodes.stream()
+                .filter(code -> !checked.contains(code.toUpperCase()))
+                .toList();
+
+        if (!missing.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Chưa xác nhận đủ hồ sơ bắt buộc. Còn thiếu: " + String.join(", ", missing), null);
+        }
+        return null;
     }
 
     private Map<String, Object> findMethodTimeline(AdmissionCampaign campaign, String methodCode) {
@@ -3034,9 +3092,10 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy đơn đăng ký tuyển sinh", null);
         }
 
-        CampusProgramOffering offering = form.getCampusProgramOffering();
-        if (!actorCampus.getId().equals(offering.getCampus().getId())) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Đơn này không thuộc cơ sở của bạn.", null);
+        // Ownership check qua admissionCampaign (phase 1: offering chưa được chọn → không dùng offering)
+        AdmissionCampaign campaign = form.getAdmissionCampaign();
+        if (campaign == null || !actorCampus.getSchool().getId().equals(campaign.getSchool().getId())) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Đơn này không thuộc trường của bạn.", null);
         }
 
         if (form.getStatus() != Status.RESERVATION_PENDING) {
@@ -3046,55 +3105,20 @@ public class CampusServiceImpl implements CampusService {
         String action = request.getAction() != null ? request.getAction().toUpperCase() : "";
         String successMessage;
 
-        Map<String, Object> responseData = null;
-
         switch (action) {
             case "APPROVE":
+                // Validate checkedDocuments đủ so với required docs của trường
+                ResponseEntity<ResponseObject> docValidation = validateCheckedDocuments(
+                        actorCampus.getSchool().getId(),
+                        form.getMethodName(),
+                        request.getCheckedDocuments()
+                );
+                if (docValidation != null) return docValidation;
+
+                // APPROVE chỉ đổi status → PH được phép chọn offering (phase 2)
+                // Không đụng offering (chưa có), không đụng quota (đã trừ lúc PH nộp)
                 form.setStatus(Status.RESERVATION_APPROVAL);
                 successMessage = "Phê duyệt đơn đăng ký thành công.";
-
-                offering.setRemainingQuota(offering.getRemainingQuota() - 1);
-                long activeCount = admissionReservationFormRepo
-                        .countByCampusProgramOfferingIdAndStatusIn(offering.getId(), Status.activeReservationStatuses());
-
-                Status newAppStatus = deriveApplicationStatusByWindowAndQuota(
-                        offering.getOpenDate(),
-                        offering.getCloseDate(),
-                        offering.getQuota(),
-                        offering.getRemainingQuota(),
-                        (int) activeCount);
-                offering.setApplicationStatus(newAppStatus);
-                campusProgramOfferingRepo.save(offering);
-
-                // Sinh transferCode duy nhất cho form này
-                String transferCode = "GC" + form.getId() + form.getStudentProfile().getId();
-                form.setTransferCode(transferCode);
-
-                // Đọc reservationFee + depositEndDate từ campaign timeline
-                AdmissionCampaign campaign = offering.getAdmissionCampaign();
-                Map<String, Object> matchedTimeline = findMethodTimeline(campaign, form.getMethodName());
-
-                BigDecimal reservationFee = matchedTimeline != null
-                        ? AdmissionCampaignValidation.parseBigDecimalSafe(matchedTimeline.get("reservationFee"))
-                        : null;
-                LocalDate depositDeadline = matchedTimeline != null
-                        ? AdmissionCampaignValidation.parseLocalDateSafe(matchedTimeline.get("depositEndDate"))
-                        : null;
-
-                // Đọc bank info của trường
-                int schoolId = offering.getCampus().getSchool().getId();
-                Map<String, Object> bankInfo = schoolConfigRepo
-                        .findBySchoolIdAndKey(schoolId, "bankInfoData")
-                        .map(c -> (Map<String, Object>) c.getValue())
-                        .orElse(null);
-
-                // Build paymentInfo trả về cho FE gen QR
-                if (bankInfo != null) {
-                    responseData = new HashMap<>(bankInfo);
-                    responseData.put("transferCode", transferCode);
-                    responseData.put("amount", reservationFee);
-                    responseData.put("depositDeadline", depositDeadline);
-                }
                 break;
 
             case "REJECT":
@@ -3103,11 +3127,17 @@ public class CampusServiceImpl implements CampusService {
                 }
                 form.setStatus(Status.RESERVATION_REJECTED);
                 form.setRejectReason(request.getRejectReason());
+
+                // Hoàn lại quota campaign cho PH khác nộp
+                if (campaign.getRemainingQuota() != null) {
+                    campaign.setRemainingQuota(campaign.getRemainingQuota() + 1);
+                    admissionCampaignRepo.save(campaign);
+                }
                 successMessage = "Từ chối đơn đăng ký thành công.";
                 break;
 
             default:
-                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Hành động không hợp lệ.", null);
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Hành động không hợp lệ. Chỉ chấp nhận APPROVE hoặc REJECT.", null);
         }
 
         Account actor = AuthRequestUtil.extractAuthenticatedAccount();
@@ -3119,7 +3149,94 @@ public class CampusServiceImpl implements CampusService {
         form.setUpdatedTime(LocalDateTime.now());
         admissionReservationFormRepo.save(form);
 
-        return ResponseBuilder.build(HttpStatus.OK, successMessage, responseData);
+        return ResponseBuilder.build(HttpStatus.OK, successMessage, null);
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<ResponseObject> confirmPaymentDeposit(ConfirmPaymentDepositRequest request) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế, không thể thực hiện thao tác này.", null);
+        }
+
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
+        }
+
+        AdmissionReservationForm form = admissionReservationFormRepo.findById(request.getFormId()).orElse(null);
+        if (form == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy đơn đăng ký tuyển sinh.", null);
+        }
+
+        // Fix 1: null check campaign
+        AdmissionCampaign campaign = form.getAdmissionCampaign();
+        if (campaign == null || !actorCampus.getSchool().getId().equals(campaign.getSchool().getId())) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Đơn này không thuộc trường của bạn.", null);
+        }
+
+        // Chỉ xử lý được khi PH đã upload proof (PAYMENT_PENDING)
+        if (form.getStatus() != Status.RESERVATION_PAYMENT_PENDING) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Đơn chưa ở trạng thái chờ xác nhận thanh toán (PAYMENT_PENDING).", null);
+        }
+
+        // Fix 2: null check offering
+        CampusProgramOffering offering = form.getCampusProgramOffering();
+        if (offering == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Đơn chưa được gắn gói tuyển sinh.", null);
+        }
+
+        String action = request.getAction() != null ? request.getAction().toUpperCase() : "";
+
+        switch (action) {
+            case "CONFIRM":
+                // Xác nhận tiền đã vào → giữ chỗ thành công
+                form.setStatus(Status.RESERVATION_DEPOSITED);
+
+                // Trừ quota offering (slot thực sự bị giữ)
+                if (offering.getRemainingQuota() > 0) {
+                    offering.setRemainingQuota(offering.getRemainingQuota() - 1);
+                } else {
+                    return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                            "Gói tuyển sinh không còn chỗ trống.", null);
+                }
+
+                // Cập nhật applicationStatus của offering
+                int activeOfferingCount = admissionReservationFormRepo
+                        .countByCampusProgramOfferingIdAndStatusIn(offering.getId(), Status.activeOfferingStatuses());
+                Status newAppStatus = deriveApplicationStatusByWindowAndQuota(
+                        offering.getOpenDate(), offering.getCloseDate(),
+                        offering.getQuota(), offering.getRemainingQuota(), activeOfferingCount);
+                offering.setApplicationStatus(newAppStatus);
+                campusProgramOfferingRepo.save(offering);
+
+                // Fix 3: extract account 1 lần
+                Account confirmActor = AuthRequestUtil.extractAuthenticatedAccount();
+                form.setPaymentConfirmedBy(confirmActor != null ? confirmActor.getEmail() : null);
+                break;
+
+            case "REJECT_PAYMENT":
+                // Proof không hợp lệ → cho PH upload lại
+                if (request.getRejectReason() == null || request.getRejectReason().isBlank()) {
+                    return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Vui lòng cung cấp lý do từ chối thanh toán.", null);
+                }
+                form.setStatus(Status.RESERVATION_PAYMENT_REJECTED);
+                form.setRejectReason(request.getRejectReason());
+                form.setPaymentProofUrl(null); // Xóa proof cũ không hợp lệ
+                break;
+
+            default:
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Hành động không hợp lệ. Chỉ chấp nhận CONFIRM hoặc REJECT_PAYMENT.", null);
+        }
+
+        form.setUpdatedTime(LocalDateTime.now());
+        admissionReservationFormRepo.save(form);
+
+        return ResponseBuilder.build(HttpStatus.OK,
+                action.equals("CONFIRM") ? "Xác nhận đặt cọc thành công." : "Từ chối thanh toán, phụ huynh có thể upload lại.", null);
     }
 
     @Override
@@ -3137,10 +3254,10 @@ public class CampusServiceImpl implements CampusService {
         if (status != null && !status.isBlank()) {
             Status filterStatus;
             try {
-                filterStatus = Status.valueOf(status);
+                filterStatus = Status.valueOf(status.toUpperCase());
             } catch (IllegalArgumentException e) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                        "Trạng thái không hợp lệ. Các trạng thái hợp lệ: RESERVATION_PENDING, RESERVATION_APPROVAL, RESERVATION_OFFERING_SELECTED, RESERVATION_PAYMENT_PENDING, RESERVATION_DEPOSITED, RESERVATION_CONFIRMED, RESERVATION_REJECTED, RESERVATION_CANCELLED.", null);
+                        "Trạng thái không hợp lệ: " + status, null);
             }
             forms = admissionReservationFormRepo.findByAdmissionCampaign_School_IdAndStatus(schoolId, filterStatus);
         } else {

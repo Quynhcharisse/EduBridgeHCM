@@ -7,6 +7,7 @@ import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.ChatMessageForChatBot;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
+import com.sp26se041.edubridgehcm.requests.ConfirmPaymentDepositRequest;
 import com.sp26se041.edubridgehcm.requests.ProcessApplicantRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
@@ -70,6 +71,8 @@ public interface CampusService {
     ResponseEntity<ResponseObject> chatWithChatbotForSchool(ChatMessageForChatBot messageForChatBot);
 
     ResponseEntity<ResponseObject> processApplicant(ProcessApplicantRequest request);
+
+    ResponseEntity<ResponseObject> confirmPaymentDeposit(ConfirmPaymentDepositRequest request);
 
     ResponseEntity<ResponseObject> getAdmissionReservationForms(String status);
 

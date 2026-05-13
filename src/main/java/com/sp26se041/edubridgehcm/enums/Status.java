@@ -104,9 +104,9 @@ public enum Status {
     SLOT_UNASSIGNED("slot_unassigned"),
 
     RESERVATION_PENDING("reservation pending"),                   // Nộp xong, chờ trường duyệt
-    RESERVATION_APPROVAL("reservation approval"),                 // Trường duyệt, PH được phép chọn gói
-    RESERVATION_OFFERING_SELECTED("reservation offering selected"), // PH đã chọn gói, chờ đặt cọc
+    RESERVATION_APPROVAL("reservation approval"),                 // Trường duyệt, PH chọn gói + upload proof trong 1 bước
     RESERVATION_PAYMENT_PENDING("reservation payment pending"),   // PH upload proof, chờ campus xác nhận
+    RESERVATION_PAYMENT_REJECTED("reservation payment rejected"), // Campus từ chối proof → PH upload lại
     RESERVATION_DEPOSITED("reservation deposited"),               // Campus xác nhận tiền → giữ chỗ thành công
     RESERVATION_DEPOSIT_EXPIRED("reservation deposit expired"),   // Hết hạn đặt cọc
     RESERVATION_CONFIRMED("reservation confirmed"),               // PH chốt trường này
@@ -143,7 +143,6 @@ public enum Status {
         return Set.of(
                 RESERVATION_PENDING,
                 RESERVATION_APPROVAL,
-                RESERVATION_OFFERING_SELECTED,
                 RESERVATION_PAYMENT_PENDING,
                 RESERVATION_DEPOSITED
         );

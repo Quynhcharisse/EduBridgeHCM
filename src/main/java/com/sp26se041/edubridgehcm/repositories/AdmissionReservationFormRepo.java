@@ -36,6 +36,9 @@ public interface AdmissionReservationFormRepo extends JpaRepository<AdmissionRes
 
     List<AdmissionReservationForm> findByAdmissionCampaign_School_Id(int schoolId);
 
+    // ── Scheduler queries ─────────────────────────────────────────────────────
+    List<AdmissionReservationForm> findByStatusIn(Collection<Status> statuses);
+
     // ── Parent-level queries ──────────────────────────────────────────────────
     List<AdmissionReservationForm> findByStudentProfile_Parent_Account_IdAndStatus(
             Integer parentAccountId, Status status);
