@@ -605,9 +605,8 @@ public class SchoolServiceImpl implements SchoolService {
         Map<String, Object> cloneAdmissionConfig = resolveAdmissionConfigForCampaignView(newCampaign.getSchool().getId());
         Map<String, List<Map<String, Object>>> cloneProcessByMethod = indexNestedListByMethodCode(
                 toListOfMaps(cloneAdmissionConfig.get("admissionProcesses")), "steps");
-        Map<String, Object> cloneDocReqData = (Map<String, Object>) cloneAdmissionConfig.get("documentRequirementsData");
         Map<String, List<Map<String, Object>>> cloneDocsByMethod = indexNestedListByMethodCode(
-                toListOfMaps(cloneDocReqData != null ? cloneDocReqData.get("byMethod") : null), "documents");
+                toListOfMaps(cloneAdmissionConfig.get("byMethod")), "documents");
         return ResponseBuilder.build(HttpStatus.CREATED, cloneMessage, buildCampaignData(newCampaign, cloneProcessByMethod, cloneDocsByMethod));
     }
 
@@ -845,9 +844,8 @@ public class SchoolServiceImpl implements SchoolService {
         Map<String, List<Map<String, Object>>> processByMethod = indexNestedListByMethodCode(
                 toListOfMaps(admissionConfig.get("admissionProcesses")), "steps");
 
-        Map<String, Object> docReqData = (Map<String, Object>) admissionConfig.get("documentRequirementsData");
         Map<String, List<Map<String, Object>>> docsByMethod = indexNestedListByMethodCode(
-                toListOfMaps(docReqData != null ? docReqData.get("byMethod") : null), "documents");
+                toListOfMaps(admissionConfig.get("byMethod")), "documents");
 
         Map<String, Object> responseBody = new LinkedHashMap<>();
         responseBody.put("campaignConfig", buildCampaignConfig(admissionConfig));
