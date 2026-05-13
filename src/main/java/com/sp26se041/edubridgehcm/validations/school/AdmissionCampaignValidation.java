@@ -244,7 +244,7 @@ public class AdmissionCampaignValidation {
                 return "Phương thức [" + code + "] có giữ chỗ nhưng chưa thiết lập ngày kết thúc xác nhận";
             }
 
-            LocalDate confirmationEnd = LocalDate.parse(confirmationEndRaw.toString());
+            LocalDate confirmationEnd = parseLocalDateSafe(confirmationEndRaw);
             if (!confirmationEnd.isAfter(LocalDate.now())) {
                 Object code = map.get("methodCode");
                 return "Phương thức [" + code + "] đã hết hạn xác nhận (confirmationEndDate đã qua). Vui lòng cập nhật trước khi công bố";
