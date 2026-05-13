@@ -19,7 +19,7 @@ public class CreateAdmissionReservationFormRequest {
 
     List<SubmissionDocument> submissionDocuments;
 
-    int campusProgramOfferingId;
+    List<Integer> schoolIds;
 
     int studentProfileId;
 
