@@ -465,6 +465,7 @@ public class AccountServiceImpl implements AccountService {
             } catch (Exception ex) {
                 System.out.println(ex.getMessage());
             }
+
             campus.setAddress(normalize(campusData.getAddress()));
             campus.setCity(normalize(campusData.getCity()));
             campus.setDistrict(normalize(campusData.getDistrict()));

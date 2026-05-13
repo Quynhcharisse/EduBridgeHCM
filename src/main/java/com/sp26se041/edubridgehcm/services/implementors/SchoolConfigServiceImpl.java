@@ -837,48 +837,49 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
             fields.put("logoUrl", school.get().getLogoUrl() != null ? school.get().getLogoUrl() : "");
             fields.put("businessLicenseUrl", school.get().getBusinessLicenseUrl() != null ? school.get().getBusinessLicenseUrl() : "");
 
-            // Build curriculum rows cho template {{curriculums}}
             List<Map<String, Object>> curriculumRows = new ArrayList<>();
             List<Map<String, Object>> programRows = new ArrayList<>();
 
-            List<Curriculum> curriculumList =
-                    school.get().getCurriculumList() == null
-                            ? Collections.emptyList()
-                            : school.get().getCurriculumList()
-                            .stream()
-                            .filter(c -> c.getCurriculumStatus() == Status.CUR_ACTIVE)
-                            .toList();
+            List<Curriculum> curriculumList = school.get().getCurriculumList() == null
+                    ? Collections.emptyList()
+                    : school.get().getCurriculumList()
+                    .stream()
+                    .filter(c -> c.getCurriculumStatus() == Status.CUR_ACTIVE)
+                    .toList();
 
-            if (curriculumList != null) {
-                int currIdx = 1;
-                for (Curriculum curriculum : curriculumList) {
-                    Map<String, Object> cRow = new LinkedHashMap<>();
-                    cRow.put("stt", currIdx++);
-                    cRow.put("curName", curriculum.getName() != null ? curriculum.getName() : "");
-                    cRow.put("curType", curriculum.getCurriculumType() != null ? curriculum.getCurriculumType().getValue() : "");
-                    cRow.put("curYear", curriculum.getApplicationYear() != null ? String.valueOf(curriculum.getApplicationYear()) : "");
-                    cRow.put("curDesc", curriculum.getDescription() != null ? curriculum.getDescription() : "");
-                    cRow.put("curSubjects", buildSubjectsText(curriculum.getSubjectsJsonb(), null));
-                    curriculumRows.add(cRow);
+            int currIdx = 1;
+            for (Curriculum curriculum : curriculumList) {
 
-                    // Build program rows cho template {{programs}}
-                    if (curriculum.getPrograms() != null) {
-                        int progIdx = 1;
-                        for (Program program : curriculum.getPrograms()) {
-                            Map<String, Object> pRow = new LinkedHashMap<>();
-                            pRow.put("stt", progIdx++);
-                            pRow.put("progCurName", curriculum.getName() != null ? curriculum.getName() : "");
-                            pRow.put("progName", program.getName() != null ? program.getName() : "");
-                            pRow.put("progFee", program.getBaseTuitionFee() != null
-                                    ? program.getBaseTuitionFee().toPlainString()
-                                    + (program.getFeeUnit() != null ? " / " + program.getFeeUnit().name() : "")
-                                    : "");
-                            pRow.put("progStandard", program.getGraduationStandard() != null ? program.getGraduationStandard() : "");
-                            // Môn học = môn của khung + môn bổ sung của chương trình
-                            pRow.put("progSubjects", buildSubjectsText(curriculum.getSubjectsJsonb(), program.getExtraSubjectsJsonb()));
-                            programRows.add(pRow);
-                        }
-                    }
+
+                Map<String, Object> cRow = new LinkedHashMap<>();
+                cRow.put("stt", currIdx++);
+                cRow.put("curName", curriculum.getName() != null ? curriculum.getName() : "");
+                cRow.put("curType", curriculum.getCurriculumType() != null ? curriculum.getCurriculumType().getValue() : "");
+                cRow.put("curYear", curriculum.getApplicationYear() != null ? String.valueOf(curriculum.getApplicationYear()) : "");
+                cRow.put("curDesc", curriculum.getDescription() != null ? curriculum.getDescription() : "");
+                cRow.put("curSubjects", buildSubjectsText(curriculum.getSubjectsJsonb(), null));
+                curriculumRows.add(cRow);
+
+                List<Program> activePrograms = curriculum.getPrograms() == null
+                        ? Collections.emptyList()
+                        : curriculum.getPrograms()
+                        .stream()
+                        .filter(p -> p.getStatus() == Status.PRO_ACTIVE)
+                        .toList();
+
+                int progIdx = 1;
+                for (Program program : activePrograms) {
+                    Map<String, Object> pRow = new LinkedHashMap<>();
+                    pRow.put("stt", progIdx++);
+                    pRow.put("progCurName", curriculum.getName() != null ? curriculum.getName() : "");
+                    pRow.put("progName", program.getName() != null ? program.getName() : "");
+                    pRow.put("progFee", program.getBaseTuitionFee() != null
+                            ? program.getBaseTuitionFee().toPlainString()
+                            + (program.getFeeUnit() != null ? " / " + program.getFeeUnit().name() : "")
+                            : "");
+                    pRow.put("progStandard", program.getGraduationStandard() != null ? program.getGraduationStandard() : "");
+                    pRow.put("progSubjects", buildSubjectsText(curriculum.getSubjectsJsonb(), program.getExtraSubjectsJsonb()));
+                    programRows.add(pRow);
                 }
             }
 

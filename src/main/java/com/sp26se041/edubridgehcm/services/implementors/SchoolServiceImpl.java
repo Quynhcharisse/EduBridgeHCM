@@ -1151,6 +1151,12 @@ public class SchoolServiceImpl implements SchoolService {
                 //GIỮ NGUYÊN bản cũ là ACTIVE, chỉ đơn giản là CLONE ra bản DRAFT mới để sửa
                 Curriculum newDraft = evolveFromExisting(target, null);
 
+                try {
+                    schoolConfigService.regenerateSchoolInfoDoc(actorCampus.getSchool().getId());
+                } catch (Exception ex) {
+                    System.out.println(ex.getMessage());
+                }
+
                 return ResponseBuilder.build(HttpStatus.OK, "Đã tạo bản nháp mới. Vui lòng cập nhật các thay đổi", curriculumRepo.save(newDraft).getId());
 
             case "ARCHIVE":
@@ -1167,8 +1173,14 @@ public class SchoolServiceImpl implements SchoolService {
                 }
                 target.setCurriculumStatus(Status.CUR_ARCHIVED);
                 curriculumRepo.save(target);
-                return ResponseBuilder.build(HttpStatus.OK, "Đã lưu trữ khung chương trình thành công", target.getId());
 
+                try {
+                    schoolConfigService.regenerateSchoolInfoDoc(actorCampus.getSchool().getId());
+                } catch (Exception ex) {
+                    System.out.println(ex.getMessage());
+                }
+
+                return ResponseBuilder.build(HttpStatus.OK, "Đã lưu trữ khung chương trình thành công", target.getId());
             default:
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Hành động cập nhật không hợp lệ: " + action, null);
         }
@@ -1631,12 +1643,16 @@ public class SchoolServiceImpl implements SchoolService {
                 }
 
                 programRepo.save(program);
+                try {
+                    schoolConfigService.regenerateSchoolInfoDoc(actorCampus.getSchool().getId());
+                } catch (Exception ex) {
+                    System.out.println(ex.getMessage());
+                }
                 return ResponseBuilder.build(
                         HttpStatus.OK,
                         "Ngừng hoạt động chương trình thành công",
                         null
                 );
-
             default:
                 return ResponseBuilder.build(
                         HttpStatus.BAD_REQUEST,

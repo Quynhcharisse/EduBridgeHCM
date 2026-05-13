@@ -33,14 +33,19 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+
+import static com.sp26se041.edubridgehcm.utils.ConfigSystemUtil.normalizeExtension;
 
 @Service
 @RequiredArgsConstructor
@@ -67,6 +72,69 @@ public class AuthServiceImpl implements AuthService {
     private final SchoolRegistrationRequestRepo schoolRegistrationRequestRepo;
 
     private final PlatformConfigRepo platformConfigRepo;
+
+    @Override
+    public ResponseEntity<ResponseObject> uploadFile(MultipartFile file, String fileType) {
+
+        if (!"image".equalsIgnoreCase(fileType) && !"doc".equalsIgnoreCase(fileType)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "File type không hợp lệ. Chỉ chấp nhận: image, doc", null);
+        }
+
+        PlatformConfig media = platformConfigRepo.findByKey("media").orElse(null);
+
+        if (media == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy cấu hình media", null);
+        }
+
+        boolean isImage = "image".equalsIgnoreCase(fileType);
+
+        try {
+            ConfigSystemUtil.validateFileSize(media, file, isImage);
+            ConfigSystemUtil.validateFileFormat(media, file, isImage);
+        } catch (RuntimeException ex) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
+        }
+
+        Map<String, String> response;
+
+        try {
+
+            String originalFilename = file.getOriginalFilename();
+            String safeOriginalName = toSafeObjectKey(StringUtils.stripFilenameExtension(originalFilename));
+            String extension = StringUtils.getFilenameExtension(originalFilename);
+            String fileName = UUID.randomUUID() + "_" + safeOriginalName + "." + extension;
+
+            Object configValue = media.getValue();
+            if (!(configValue instanceof Map)) {
+                return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Cấu hình media không hợp lệ", null);
+            }
+
+            Map<String, Object> mediaConfig = (Map<String, Object>) configValue;
+
+            String formatKey = isImage ? "imgFormat" : "docFormat";
+            List<Map<String, String>> allowedFormats = (List<Map<String, String>>) mediaConfig.get(formatKey);
+
+            if (allowedFormats == null || allowedFormats.isEmpty()) {
+                throw new RuntimeException("Chưa cấu hình định dạng cho phép!");
+            }
+
+            List<String> formatList = allowedFormats.stream()
+                    .map(m -> normalizeExtension(m.get("format")))
+                    .toList();
+
+            String folderName = isImage ? "IMAGES" : "FILES";
+            response = supabaseStorageService.uploadDocument(file, folderName, fileName, formatList);
+
+        } catch (IllegalArgumentException ex) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, ex.getMessage(), null);
+        } catch (Exception ex) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), null);
+        }
+
+        String successMsg = isImage ? "Tải ảnh lên thành công" : "Tải tệp lên thành công";
+        return ResponseBuilder.build(HttpStatus.OK, successMsg, response);
+    }
 
     @Override
     public ResponseEntity<ResponseObject> uploadBusinessLicensePdf(MultipartFile file) {
@@ -216,6 +284,35 @@ public class AuthServiceImpl implements AuthService {
         }
 
         return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Vai trò này không được phép tự đăng ký", null);
+    }
+
+    private String toSafeObjectKey(String input) {
+        if (input == null || input.trim().isEmpty()) {
+            return "";
+        }
+
+        // 1. normalize Unicode (tách dấu ra)
+        String normalized = Normalizer.normalize(input.trim(), Normalizer.Form.NFD);
+
+        // 2. remove dấu (accent)
+        String noAccent = normalized.replaceAll("\\p{M}", "");
+
+        // 3. xử lý riêng đ/Đ
+        noAccent = noAccent.replace("đ", "d").replace("Đ", "d");
+
+        // 4. lowercase
+        String lower = noAccent.toLowerCase(Locale.ROOT);
+
+        // 5. replace ký tự không hợp lệ -> _
+        String safe = lower.replaceAll("[^a-z0-9]+", "_");
+
+        // 6. cleanup: nhiều _ -> 1
+        safe = safe.replaceAll("_+", "_");
+
+        // 7. remove _ đầu/cuối
+        safe = safe.replaceAll("^_+|_+$", "");
+
+        return safe;
     }
 
 

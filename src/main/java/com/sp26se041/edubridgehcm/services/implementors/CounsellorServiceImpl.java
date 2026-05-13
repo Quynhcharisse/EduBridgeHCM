@@ -481,9 +481,19 @@ public class CounsellorServiceImpl implements CounsellorService {
                             .map(Parent::getAvatar)
                             .orElse("N/A");
 
+                    boolean lastMessageIsFile = false;
+
+                    if (lastMessage != null) {
+
+                        lastMessageIsFile = lastMessage.getFiles() instanceof List<?> files
+                                && !files.isEmpty();
+
+                    }
+
                     Map<String, Object> map = new HashMap<>();
                     map.put("conversationId", conversation.getId());
                     map.put("lastMessage", lastMessage != null ? lastMessage.getMessage() : null);
+                    map.put("lastMessageIsFile", lastMessageIsFile);
                     map.put("updatedAt", conversation.getUpdatedDate());
                     map.put("unreadCount", unreadCount != null ? unreadCount : 0L);
                     map.put("otherUser", otherUser);
@@ -1439,6 +1449,7 @@ public class CounsellorServiceImpl implements CounsellorService {
         msg.put("senderName", message.getSenderName());
         msg.put("receiverName", message.getReceiverName());
         msg.put("message", message.getMessage());
+        msg.put("files", message.getFiles());
         msg.put("timestamp", message.getTimestamp());
         msg.put("status", message.getStatus());
         return msg;

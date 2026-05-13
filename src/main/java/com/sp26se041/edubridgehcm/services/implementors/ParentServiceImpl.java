@@ -1347,6 +1347,7 @@ public class ParentServiceImpl implements ParentService {
         msg.put("senderName", message.getSenderName());
         msg.put("receiverName", message.getReceiverName());
         msg.put("message", message.getMessage());
+        msg.put("files", message.getFiles());
         msg.put("timestamp", message.getTimestamp());
         msg.put("status", message.getStatus());
         return msg;
@@ -1383,9 +1384,19 @@ public class ParentServiceImpl implements ParentService {
                         return map;
                     }
 
+                    boolean lastMessageIsFile = false;
+
+                    if (lastMessage != null) {
+
+                        lastMessageIsFile = lastMessage.getFiles() instanceof List<?> files
+                                && !files.isEmpty();
+
+                    }
+
                     map.put("conversationId", conversation.getId());
                     map.put("campusId", campus.get().getId());
                     map.put("lastMessage", lastMessage != null ? lastMessage.getMessage() : null);
+                    map.put("lastMessageIsFile", lastMessageIsFile);
                     map.put("updatedAt", conversation.getUpdatedDate());
                     map.put("unreadCount", unreadCount != null ? unreadCount : 0L);
                     map.put("otherUser", conversation.getCounsellorEmail());

@@ -11,6 +11,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 public interface AuthService {
 
+    ResponseEntity<ResponseObject> uploadFile(MultipartFile file, String fileType);
+
     ResponseEntity<ResponseObject> uploadBusinessLicensePdf(MultipartFile file);
 
     ResponseEntity<ResponseObject> login(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse response);
