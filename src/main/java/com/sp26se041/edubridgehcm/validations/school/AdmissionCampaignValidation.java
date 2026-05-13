@@ -83,7 +83,8 @@ public class AdmissionCampaignValidation {
             return "Ngày kết thúc phải nằm trong năm học " + request.getYear();
         }
 
-        if (admissionCampaignRepo.existsByYearAndSchoolIdAndStatusIn(actorCampus.getSchool().getId(), request.getYear(), List.of(Status.OPEN_ADMISSION_CAMPAIGN))) {
+        if (admissionCampaignRepo.existsByYearAndSchoolIdAndStatusIn(request.getYear(), actorCampus.getSchool().getId(),
+                List.of(Status.OPEN_ADMISSION_CAMPAIGN, Status.DRAFT_ADMISSION_CAMPAIGN))) {
             return "Mẫu chiến dịch cho năm học " + request.getYear() + " đã tồn tại";
         }
 
@@ -230,6 +231,25 @@ public class AdmissionCampaignValidation {
                 return "Tổng chỉ tiêu các phương thức (" + totalMethodQuota + ") chưa bằng chỉ tiêu được cấp (" + systemQuota + "). Vui lòng phân bổ đủ chỉ tiêu trước khi công bố";
             }
         }
+
+        for (Object t : timelines) {
+            if (!(t instanceof Map<?, ?> map)) continue;
+
+            Object allowRes = map.get("allowReservationSubmission");
+            if (!Boolean.TRUE.equals(allowRes)) continue;
+
+            Object confirmationEndRaw = map.get("confirmationEndDate");
+            if (confirmationEndRaw == null) {
+                Object code = map.get("methodCode");
+                return "Phương thức [" + code + "] có giữ chỗ nhưng chưa thiết lập ngày kết thúc xác nhận";
+            }
+
+            LocalDate confirmationEnd = LocalDate.parse(confirmationEndRaw.toString());
+            if (!confirmationEnd.isAfter(LocalDate.now())) {
+                Object code = map.get("methodCode");
+                return "Phương thức [" + code + "] đã hết hạn xác nhận (confirmationEndDate đã qua). Vui lòng cập nhật trước khi công bố";
+            }
+        }
         return null;
     }
 
@@ -297,6 +317,33 @@ public class AdmissionCampaignValidation {
                 if (entry.getReservationFee() == null || entry.getReservationFee().compareTo(BigDecimal.ZERO) < 0) {
                     return "Phí đặt cọc của phương thức '" + code.trim() + "' phải được thiết lập và không âm";
                 }
+
+                if (entry.getDepositStartDate() == null)
+                    return "Ngày bắt đầu đặt cọc của phương thức '" + code.trim() + "' không được để trống";
+
+                if (entry.getDepositEndDate() == null)
+                    return "Ngày kết thúc đặt cọc của phương thức '" + code.trim() + "' không được để trống";
+
+                if (entry.getConfirmationStartDate() == null)
+                    return "Ngày bắt đầu chốt trường của phương thức '" + code.trim() + "' không được để trống";
+
+                if (entry.getConfirmationEndDate() == null)
+                    return "Ngày kết thúc chốt trường của phương thức '" + code.trim() + "' không được để trống";
+
+                if (entry.getEndDate().isAfter(entry.getDepositStartDate()))
+                    return "Ngày bắt đầu đặt cọc phải từ sau ngày kết thúc nộp hồ sơ của phương thức '" + code.trim() + "'";
+
+                if (!entry.getDepositEndDate().isAfter(entry.getDepositStartDate()))
+                    return "Ngày kết thúc đặt cọc phải sau ngày bắt đầu đặt cọc của phương thức '" + code.trim() + "'";
+
+                if (entry.getDepositEndDate().isAfter(entry.getConfirmationStartDate()))
+                    return "Ngày bắt đầu chốt trường phải từ sau ngày kết thúc đặt cọc của phương thức '" + code.trim() + "'";
+
+                if (!entry.getConfirmationEndDate().isAfter(entry.getConfirmationStartDate()))
+                    return "Ngày kết thúc chốt trường phải sau ngày bắt đầu chốt trường của phương thức '" + code.trim() + "'";
+
+                if (campaignEnd != null && entry.getConfirmationEndDate().isAfter(campaignEnd))
+                    return "Ngày kết thúc chốt trường của phương thức '" + code.trim() + "' không được sau ngày kết thúc chiến dịch";
             }
         }
 

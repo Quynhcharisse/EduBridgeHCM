@@ -28,8 +28,6 @@ public class CreateAdmissionCampaignTemplateRequest {
 
     LocalDate endDate;
 
-    LocalDate enrollmentStartDate;
-
     List<AdmissionMethodTimelineRequest> admissionMethodTimelines;
 
     @Data
@@ -53,6 +51,10 @@ public class CreateAdmissionCampaignTemplateRequest {
         LocalDate depositStartDate;
 
         LocalDate depositEndDate;
+
+        LocalDate confirmationStartDate;
+
+        LocalDate confirmationEndDate;
     }
 }
 

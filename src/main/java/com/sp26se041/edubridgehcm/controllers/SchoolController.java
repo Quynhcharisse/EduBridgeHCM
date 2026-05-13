@@ -77,7 +77,7 @@ public class SchoolController {
 
     @PutMapping("{id}/campaign/template/cancel")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> cancelAdmissionCampaign(@PathVariable int id, String reason) {
+    public ResponseEntity<ResponseObject> cancelAdmissionCampaign(@PathVariable int id, @RequestParam String reason) {
         return schoolService.cancelAdmissionCampaign(id, reason);
     }
 
