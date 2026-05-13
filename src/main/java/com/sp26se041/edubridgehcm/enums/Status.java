@@ -103,11 +103,14 @@ public enum Status {
     DISABLED("disabled"),
     SLOT_UNASSIGNED("slot_unassigned"),
 
-    RESERVATION_APPROVAL("reservation approval"), // Parent chốt xác nhận muốn vào trường này
-    RESERVATION_SUCCESS("reservation success"), //Parent đặt cọc thành công
-    RESERVATION_PENDING("reservation pending"),
-    RESERVATION_CANCELLED("reservation cancelled"),
-    RESERVATION_REJECTED("reservation rejected"),
+    RESERVATION_PENDING("reservation pending"),          // Nộp xong, chờ trường duyệt
+    RESERVATION_APPROVAL("reservation approval"),        // Trường duyệt, chờ PH đặt cọc
+    RESERVATION_DEPOSITED("reservation deposited"),      // PH đã đặt cọc, giữ chỗ thành công
+    RESERVATION_DEPOSIT_EXPIRED("reservation deposit expired"), // Hết hạn đặt cọc
+    RESERVATION_CONFIRMED("reservation confirmed"),      // PH chốt trường này
+    RESERVATION_GHOST("reservation ghost"),              // PH đã chốt trường khác, hồ sơ này vô hiệu
+    RESERVATION_CANCELLED("reservation cancelled"),      // PH tự hủy (chỉ khi còn PENDING)
+    RESERVATION_REJECTED("reservation rejected"),        // Trường từ chối
 
     UPCOMING("Sắp diễn ra"),
     ONGOING("Đang diễn ra"),
@@ -133,11 +136,12 @@ public enum Status {
         };
     }
 
-    // trạng thái hồ sơ còn hiệu lực ảnh hươngr quota)
+    // trạng thái hồ sơ còn hiệu lực (ảnh hưởng quota)
     public static Set<Status> activeReservationStatuses() {
         return Set.of(
                 RESERVATION_PENDING,
-                RESERVATION_APPROVAL
+                RESERVATION_APPROVAL,
+                RESERVATION_DEPOSITED // hồ sơ đã cọc vẫn đang chiếm quota cho đến khi CONFIRMED/GHOST
         );
     }
 }

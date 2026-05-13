@@ -468,7 +468,6 @@ public class SchoolServiceImpl implements SchoolService {
                 .year(request.getYear())
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
-                .enrollmentStartDate(request.getEnrollmentStartDate())
                 .admissionMethodTimelines(methodTimelines)
                 .status(Status.DRAFT_ADMISSION_CAMPAIGN)
                 .build();
@@ -536,6 +535,10 @@ public class SchoolServiceImpl implements SchoolService {
                                 .methodCode(t.getMethodCode())
                                 .startDate(t.getStartDate() != null ? t.getStartDate().plusYears(yearDifference) : null)
                                 .endDate(t.getEndDate() != null ? t.getEndDate().plusYears(yearDifference) : null)
+                                .depositStartDate(t.getDepositStartDate() != null ? t.getDepositStartDate().plusYears(yearDifference) : null)
+                                .depositEndDate(t.getDepositEndDate() != null ? t.getDepositEndDate().plusYears(yearDifference) : null)
+                                .confirmationStartDate(t.getConfirmationStartDate() != null ? t.getConfirmationStartDate().plusYears(yearDifference) : null)
+                                .confirmationEndDate(t.getConfirmationEndDate() != null ? t.getConfirmationEndDate().plusYears(yearDifference) : null)
                                 .allowReservationSubmission(t.getAllowReservationSubmission())
                                 .quota(t.getQuota())
                                 .reservationFee(t.getReservationFee())
@@ -604,8 +607,9 @@ public class SchoolServiceImpl implements SchoolService {
         Map<String, Object> cloneAdmissionConfig = resolveAdmissionConfigForCampaignView(newCampaign.getSchool().getId());
         Map<String, List<Map<String, Object>>> cloneProcessByMethod = indexNestedListByMethodCode(
                 toListOfMaps(cloneAdmissionConfig.get("admissionProcesses")), "steps");
+        Map<String, Object> cloneDocReqData = (Map<String, Object>) cloneAdmissionConfig.get("documentRequirementsData");
         Map<String, List<Map<String, Object>>> cloneDocsByMethod = indexNestedListByMethodCode(
-                toListOfMaps(cloneAdmissionConfig.get("byMethod")), "documents");
+                toListOfMaps(cloneDocReqData != null ? cloneDocReqData.get("byMethod") : null), "documents");
         return ResponseBuilder.build(HttpStatus.CREATED, cloneMessage, buildCampaignData(newCampaign, cloneProcessByMethod, cloneDocsByMethod));
     }
 
@@ -628,7 +632,9 @@ public class SchoolServiceImpl implements SchoolService {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản cơ sở chính mới được phép cập nhật", null);
         }
 
-        AdmissionCampaign admissionCampaign = admissionCampaignRepo.findById(request.getAdmissionCampaignTemplateId()).orElse(null);
+        AdmissionCampaign admissionCampaign = admissionCampaignRepo.findById(request.getAdmissionCampaignTemplateId())
+                .filter(c -> c.getSchool().getId().equals(actorCampus.getSchool().getId()))
+                .orElse(null);
 
         if (admissionCampaign == null) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy chiến dịch tuyển sinh", null);
@@ -841,8 +847,9 @@ public class SchoolServiceImpl implements SchoolService {
         Map<String, List<Map<String, Object>>> processByMethod = indexNestedListByMethodCode(
                 toListOfMaps(admissionConfig.get("admissionProcesses")), "steps");
 
+        Map<String, Object> docReqData = (Map<String, Object>) admissionConfig.get("documentRequirementsData");
         Map<String, List<Map<String, Object>>> docsByMethod = indexNestedListByMethodCode(
-                toListOfMaps(admissionConfig.get("byMethod")), "documents");
+                toListOfMaps(docReqData != null ? docReqData.get("byMethod") : null), "documents");
 
         Map<String, Object> responseBody = new LinkedHashMap<>();
         responseBody.put("campaignConfig", buildCampaignConfig(admissionConfig));
@@ -1875,6 +1882,7 @@ public class SchoolServiceImpl implements SchoolService {
             List<CreateAdmissionCampaignTemplateRequest.AdmissionMethodTimelineRequest> requestTimelines,
             LocalDate campaignStartDate,
             LocalDate campaignEndDate) {
+
         SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "admissionSettingsData").orElse(null);
         if (config == null || !(config.getValue() instanceof Map<?, ?> configMap)) {
             return null;
@@ -1891,9 +1899,11 @@ public class SchoolServiceImpl implements SchoolService {
                 continue;
             }
             String methodCode = normalize(Objects.toString(methodMap.get("code"), null));
+
             if (methodCode == null) {
                 continue;
             }
+
             Map<String, Object> normalized = new LinkedHashMap<>();
             normalized.put("code", methodCode);
             normalized.put("displayName", normalize(Objects.toString(methodMap.get("displayName"), null)));
@@ -1910,39 +1920,53 @@ public class SchoolServiceImpl implements SchoolService {
         }
 
         Set<String> seenCodes = new HashSet<>();
+
         List<Map<String, Object>> resolved = new ArrayList<>();
+
         for (CreateAdmissionCampaignTemplateRequest.AdmissionMethodTimelineRequest timelineRequest : requestTimelines) {
+
             String methodCode = normalize(timelineRequest != null ? timelineRequest.getMethodCode() : null);
+
             if (methodCode == null) {
                 throw new IllegalArgumentException("Mã phương thức tuyển sinh không được để trống");
             }
+
             String normalizedCode = methodCode.toLowerCase(Locale.ROOT);
+
             if (!seenCodes.add(normalizedCode)) {
                 throw new IllegalArgumentException("Phương thức tuyển sinh bị trùng: " + methodCode);
             }
 
             Map<String, Object> configuredMethod = allowedByCode.get(normalizedCode);
+
             if (configuredMethod == null) {
                 throw new IllegalArgumentException("Phương thức tuyển sinh chưa được cấu hình: " + methodCode);
             }
 
             LocalDate methodStartDate = timelineRequest.getStartDate();
+
             LocalDate methodEndDate = timelineRequest.getEndDate();
+
             boolean allowReservationSubmission = !Boolean.FALSE.equals(timelineRequest.getAllowReservationSubmission());
+
             Integer quota = timelineRequest.getQuota();
+
             BigDecimal reservationFee = timelineRequest.getReservationFee();
 
             if (methodStartDate == null || methodEndDate == null) {
                 throw new IllegalArgumentException("Mỗi phương thức tuyển sinh phải có ngày bắt đầu và ngày kết thúc");
             }
+
             if (!methodEndDate.isAfter(methodStartDate)) {
                 throw new IllegalArgumentException("Ngày kết thúc phải sau ngày bắt đầu cho phương thức: " + methodCode);
             }
+
             if (methodStartDate.isBefore(campaignStartDate) || methodEndDate.isAfter(campaignEndDate)) {
                 throw new IllegalArgumentException(
                         "Thời gian của phương thức " + methodCode + " phải nằm trong khoảng thời gian chiến dịch"
                 );
             }
+
             if (quota == null || quota <= 0) {
                 throw new IllegalArgumentException("Chỉ tiêu của phương thức " + methodCode + " phải lớn hơn 0");
             }
@@ -1962,6 +1986,10 @@ public class SchoolServiceImpl implements SchoolService {
             timeline.put("allowReservationSubmission", allowReservationSubmission);
             timeline.put("quota", quota);
             timeline.put("reservationFee", reservationFee);
+            timeline.put("depositStartDate", timelineRequest.getDepositStartDate());
+            timeline.put("depositEndDate", timelineRequest.getDepositEndDate());
+            timeline.put("confirmationStartDate", timelineRequest.getConfirmationStartDate());
+            timeline.put("confirmationEndDate", timelineRequest.getConfirmationEndDate());
             resolved.add(timeline);
         }
 
@@ -1969,11 +1997,13 @@ public class SchoolServiceImpl implements SchoolService {
     }
 
     private List<CreateAdmissionCampaignTemplateRequest.AdmissionMethodTimelineRequest> convertMethodTimelinesToRequests(Object timelinesRaw) {
+
         if (!(timelinesRaw instanceof List<?> timelines)) {
             return Collections.emptyList();
         }
 
         List<CreateAdmissionCampaignTemplateRequest.AdmissionMethodTimelineRequest> requests = new ArrayList<>();
+
         for (Object item : timelines) {
             if (!(item instanceof Map<?, ?> map)) {
                 continue;
@@ -1985,9 +2015,10 @@ public class SchoolServiceImpl implements SchoolService {
             Boolean allowReservationSubmission = AdmissionCampaignValidation.parseBooleanSafe(map.get("allowReservationSubmission"));
             Integer quota = AdmissionCampaignValidation.parseIntegerSafe(map.get("quota"));
             BigDecimal reservationFee = AdmissionCampaignValidation.parseBigDecimalSafe(map.get("reservationFee"));
+            LocalDate depositStartDate = AdmissionCampaignValidation.parseLocalDateSafe(map.get("depositStartDate"));
+            LocalDate depositEndDate = AdmissionCampaignValidation.parseLocalDateSafe(map.get("depositEndDate"));
             LocalDate confirmationStartDate = AdmissionCampaignValidation.parseLocalDateSafe(map.get("confirmationStartDate"));
             LocalDate confirmationEndDate = AdmissionCampaignValidation.parseLocalDateSafe(map.get("confirmationEndDate"));
-            Integer depositDeadlineDays = AdmissionCampaignValidation.parseIntegerSafe(map.get("depositDeadlineDays"));
             if (methodCode == null || startDate == null || endDate == null) {
                 continue;
             }
@@ -1999,16 +2030,25 @@ public class SchoolServiceImpl implements SchoolService {
                     .allowReservationSubmission(allowReservationSubmission == null ? Boolean.TRUE : allowReservationSubmission)
                     .quota(quota)
                     .reservationFee(reservationFee)
+                    .depositStartDate(depositStartDate)
+                    .depositEndDate(depositEndDate)
+                    .confirmationStartDate(confirmationStartDate)
+                    .confirmationEndDate(confirmationEndDate)
                     .build());
         }
         return requests;
     }
 
     private Integer resolveSchoolTotalQuota(int schoolId) {
+
         SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "quotaConfigData").orElse(null);
+
         if (config == null || !(config.getValue() instanceof Map<?, ?> cfg)) return null;
+
         Object total = cfg.get("totalSystemQuota");
+
         if (total == null) return null;
+
         try {
             return Integer.parseInt(total.toString());
         } catch (Exception ignored) {
@@ -2114,8 +2154,6 @@ public class SchoolServiceImpl implements SchoolService {
 
         data.put("campusList", school.getCampusList().stream().filter(campus -> Status.ACTIVE.equals(campus.getStatus())).map(this::buildPublicCampusData).toList());
 
-        data.put("bankInfo", getBankInfo(schoolId));
-
         return ResponseBuilder.build(HttpStatus.OK, "Hiển thị chi tiết trường thành công", data);
 
     }
@@ -2157,12 +2195,6 @@ public class SchoolServiceImpl implements SchoolService {
 
     private Map<String, Object> getOperationConfig(int schoolId) {
         return schoolConfigRepo.findBySchoolIdAndKey(schoolId, "operationSettingsData").map(config -> (Map<String, Object>) config.getValue()).orElse(new HashMap<>());
-    }
-
-    private Map<String, Object> getBankInfo(int schoolId) {
-        return schoolConfigRepo.findBySchoolIdAndKey(schoolId, "bankInfoData")
-                .map(config -> (Map<String, Object>) config.getValue())
-                .orElse(null);
     }
 
     Map<String, Object> buildPublicCampusData(Campus campus) {
