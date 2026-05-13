@@ -2104,6 +2104,62 @@ public class SchoolServiceImpl implements SchoolService {
         return data;
     }
 
+    private String formatMethodTimelinesForExcel(Object timelinesRaw) {
+        if (!(timelinesRaw instanceof List<?> timelines) || timelines.isEmpty()) return "";
+
+        StringBuilder sb = new StringBuilder();
+        for (Object item : timelines) {
+            if (!(item instanceof Map<?, ?> t)) continue;
+
+            String methodCode = Objects.toString(t.get("methodCode"), "-");
+            String displayName = Objects.toString(t.get("displayName"), "");
+            String startDate = Objects.toString(t.get("startDate"), "-");
+            String endDate = Objects.toString(t.get("endDate"), "-");
+            Object quotaRaw = t.get("quota");
+            String quota = quotaRaw != null ? quotaRaw.toString() : "-";
+            boolean allowReservation = Boolean.TRUE.equals(t.get("allowReservationSubmission"));
+
+            sb.append(methodCode);
+            if (!displayName.isBlank()) sb.append(" (").append(displayName).append(")");
+            sb.append("\n");
+            sb.append("  Nộp hồ sơ: ").append(formatDate(startDate)).append(" → ").append(formatDate(endDate)).append("\n");
+            sb.append("  Chỉ tiêu: ").append(quota).append("\n");
+            sb.append("  Giữ chỗ: ").append(allowReservation ? "Có" : "Không").append("\n");
+
+            if (allowReservation) {
+                String depositEnd = Objects.toString(t.get("depositEndDate"), "-");
+                String confirmEnd = Objects.toString(t.get("confirmationEndDate"), "-");
+                Object feeRaw = t.get("reservationFee");
+                String fee = feeRaw != null
+                        ? String.format("%,.0f VNĐ", Double.parseDouble(feeRaw.toString()))
+                        : "-";
+                sb.append("  Phí đặt cọc: ").append(fee).append("\n");
+                sb.append("  Hạn đặt cọc: ").append(formatDate(depositEnd)).append("\n");
+                sb.append("  Hạn chốt trường: ").append(formatDate(confirmEnd)).append("\n");
+            }
+            sb.append("\n");
+        }
+        return sb.toString().trim();
+    }
+
+    private String formatDate(String raw) {
+        if (raw == null || raw.equals("-") || raw.isBlank()) return "-";
+        // Jackson serialize LocalDate thành [year, month, day]
+        if (raw.startsWith("[")) {
+            raw = raw.replaceAll("[\\[\\]\\s]", "");
+            String[] parts = raw.split(",");
+            if (parts.length == 3) {
+                return parts[2] + "/" + parts[1] + "/" + parts[0];
+            }
+        }
+        // ISO format: 2026-08-31
+        try {
+            LocalDate date = LocalDate.parse(raw);
+            return date.getDayOfMonth() + "/" + date.getMonthValue() + "/" + date.getYear();
+        } catch (Exception ignored) {}
+        return raw;
+    }
+
     private String normalize(String value) {
         if (value == null) {
             return null;
@@ -2471,7 +2527,7 @@ public class SchoolServiceImpl implements SchoolService {
             row.createCell(4).setCellValue(campaign.getReason() != null ? campaign.getReason() : "");
             row.createCell(5).setCellValue(campaign.getStartDate() != null ? campaign.getStartDate().toString() : "");
             row.createCell(6).setCellValue(campaign.getEndDate() != null ? campaign.getEndDate().toString() : "");
-            row.createCell(7).setCellValue(campaign.getAdmissionMethodTimelines() != null ? campaign.getAdmissionMethodTimelines().toString() : "");
+            row.createCell(7).setCellValue(formatMethodTimelinesForExcel(campaign.getAdmissionMethodTimelines()));
             row.createCell(8).setCellValue(autoCheckAndExpireStatus(campaign).name());
         });
 
