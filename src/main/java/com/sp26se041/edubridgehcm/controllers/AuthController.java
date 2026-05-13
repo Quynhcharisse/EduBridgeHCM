@@ -26,6 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1/auth")
 @Tag(name = "Auth")
 public class AuthController {
+
     private final AuthService authService;
 
     @PostMapping("/login")
@@ -52,9 +53,13 @@ public class AuthController {
     }
 
     @PostMapping(value = "/business/license/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> uploadFile(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<?> uploadBusinessLicense(@RequestParam("file") MultipartFile file) {
         return authService.uploadBusinessLicensePdf(file);
     }
 
+    @PostMapping(value = "/upload/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ResponseObject> uploadFile(@RequestParam("file") MultipartFile file, @RequestParam String fileType) {
+        return authService.uploadFile(file, fileType);
+    }
 
 }
