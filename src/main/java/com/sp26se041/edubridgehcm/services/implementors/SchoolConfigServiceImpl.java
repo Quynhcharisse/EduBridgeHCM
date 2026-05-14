@@ -681,7 +681,15 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
     public ResponseEntity<ResponseObject> getSchoolConfigList(int schoolId) {
 
         List<SchoolConfig> configs = schoolConfigRepo.findAllBySchoolId(schoolId);
-        Map<String, Object> result = configs.stream().collect(Collectors.toMap(SchoolConfig::getKey, SchoolConfig::getValue));
+        Map<String, Object> result = new HashMap<>(configs.stream()
+                .collect(Collectors.toMap(SchoolConfig::getKey, SchoolConfig::getValue)));
+
+        for (String key : List.of("admissionSettingsData", "documentRequirementsData")) {
+            if (!result.containsKey(key)) {
+                Map<String, Object> fallback = getConfigByKey(schoolId, key);
+                if (fallback != null) result.put(key, fallback.get(key));
+            }
+        }
 
         return ResponseBuilder.build(HttpStatus.OK, "", result);
     }
