@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface CampusProgramOfferingRepo extends JpaRepository<CampusProgramOffering, Integer> {
@@ -19,8 +20,11 @@ public interface CampusProgramOfferingRepo extends JpaRepository<CampusProgramOf
 
     List<CampusProgramOffering> findByAdmissionCampaignId(Integer id);
 
+    List<CampusProgramOffering> findByCampus_School_IdIn(Collection<Integer> schoolIds);
+
     List<CampusProgramOffering> findByProgramIdAndStatus(int id, Status status);
 
     Page<CampusProgramOffering> findByAdmissionCampaign_School_IdOrderByIdDesc(Integer id, Pageable pageable);
+
 }
 

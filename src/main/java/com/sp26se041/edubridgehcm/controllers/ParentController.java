@@ -224,5 +224,11 @@ public class ParentController {
         return parentService.cancelAdmissionReservationForm(request);
     }
 
+    @GetMapping("/admission/schools/availability")
+    @PreAuthorize("hasAnyRole('PARENT')")
+    public ResponseEntity<ResponseObject> getAvailableSchools(@RequestParam List<Integer> schoolIds, @RequestParam Integer studentProfileId) {
+        return parentService.getAvailableSchools(schoolIds, studentProfileId);
+    }
+
 }
 

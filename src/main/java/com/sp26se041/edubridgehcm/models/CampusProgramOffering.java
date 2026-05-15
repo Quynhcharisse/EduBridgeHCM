@@ -35,7 +35,6 @@ import java.util.List;
 @Entity
 @Table(name = "campus_program_offering")
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@NullMarked
 @Accessors(chain = true)
 public class CampusProgramOffering {
 
