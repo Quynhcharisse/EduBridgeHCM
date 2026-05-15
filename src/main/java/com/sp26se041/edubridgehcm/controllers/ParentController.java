@@ -8,6 +8,7 @@ import com.sp26se041.edubridgehcm.requests.CancelAdmissionFormRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionReservationFormRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateAdmissionReservationFormRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.ParentService;
@@ -216,6 +217,12 @@ public class ParentController {
     @PreAuthorize("hasAnyRole('PARENT')")
     public ResponseEntity<ResponseObject> getAdmissionReservationForm(@RequestParam (required = false) String status) {
         return parentService.getAdmissionReservationForms(status);
+    }
+
+    @PutMapping("/admission/reservation/form")
+    @PreAuthorize("hasAnyRole('PARENT')")
+    public ResponseEntity<ResponseObject> updateAdmissionReservationForm(@RequestBody UpdateAdmissionReservationFormRequest request) {
+        return parentService.updateAdmissionReservationForm(request);
     }
 
     @DeleteMapping("/admission/reservation/form/cancel")

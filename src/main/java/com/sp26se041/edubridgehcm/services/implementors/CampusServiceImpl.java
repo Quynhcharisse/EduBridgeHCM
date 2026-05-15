@@ -3273,26 +3273,37 @@ public class CampusServiceImpl implements CampusService {
 
         map.put("id", form.getId());
         map.put("status", form.getStatus());
-        map.put("profileMetadata", form.getProfileMetadata());
         map.put("createdTime", form.getCreatedTime());
         map.put("updatedTime", form.getUpdatedTime());
         map.put("cancelReason", form.getCancelReason());
         map.put("rejectReason", form.getRejectReason());
-        map.put("verifiedBy", form.getVerifiedBy());
 
         // CampusProgramOffering info
         CampusProgramOffering offering = form.getCampusProgramOffering();
-        map.put("campusProgramOfferingId", offering.getId());
-        map.put("admissionMethodCode", offering.getAdmissionMethod());
-        map.put("programName", offering.getProgram().getName());
-        map.put("campusName", offering.getCampus().getName());
-        map.put("schoolName", offering.getCampus().getSchool().getName());
+
+        if (offering == null) {
+            map.put("campusProgramOfferingId", "N/A");
+            map.put("programName", "N/A");
+        } else {
+            map.put("campusProgramOfferingId", offering.getId());
+            map.put("programName", offering.getProgram().getName());
+        }
+
+        AdmissionCampaign admissionCampaign = form.getAdmissionCampaign();
+        if (admissionCampaign == null) {
+            map.put("schoolName", "N/A");
+        } else {
+            map.put("schoolName", admissionCampaign.getSchool().getName());
+        }
 
 
         // StudentProfile info
         StudentProfile student = form.getStudentProfile();
         map.put("studentProfileId", student.getId());
         map.put("studentName", student.getStudentName());
+        map.put("studentCode", student.getStudentCode());
+        map.put("profileMetaData", form.getProfileMetadata());
+        map.put("transcriptImages", form.getTranscriptImages());
         map.put("gender", student.getGender());
 
         Parent parent = student.getParent();

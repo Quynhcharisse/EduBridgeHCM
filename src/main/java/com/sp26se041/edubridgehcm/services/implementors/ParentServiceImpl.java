@@ -52,6 +52,7 @@ import com.sp26se041.edubridgehcm.requests.CancelAdmissionFormRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionReservationFormRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateAdmissionReservationFormRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -1008,17 +1009,17 @@ public class ParentServiceImpl implements ParentService {
             return "Tên học sinh không được vượt quá 200 ký tự";
         }
 
-        if (isBlank(request.getStudentCode())) {
-            return "Căn cước công dân học sinh không được để trống";
-        }
-
-        if (request.getStudentCode().trim().length() != 12) {
-            return "Căn cước công dân học sinh phải có đúng 12 số";
-        }
-
-        if (!request.getStudentCode().trim().matches("\\d{12}")) {
-            return "Căn cước công dân học sinh chỉ được chứa chữ số";
-        }
+//        if (isBlank(request.getStudentCode())) {
+//            return "Căn cước công dân học sinh không được để trống";
+//        }
+//
+//        if (request.getStudentCode().trim().length() != 12) {
+//            return "Căn cước công dân học sinh phải có đúng 12 số";
+//        }
+//
+//        if (!request.getStudentCode().trim().matches("\\d{12}")) {
+//            return "Căn cước công dân học sinh chỉ được chứa chữ số";
+//        }
 
         if (isBlank(request.getGender())) {
             return "Giới tính là bắt buộc";
@@ -1098,17 +1099,17 @@ public class ParentServiceImpl implements ParentService {
             return "Tên học sinh không được vượt quá 200 ký tự";
         }
 
-        if (isBlank(request.getStudentCode())) {
-            return "Căn cước công dân học sinh không được để trống";
-        }
-
-        if (request.getStudentCode().trim().length() != 12) {
-            return "Căn cước công dân học sinh phải có đúng 12 số";
-        }
-
-        if (!request.getStudentCode().trim().matches("\\d{12}")) {
-            return "Căn cước công dân học sinh chỉ được chứa chữ số";
-        }
+//        if (isBlank(request.getStudentCode())) {
+//            return "Căn cước công dân học sinh không được để trống";
+//        }
+//
+//        if (request.getStudentCode().trim().length() != 12) {
+//            return "Căn cước công dân học sinh phải có đúng 12 số";
+//        }
+//
+//        if (!request.getStudentCode().trim().matches("\\d{12}")) {
+//            return "Căn cước công dân học sinh chỉ được chứa chữ số";
+//        }
 
         if (isBlank(request.getGender())) {
             return "Giới tính là bắt buộc";
@@ -1940,6 +1941,39 @@ public class ParentServiceImpl implements ParentService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy học sinh, vui lòng kiểm tra lại.", null);
         }
 
+        List<Map<String, Object>> transcriptImages = studentProfile.get().getTranscriptImages() != null
+                ? (List<Map<String, Object>>) studentProfile.get().getTranscriptImages()
+                : List.of();
+
+        Set<String> submittedGrades = transcriptImages.stream()
+                .filter(t -> t.get("imageUrl") != null && !((String) t.get("imageUrl")).isBlank())
+                .map(t -> (String) t.get("grade"))
+                .collect(Collectors.toSet());
+
+        List<String> requiredGrades = List.of("GRADE_06", "GRADE_07", "GRADE_08", "GRADE_09");
+
+        List<String> missingGrades = requiredGrades.stream()
+                .filter(g -> !submittedGrades.contains(g))
+                .toList();
+
+        if (!missingGrades.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Học sinh chưa cập nhật đầy đủ học bạ 4 khối (lớp 6, 7, 8, 9), vui lòng cập nhật hồ sơ trước khi nộp đơn.", null);
+        }
+
+
+        String studentCode = studentProfile.get().getStudentCode();
+
+        int currentYear = Year.now().getValue();
+
+        if (studentCode != null && !studentCode.isBlank()
+                && admissionReservationFormRepo.existsByStudentProfile_StudentCodeAndStatusAndAdmissionCampaign_Year(
+                studentCode, Status.RESERVATION_CONFIRMED, currentYear)) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Học sinh với CCCD: "+ studentCode +" đã được xác nhận nhập học tại một trường trong hệ thống năm học "
+                            + currentYear + ", không thể nộp thêm hồ sơ giữ chỗ.", null);
+        }
+
         if (request.getSubmissionDocuments() == null || request.getSubmissionDocuments().isEmpty()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Vui lòng cung cấp đủ hình ảnh danh sách hồ sơ tài liệu bắt buộc trước khi nộp.", null);
         }
@@ -1979,16 +2013,23 @@ public class ParentServiceImpl implements ParentService {
                     "Vui lòng cung cấp hình ảnh cho danh sách tài liệu bắt buộc: " + String.join(", ", missingDocNames), null);
         }
 
-        List<Map<String, Object>> profileMetaData = request.getSubmissionDocuments().stream()
-                .map(doc -> {
-                    Map<String, Object> map = new HashMap<>();
-                    map.put("key", doc.getKey());
-                    map.put("imageUrl", doc.getImageUrl());
-                    return map;
-                })
-                .toList();
+        List<Map<String, Object>> profileMetaData = new ArrayList<>();
 
-        int currentYear = Year.now().getValue();
+        request.getSubmissionDocuments().forEach(doc -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("key", doc.getKey());
+            map.put("imageUrl", doc.getImageUrl());
+            profileMetaData.add(map);
+        });
+
+        List<Map<String, Object>> transcriptImagesMeta = new ArrayList<>();
+
+        transcriptImages.forEach(t -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("grade", t.get("grade"));
+            map.put("imageUrl", t.get("imageUrl"));
+            transcriptImagesMeta.add(map);
+        });
 
         List<CampusProgramOffering> allOfferings = campusProgramOfferingRepo.findByCampus_School_IdIn(request.getSchoolIds());
 
@@ -2001,7 +2042,6 @@ public class ParentServiceImpl implements ParentService {
         List<AdmissionReservationForm> formsToSave = new ArrayList<>();
 
         List<Map<String, Object>> created = new ArrayList<>();
-
         Map<String, List<Map<String, Object>>> failedGroup = new LinkedHashMap<>();
 
         for (Integer schoolId : request.getSchoolIds()) {
@@ -2024,6 +2064,23 @@ public class ParentServiceImpl implements ParentService {
                 continue;
             }
 
+            Optional<AdmissionCampaign> campaign = admissionCampaignRepo
+                    .findBySchoolIdAndYearAndStatus(schoolId, currentYear, Status.OPEN_ADMISSION_CAMPAIGN);
+
+            if (campaign.isPresent()) {
+                boolean alreadySubmitted = admissionReservationFormRepo
+                        .existsByAdmissionCampaignAndStudentProfileAndStatusIn(
+                                campaign.get(), studentProfile.get(), List.of(
+                                        Status.RESERVATION_PENDING, Status.RESERVATION_APPROVAL,
+                                        Status.RESERVATION_DEPOSITED, Status.RESERVATION_DEPOSIT_EXPIRED,
+                                        Status.RESERVATION_PAYMENT_PENDING, Status.RESERVATION_PAYMENT_REJECTED));
+
+                if (alreadySubmitted) {
+                    groupUnavailable(failedGroup, determineUnavailableReason(offerings, true), schoolEntry);
+                    continue;
+                }
+            }
+
             boolean hasAvailable = offerings.stream().anyMatch(o ->
                     !o.getStatus().equals(Status.OFFERING_INACTIVE) &&
                     !o.getStatus().equals(Status.OFFERING_DRAFT) &&
@@ -2033,27 +2090,7 @@ public class ParentServiceImpl implements ParentService {
                             o.getAllowReservationSubmission()
             );
 
-            Optional<AdmissionCampaign> campaign;
-
             if (!hasAvailable) {
-
-                        campaign = admissionCampaignRepo
-                            .findBySchoolIdAndYearAndStatus(schoolId, currentYear, Status.OPEN_ADMISSION_CAMPAIGN);
-
-                    if (campaign.isPresent()) {
-                        boolean alreadySubmitted = admissionReservationFormRepo
-                                .existsByAdmissionCampaignAndStudentProfileAndStatusIn(
-                                        campaign.get(), studentProfile.get(), List.of(
-                                                Status.RESERVATION_PENDING, Status.RESERVATION_APPROVAL,
-                                                Status.RESERVATION_CONFIRMED,
-                                                Status.RESERVATION_DEPOSITED, Status.RESERVATION_DEPOSIT_EXPIRED,
-                                                Status.RESERVATION_PAYMENT_PENDING, Status.RESERVATION_PAYMENT_REJECTED));
-
-                        if (alreadySubmitted) {
-                            groupUnavailable(failedGroup, determineUnavailableReason(offerings, true), schoolEntry);
-                            continue;
-                        }
-                }
                 groupUnavailable(failedGroup, determineUnavailableReason(offerings, false), schoolEntry);
                 continue;
             }
@@ -2065,6 +2102,7 @@ public class ParentServiceImpl implements ParentService {
                     .admissionCampaign(campaign.get())
                     .studentProfile(studentProfile.get())
                     .profileMetadata(profileMetaData)
+                        .transcriptImages(transcriptImagesMeta)
                     .status(Status.RESERVATION_PENDING)
                     .createdTime(LocalDateTime.now())
                     .updatedTime(LocalDateTime.now())
@@ -2099,6 +2137,76 @@ public class ParentServiceImpl implements ParentService {
         }
 
         return ResponseBuilder.build(HttpStatus.OK, "Nộp hồ sơ giữ chỗ thành công.", result);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> updateAdmissionReservationForm(UpdateAdmissionReservationFormRequest request) {
+
+        Optional<AdmissionReservationForm> formOpt = admissionReservationFormRepo.findById(request.getAdmissionFormId());
+
+        if (formOpt.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy hồ sơ giữ chỗ.", null);
+        }
+
+        AdmissionReservationForm form = formOpt.get();
+
+        if ("payment".equalsIgnoreCase(request.getAction())) {
+
+            if (!Status.RESERVATION_APPROVAL.equals(form.getStatus())) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Hồ sơ phải ở trạng thái đã được duyệt (approval) mới có thể nộp minh chứng thanh toán.", null);
+            }
+
+            if (request.getPaymentUrl() == null || request.getPaymentUrl().isBlank()) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Vui lòng cung cấp ảnh chứng minh thanh toán để tiếp tục.", null);
+            }
+
+            if (request.getCampusProgramOfferingId() == null) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Vui lòng chọn chương trình học để tiếp tục.", null);
+            }
+
+            Optional<CampusProgramOffering> offeringOpt = campusProgramOfferingRepo.findById(request.getCampusProgramOfferingId());
+
+            if (offeringOpt.isEmpty()) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy chương trình học trong năm tuyển sinh.", null);
+            }
+
+            CampusProgramOffering offering = offeringOpt.get();
+
+            if (form.getAdmissionCampaign() == null
+                    || offering.getAdmissionCampaign() == null
+                    || !offering.getAdmissionCampaign().getId().equals(form.getAdmissionCampaign().getId())) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Chương trình học không thuộc chiến dịch tuyển sinh này.", null);
+            }
+
+            if (!Status.OPEN.equals(offering.getApplicationStatus())) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Chương trình học hiện không trong trạng thái nhận đơn.", null);
+            }
+
+            if (offering.getRemainingQuota() <= 0) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Chương trình học đã hết chỉ tiêu.", null);
+            }
+
+            if (!Boolean.TRUE.equals(offering.getAllowReservationSubmission())) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Chương trình học không cho phép nộp hồ sơ giữ chỗ.", null);
+            }
+
+            form.setCampusProgramOffering(offering);
+            form.setPaymentProofUrl(request.getPaymentUrl());
+            form.setStatus(Status.RESERVATION_PAYMENT_PENDING);
+            form.setUpdatedTime(LocalDateTime.now());
+            admissionReservationFormRepo.save(form);
+
+            return ResponseBuilder.build(HttpStatus.OK, "Nộp minh chứng thanh toán thành công.", null);
+        }
+
+        return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Action không hợp lệ.", null);
     }
 
     @Override
@@ -2239,7 +2347,6 @@ public class ParentServiceImpl implements ParentService {
 
         map.put("id", form.getId());
         map.put("status", form.getStatus());
-        map.put("profileMetadata", form.getProfileMetadata());
         map.put("createdTime", form.getCreatedTime());
         map.put("updatedTime", form.getUpdatedTime());
         map.put("cancelReason", form.getCancelReason());
@@ -2247,12 +2354,22 @@ public class ParentServiceImpl implements ParentService {
 
         // CampusProgramOffering info
         CampusProgramOffering offering = form.getCampusProgramOffering();
-        map.put("campusProgramOfferingId", offering.getId());
-        map.put("programName", offering.getProgram().getName());
 
-        map.put("schoolName", offering.getCampus().getSchool().getName());
-        map.put("schoolAddress", offering.getCampus().getAddress());
-        map.put("schoolPhone", offering.getCampus().getPhoneNumber());
+        if (offering == null) {
+            map.put("campusProgramOfferingId", "N/A");
+            map.put("programName", "N/A");
+        } else {
+            map.put("campusProgramOfferingId", offering.getId());
+            map.put("programName", offering.getProgram().getName());
+        }
+
+        AdmissionCampaign admissionCampaign = form.getAdmissionCampaign();
+        if (admissionCampaign == null) {
+            map.put("schoolName", "N/A");
+        } else {
+            map.put("schoolName", admissionCampaign.getSchool().getName());
+        }
+
 
         map.put("transferCode", form.getTransferCode());
         map.put("paymentProofUrl", form.getPaymentProofUrl());
@@ -2261,7 +2378,9 @@ public class ParentServiceImpl implements ParentService {
         StudentProfile student = form.getStudentProfile();
         map.put("studentProfileId", student.getId());
         map.put("studentName", student.getStudentName());
-        map.put("transcriptImages", student.getTranscriptImages());
+        map.put("studentCode", student.getStudentCode());
+        map.put("profileMetaData", form.getProfileMetadata());
+        map.put("transcriptImages", form.getTranscriptImages());
         map.put("gender", student.getGender());
 
         Parent parent = student.getParent();
@@ -2434,7 +2553,7 @@ public class ParentServiceImpl implements ParentService {
         int currentYear = Year.now().getValue();
 
         if (alreadySubmitted) {
-            return "Học sinh đã có đơn giữ chỗ đang hoạt động tại trường này trong chiến dịch tuyển sinh năm " + currentYear;
+            return "Học sinh đã có đơn giữ chỗ đang xử lý tại trường trong chiến dịch tuyển sinh năm " + currentYear;
         }
 
         boolean noneAllowReservation = offerings.stream()

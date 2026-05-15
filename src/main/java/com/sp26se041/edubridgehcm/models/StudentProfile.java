@@ -36,7 +36,6 @@ import java.util.List;
 @Entity
 @Table(name = "student_profile")
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@NullMarked
 public class StudentProfile {
 
     @Id

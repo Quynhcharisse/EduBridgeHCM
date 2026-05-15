@@ -7,6 +7,7 @@ import com.sp26se041.edubridgehcm.requests.CancelAdmissionFormRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionReservationFormRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateAdmissionReservationFormRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import org.springframework.http.ResponseEntity;
@@ -44,7 +45,6 @@ public interface ParentService {
 
     ResponseEntity<ResponseObject> removeFavouriteSchool(long favouriteSchoolId);
 
-//    ResponseEntity<ResponseObject> createFolder();
     ResponseEntity<ResponseObject> createConversation(CreateConversationRequest request);
 
     List<String> findCounsellorEmailsByCampusId(int campusId);
@@ -56,6 +56,8 @@ public interface ParentService {
     ResponseEntity<ResponseObject> getConsultationOfflineRequests(String status, int page, int size);
 
     ResponseEntity<ResponseObject> createAdmissionReservationForm(CreateAdmissionReservationFormRequest request);
+
+    ResponseEntity<ResponseObject> updateAdmissionReservationForm(UpdateAdmissionReservationFormRequest request);
 
     ResponseEntity<ResponseObject> getDocumentRequirements( int campusProgramOfferingId);
 
