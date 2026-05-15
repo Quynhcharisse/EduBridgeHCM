@@ -26,6 +26,7 @@ import com.sp26se041.edubridgehcm.enums.SubjectType;
 import com.sp26se041.edubridgehcm.enums.SubscriptionAction;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
+import com.sp26se041.edubridgehcm.models.AdmissionReservationForm;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
 import com.sp26se041.edubridgehcm.models.CampusResourceQuota;
@@ -36,11 +37,11 @@ import com.sp26se041.edubridgehcm.models.FavouriteSchool;
 import com.sp26se041.edubridgehcm.models.OpenDayEvent;
 import com.sp26se041.edubridgehcm.models.Parent;
 import com.sp26se041.edubridgehcm.models.PaymentTransaction;
-import com.sp26se041.edubridgehcm.models.PlatformConfig;
 import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.SchoolSubscription;
+import com.sp26se041.edubridgehcm.models.StudentProfile;
 import com.sp26se041.edubridgehcm.models.Subject;
 import com.sp26se041.edubridgehcm.models.Subscription;
 import com.sp26se041.edubridgehcm.models.TemplateDocx;
@@ -2168,7 +2169,8 @@ public class SchoolServiceImpl implements SchoolService {
         try {
             LocalDate date = LocalDate.parse(raw);
             return date.getDayOfMonth() + "/" + date.getMonthValue() + "/" + date.getYear();
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
         return raw;
     }
 
@@ -3475,6 +3477,87 @@ public class SchoolServiceImpl implements SchoolService {
             return LocalDateTime.parse(raw, input).format(output);
         } catch (Exception e) {
             return raw;
+        }
+    }
+
+    @Override
+    public ResponseEntity<Resource> exportAdmissionForms() throws IOException {
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null || actorCampus.getSchool() == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        int schoolId = actorCampus.getSchool().getId();
+
+        List<AdmissionReservationForm> forms = admissionReservationFormRepo.findByAdmissionCampaign_School_IdAndStatus(schoolId, Status.RESERVATION_CONFIRMED);
+
+        Path path = Files.createTempFile("export_admission_forms_", ".xlsx");
+
+        String[] headers = {
+                "STT", "Mã đơn", "Trạng thái", "Ngày nộp",
+                "Tên chiến dịch", "Chương trình",
+                "Mã số học sinh", "Họ tên học sinh",
+                "Họ tên phụ huynh", "Quan hệ", "Nghề nghiệp", "SĐT phụ huynh",
+                "Link học bạ"
+        };
+
+        ExcelUtil.exportToExcel(path, "Đơn tuyển sinh", headers, forms, (form, row) -> {
+            int idx = forms.indexOf(form);
+            StudentProfile student = form.getStudentProfile();
+            Parent parent = student != null ? student.getParent() : null;
+
+            row.createCell(0).setCellValue(idx + 1);
+            row.createCell(1).setCellValue(form.getId());
+            row.createCell(2).setCellValue(form.getStatus() != null ? form.getStatus().name() : "");
+            row.createCell(3).setCellValue(form.getCreatedTime() != null ? form.getCreatedTime().toLocalDate().toString() : "");
+            row.createCell(4).setCellValue(form.getAdmissionCampaign() != null ? form.getAdmissionCampaign().getName() : "");
+            row.createCell(5).setCellValue(form.getCampusProgramOffering() != null && form.getCampusProgramOffering().getProgramNameSnapshot() != null
+                    ? form.getCampusProgramOffering().getProgramNameSnapshot() : "");
+
+            if (student != null) {
+                row.createCell(6).setCellValue(student.getStudentCode() != null ? student.getStudentCode() : "");
+                row.createCell(7).setCellValue(student.getStudentName() != null ? student.getStudentName() : "");
+                row.createCell(12).setCellValue(extractTranscriptLinks(student.getTranscriptImages()));
+            } else {
+                row.createCell(6).setCellValue("");
+                row.createCell(7).setCellValue("");
+                row.createCell(12).setCellValue("");
+            }
+
+            if (parent != null) {
+                row.createCell(8).setCellValue(parent.getName() != null ? parent.getName() : "");
+                row.createCell(9).setCellValue(parent.getRelationship() != null ? parent.getRelationship().name() : "");
+                row.createCell(10).setCellValue(parent.getOccupation() != null ? parent.getOccupation() : "");
+                row.createCell(11).setCellValue(parent.getPhone() != null ? parent.getPhone() : "");
+            } else {
+                row.createCell(8).setCellValue("");
+                row.createCell(9).setCellValue("");
+                row.createCell(10).setCellValue("");
+                row.createCell(11).setCellValue("");
+            }
+        });
+
+        String fileName = "Don_Tuyen_Sinh.xlsx";
+
+        return buildFileResponse(path, fileName);
+    }
+
+    @SuppressWarnings("unchecked")
+    private String extractTranscriptLinks(Object transcriptImages) {
+        if (transcriptImages == null) return "";
+        try {
+            List<Map<String, Object>> images = (List<Map<String, Object>>) transcriptImages;
+            return images.stream()
+                    .map(img -> "Lớp " + img.get("grade") + ": " + img.get("imageUrl"))
+                    .collect(Collectors.joining(" | "));
+        } catch (Exception e) {
+            return "";
         }
     }
 
