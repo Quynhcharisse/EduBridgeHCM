@@ -244,4 +244,10 @@ public class SchoolController {
     public ResponseEntity<ResponseObject> viewCurrentSubscription() {
         return schoolService.viewCurrentSubscription();
     }
+
+    @GetMapping("/admission/form/export")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<Resource> exportAdmissionForms() throws IOException {
+        return schoolService.exportAdmissionForms();
+    }
 }
