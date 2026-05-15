@@ -17,6 +17,7 @@ import java.util.List;
 public class AddStudentInfoRequest {
 
     String studentName;
+    String studentCode;
     String gender;
     String personalityTypeCode;
     String favouriteJob;

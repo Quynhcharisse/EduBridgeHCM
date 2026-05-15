@@ -50,9 +50,6 @@ public class AdmissionReservationForm {
     @Column(name = "cancel_reason")
     String cancelReason;
 
-    @Column(name = "method_name")
-    String methodName;
-
     @Column(name = "verify_by")
     String verifiedBy;
 
@@ -69,12 +66,8 @@ public class AdmissionReservationForm {
     String paymentConfirmedBy;
 
     @ManyToOne
-    @JoinColumn(name = "admission_campaign_id")
-    AdmissionCampaign admissionCampaign; // Phase 1: set khi PH nộp hồ sơ vào campaign
-
-    @ManyToOne
     @JoinColumn(name = "campus_program_offering_id")
-    CampusProgramOffering campusProgramOffering; // Phase 2: set sau khi school approved, PH chọn gói
+    CampusProgramOffering campusProgramOffering;
 
     @ManyToOne
     @JoinColumn(name = "student_profile_id")
@@ -83,5 +76,9 @@ public class AdmissionReservationForm {
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     Status status;
+
+    @ManyToOne
+    @JoinColumn(name = "admission_campaign_id")
+    AdmissionCampaign admissionCampaign;
 
 }

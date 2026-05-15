@@ -62,4 +62,6 @@ public interface ParentService {
     ResponseEntity<ResponseObject> getAdmissionReservationForms(String status);
 
     ResponseEntity<ResponseObject> cancelAdmissionReservationForm(CancelAdmissionFormRequest request);
+
+    ResponseEntity<ResponseObject> getAvailableSchools(List<Integer> schoolIds, int studentProfileId);
 }
