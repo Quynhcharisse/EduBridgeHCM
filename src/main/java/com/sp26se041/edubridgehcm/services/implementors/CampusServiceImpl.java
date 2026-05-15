@@ -3293,6 +3293,7 @@ public class CampusServiceImpl implements CampusService {
         StudentProfile student = form.getStudentProfile();
         map.put("studentProfileId", student.getId());
         map.put("studentName", student.getStudentName());
+        map.put("studentCode", student.getStudentCode());
         map.put("gender", student.getGender());
 
         Parent parent = student.getParent();
