@@ -788,6 +788,7 @@ public class ParentServiceImpl implements ParentService {
         studentInfoRepo.save(StudentProfile.builder()
                 .studentName(normalize(request.getStudentName()))
                 .parent(account.getParent())
+                .studentCode(normalize(request.getStudentCode()))
                 .transcriptImages(transcriptImages)
                 .favouriteJob(normalize(request.getFavouriteJob()))
                 .gender(Gender.valueOf(normalize(request.getGender())))
@@ -999,8 +1000,6 @@ public class ParentServiceImpl implements ParentService {
 
     private String validateUpdateStudentInfoRequest(UpdateStudentInfoRequest request) {
 
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-
         if (isBlank(request.getStudentName())) {
             return "Tên học sinh không được để trống";
         }
@@ -1009,12 +1008,16 @@ public class ParentServiceImpl implements ParentService {
             return "Tên học sinh không được vượt quá 200 ký tự";
         }
 
-        if (studentInfoRepo.existsByStudentNameIgnoreCaseAndParent_Account_EmailAndIdNot(
-                request.getStudentName().trim(),
-                email,
-                request.getStudentId()
-        )) {
-            return "Tên học sinh đã tồn tại";
+        if (isBlank(request.getStudentCode())) {
+            return "Căn cước công dân học sinh không được để trống";
+        }
+
+        if (request.getStudentCode().trim().length() != 12) {
+            return "Căn cước công dân học sinh phải có đúng 12 số";
+        }
+
+        if (!request.getStudentCode().trim().matches("\\d{12}")) {
+            return "Căn cước công dân học sinh chỉ được chứa chữ số";
         }
 
         if (isBlank(request.getGender())) {
@@ -1088,8 +1091,6 @@ public class ParentServiceImpl implements ParentService {
 
     private String validateAddStudentInfoRequest(AddStudentInfoRequest request) {
 
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-
         if (isBlank(request.getStudentName())) {
             return "Tên học sinh không được để trống";
         }
@@ -1101,18 +1102,18 @@ public class ParentServiceImpl implements ParentService {
             return "Căn cước công dân học sinh không được để trống";
         }
 
-
-        if (studentInfoRepo.existsByStudentNameIgnoreCaseAndParent_Account_Email(
-                request.getStudentName().trim(),
-                email
-        )) {
-            return "Tên học sinh " + request.getStudentName().trim() + " đã tồn tại";
+        if (request.getStudentCode().trim().length() != 12) {
+            return "Căn cước công dân học sinh phải có đúng 12 số";
         }
 
+        if (!request.getStudentCode().trim().matches("\\d{12}")) {
+            return "Căn cước công dân học sinh chỉ được chứa chữ số";
+        }
 
         if (isBlank(request.getGender())) {
             return "Giới tính là bắt buộc";
         }
+
         if (parseGender(request.getGender()) == null) {
             return "Giới tính không hợp lệ";
         }

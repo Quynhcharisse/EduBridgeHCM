@@ -19,6 +19,7 @@ public class UpdateStudentInfoRequest {
 
     int studentId;
     String studentName;
+    String studentCode;
     String gender;
     String personalityTypeCode;
     String favouriteJob;

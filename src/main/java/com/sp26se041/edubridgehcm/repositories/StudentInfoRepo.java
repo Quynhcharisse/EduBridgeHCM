@@ -13,4 +13,5 @@ public interface StudentInfoRepo extends JpaRepository<StudentProfile, Integer> 
     boolean existsByStudentNameIgnoreCaseAndParent_Account_EmailAndIdNot(String studentName, String parentAccountEmail, Integer id);
 
     List<StudentProfile> findByParent_Account_Email(String parentAccountEmail);
+
 }

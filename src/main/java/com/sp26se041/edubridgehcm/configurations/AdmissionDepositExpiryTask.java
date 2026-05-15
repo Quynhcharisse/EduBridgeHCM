@@ -75,13 +75,11 @@ public class AdmissionDepositExpiryTask {
 
     private LocalDate resolveDepositDeadline(AdmissionReservationForm form) {
         AdmissionCampaign campaign = form.getAdmissionCampaign();
-        if (campaign == null || form.getMethodName() == null) return null;
+        if (campaign == null) return null;
         if (!(campaign.getAdmissionMethodTimelines() instanceof List<?> timelines)) return null;
 
         for (Object item : timelines) {
             if (!(item instanceof Map<?, ?> tl)) continue;
-            String methodCode = Objects.toString(tl.get("methodCode"), null);
-            if (!form.getMethodName().equalsIgnoreCase(methodCode)) continue;
             return AdmissionCampaignValidation.parseLocalDateSafe(tl.get("depositEndDate"));
         }
         return null;
