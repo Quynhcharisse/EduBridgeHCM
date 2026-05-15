@@ -1101,6 +1101,7 @@ public class ParentServiceImpl implements ParentService {
             return "Căn cước công dân học sinh không được để trống";
         }
 
+
         if (studentInfoRepo.existsByStudentNameIgnoreCaseAndParent_Account_Email(
                 request.getStudentName().trim(),
                 email

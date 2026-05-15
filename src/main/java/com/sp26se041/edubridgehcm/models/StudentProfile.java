@@ -53,6 +53,9 @@ public class StudentProfile {
     @Enumerated(EnumType.STRING)
     Gender gender;
 
+    @Column(name = "student_code")
+    String studentCode;
+
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb", name = "academic_profile_metadata")
     Object academicProfileMetadata;
