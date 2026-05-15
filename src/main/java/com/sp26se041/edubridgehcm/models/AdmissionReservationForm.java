@@ -30,7 +30,6 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "admission_reservation_form")
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@NullMarked
 public class AdmissionReservationForm {
 
     @Id
@@ -40,6 +39,10 @@ public class AdmissionReservationForm {
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb", name = "profile_metadata")
     Object profileMetadata;
+
+    @Type(JsonBinaryType.class)
+    @Column(columnDefinition = "jsonb", name = "transcript_images")
+    Object transcriptImages;
 
     @Column(name = "created_time")
     LocalDateTime createdTime;
@@ -58,6 +61,9 @@ public class AdmissionReservationForm {
 
     @Column(name = "transfer_code", unique = true)
     String transferCode;
+
+    @Column(name = "confirm_code", unique = true)
+    String confirmCode;
 
     @Column(name = "payment_proof_url")
     String paymentProofUrl;
