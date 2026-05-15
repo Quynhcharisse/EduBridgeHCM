@@ -3107,13 +3107,6 @@ public class CampusServiceImpl implements CampusService {
 
         switch (action) {
             case "APPROVE":
-                // Validate checkedDocuments đủ so với required docs của trường
-                ResponseEntity<ResponseObject> docValidation = validateCheckedDocuments(
-                        actorCampus.getSchool().getId(),
-                        form.getMethodName(),
-                        request.getCheckedDocuments()
-                );
-                if (docValidation != null) return docValidation;
 
                 // APPROVE chỉ đổi status → PH được phép chọn offering (phase 2)
                 // Không đụng offering (chưa có), không đụng quota (đã trừ lúc PH nộp)
@@ -3280,7 +3273,6 @@ public class CampusServiceImpl implements CampusService {
 
         map.put("id", form.getId());
         map.put("status", form.getStatus());
-        map.put("methodName", form.getMethodName());
         map.put("profileMetadata", form.getProfileMetadata());
         map.put("createdTime", form.getCreatedTime());
         map.put("updatedTime", form.getUpdatedTime());
