@@ -488,7 +488,6 @@ public class SystemServiceImpl implements SystemService {
                                     : doc.getOcrCriteria().stream()
                                             .map(c -> {
                                                 Map<String, Object> m = new HashMap<>();
-                                                m.put("field", c.getField());
                                                 m.put("label", c.getLabel());
                                                 m.put("validations", c.getValidations() != null ? c.getValidations() : List.of());
                                                 return m;

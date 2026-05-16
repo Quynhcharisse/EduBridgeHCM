@@ -11,7 +11,6 @@ public interface AdmissionCampaignRepo extends JpaRepository<AdmissionCampaign, 
 
     boolean existsByYearAndSchoolIdAndStatusIn(int year, int schoolId, List<Status> statuses);
 
-    // Trong AdmissionCampaignRepo.java
     List<AdmissionCampaign> findBySchoolIdAndYearOrderByStatusAsc(int schoolId, int year);
 
     List<AdmissionCampaign> findBySchoolIdOrderByYearDesc(int schoolId);
