@@ -54,6 +54,7 @@ import com.sp26se041.edubridgehcm.requests.CreateAdmissionReservationFormTemplat
 import com.sp26se041.edubridgehcm.requests.CreateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionReservationFormRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateAdmissionReservationFormTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -898,6 +899,7 @@ public class ParentServiceImpl implements ParentService {
 
         studentProfile.setStudentName(normalize(request.getStudentName()));
         studentProfile.setGender(parseGender(request.getGender()));
+        studentProfile.setStudentCode(normalize(request.getStudentCode()));
         studentProfile.setFavouriteJob(normalize(request.getFavouriteJob()));
         studentProfile.setPersonalityTypeName(normalize(request.getPersonalityTypeCode()));
         studentProfile.setAcademicProfileMetadata(academicProfileMetaData);
@@ -2210,7 +2212,7 @@ public class ParentServiceImpl implements ParentService {
 
         Set<String> submittedKeys = request.getSubmissionDocuments().stream()
                 .filter(d -> d.getImageUrl() != null && !d.getImageUrl().isEmpty())
-                .map(CreateAdmissionReservationFormRequest.SubmissionDocument::getKey)
+                .map(CreateAdmissionReservationFormTemplateRequest.SubmissionDocument::getKey)
                 .collect(Collectors.toSet());
 
         List<String> missingDocNames = mandatoryAll.stream()
@@ -2275,6 +2277,103 @@ public class ParentServiceImpl implements ParentService {
         }
 
         return ResponseBuilder.build(HttpStatus.OK, "Lấy mẫu hồ sơ giữ chỗ thành công.", buildAdmissionReservationFormTemplate(admissionReservationFormTemplate.get()));
+
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> updateAdmissionReservationFormTemplate(UpdateAdmissionReservationFormTemplateRequest request) {
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        Optional<Parent> parent = parentRepo.findByAccount_Email(email);
+
+        if (parent.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản phụ huynh.", null);
+        }
+
+        Optional<AdmissionReservationForm> formOpt = admissionReservationFormRepo.findById(request.getAdmissionReservationFormTemplateId());
+
+        if (formOpt.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy mẫu hồ sơ giữ chỗ.", null);
+        }
+
+        AdmissionReservationForm form = formOpt.get();
+
+        if (!"RESERVATION_TEMPLATE".equals(form.getType())) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Hồ sơ này không phải mẫu giữ chỗ.", null);
+        }
+
+        if (request.getSubmissionDocuments() == null || request.getSubmissionDocuments().isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Vui lòng cung cấp đủ hình ảnh danh sách hồ sơ tài liệu bắt buộc trước khi nộp.", null);
+        }
+
+        Optional<PlatformConfig> admissionSettings = platformConfigRepo.findByKey("admissionSettingsData");
+
+        if (admissionSettings.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Hệ thống chưa cấu hình thông tin tuyển sinh. Vui lòng thử lại sau.", null);
+        }
+
+        Map<String, Object> admissionSettingsData = (Map<String, Object>) admissionSettings.get().getValue();
+        Map<String, Object> documentRequirementsData = (Map<String, Object>) admissionSettingsData.get("documentRequirementsData");
+
+        List<Map<String, Object>> mandatoryAll = documentRequirementsData != null
+                && documentRequirementsData.get("mandatoryAll") != null
+                ? (List<Map<String, Object>>) documentRequirementsData.get("mandatoryAll")
+                : List.of();
+
+        // imageUrl hiện tại của form
+        Map<String, Object> existingDocMap = new HashMap<>();
+        if (form.getProfileMetadata() != null) {
+            ((List<Map<String, Object>>) form.getProfileMetadata()).forEach(doc -> {
+                if (doc.get("key") != null) {
+                    existingDocMap.put((String) doc.get("key"), doc.get("imageUrl"));
+                }
+            });
+        }
+
+        // imageUrl từ request
+        Map<String, List<String>> requestDocMap = request.getSubmissionDocuments().stream()
+                .filter(d -> d.getImageUrl() != null && !d.getImageUrl().isEmpty())
+                .collect(Collectors.toMap(
+                        UpdateAdmissionReservationFormTemplateRequest.SubmissionDocument::getKey,
+                        UpdateAdmissionReservationFormTemplateRequest.SubmissionDocument::getImageUrl,
+                        (a, b) -> b
+                ));
+
+        // Sync theo mandatoryAll
+        List<Map<String, Object>> profileMetaData = mandatoryAll.stream()
+                .map(doc -> {
+                    String code = (String) doc.get("code");
+                    Map<String, Object> entry = new HashMap<>();
+                    entry.put("key", code);
+                    entry.put("imageUrl", requestDocMap.getOrDefault(code, (List<String>) existingDocMap.get(code)));
+                    return entry;
+                })
+                .collect(Collectors.toList());
+
+        // Validate required docs
+        List<String> missingDocNames = mandatoryAll.stream()
+                .filter(doc -> Boolean.TRUE.equals(doc.get("required")))
+                .filter(doc -> {
+                    String code = (String) doc.get("code");
+                    Object imageUrl = requestDocMap.containsKey(code)
+                            ? requestDocMap.get(code)
+                            : existingDocMap.get(code);
+                    return imageUrl == null || (imageUrl instanceof List && ((List<?>) imageUrl).isEmpty());
+                })
+                .map(doc -> (String) doc.get("name"))
+                .toList();
+
+        if (!missingDocNames.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Vui lòng cung cấp hình ảnh cho danh sách tài liệu bắt buộc: " + String.join(", ", missingDocNames), null);
+        }
+
+        form.setProfileMetadata(profileMetaData);
+        form.setUpdatedTime(LocalDateTime.now());
+        admissionReservationFormRepo.save(form);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Cập nhật mẫu hồ sơ giữ chỗ thành công.", null);
 
     }
 
