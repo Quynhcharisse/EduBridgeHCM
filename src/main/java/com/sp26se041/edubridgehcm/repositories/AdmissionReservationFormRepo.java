@@ -31,5 +31,7 @@ public interface AdmissionReservationFormRepo extends JpaRepository<AdmissionRes
 
 
     boolean existsByStudentProfile_StudentCodeAndStatusAndAdmissionCampaign_Year(String studentProfileStudentCode, Status status, int admissionCampaignYear);
+
+    List<AdmissionReservationForm> findByStudentProfileAndStatus(StudentProfile studentProfile, Status status);
 }
 
