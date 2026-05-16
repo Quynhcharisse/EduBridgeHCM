@@ -5,6 +5,7 @@ import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
 import com.sp26se041.edubridgehcm.requests.AutoFillTranscriptRequest;
 import com.sp26se041.edubridgehcm.requests.CancelAdmissionFormRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionReservationFormRequest;
+import com.sp26se041.edubridgehcm.requests.CreateAdmissionReservationFormTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionReservationFormRequest;
@@ -56,6 +57,10 @@ public interface ParentService {
     ResponseEntity<ResponseObject> getConsultationOfflineRequests(String status, int page, int size);
 
     ResponseEntity<ResponseObject> createAdmissionReservationForm(CreateAdmissionReservationFormRequest request);
+
+    ResponseEntity<ResponseObject> createAdmissionReservationTemplateForm(CreateAdmissionReservationFormTemplateRequest request);
+
+    ResponseEntity<ResponseObject> getRequiredDocuments();
 
     ResponseEntity<ResponseObject> updateAdmissionReservationForm(UpdateAdmissionReservationFormRequest request);
 

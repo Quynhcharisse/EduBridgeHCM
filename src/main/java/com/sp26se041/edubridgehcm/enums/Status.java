@@ -114,6 +114,9 @@ public enum Status {
     RESERVATION_CANCELLED("reservation cancelled"),               // PH tự hủy
     RESERVATION_REJECTED("reservation rejected"),                 // Trường từ chối
 
+    RESERVATION_TEMPLATE_APPLIED("reservation template applied"),
+    RESERVATION_TEMPLATE_NOT("reservation template rejected"),
+
     UPCOMING("Sắp diễn ra"),
     ONGOING("Đang diễn ra"),
     PAST("Đã qua"),
