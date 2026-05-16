@@ -231,9 +231,9 @@ public class ParentController {
         return parentService.cancelAdmissionReservationForm(request);
     }
 
-    @GetMapping("/admission/schools/availability")
+    @PutMapping("/admission/schools/availability")
     @PreAuthorize("hasAnyRole('PARENT')")
-    public ResponseEntity<ResponseObject> getAvailableSchools(@RequestParam List<Integer> schoolIds, @RequestParam Integer studentProfileId) {
+    public ResponseEntity<ResponseObject> getAvailableSchools(@RequestBody List<Integer> schoolIds, @RequestParam Integer studentProfileId) {
         return parentService.getAvailableSchools(schoolIds, studentProfileId);
     }
 
