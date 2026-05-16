@@ -59,9 +59,6 @@ public class AdmissionCampaign {
     @Column(name = "end_date")
     LocalDate endDate;
 
-    @Column(name = "enrollment_start_date")
-    LocalDate enrollmentStartDate;
-
     @Type(JsonBinaryType.class)
     @Column(name = "admission_method_timelines", columnDefinition = "jsonb")
     Object admissionMethodTimelines;
