@@ -3281,6 +3281,8 @@ public class CampusServiceImpl implements CampusService {
         map.put("updatedTime", form.getUpdatedTime());
         map.put("cancelReason", form.getCancelReason());
         map.put("rejectReason", form.getRejectReason());
+
+        map.put("transferCode", form.getTransferCode());
         map.put("paymentProofUrl", form.getPaymentProofUrl());
 
         // CampusProgramOffering info
