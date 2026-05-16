@@ -2046,6 +2046,7 @@ public class ParentServiceImpl implements ParentService {
         List<AdmissionReservationForm> formsToSave = new ArrayList<>();
 
         List<Map<String, Object>> created = new ArrayList<>();
+
         Map<String, List<Map<String, Object>>> failedGroup = new LinkedHashMap<>();
 
         for (Integer schoolId : request.getSchoolIds()) {
@@ -2146,7 +2147,163 @@ public class ParentServiceImpl implements ParentService {
 
     @Override
     public ResponseEntity<ResponseObject> createAdmissionReservationTemplateForm(CreateAdmissionReservationFormTemplateRequest request) {
-       return null;
+
+        Optional<StudentProfile> studentProfile = studentInfoRepo.findById(request.getStudentProfileId());
+
+        if (studentProfile.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy học sinh, vui lòng kiểm tra lại.", null);
+        }
+
+        if (admissionReservationFormRepo.existsByStudentProfile_Parent_IdAndType(
+                studentProfile.get().getParent().getId(), "RESERVATION_TEMPLATE")) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Phụ huynh đã có mẫu hồ sơ giữ chỗ, không thể tạo thêm.", null);
+        }
+
+
+        List<Map<String, Object>> transcriptImages = studentProfile.get().getTranscriptImages() != null
+                ? (List<Map<String, Object>>) studentProfile.get().getTranscriptImages()
+                : List.of();
+
+        Set<String> submittedGrades = transcriptImages.stream()
+                .filter(t -> t.get("imageUrl") != null && !((String) t.get("imageUrl")).isBlank())
+                .map(t -> (String) t.get("grade"))
+                .collect(Collectors.toSet());
+
+        List<String> requiredGrades = List.of("GRADE_06", "GRADE_07", "GRADE_08", "GRADE_09");
+
+        List<String> missingGrades = requiredGrades.stream()
+                .filter(g -> !submittedGrades.contains(g))
+                .toList();
+
+        if (!missingGrades.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Học sinh chưa cập nhật đầy đủ học bạ 4 khối (lớp 6, 7, 8, 9), vui lòng cập nhật hồ sơ trước khi nộp đơn.", null);
+        }
+
+        String studentCode = studentProfile.get().getStudentCode();
+
+        if (studentCode == null || studentCode.isBlank()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Căn cước công dân là bắt buộc để nộp đơn giữ chỗ.", null);
+        }
+
+        if (request.getSubmissionDocuments() == null || request.getSubmissionDocuments().isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Vui lòng cung cấp đủ hình ảnh danh sách hồ sơ tài liệu bắt buộc trước khi nộp.", null);
+        }
+
+        Optional<PlatformConfig> admissionSettings = platformConfigRepo.findByKey("admissionSettingsData");
+
+        if (admissionSettings.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Hệ thống chưa cấu hình thông tin tuyển sinh. Vui lòng thử lại sau.", null);
+        }
+
+        Map<String, Object> admissionSettingsData = (Map<String, Object>) admissionSettings.get().getValue();
+
+        Map<String, Object> documentRequirementsData = (Map<String, Object>) admissionSettingsData.get("documentRequirementsData");
+
+        List<Map<String, Object>> mandatoryAll = documentRequirementsData != null
+                && documentRequirementsData.get("mandatoryAll") != null
+                ? (List<Map<String, Object>>) documentRequirementsData.get("mandatoryAll")
+                : List.of();
+
+        Set<String> submittedKeys = request.getSubmissionDocuments().stream()
+                .filter(d -> d.getImageUrl() != null && !d.getImageUrl().isEmpty())
+                .map(CreateAdmissionReservationFormRequest.SubmissionDocument::getKey)
+                .collect(Collectors.toSet());
+
+        List<String> missingDocNames = mandatoryAll.stream()
+                .filter(doc -> Boolean.TRUE.equals(doc.get("required")))
+                .filter(doc -> !submittedKeys.contains((String) doc.get("code")))
+                .map(doc -> (String) doc.get("name"))
+                .toList();
+
+        if (!missingDocNames.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Vui lòng cung cấp hình ảnh cho danh sách tài liệu bắt buộc: " + String.join(", ", missingDocNames), null);
+        }
+
+        List<Map<String, Object>> profileMetaData = new ArrayList<>();
+
+        request.getSubmissionDocuments().forEach(doc -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("key", doc.getKey());
+            map.put("imageUrl", doc.getImageUrl());
+            profileMetaData.add(map);
+        });
+
+        List<Map<String, Object>> transcriptImagesMeta = new ArrayList<>();
+
+        transcriptImages.forEach(t -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("grade", t.get("grade"));
+            map.put("imageUrl", t.get("imageUrl"));
+            transcriptImagesMeta.add(map);
+        });
+
+        admissionReservationFormRepo.save(
+                AdmissionReservationForm.builder()
+                        .transcriptImages(transcriptImagesMeta)
+                        .profileMetadata(profileMetaData)
+                        .studentProfile(studentProfile.get())
+                        .createdTime(LocalDateTime.now())
+                        .updatedTime(LocalDateTime.now())
+                        .type("RESERVATION_TEMPLATE")
+                        .isApplied(true)
+                        .build()
+        );
+        return ResponseBuilder.build(HttpStatus.OK, "Tạo mẫu hồ sơ giữ chỗ thành công.", null);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getAdmissionReservationTemplateForm() {
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        Optional<Parent> parent = parentRepo.findByAccount_Email(email);
+
+        if (parent.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản phụ huynh.", null);
+        }
+
+        Optional<AdmissionReservationForm> admissionReservationFormTemplate = admissionReservationFormRepo
+                .findFirstByStudentProfile_Parent_IdAndType(parent.get().getId(), "RESERVATION_TEMPLATE");
+
+        if (admissionReservationFormTemplate.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Phụ huynh chưa có mẫu hồ sơ giữ chỗ.", null);
+        }
+
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy mẫu hồ sơ giữ chỗ thành công.", buildAdmissionReservationFormTemplate(admissionReservationFormTemplate.get()));
+
+    }
+
+    private Map<String, Object> buildAdmissionReservationFormTemplate(AdmissionReservationForm form) {
+
+        Map<String, Object> map = new HashMap<>();
+
+        map.put("id", form.getId());
+        map.put("createdTime", form.getCreatedTime());
+        map.put("updatedTime", form.getUpdatedTime());
+        map.put("isApplied", Boolean.TRUE.equals(form.getIsApplied()));
+
+        // StudentProfile info
+        StudentProfile student = form.getStudentProfile();
+        map.put("studentProfileId", student.getId());
+        map.put("studentName", student.getStudentName());
+        map.put("studentCode", student.getStudentCode());
+        map.put("profileMetaData", form.getProfileMetadata());
+        map.put("transcriptImages", form.getTranscriptImages());
+        map.put("gender", student.getGender());
+
+        Parent parent = student.getParent();
+        map.put("parentProfileId", parent.getId());
+        map.put("parentName", parent.getName());
+        map.put("parentPhone", parent.getPhone());
+        map.put("parentEmail", parent.getAccount().getEmail());
+        map.put("identityCard", parent.getIdCardNumber());
+        map.put("address", parent.getCurrentAddress());
+
+        return map;
     }
 
     @Override
