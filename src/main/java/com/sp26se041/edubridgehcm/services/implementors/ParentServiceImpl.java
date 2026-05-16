@@ -2489,14 +2489,7 @@ public class ParentServiceImpl implements ParentService {
                 continue;
             }
 
-            boolean hasAvailable = offerings.stream().anyMatch(o ->
-                    !o.getStatus().equals(Status.OFFERING_INACTIVE) &&
-                    !o.getStatus().equals(Status.OFFERING_DRAFT) &&
-                    !o.getStatus().equals(Status.UPCOMING_OFFERING) &&
-                            o.getApplicationStatus().equals(Status.OPEN) &&
-                            o.getRemainingQuota() > 0 &&
-                            o.getAllowReservationSubmission()
-            );
+
             if (studentProfile != null) {
                 Optional<AdmissionCampaign> campaign = admissionCampaignRepo
                         .findBySchoolIdAndYearAndStatus(schoolId, currentYear, Status.OPEN_ADMISSION_CAMPAIGN);
@@ -2516,6 +2509,15 @@ public class ParentServiceImpl implements ParentService {
                     }
                 }
             }
+
+            boolean hasAvailable = offerings.stream().anyMatch(o ->
+                    !o.getStatus().equals(Status.OFFERING_INACTIVE) &&
+                            !o.getStatus().equals(Status.OFFERING_DRAFT) &&
+                            !o.getStatus().equals(Status.UPCOMING_OFFERING) &&
+                            o.getApplicationStatus().equals(Status.OPEN) &&
+                            o.getRemainingQuota() > 0 &&
+                            o.getAllowReservationSubmission()
+            );
 
             if (hasAvailable) {
                 Map<String, Object> entry = new HashMap<>();
