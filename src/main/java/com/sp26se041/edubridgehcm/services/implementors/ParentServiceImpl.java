@@ -2146,7 +2146,7 @@ public class ParentServiceImpl implements ParentService {
 
     @Override
     public ResponseEntity<ResponseObject> createAdmissionReservationTemplateForm(CreateAdmissionReservationFormTemplateRequest request) {
-
+       return null;
     }
 
     @Override

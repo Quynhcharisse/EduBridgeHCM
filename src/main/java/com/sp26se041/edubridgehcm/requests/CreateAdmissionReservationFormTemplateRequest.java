@@ -29,5 +29,5 @@ public class CreateAdmissionReservationFormTemplateRequest {
         List<String> imageUrl;
         String key;
     }
-    
+
 }
