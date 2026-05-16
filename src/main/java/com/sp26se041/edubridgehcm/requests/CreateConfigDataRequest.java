@@ -205,8 +205,8 @@ public class CreateConfigDataRequest {
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class OcrCriterion {
-        String label;             // tên hiển thị cho school: "Họ và tên", "Ngày hết hạn"...
-        List<String> validations; // chữ validation text
+        String label;
+        List<String> validations;
     }
 
     @Data
