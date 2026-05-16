@@ -10,6 +10,7 @@ import com.sp26se041.edubridgehcm.requests.CreateAdmissionReservationFormTemplat
 import com.sp26se041.edubridgehcm.requests.CreateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionReservationFormRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateAdmissionReservationFormTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.ParentService;
@@ -249,6 +250,24 @@ public class ParentController {
     @PreAuthorize("hasAnyRole('PARENT')")
     public ResponseEntity<ResponseObject> getAdmissionReservationFormTemplate(@RequestParam int studentProfileId) {
         return parentService.getAdmissionReservationTemplateForm(studentProfileId);
+    }
+
+    @PutMapping("/admission/reservation/form/template")
+    @PreAuthorize("hasAnyRole('PARENT')")
+    public ResponseEntity<ResponseObject> updateAdmissionReservationFormTemplate(@RequestBody UpdateAdmissionReservationFormTemplateRequest request) {
+        return parentService.updateAdmissionReservationFormTemplate(request);
+    }
+
+    @GetMapping("/programs/offering")
+    @PreAuthorize("hasAnyRole('PARENT')")
+    public ResponseEntity<ResponseObject> getCampusProgramOffering(@RequestParam int admissionFormId) {
+        return parentService.getCampusProgramOffering(admissionFormId);
+    }
+
+    @GetMapping("/qrCodeInfo")
+    @PreAuthorize("hasAnyRole('PARENT')")
+    public ResponseEntity<ResponseObject> getQrCodeInfo(@RequestParam int admissionFormId) {
+        return parentService.getQrCodeInfo(admissionFormId);
     }
 
 }
