@@ -672,6 +672,7 @@ public class ParentServiceImpl implements ParentService {
         result.put("id", studentProfile.getId());
         result.put("studentName", studentProfile.getStudentName());
         result.put("gender", studentProfile.getGender());
+        result.put("studentCode", studentProfile.getStudentCode());
         result.put("personalityTypeCode", studentProfile.getPersonalityTypeName());
         result.put("favouriteJob", studentProfile.getFavouriteJob());
         result.put("academicProfileMetadata", mergeAcademicProfileMetadata(studentProfile));
