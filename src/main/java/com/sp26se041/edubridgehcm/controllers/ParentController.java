@@ -6,6 +6,7 @@ import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
 import com.sp26se041.edubridgehcm.requests.AutoFillTranscriptRequest;
 import com.sp26se041.edubridgehcm.requests.CancelAdmissionFormRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionReservationFormRequest;
+import com.sp26se041.edubridgehcm.requests.CreateAdmissionReservationFormTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionReservationFormRequest;
@@ -235,6 +236,13 @@ public class ParentController {
     @PreAuthorize("hasAnyRole('PARENT')")
     public ResponseEntity<ResponseObject> getAvailableSchools(@RequestBody List<Integer> schoolIds, @RequestParam Integer studentProfileId) {
         return parentService.getAvailableSchools(schoolIds, studentProfileId);
+    }
+
+
+    @PostMapping("/admission/reservation/form/template")
+    @PreAuthorize("hasAnyRole('PARENT')")
+    public ResponseEntity<ResponseObject> createAdmissionReservationFormTemplate(@RequestBody CreateAdmissionReservationFormTemplateRequest request) {
+        return parentService.createAdmissionReservationTemplateForm(request);
     }
 
 }

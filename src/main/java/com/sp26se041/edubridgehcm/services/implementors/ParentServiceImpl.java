@@ -50,6 +50,7 @@ import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
 import com.sp26se041.edubridgehcm.requests.AutoFillTranscriptRequest;
 import com.sp26se041.edubridgehcm.requests.CancelAdmissionFormRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAdmissionReservationFormRequest;
+import com.sp26se041.edubridgehcm.requests.CreateAdmissionReservationFormTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionReservationFormRequest;
@@ -1962,6 +1963,11 @@ public class ParentServiceImpl implements ParentService {
 
         String studentCode = studentProfile.get().getStudentCode();
 
+        if (studentCode == null || studentCode.isBlank()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Căn cước công dân là bắt buộc để nộp đơn giữ chỗ.", null);
+        }
+
         int currentYear = Year.now().getValue();
 
         if (studentCode != null && !studentCode.isBlank()
@@ -2135,6 +2141,12 @@ public class ParentServiceImpl implements ParentService {
         }
 
         return ResponseBuilder.build(HttpStatus.OK, "Nộp hồ sơ giữ chỗ thành công.", result);
+
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> createAdmissionReservationTemplateForm(CreateAdmissionReservationFormTemplateRequest request) {
+
     }
 
     @Override
@@ -2173,7 +2185,7 @@ public class ParentServiceImpl implements ParentService {
 
             if (!Status.RESERVATION_APPROVAL.equals(form.getStatus())) {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                        "Hồ sơ phải ở trạng thái đã được duyệt (approval) mới có thể nộp minh chứng thanh toán.", null);
+                        "Hồ sơ phải ở trạng thái đã được duyệt.", null);
             }
 
             if (request.getPaymentUrl() == null || request.getPaymentUrl().isBlank()) {
@@ -2225,6 +2237,32 @@ public class ParentServiceImpl implements ParentService {
             return ResponseBuilder.build(HttpStatus.OK, "Nộp minh chứng thanh toán thành công.", null);
         }
 
+        if ("confirm".equalsIgnoreCase(request.getAction())) {
+
+            if (!Status.RESERVATION_DEPOSITED.equals(form.getStatus())) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Hồ sơ phải ở trạng thái giữ chỗ thành công.", null);
+            }
+
+            form.setStatus(Status.RESERVATION_CONFIRMED);
+            form.setUpdatedTime(LocalDateTime.now());
+            admissionReservationFormRepo.save(form);
+
+            List<AdmissionReservationForm> depositedForms = admissionReservationFormRepo
+                    .findByStudentProfileAndStatus(form.getStudentProfile(), Status.RESERVATION_DEPOSITED);
+
+            for (AdmissionReservationForm depositedForm : depositedForms) {
+                depositedForm.setStatus(Status.RESERVATION_GHOST);
+                depositedForm.setUpdatedTime(LocalDateTime.now());
+            }
+            if (!depositedForms.isEmpty()) {
+                admissionReservationFormRepo.saveAll(depositedForms);
+            }
+
+            return ResponseBuilder.build(HttpStatus.OK, "Xác nhận nhập học thành công.", null);
+
+        }
+
         return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Action không hợp lệ.", null);
     }
 
@@ -2265,8 +2303,6 @@ public class ParentServiceImpl implements ParentService {
 
         Map<String, Object> docConfig = (Map<String, Object>) documentRequirementsData.get().getValue();
 
-        List<Map<String, Object>> mandatoryAll = (List<Map<String, Object>>) docConfig.get("mandatoryAll");
-
         List<Map<String, Object>> byMethod = (List<Map<String, Object>>) docConfig.get("byMethod");
 
         List<Map<String, Object>> methodDocs = byMethod.stream()
@@ -2275,13 +2311,12 @@ public class ParentServiceImpl implements ParentService {
                 .findFirst()
                 .orElse(List.of());
 
-        List<Map<String, Object>> allDocs = Stream.concat(mandatoryAll.stream(), methodDocs.stream()).toList();
 
-        List<Map<String, Object>> requiredDocs = allDocs.stream()
+        List<Map<String, Object>> requiredDocs = methodDocs.stream()
                 .filter(doc -> Boolean.TRUE.equals(doc.get("required")))
                 .toList();
 
-        List<Map<String, Object>> optionalDocs = allDocs.stream()
+        List<Map<String, Object>> optionalDocs = methodDocs.stream()
                 .filter(doc -> !Boolean.TRUE.equals(doc.get("required")))
                 .toList();
 
