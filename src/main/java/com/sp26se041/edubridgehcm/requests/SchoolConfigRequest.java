@@ -76,7 +76,6 @@ public class SchoolConfigRequest {
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class DocumentRequirementsData {
-        List<DocumentDetail> mandatoryAll;
         List<MethodDocumentRequirement> byMethod;
     }
 
@@ -89,6 +88,18 @@ public class SchoolConfigRequest {
         String code;
         String name;
         boolean required;
+        List<OcrCriterion> ocrCriteria;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class OcrCriterion {
+        String field;              // tên field cần extract: full_name, dob, id_number, expiry_date...
+        String label;              // tên hiển thị: "Họ tên", "Ngày sinh"...
+        List<String> validations;  // danh sách tiêu chí áp dụng cho field này
     }
 
     @Data
