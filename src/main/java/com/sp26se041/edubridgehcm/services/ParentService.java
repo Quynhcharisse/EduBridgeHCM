@@ -9,6 +9,7 @@ import com.sp26se041.edubridgehcm.requests.CreateAdmissionReservationFormTemplat
 import com.sp26se041.edubridgehcm.requests.CreateConsultationOfflineRequest;
 import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionReservationFormRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateAdmissionReservationFormTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import org.springframework.http.ResponseEntity;
@@ -62,6 +63,7 @@ public interface ParentService {
 
     ResponseEntity<ResponseObject> getAdmissionReservationTemplateForm();
 
+    ResponseEntity<ResponseObject> updateAdmissionReservationFormTemplate(UpdateAdmissionReservationFormTemplateRequest request);
 
     ResponseEntity<ResponseObject> getRequiredDocuments();
 

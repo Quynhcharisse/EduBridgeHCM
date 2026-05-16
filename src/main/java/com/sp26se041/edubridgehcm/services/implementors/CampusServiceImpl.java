@@ -3090,6 +3090,7 @@ public class CampusServiceImpl implements CampusService {
         return ResponseBuilder.build(HttpStatus.OK, successMessage, null);
     }
 
+
     private ResponseEntity<ResponseObject> validateCheckedDocuments(
             int schoolId, String methodName, List<String> checkedDocuments) {
 
