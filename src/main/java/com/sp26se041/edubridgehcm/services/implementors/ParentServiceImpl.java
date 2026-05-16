@@ -2489,15 +2489,35 @@ public class ParentServiceImpl implements ParentService {
                 continue;
             }
 
+
+            if (studentProfile != null) {
+                Optional<AdmissionCampaign> campaign = admissionCampaignRepo
+                        .findBySchoolIdAndYearAndStatus(schoolId, currentYear, Status.OPEN_ADMISSION_CAMPAIGN);
+
+                if (campaign.isPresent()) {
+                    boolean alreadySubmitted = admissionReservationFormRepo
+                            .existsByAdmissionCampaignAndStudentProfileAndStatusIn(
+                                    campaign.get(), studentProfile, List.of(
+                                            Status.RESERVATION_PENDING, Status.RESERVATION_APPROVAL,
+                                            Status.RESERVATION_CONFIRMED,
+                                            Status.RESERVATION_DEPOSITED, Status.RESERVATION_DEPOSIT_EXPIRED,
+                                            Status.RESERVATION_PAYMENT_PENDING, Status.RESERVATION_PAYMENT_REJECTED));
+
+                    if (alreadySubmitted) {
+                        groupUnavailable(unavailableGrouped, determineUnavailableReason(offerings, true), schoolEntry);
+                        continue;
+                    }
+                }
+            }
+
             boolean hasAvailable = offerings.stream().anyMatch(o ->
                     !o.getStatus().equals(Status.OFFERING_INACTIVE) &&
-                    !o.getStatus().equals(Status.OFFERING_DRAFT) &&
-                    !o.getStatus().equals(Status.UPCOMING_OFFERING) &&
+                            !o.getStatus().equals(Status.OFFERING_DRAFT) &&
+                            !o.getStatus().equals(Status.UPCOMING_OFFERING) &&
                             o.getApplicationStatus().equals(Status.OPEN) &&
                             o.getRemainingQuota() > 0 &&
                             o.getAllowReservationSubmission()
             );
-
 
             if (hasAvailable) {
                 Map<String, Object> entry = new HashMap<>();
@@ -2505,25 +2525,6 @@ public class ParentServiceImpl implements ParentService {
                 entry.put("schoolName", school.getName());
                 available.add(entry);
             } else {
-                if (studentProfile != null) {
-                    Optional<AdmissionCampaign> campaign = admissionCampaignRepo
-                            .findBySchoolIdAndYearAndStatus(schoolId, currentYear, Status.OPEN_ADMISSION_CAMPAIGN);
-
-                    if (campaign.isPresent()) {
-                        boolean alreadySubmitted = admissionReservationFormRepo
-                                .existsByAdmissionCampaignAndStudentProfileAndStatusIn(
-                                        campaign.get(), studentProfile, List.of(
-                                                Status.RESERVATION_PENDING, Status.RESERVATION_APPROVAL,
-                                                Status.RESERVATION_CONFIRMED,
-                                                Status.RESERVATION_DEPOSITED, Status.RESERVATION_DEPOSIT_EXPIRED,
-                                                Status.RESERVATION_PAYMENT_PENDING, Status.RESERVATION_PAYMENT_REJECTED));
-
-                        if (alreadySubmitted) {
-                            groupUnavailable(unavailableGrouped, determineUnavailableReason(offerings, true), schoolEntry);
-                            continue;
-                        }
-                    }
-                }
                 groupUnavailable(unavailableGrouped, determineUnavailableReason(offerings, false), schoolEntry);
             }
         }
