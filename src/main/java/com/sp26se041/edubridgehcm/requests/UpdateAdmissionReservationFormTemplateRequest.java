@@ -14,9 +14,11 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class CreateAdmissionReservationFormTemplateRequest {
+public class UpdateAdmissionReservationFormTemplateRequest {
 
-    List<CreateAdmissionReservationFormTemplateRequest.SubmissionDocument> submissionDocuments;
+    int admissionReservationFormTemplateId;
+
+    List<UpdateAdmissionReservationFormTemplateRequest.SubmissionDocument> submissionDocuments;
 
     int studentProfileId;
 
@@ -29,5 +31,4 @@ public class CreateAdmissionReservationFormTemplateRequest {
         List<String> imageUrl;
         String key;
     }
-
 }
