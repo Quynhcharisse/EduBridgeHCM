@@ -111,11 +111,13 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -983,6 +985,47 @@ public class CampusServiceImpl implements CampusService {
         }
 
         return Status.OPEN;
+    }
+
+    private ResponseEntity<ResponseObject> validateFormProfileDocuments(int schoolId, Object profileMetadata) {
+        SchoolConfig docConfig = schoolConfigRepo
+                .findBySchoolIdAndKey(schoolId, "documentRequirementsData").orElse(null);
+        if (docConfig == null || !(docConfig.getValue() instanceof Map<?, ?> docMap)) {
+            return null; // Trường chưa cấu hình → bỏ qua
+        }
+
+        List<?> mandatoryAll = docConfig.getValue() instanceof Map<?, ?> m
+                && m.get("mandatoryAll") instanceof List<?> l ? l : List.of();
+
+        // Parse submitted docs: [{key, imageUrl:[...]}, ...]
+        Set<String> submittedKeys = new HashSet<>();
+        if (profileMetadata instanceof List<?> metaList) {
+            for (Object item : metaList) {
+                if (!(item instanceof Map<?, ?> entry)) continue;
+                Object key = entry.get("key");
+                Object urls = entry.get("imageUrl");
+                if (key != null && urls instanceof List<?> urlList && !urlList.isEmpty()) {
+                    submittedKeys.add(key.toString().toUpperCase());
+                }
+            }
+        }
+
+        List<String> missingDocNames = mandatoryAll.stream()
+                .filter(item -> item instanceof Map<?, ?> doc
+                        && Boolean.TRUE.equals(((Map<?, ?>) doc).get("required")))
+                .map(item -> (Map<?, ?>) item)
+                .filter(doc -> {
+                    Object code = doc.get("code");
+                    return code == null || !submittedKeys.contains(code.toString().toUpperCase());
+                })
+                .map(doc -> Objects.toString(doc.get("name"), Objects.toString(doc.get("code"), "?")))
+                .toList();
+
+        if (!missingDocNames.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Hồ sơ chưa đủ giấy tờ bắt buộc. Còn thiếu: " + String.join(", ", missingDocNames), null);
+        }
+        return null;
     }
 
     /**
@@ -3082,8 +3125,8 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
         }
 
-        if (request.getCampusId() != null && !actorCampus.getId().equals(request.getCampusId())) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền tạo chương trình tuyển sinh cho cơ sở khác.", null);
+        if (actorCampus.getId() != null) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Không tìm thấy campus đấy", null);
         }
 
         AdmissionReservationForm form = admissionReservationFormRepo.findById(request.getFormId()).orElse(null);
@@ -3107,6 +3150,10 @@ public class CampusServiceImpl implements CampusService {
 
         switch (action) {
             case "APPROVE":
+                // Auto-validate: kiểm tra PH đã nộp đủ giấy tờ bắt buộc (mandatoryAll) theo cấu hình trường
+                ResponseEntity<ResponseObject> docValidation = validateFormProfileDocuments(
+                        campaign.getSchool().getId(), form.getProfileMetadata());
+                if (docValidation != null) return docValidation;
 
                 // APPROVE chỉ đổi status → PH được phép chọn offering (phase 2)
                 // Không đụng offering (chưa có), không đụng quota (đã trừ lúc PH nộp)

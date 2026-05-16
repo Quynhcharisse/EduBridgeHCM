@@ -16,9 +16,7 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class ProcessApplicantRequest {
     int formId;
-    Integer campusId;
     String rejectReason;
     String action;
-    // APPROVE: danh sách doc code school đã xác nhận hợp lệ (ví dụ: ["CCCD", "THPT_CERT"])
     List<String> checkedDocuments;
 }

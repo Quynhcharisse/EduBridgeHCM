@@ -196,6 +196,18 @@ public class CreateConfigDataRequest {
         String code;
         String name;
         boolean required;
+        List<OcrCriterion> ocrCriteria;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class OcrCriterion {
+        String field;             // tên field cần extract: full_name, dob, expiry_date...
+        String label;             // tên hiển thị cho school: "Họ và tên", "Ngày hết hạn"...
+        List<String> validations; // chữ validation text
     }
 
     @Data
