@@ -100,7 +100,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_CANCELLED;
 import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_COMPLETED;
@@ -2157,8 +2156,8 @@ public class ParentServiceImpl implements ParentService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy học sinh, vui lòng kiểm tra lại.", null);
         }
 
-        if (admissionReservationFormRepo.existsByStudentProfile_Parent_IdAndType(
-                studentProfile.get().getParent().getId(), "RESERVATION_TEMPLATE")) {
+        if (admissionReservationFormRepo.existsByStudentProfileAndType(
+                studentProfile.get(), "RESERVATION_TEMPLATE")) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
                     "Phụ huynh đã có mẫu hồ sơ giữ chỗ, không thể tạo thêm.", null);
         }
@@ -2375,6 +2374,11 @@ public class ParentServiceImpl implements ParentService {
 
         return ResponseBuilder.build(HttpStatus.OK, "Cập nhật mẫu hồ sơ giữ chỗ thành công.", null);
 
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getReservationFeeFromCampusProgramOffering(int campusProgramOfferingId) {
+        return null;
     }
 
     private Map<String, Object> buildAdmissionReservationFormTemplate(AdmissionReservationForm form) {
@@ -2611,6 +2615,10 @@ public class ParentServiceImpl implements ParentService {
             forms = admissionReservationFormRepo.findByStudentProfile_Parent_Account_Id(account.get().getId());
         }
 
+        forms = forms.stream()
+                .filter(f -> !"RESERVATION_TEMPLATE".equals(f.getType()))
+                .toList();
+
         List<Map<String, Object>> result = buildAdmissionReservationForms(forms);
 
         return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách đơn thành công.", result);
@@ -2678,6 +2686,7 @@ public class ParentServiceImpl implements ParentService {
         if (admissionCampaign == null) {
             map.put("schoolName", "N/A");
         } else {
+            map.put("admissionCampaignId", admissionCampaign.getId());
             map.put("schoolName", admissionCampaign.getSchool().getName());
         }
 
