@@ -111,13 +111,11 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -985,105 +983,6 @@ public class CampusServiceImpl implements CampusService {
         }
 
         return Status.OPEN;
-    }
-
-    private ResponseEntity<ResponseObject> validateFormProfileDocuments(int schoolId, Object profileMetadata) {
-        SchoolConfig docConfig = schoolConfigRepo
-                .findBySchoolIdAndKey(schoolId, "documentRequirementsData").orElse(null);
-        if (docConfig == null || !(docConfig.getValue() instanceof Map<?, ?> docMap)) {
-            return null; // Trường chưa cấu hình → bỏ qua
-        }
-
-        List<?> mandatoryAll = docConfig.getValue() instanceof Map<?, ?> m
-                && m.get("mandatoryAll") instanceof List<?> l ? l : List.of();
-
-        // Parse submitted docs: [{key, imageUrl:[...]}, ...]
-        Set<String> submittedKeys = new HashSet<>();
-        if (profileMetadata instanceof List<?> metaList) {
-            for (Object item : metaList) {
-                if (!(item instanceof Map<?, ?> entry)) continue;
-                Object key = entry.get("key");
-                Object urls = entry.get("imageUrl");
-                if (key != null && urls instanceof List<?> urlList && !urlList.isEmpty()) {
-                    submittedKeys.add(key.toString().toUpperCase());
-                }
-            }
-        }
-
-        List<String> missingDocNames = mandatoryAll.stream()
-                .filter(item -> item instanceof Map<?, ?> doc
-                        && Boolean.TRUE.equals(((Map<?, ?>) doc).get("required")))
-                .map(item -> (Map<?, ?>) item)
-                .filter(doc -> {
-                    Object code = doc.get("code");
-                    return code == null || !submittedKeys.contains(code.toString().toUpperCase());
-                })
-                .map(doc -> Objects.toString(doc.get("name"), Objects.toString(doc.get("code"), "?")))
-                .toList();
-
-        if (!missingDocNames.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Hồ sơ chưa đủ giấy tờ bắt buộc. Còn thiếu: " + String.join(", ", missingDocNames), null);
-        }
-        return null;
-    }
-
-    /**
-     * Validate school đã tích đủ required documents trước khi approve.
-     * Return null nếu hợp lệ, ResponseEntity BAD_REQUEST nếu thiếu.
-     */
-    private ResponseEntity<ResponseObject> validateCheckedDocuments(
-            int schoolId, String methodName, List<String> checkedDocuments) {
-
-        SchoolConfig docConfig = schoolConfigRepo
-                .findBySchoolIdAndKey(schoolId, "documentRequirementsData").orElse(null);
-        if (docConfig == null || !(docConfig.getValue() instanceof Map<?, ?> docMap)) {
-            // Trường chưa cấu hình document → bỏ qua validate
-            return null;
-        }
-
-        // Thu thập required doc codes: mandatoryAll + byMethod theo methodName
-        List<String> requiredCodes = new ArrayList<>();
-
-        List<?> mandatoryAll = docMap.get("mandatoryAll") instanceof List<?> m ? m : List.of();
-        for (Object item : mandatoryAll) {
-            if (item instanceof Map<?, ?> doc && Boolean.TRUE.equals(doc.get("required"))) {
-                Object code = doc.get("code");
-                if (code != null) requiredCodes.add(code.toString());
-            }
-        }
-
-        if (methodName != null) {
-            List<?> byMethod = docMap.get("byMethod") instanceof List<?> b ? b : List.of();
-            for (Object item : byMethod) {
-                if (!(item instanceof Map<?, ?> methodEntry)) continue;
-                if (!methodName.equalsIgnoreCase(Objects.toString(methodEntry.get("methodCode"), null))) continue;
-                List<?> docs = methodEntry.get("documents") instanceof List<?> d ? d : List.of();
-                for (Object docItem : docs) {
-                    if (docItem instanceof Map<?, ?> doc && Boolean.TRUE.equals(doc.get("required"))) {
-                        Object code = doc.get("code");
-                        if (code != null) requiredCodes.add(code.toString());
-                    }
-                }
-                break;
-            }
-        }
-
-        if (requiredCodes.isEmpty()) return null; // Không có doc bắt buộc → pass
-
-        List<String> checked = checkedDocuments != null
-                ? checkedDocuments.stream().map(String::toUpperCase).toList()
-                : List.of();
-
-        List<String> missing = requiredCodes.stream()
-                .filter(code -> !checked.contains(code.toUpperCase()))
-                .toList();
-
-        if (!missing.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Chưa xác nhận đủ hồ sơ bắt buộc. Còn thiếu: " + String.join(", ", missing), null);
-        }
-        return null;
     }
 
     private Map<String, Object> findMethodTimeline(AdmissionCampaign campaign, String methodCode) {
@@ -3125,10 +3024,6 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
         }
 
-        if (actorCampus.getId() != null) {
-            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Không tìm thấy campus đấy", null);
-        }
-
         AdmissionReservationForm form = admissionReservationFormRepo.findById(request.getFormId()).orElse(null);
 
         if (form == null) {
@@ -3150,13 +3045,16 @@ public class CampusServiceImpl implements CampusService {
 
         switch (action) {
             case "APPROVE":
-                // Auto-validate: kiểm tra PH đã nộp đủ giấy tờ bắt buộc (mandatoryAll) theo cấu hình trường
-                ResponseEntity<ResponseObject> docValidation = validateFormProfileDocuments(
-                        campaign.getSchool().getId(), form.getProfileMetadata());
+                if (request.getCheckedDocuments() == null || request.getCheckedDocuments().isEmpty()) {
+                    return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                            "Vui lòng xác nhận đã kiểm tra hồ sơ trước khi phê duyệt.", null);
+                }
+
+                ResponseEntity<ResponseObject> docValidation = validateCheckedDocuments(
+                        campaign.getSchool().getId(), null, request.getCheckedDocuments());
                 if (docValidation != null) return docValidation;
 
-                // APPROVE chỉ đổi status → PH được phép chọn offering (phase 2)
-                // Không đụng offering (chưa có), không đụng quota (đã trừ lúc PH nộp)
+
                 form.setStatus(Status.RESERVATION_APPROVAL);
                 successMessage = "Phê duyệt đơn đăng ký thành công.";
                 break;
@@ -3190,6 +3088,60 @@ public class CampusServiceImpl implements CampusService {
         admissionReservationFormRepo.save(form);
 
         return ResponseBuilder.build(HttpStatus.OK, successMessage, null);
+    }
+
+    private ResponseEntity<ResponseObject> validateCheckedDocuments(
+            int schoolId, String methodName, List<String> checkedDocuments) {
+
+        SchoolConfig docConfig = schoolConfigRepo
+                .findBySchoolIdAndKey(schoolId, "documentRequirementsData").orElse(null);
+        if (docConfig == null || !(docConfig.getValue() instanceof Map<?, ?> docMap)) {
+            // Trường chưa cấu hình document → bỏ qua validate
+            return null;
+        }
+
+        // Thu thập required doc codes: mandatoryAll + byMethod theo methodName
+        List<String> requiredCodes = new ArrayList<>();
+
+        List<?> mandatoryAll = docMap.get("mandatoryAll") instanceof List<?> m ? m : List.of();
+        for (Object item : mandatoryAll) {
+            if (item instanceof Map<?, ?> doc && Boolean.TRUE.equals(doc.get("required"))) {
+                Object code = doc.get("code");
+                if (code != null) requiredCodes.add(code.toString());
+            }
+        }
+
+        if (methodName != null) {
+            List<?> byMethod = docMap.get("byMethod") instanceof List<?> b ? b : List.of();
+            for (Object item : byMethod) {
+                if (!(item instanceof Map<?, ?> methodEntry)) continue;
+                if (!methodName.equalsIgnoreCase(Objects.toString(methodEntry.get("methodCode"), null))) continue;
+                List<?> docs = methodEntry.get("documents") instanceof List<?> d ? d : List.of();
+                for (Object docItem : docs) {
+                    if (docItem instanceof Map<?, ?> doc && Boolean.TRUE.equals(doc.get("required"))) {
+                        Object code = doc.get("code");
+                        if (code != null) requiredCodes.add(code.toString());
+                    }
+                }
+                break;
+            }
+        }
+
+        if (requiredCodes.isEmpty()) return null; // Không có doc bắt buộc → pass
+
+        List<String> checked = checkedDocuments != null
+                ? checkedDocuments.stream().map(String::toUpperCase).toList()
+                : List.of();
+
+        List<String> missing = requiredCodes.stream()
+                .filter(code -> !checked.contains(code.toUpperCase()))
+                .toList();
+
+        if (!missing.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Chưa xác nhận đủ hồ sơ bắt buộc. Còn thiếu: " + String.join(", ", missing), null);
+        }
+        return null;
     }
 
     @Override

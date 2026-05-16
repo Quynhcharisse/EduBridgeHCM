@@ -97,9 +97,8 @@ public class SchoolConfigRequest {
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class OcrCriterion {
-        String field;              // tên field cần extract: full_name, dob, id_number, expiry_date...
-        String label;              // tên hiển thị: "Họ tên", "Ngày sinh"...
-        List<String> validations;  // danh sách tiêu chí áp dụng cho field này
+        String label;
+        List<String> validations;
     }
 
     @Data
