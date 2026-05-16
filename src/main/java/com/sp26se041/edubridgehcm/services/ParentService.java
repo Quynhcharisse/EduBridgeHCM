@@ -65,6 +65,8 @@ public interface ParentService {
 
     ResponseEntity<ResponseObject> updateAdmissionReservationFormTemplate(UpdateAdmissionReservationFormTemplateRequest request);
 
+    ResponseEntity<ResponseObject> getReservationFeeFromCampusProgramOffering(int campusProgramOfferingId);
+
     ResponseEntity<ResponseObject> getRequiredDocuments();
 
     ResponseEntity<ResponseObject> updateAdmissionReservationForm(UpdateAdmissionReservationFormRequest request);
