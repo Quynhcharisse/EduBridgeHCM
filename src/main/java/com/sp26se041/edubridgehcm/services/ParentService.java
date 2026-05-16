@@ -60,6 +60,9 @@ public interface ParentService {
 
     ResponseEntity<ResponseObject> createAdmissionReservationTemplateForm(CreateAdmissionReservationFormTemplateRequest request);
 
+    ResponseEntity<ResponseObject> getAdmissionReservationTemplateForm();
+
+
     ResponseEntity<ResponseObject> getRequiredDocuments();
 
     ResponseEntity<ResponseObject> updateAdmissionReservationForm(UpdateAdmissionReservationFormRequest request);

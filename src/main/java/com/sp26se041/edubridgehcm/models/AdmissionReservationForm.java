@@ -74,6 +74,9 @@ public class AdmissionReservationForm {
     @Column(name = "payment_confirmed_by")
     String paymentConfirmedBy;
 
+    @Column(name = "is_applied", columnDefinition = "boolean default false")
+    Boolean isApplied;
+
     @ManyToOne
     @JoinColumn(name = "campus_program_offering_id")
     CampusProgramOffering campusProgramOffering;

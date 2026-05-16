@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface AdmissionReservationFormRepo extends JpaRepository<AdmissionReservationForm, Integer> {
 
@@ -33,5 +34,9 @@ public interface AdmissionReservationFormRepo extends JpaRepository<AdmissionRes
     boolean existsByStudentProfile_StudentCodeAndStatusAndAdmissionCampaign_Year(String studentProfileStudentCode, Status status, int admissionCampaignYear);
 
     List<AdmissionReservationForm> findByStudentProfileAndStatus(StudentProfile studentProfile, Status status);
+
+    boolean existsByStudentProfile_Parent_IdAndType(Integer studentProfileParentId, String type);
+
+    Optional<AdmissionReservationForm> findFirstByStudentProfile_Parent_IdAndType(Integer studentProfileParentId, String type);
 }
 

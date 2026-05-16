@@ -245,5 +245,11 @@ public class ParentController {
         return parentService.createAdmissionReservationTemplateForm(request);
     }
 
+    @GetMapping("/admission/reservation/form/template")
+    @PreAuthorize("hasAnyRole('PARENT')")
+    public ResponseEntity<ResponseObject> getAdmissionReservationFormTemplate() {
+        return parentService.getAdmissionReservationTemplateForm();
+    }
+
 }
 
