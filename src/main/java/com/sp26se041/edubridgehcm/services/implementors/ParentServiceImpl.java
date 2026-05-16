@@ -2159,7 +2159,7 @@ public class ParentServiceImpl implements ParentService {
         if (admissionReservationFormRepo.existsByStudentProfileAndType(
                 studentProfile.get(), "RESERVATION_TEMPLATE")) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Phụ huynh đã có mẫu hồ sơ giữ chỗ, không thể tạo thêm.", null);
+                    "Phụ huynh đã có mẫu hồ sơ giữ chỗ của trẻ " + studentProfile.get().getStudentName() + ", không thể tạo thêm.", null);
         }
 
 
@@ -2258,18 +2258,28 @@ public class ParentServiceImpl implements ParentService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> getAdmissionReservationTemplateForm() {
+    public ResponseEntity<ResponseObject> getAdmissionReservationTemplateForm(int studentProfileId) {
 
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        Optional<Parent> parent = parentRepo.findByAccount_Email(email);
+        Optional<Account> account = accountRepo.findByEmail(email);
 
-        if (parent.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản phụ huynh.", null);
+        if (account.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "Không tìm thấy tài khoản.", null);
+        }
+
+        Optional<StudentProfile> studentProfile = studentInfoRepo.findById(studentProfileId);
+
+        if (studentProfile.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy học sinh, vui lòng kiểm tra lại.", null);
+        }
+
+        if (!studentProfile.get().getParent().getAccount().getId().equals(account.get().getId())) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền truy cập thông tin này.", null);
         }
 
         Optional<AdmissionReservationForm> admissionReservationFormTemplate = admissionReservationFormRepo
-                .findFirstByStudentProfile_Parent_IdAndType(parent.get().getId(), "RESERVATION_TEMPLATE");
+                .findByStudentProfileAndType(studentProfile.get(), "RESERVATION_TEMPLATE");
 
         if (admissionReservationFormTemplate.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Phụ huynh chưa có mẫu hồ sơ giữ chỗ.", null);
