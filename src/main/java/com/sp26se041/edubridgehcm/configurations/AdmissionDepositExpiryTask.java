@@ -42,7 +42,7 @@ public class AdmissionDepositExpiryTask {
         for (AdmissionReservationForm form : candidates) {
             LocalDate depositDeadline = resolveDepositDeadline(form);
             if (depositDeadline == null || !today.isAfter(depositDeadline)) {
-                continue; // Chưa hết hạn
+                continue;
             }
 
             Status previousStatus = form.getStatus();
@@ -58,18 +58,43 @@ public class AdmissionDepositExpiryTask {
                 admissionCampaignRepo.save(campaign);
             }
 
-            //Offering quota KHÔNG restore ở đây vì:
-            //OFFERING_SELECTED: offering quota chưa bị trừ
-            //PAYMENT_PENDING  : offering quota chưa bị trừ
-            //Offering quota chỉ bị trừ khi campus CONFIRM (→ DEPOSITED)
-            //Nếu cần handle DEPOSITED expire thì xử lý riêng
             expiredCount++;
-            log.info("[DepositExpiry] Form #{} expired (was {}) - campaign #{} quota restored",
-                    form.getId(), previousStatus, campaign != null ? campaign.getId() : "N/A");
         }
 
         if (expiredCount > 0) {
             log.info("[DepositExpiry] Tổng số form hết hạn đặt cọc: {}", expiredCount);
+        }
+    }
+
+    @Scheduled(cron = "0 5 1 * * *")
+    @Transactional
+    public void ghostExpiredForms() {
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+
+        List<AdmissionReservationForm> candidates = reservationFormRepo.findByStatusIn(
+                Set.of(Status.RESERVATION_DEPOSIT_EXPIRED,
+                        Status.RESERVATION_APPROVAL)
+        );
+
+        int ghostCount = 0;
+
+        for (AdmissionReservationForm form : candidates) {
+            LocalDate confirmationEnd = resolveConfirmationEndDate(form);
+            if (confirmationEnd == null || !today.isAfter(confirmationEnd)) {
+                continue;
+            }
+
+            Status previousStatus = form.getStatus();
+            form.setStatus(Status.RESERVATION_GHOST);
+            reservationFormRepo.save(form);
+            ghostCount++;
+            log.info("[ConfirmationExpiry] Form #{} → GHOST (was {}) - campaign #{}",
+                    form.getId(), previousStatus,
+                    form.getAdmissionCampaign() != null ? form.getAdmissionCampaign().getId() : "N/A");
+        }
+
+        if (ghostCount > 0) {
+            log.info("[ConfirmationExpiry] Tổng số form chuyển GHOST: {}", ghostCount);
         }
     }
 
@@ -81,6 +106,18 @@ public class AdmissionDepositExpiryTask {
         for (Object item : timelines) {
             if (!(item instanceof Map<?, ?> tl)) continue;
             return AdmissionCampaignValidation.parseLocalDateSafe(tl.get("depositEndDate"));
+        }
+        return null;
+    }
+
+    private LocalDate resolveConfirmationEndDate(AdmissionReservationForm form) {
+        AdmissionCampaign campaign = form.getAdmissionCampaign();
+        if (campaign == null) return null;
+        if (!(campaign.getAdmissionMethodTimelines() instanceof List<?> timelines)) return null;
+
+        for (Object item : timelines) {
+            if (!(item instanceof Map<?, ?> tl)) continue;
+            return AdmissionCampaignValidation.parseLocalDateSafe(tl.get("confirmationEndDate"));
         }
         return null;
     }
