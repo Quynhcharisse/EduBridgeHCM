@@ -2497,7 +2497,25 @@ public class ParentServiceImpl implements ParentService {
                             o.getRemainingQuota() > 0 &&
                             o.getAllowReservationSubmission()
             );
+            if (studentProfile != null) {
+                Optional<AdmissionCampaign> campaign = admissionCampaignRepo
+                        .findBySchoolIdAndYearAndStatus(schoolId, currentYear, Status.OPEN_ADMISSION_CAMPAIGN);
 
+                if (campaign.isPresent()) {
+                    boolean alreadySubmitted = admissionReservationFormRepo
+                            .existsByAdmissionCampaignAndStudentProfileAndStatusIn(
+                                    campaign.get(), studentProfile, List.of(
+                                            Status.RESERVATION_PENDING, Status.RESERVATION_APPROVAL,
+                                            Status.RESERVATION_CONFIRMED,
+                                            Status.RESERVATION_DEPOSITED, Status.RESERVATION_DEPOSIT_EXPIRED,
+                                            Status.RESERVATION_PAYMENT_PENDING, Status.RESERVATION_PAYMENT_REJECTED));
+
+                    if (alreadySubmitted) {
+                        groupUnavailable(unavailableGrouped, determineUnavailableReason(offerings, true), schoolEntry);
+                        continue;
+                    }
+                }
+            }
 
             if (hasAvailable) {
                 Map<String, Object> entry = new HashMap<>();
@@ -2505,25 +2523,6 @@ public class ParentServiceImpl implements ParentService {
                 entry.put("schoolName", school.getName());
                 available.add(entry);
             } else {
-                if (studentProfile != null) {
-                    Optional<AdmissionCampaign> campaign = admissionCampaignRepo
-                            .findBySchoolIdAndYearAndStatus(schoolId, currentYear, Status.OPEN_ADMISSION_CAMPAIGN);
-
-                    if (campaign.isPresent()) {
-                        boolean alreadySubmitted = admissionReservationFormRepo
-                                .existsByAdmissionCampaignAndStudentProfileAndStatusIn(
-                                        campaign.get(), studentProfile, List.of(
-                                                Status.RESERVATION_PENDING, Status.RESERVATION_APPROVAL,
-                                                Status.RESERVATION_CONFIRMED,
-                                                Status.RESERVATION_DEPOSITED, Status.RESERVATION_DEPOSIT_EXPIRED,
-                                                Status.RESERVATION_PAYMENT_PENDING, Status.RESERVATION_PAYMENT_REJECTED));
-
-                        if (alreadySubmitted) {
-                            groupUnavailable(unavailableGrouped, determineUnavailableReason(offerings, true), schoolEntry);
-                            continue;
-                        }
-                    }
-                }
                 groupUnavailable(unavailableGrouped, determineUnavailableReason(offerings, false), schoolEntry);
             }
         }
