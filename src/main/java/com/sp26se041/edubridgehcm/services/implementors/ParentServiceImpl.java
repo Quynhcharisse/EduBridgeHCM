@@ -1186,7 +1186,6 @@ public class ParentServiceImpl implements ParentService {
                 }
             }
         }
-
         return "";
     }
 
@@ -1961,7 +1960,6 @@ public class ParentServiceImpl implements ParentService {
                     "Học sinh chưa cập nhật đầy đủ học bạ 4 khối (lớp 6, 7, 8, 9), vui lòng cập nhật hồ sơ trước khi nộp đơn.", null);
         }
 
-
         String studentCode = studentProfile.get().getStudentCode();
 
         int currentYear = Year.now().getValue();
@@ -2137,6 +2135,27 @@ public class ParentServiceImpl implements ParentService {
         }
 
         return ResponseBuilder.build(HttpStatus.OK, "Nộp hồ sơ giữ chỗ thành công.", result);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getRequiredDocuments() {
+        Optional<PlatformConfig> admissionSettings = platformConfigRepo.findByKey("admissionSettingsData");
+
+        if (admissionSettings.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Hệ thống chưa cấu hình thông tin tuyển sinh. Vui lòng thử lại sau.", null);
+        }
+
+        Map<String, Object> admissionSettingsData = (Map<String, Object>) admissionSettings.get().getValue();
+
+        Map<String, Object> documentRequirementsData = (Map<String, Object>) admissionSettingsData.get("documentRequirementsData");
+
+        List<Map<String, Object>> mandatoryAll = documentRequirementsData != null
+                && documentRequirementsData.get("mandatoryAll") != null
+                ? (List<Map<String, Object>>) documentRequirementsData.get("mandatoryAll")
+                : List.of();
+
+            return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách hồ sơ bắt buộc thành công", mandatoryAll);
+
     }
 
     @Override

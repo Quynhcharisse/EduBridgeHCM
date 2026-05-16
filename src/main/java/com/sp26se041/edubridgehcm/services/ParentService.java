@@ -57,6 +57,8 @@ public interface ParentService {
 
     ResponseEntity<ResponseObject> createAdmissionReservationForm(CreateAdmissionReservationFormRequest request);
 
+    ResponseEntity<ResponseObject> getRequiredDocuments();
+
     ResponseEntity<ResponseObject> updateAdmissionReservationForm(UpdateAdmissionReservationFormRequest request);
 
     ResponseEntity<ResponseObject> getDocumentRequirements( int campusProgramOfferingId);

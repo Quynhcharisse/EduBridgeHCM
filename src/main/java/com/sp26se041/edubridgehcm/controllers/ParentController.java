@@ -209,8 +209,8 @@ public class ParentController {
 
     @GetMapping("/documents")
     @PreAuthorize("hasAnyRole('PARENT')")
-    public ResponseEntity<ResponseObject> getDocuments(@RequestParam int campusProgramOfferingId) {
-        return parentService.getDocumentRequirements(campusProgramOfferingId);
+    public ResponseEntity<ResponseObject> getDocuments() {
+        return parentService.getRequiredDocuments();
     }
 
     @GetMapping("/admission/reservation/form")
