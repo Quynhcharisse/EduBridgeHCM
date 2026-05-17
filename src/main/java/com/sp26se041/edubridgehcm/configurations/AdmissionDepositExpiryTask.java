@@ -3,8 +3,10 @@ package com.sp26se041.edubridgehcm.configurations;
 import com.sp26se041.edubridgehcm.enums.Status;
 import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
 import com.sp26se041.edubridgehcm.models.AdmissionReservationForm;
+import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
 import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
 import com.sp26se041.edubridgehcm.repositories.AdmissionReservationFormRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
 import com.sp26se041.edubridgehcm.validations.school.AdmissionCampaignValidation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +18,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 @Component
@@ -26,6 +27,7 @@ public class AdmissionDepositExpiryTask {
 
     private final AdmissionReservationFormRepo reservationFormRepo;
     private final AdmissionCampaignRepo admissionCampaignRepo;
+    private final CampusProgramOfferingRepo campusProgramOfferingRepo;
 
     @Scheduled(cron = "0 0 1 * * *")
     @Transactional
@@ -71,9 +73,11 @@ public class AdmissionDepositExpiryTask {
     public void ghostExpiredForms() {
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
 
+        // Bug 2 fix: thêm RESERVATION_DEPOSITED — phụ huynh đã đóng tiền nhưng không chốt trường trước confirmationEndDate
         List<AdmissionReservationForm> candidates = reservationFormRepo.findByStatusIn(
                 Set.of(Status.RESERVATION_DEPOSIT_EXPIRED,
-                        Status.RESERVATION_APPROVAL)
+                        Status.RESERVATION_APPROVAL,
+                        Status.RESERVATION_DEPOSITED)
         );
 
         int ghostCount = 0;
@@ -87,6 +91,23 @@ public class AdmissionDepositExpiryTask {
             Status previousStatus = form.getStatus();
             form.setStatus(Status.RESERVATION_GHOST);
             reservationFormRepo.save(form);
+
+            if (previousStatus == Status.RESERVATION_APPROVAL) {
+                AdmissionCampaign campaign = form.getAdmissionCampaign();
+                if (campaign != null && campaign.getRemainingQuota() != null) {
+                    campaign.setRemainingQuota(campaign.getRemainingQuota() + 1);
+                    admissionCampaignRepo.save(campaign);
+                }
+            }
+
+            if (previousStatus == Status.RESERVATION_DEPOSITED) {
+                CampusProgramOffering offering = form.getCampusProgramOffering();
+                if (offering != null) {
+                    offering.setRemainingQuota(offering.getRemainingQuota() + 1);
+                    campusProgramOfferingRepo.save(offering);
+                }
+            }
+
             ghostCount++;
             log.info("[ConfirmationExpiry] Form #{} → GHOST (was {}) - campaign #{}",
                     form.getId(), previousStatus,
@@ -103,11 +124,21 @@ public class AdmissionDepositExpiryTask {
         if (campaign == null) return null;
         if (!(campaign.getAdmissionMethodTimelines() instanceof List<?> timelines)) return null;
 
+        String methodCode = form.getCampusProgramOffering() != null
+                ? form.getCampusProgramOffering().getAdmissionMethod()
+                : null;
+
+        LocalDate fallback = null;
         for (Object item : timelines) {
             if (!(item instanceof Map<?, ?> tl)) continue;
-            return AdmissionCampaignValidation.parseLocalDateSafe(tl.get("depositEndDate"));
+            if (fallback == null) {
+                fallback = AdmissionCampaignValidation.parseLocalDateSafe(tl.get("depositEndDate"));
+            }
+            if (methodCode != null && methodCode.equals(tl.get("methodCode"))) {
+                return AdmissionCampaignValidation.parseLocalDateSafe(tl.get("depositEndDate"));
+            }
         }
-        return null;
+        return fallback;
     }
 
     private LocalDate resolveConfirmationEndDate(AdmissionReservationForm form) {
@@ -115,10 +146,20 @@ public class AdmissionDepositExpiryTask {
         if (campaign == null) return null;
         if (!(campaign.getAdmissionMethodTimelines() instanceof List<?> timelines)) return null;
 
+        String methodCode = form.getCampusProgramOffering() != null
+                ? form.getCampusProgramOffering().getAdmissionMethod()
+                : null;
+
+        LocalDate fallback = null;
         for (Object item : timelines) {
             if (!(item instanceof Map<?, ?> tl)) continue;
-            return AdmissionCampaignValidation.parseLocalDateSafe(tl.get("confirmationEndDate"));
+            if (fallback == null) {
+                fallback = AdmissionCampaignValidation.parseLocalDateSafe(tl.get("confirmationEndDate"));
+            }
+            if (methodCode != null && methodCode.equals(tl.get("methodCode"))) {
+                return AdmissionCampaignValidation.parseLocalDateSafe(tl.get("confirmationEndDate"));
+            }
         }
-        return null;
+        return fallback;
     }
 }

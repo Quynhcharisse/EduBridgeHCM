@@ -14,8 +14,6 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class ConfirmPaymentDepositRequest {
     int formId;
-    // "CONFIRM" → DEPOSITED | "REJECT_PAYMENT" → quay lại OFFERING_SELECTED để PH upload lại
     String action;
-    // Bắt buộc khi action = REJECT_PAYMENT
     String rejectReason;
 }
