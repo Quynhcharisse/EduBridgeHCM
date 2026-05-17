@@ -35,7 +35,6 @@ import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
 import com.sp26se041.edubridgehcm.repositories.ConsultationOfflineRequestRepo;
 import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
-import com.sp26se041.edubridgehcm.repositories.CounsellorSlotRepo;
 import com.sp26se041.edubridgehcm.repositories.FavouriteSchoolRepo;
 import com.sp26se041.edubridgehcm.repositories.MajorRepo;
 import com.sp26se041.edubridgehcm.repositories.ParentRepo;
@@ -100,7 +99,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_CANCELLED;
 import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_COMPLETED;
@@ -137,8 +135,6 @@ public class ParentServiceImpl implements ParentService {
     private final CampusRepo campusRepo;
 
     private final CounsellorRepo counsellorRepo;
-
-    private final CounsellorSlotRepo counsellorSlotRepo;
 
     private final NotificationService notificationService;
 
@@ -2157,10 +2153,10 @@ public class ParentServiceImpl implements ParentService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy học sinh, vui lòng kiểm tra lại.", null);
         }
 
-        if (admissionReservationFormRepo.existsByStudentProfile_Parent_IdAndType(
-                studentProfile.get().getParent().getId(), "RESERVATION_TEMPLATE")) {
+        if (admissionReservationFormRepo.existsByStudentProfileAndType(
+                studentProfile.get(), "RESERVATION_TEMPLATE")) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Phụ huynh đã có mẫu hồ sơ giữ chỗ, không thể tạo thêm.", null);
+                    "Phụ huynh đã có mẫu hồ sơ giữ chỗ của trẻ " + studentProfile.get().getStudentName() + ", không thể tạo thêm.", null);
         }
 
 
@@ -2259,18 +2255,28 @@ public class ParentServiceImpl implements ParentService {
     }
 
     @Override
-    public ResponseEntity<ResponseObject> getAdmissionReservationTemplateForm() {
+    public ResponseEntity<ResponseObject> getAdmissionReservationTemplateForm(int studentProfileId) {
 
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        Optional<Parent> parent = parentRepo.findByAccount_Email(email);
+        Optional<Account> account = accountRepo.findByEmail(email);
 
-        if (parent.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản phụ huynh.", null);
+        if (account.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "Không tìm thấy tài khoản.", null);
+        }
+
+        Optional<StudentProfile> studentProfile = studentInfoRepo.findById(studentProfileId);
+
+        if (studentProfile.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy học sinh, vui lòng kiểm tra lại.", null);
+        }
+
+        if (!studentProfile.get().getParent().getAccount().getId().equals(account.get().getId())) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền truy cập thông tin này.", null);
         }
 
         Optional<AdmissionReservationForm> admissionReservationFormTemplate = admissionReservationFormRepo
-                .findFirstByStudentProfile_Parent_IdAndType(parent.get().getId(), "RESERVATION_TEMPLATE");
+                .findByStudentProfileAndType(studentProfile.get(), "RESERVATION_TEMPLATE");
 
         if (admissionReservationFormTemplate.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Phụ huynh chưa có mẫu hồ sơ giữ chỗ.", null);
@@ -2377,6 +2383,68 @@ public class ParentServiceImpl implements ParentService {
 
     }
 
+    @Override
+    public ResponseEntity<ResponseObject> getQrCodeInfo(int admissionFormId) {
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        Optional<Account> account = accountRepo.findByEmail(email);
+
+        if (account.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "Không tìm thấy tài khoản.", null);
+        }
+
+        Optional<AdmissionReservationForm> formOpt = admissionReservationFormRepo.findById(admissionFormId);
+
+        if (formOpt.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy hồ sơ.", null);
+        }
+
+        AdmissionReservationForm form = formOpt.get();
+
+        if (!form.getStudentProfile().getParent().getAccount().getId().equals(account.get().getId())) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền truy cập thông tin này.", null);
+        }
+
+        AdmissionCampaign campaign = form.getAdmissionCampaign();
+
+        if (campaign == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Hồ sơ chưa liên kết với chiến dịch tuyển sinh.", null);
+        }
+
+        List<Map<String, Object>> timelines = (List<Map<String, Object>>) campaign.getAdmissionMethodTimelines();
+
+        if (timelines == null || timelines.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Chiến dịch tuyển sinh chưa cấu hình phương thức tuyển sinh.", null);
+        }
+
+        Object reservationFee = timelines.stream()
+                .filter(t -> Boolean.TRUE.equals(t.get("allowReservationSubmission")))
+                .map(t -> t.get("reservationFee"))
+                .findFirst()
+                .orElse(null);
+
+        if (reservationFee == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Chiến dịch tuyển sinh hiện không có phương thức nào cho phép giữ chỗ.", null);
+        }
+
+        int schoolId = campaign.getSchool().getId();
+
+        Optional<SchoolConfig> bankInfoConfig = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "bankInfoData");
+
+        if (bankInfoConfig.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Nhà trường chưa cấu hình thông tin ngân hàng.", null);
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("reservationFee", reservationFee);
+        result.put("bankInfo", bankInfoConfig.get().getValue());
+
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy thông tin QR code thành công.", result);
+
+    }
+
+
     private Map<String, Object> buildAdmissionReservationFormTemplate(AdmissionReservationForm form) {
 
         Map<String, Object> map = new HashMap<>();
@@ -2438,6 +2506,31 @@ public class ParentServiceImpl implements ParentService {
 
         AdmissionReservationForm form = formOpt.get();
 
+        if ("payment-again".equalsIgnoreCase(request.getAction())) {
+            if (!Status.RESERVATION_PAYMENT_REJECTED.equals(form.getStatus())) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Hồ sơ phải ở trạng thái bị từ chối thanh toán để thực hiện thao tác này.", null);
+            }
+            int retryCount = form.getPaymentRetryCount() == null ? 0 : form.getPaymentRetryCount();
+
+            if (retryCount >= 3) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Bạn đã nộp lại minh chứng thanh toán tối đa 3 lần. Vui lòng liên hệ nhà trường để được hỗ trợ.", null);
+            }
+            if (request.getPaymentUrl() == null || request.getPaymentUrl().isBlank()) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Vui lòng cung cấp ảnh chứng minh thanh toán để tiếp tục.", null);
+            }
+            form.setPaymentProofUrl(request.getPaymentUrl());
+            form.setPaymentRetryCount(retryCount + 1);
+            form.setStatus(Status.RESERVATION_PAYMENT_PENDING);
+            form.setUpdatedTime(LocalDateTime.now());
+            admissionReservationFormRepo.save(form);
+
+            return ResponseBuilder.build(HttpStatus.OK, "Nộp minh chứng thanh toán thành công.", null);
+
+        }
+
         if ("payment".equalsIgnoreCase(request.getAction())) {
 
             if (!Status.RESERVATION_APPROVAL.equals(form.getStatus())) {
@@ -2491,7 +2584,7 @@ public class ParentServiceImpl implements ParentService {
             form.setUpdatedTime(LocalDateTime.now());
             admissionReservationFormRepo.save(form);
 
-            return ResponseBuilder.build(HttpStatus.OK, "Nộp minh chứng thanh toán thành công.", null);
+            return ResponseBuilder.build(HttpStatus.OK, "Nộp minh chứng thanh toán và chọn chương trình thành công.", null);
         }
 
         if ("confirm".equalsIgnoreCase(request.getAction())) {
@@ -2611,6 +2704,10 @@ public class ParentServiceImpl implements ParentService {
             forms = admissionReservationFormRepo.findByStudentProfile_Parent_Account_Id(account.get().getId());
         }
 
+        forms = forms.stream()
+                .filter(f -> !"RESERVATION_TEMPLATE".equals(f.getType()))
+                .toList();
+
         List<Map<String, Object>> result = buildAdmissionReservationForms(forms);
 
         return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách đơn thành công.", result);
@@ -2678,6 +2775,7 @@ public class ParentServiceImpl implements ParentService {
         if (admissionCampaign == null) {
             map.put("schoolName", "N/A");
         } else {
+            map.put("admissionCampaignId", admissionCampaign.getId());
             map.put("schoolName", admissionCampaign.getSchool().getName());
         }
 
@@ -2854,6 +2952,86 @@ public class ParentServiceImpl implements ParentService {
         result.put("unavailable", unavailableList);
 
         return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách trường thành công.", result);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getCampusProgramOffering(int admissionFormId) {
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        Optional<Account> account = accountRepo.findByEmail(email);
+
+        if (account.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.UNAUTHORIZED, "Không tìm thấy tài khoản.", null);
+        }
+
+        Optional<AdmissionReservationForm> formOpt = admissionReservationFormRepo.findById(admissionFormId);
+
+        if (formOpt.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy hồ sơ.", null);
+        }
+
+        AdmissionReservationForm form = formOpt.get();
+
+        if (!form.getStudentProfile().getParent().getAccount().getId().equals(account.get().getId())) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền truy cập thông tin này.", null);
+        }
+
+        AdmissionCampaign campaign = form.getAdmissionCampaign();
+
+        if (campaign == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Hồ sơ chưa liên kết với chiến dịch tuyển sinh.", null);
+        }
+
+        List<Map<String, Object>> offerings = campusProgramOfferingRepo.findByAdmissionCampaignId(campaign.getId())
+                .stream()
+                .filter(o -> Boolean.TRUE.equals(o.getAllowReservationSubmission()))
+                .map(o -> {
+                    Map<String, Object> entry = new HashMap<>();
+                    entry.put("campusProgramOfferingId", o.getId());
+                    entry.put("programName", o.getProgramNameSnapshot());
+                    entry.put("admissionMethod", o.getAdmissionMethod());
+                    entry.put("quota", o.getQuota());
+                    entry.put("remainingQuota", o.getRemainingQuota());
+                    entry.put("openDate", o.getOpenDate());
+                    entry.put("closeDate", o.getCloseDate());
+
+                    String unavailableReason = resolveOfferingUnavailableReason(o);
+                    entry.put("canSubmit", unavailableReason == null);
+                    entry.put("unavailableReason", unavailableReason);
+
+                    return entry;
+                })
+                .toList();
+
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách chương trình cho phép giữ chỗ thành công.", offerings);
+
+    }
+
+    private String resolveOfferingUnavailableReason(CampusProgramOffering o) {
+        if (o.getStatus().equals(Status.OFFERING_INACTIVE)) {
+            return "Chương trình không còn hoạt động";
+        }
+        if (o.getStatus().equals(Status.OFFERING_DRAFT)) {
+            return "Chương trình chưa được phát hành";
+        }
+        if (o.getStatus().equals(Status.UPCOMING_OFFERING)) {
+            return "Chương trình chưa mở";
+        }
+
+        if (o.getApplicationStatus().equals(Status.CLOSED)) {
+            return "Thời hạn nộp hồ sơ giữ chỗ đã kết thúc";
+        }
+        if (o.getApplicationStatus().equals(Status.PAUSED)) {
+            return "Nộp hồ sơ giữ chỗ đang tạm dừng";
+        }
+        if (!o.getApplicationStatus().equals(Status.OPEN)) {
+            return "Chương trình chưa mở nhận hồ sơ";
+        }
+        if (o.getRemainingQuota() <= 0) {
+            return "Chương trình đã đủ chỉ tiêu";
+        }
+        return null;
     }
 
     private void groupUnavailable(Map<String, List<Map<String, Object>>> grouped, String reason, Map<String, Object> entry) {

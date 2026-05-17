@@ -61,9 +61,11 @@ public interface ParentService {
 
     ResponseEntity<ResponseObject> createAdmissionReservationTemplateForm(CreateAdmissionReservationFormTemplateRequest request);
 
-    ResponseEntity<ResponseObject> getAdmissionReservationTemplateForm();
+    ResponseEntity<ResponseObject> getAdmissionReservationTemplateForm(int studentProfileId);
 
     ResponseEntity<ResponseObject> updateAdmissionReservationFormTemplate(UpdateAdmissionReservationFormTemplateRequest request);
+
+    ResponseEntity<ResponseObject> getQrCodeInfo(int admissionFormId);
 
     ResponseEntity<ResponseObject> getRequiredDocuments();
 
@@ -76,4 +78,7 @@ public interface ParentService {
     ResponseEntity<ResponseObject> cancelAdmissionReservationForm(CancelAdmissionFormRequest request);
 
     ResponseEntity<ResponseObject> getAvailableSchools(List<Integer> schoolIds, int studentProfileId);
+
+    ResponseEntity<ResponseObject> getCampusProgramOffering(int admissionFormId);
+
 }

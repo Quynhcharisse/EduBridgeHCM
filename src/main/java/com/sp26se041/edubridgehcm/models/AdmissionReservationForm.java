@@ -74,6 +74,9 @@ public class AdmissionReservationForm {
     @Column(name = "payment_confirmed_by")
     String paymentConfirmedBy;
 
+    @Column(name = "payment_retry_count", columnDefinition = "integer default 0")
+    Integer paymentRetryCount;
+
     @Column(name = "is_applied", columnDefinition = "boolean default false")
     Boolean isApplied;
 
