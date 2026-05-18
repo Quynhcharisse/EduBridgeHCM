@@ -31,6 +31,7 @@ import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.utils.WorkShiftConfigValidator;
+import com.sp26se041.edubridgehcm.validations.school.CampusValidation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -184,7 +185,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
 
         List<String> validMethodCodes = allowedMethodsJson.stream()
                 .map(m -> Objects.toString(m.get("code"), ""))
-                .collect(Collectors.toList());
+                .toList();
 
         List<Map<String, Object>> admissionProcessesJson = new ArrayList<>();
         if (admissionSettingsData.getMethodAdmissionProcess() != null) {
@@ -238,7 +239,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
 
         List<String> validMethodCodes = allowedMethods.stream()
                 .map(m -> m.get("code").toString())
-                .collect(Collectors.toList());
+                .toList();
 
         if (request.getDocumentRequirementsData().getByMethod() != null) {
             for (var methodReq : request.getDocumentRequirementsData().getByMethod()) {
@@ -250,6 +251,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
 
         SchoolConfigRequest.DocumentRequirementsData documentRequirementsData = request.getDocumentRequirementsData();
 
+        assert documentRequirementsData.getByMethod() != null;
         List<Map<String, Object>> byMethodJson = documentRequirementsData.getByMethod().stream()
                 .map(method -> {
                     Map<String, Object> data = new HashMap<>();
@@ -260,6 +262,10 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                                 docMap.put("code", doc.getCode());
                                 docMap.put("name", doc.getName());
                                 docMap.put("required", doc.isRequired());
+
+                                if (doc.getTemplateUrl() != null) {
+                                    docMap.put("templateUrl", doc.getTemplateUrl());
+                                }
                                 return docMap;
                             })
                             .collect(Collectors.toList()));
@@ -669,12 +675,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
     }
 
     public static String normalize(String value) {
-        if (value == null) {
-            return null;
-        }
-
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
+        return CampusValidation.normalize(value);
     }
 
     @Override

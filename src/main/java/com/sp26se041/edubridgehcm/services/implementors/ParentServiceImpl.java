@@ -2327,7 +2327,6 @@ public class ParentServiceImpl implements ParentService {
                 ? (List<Map<String, Object>>) documentRequirementsData.get("mandatoryAll")
                 : List.of();
 
-        // imageUrl hiện tại của form
         Map<String, Object> existingDocMap = new HashMap<>();
         if (form.getProfileMetadata() != null) {
             ((List<Map<String, Object>>) form.getProfileMetadata()).forEach(doc -> {
@@ -2337,7 +2336,6 @@ public class ParentServiceImpl implements ParentService {
             });
         }
 
-        // imageUrl từ request
         Map<String, List<String>> requestDocMap = request.getSubmissionDocuments().stream()
                 .filter(d -> d.getImageUrl() != null && !d.getImageUrl().isEmpty())
                 .collect(Collectors.toMap(
@@ -2346,7 +2344,6 @@ public class ParentServiceImpl implements ParentService {
                         (a, b) -> b
                 ));
 
-        // Sync theo mandatoryAll
         List<Map<String, Object>> profileMetaData = mandatoryAll.stream()
                 .map(doc -> {
                     String code = (String) doc.get("code");
@@ -2357,7 +2354,6 @@ public class ParentServiceImpl implements ParentService {
                 })
                 .collect(Collectors.toList());
 
-        // Validate required docs
         List<String> missingDocNames = mandatoryAll.stream()
                 .filter(doc -> Boolean.TRUE.equals(doc.get("required")))
                 .filter(doc -> {
@@ -2622,7 +2618,58 @@ public class ParentServiceImpl implements ParentService {
                 admissionReservationFormRepo.saveAll(depositedForms);
             }
 
-            return ResponseBuilder.build(HttpStatus.OK, "Xác nhận nhập học thành công.", null);
+            // Build response: mã hồ sơ + danh sách tài liệu cần chuẩn bị
+            Map<String, Object> responseData = new HashMap<>();
+            responseData.put("formId", form.getId());
+            responseData.put("confirmCode", form.getConfirmCode());
+
+            CampusProgramOffering confirmedOffering = form.getCampusProgramOffering();
+            if (confirmedOffering != null) {
+                int schoolId = confirmedOffering.getCampus().getSchool().getId();
+                String methodCode = confirmedOffering.getAdmissionMethod();
+
+                Optional<SchoolConfig> docConfigOpt = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData");
+                if (docConfigOpt.isPresent() && docConfigOpt.get().getValue() instanceof Map<?, ?> docMap) {
+                    List<Map<String, Object>> requiredDocs = new ArrayList<>();
+                    List<Map<String, Object>> optionalDocs = new ArrayList<>();
+
+                    // mandatoryAll — hồ sơ bắt buộc chung, áp dụng mọi phương thức
+                    List<Map<String, Object>> mandatoryDocs = new ArrayList<>();
+                    List<?> mandatoryAll = docMap.get("mandatoryAll") instanceof List<?> m ? m : List.of();
+                    for (Object item : mandatoryAll) {
+                        if (!(item instanceof Map<?, ?> doc)) continue;
+                        Map<String, Object> entry = new HashMap<>();
+                        entry.put("name", doc.get("name"));
+                        entry.put("required", doc.get("required"));
+                        mandatoryDocs.add(entry);
+                    }
+
+                    // byMethod — hồ sơ theo phương thức tuyển sinh của offering
+                    List<Map<String, Object>> methodDocs = new ArrayList<>();
+                    List<?> byMethod = docMap.get("byMethod") instanceof List<?> b ? b : List.of();
+                    for (Object item : byMethod) {
+                        if (!(item instanceof Map<?, ?> methodEntry)) continue;
+                        if (!Objects.equals(methodEntry.get("methodCode"), methodCode)) continue;
+                        List<?> docs = methodEntry.get("documents") instanceof List<?> d ? d : List.of();
+                        for (Object docItem : docs) {
+                            if (!(docItem instanceof Map<?, ?> doc)) continue;
+                            Map<String, Object> entry = new HashMap<>();
+                            entry.put("name", doc.get("name"));
+                            entry.put("required", doc.get("required"));
+                            if (doc.get("templateUrl") != null) {
+                                entry.put("templateUrl", doc.get("templateUrl"));
+                            }
+                            methodDocs.add(entry);
+                        }
+                        break;
+                    }
+
+                    responseData.put("mandatoryDocuments", mandatoryDocs);
+                    responseData.put("methodDocuments", methodDocs);
+                }
+            }
+
+            return ResponseBuilder.build(HttpStatus.OK, "Xác nhận nhập học thành công.", responseData);
 
         }
 

@@ -89,6 +89,7 @@ public class SchoolConfigRequest {
         String name;
         boolean required;
         List<OcrCriterion> ocrCriteria;
+        String templateUrl;
     }
 
     @Data
