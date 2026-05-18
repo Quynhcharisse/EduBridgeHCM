@@ -40,6 +40,7 @@ import com.sp26se041.edubridgehcm.repositories.ConsultationOfflineRequestRepo;
 import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorSlotRepo;
+import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolHolidayRepo;
@@ -126,6 +127,7 @@ import java.util.stream.Collectors;
 public class CampusServiceImpl implements CampusService {
 
     private final SchoolSubscriptionRepo schoolSubscriptionRepo;
+    private final PlatformConfigRepo platformConfigRepo;
 
     @Value("${AI_SERVICE_N8N}")
     private String n8nUrl;
@@ -3336,8 +3338,15 @@ public class CampusServiceImpl implements CampusService {
             Optional<SchoolConfig> docConfigOpt = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData");
             if (docConfigOpt.isPresent() && docConfigOpt.get().getValue() instanceof Map<?, ?> docMap) {
 
-                // mandatoryAll
-                List<?> mandatoryAll = docMap.get("mandatoryAll") instanceof List<?> m ? m : List.of();
+                // mandatoryAll: luôn lấy fresh từ system config
+                List<?> mandatoryAll = List.of();
+                Object systemDocReq = platformConfigRepo.findByKey("admissionSettingsData")
+                        .map(c -> ((Map<String, Object>) c.getValue()).get("documentRequirementsData"))
+                        .orElse(null);
+                if (systemDocReq instanceof Map<?, ?> systemMap
+                        && systemMap.get("mandatoryAll") instanceof List<?> m) {
+                    mandatoryAll = m;
+                }
                 for (Object item : mandatoryAll) {
                     if (!(item instanceof Map<?, ?> doc)) continue;
                     String code = doc.get("code") != null ? doc.get("code").toString() : null;
@@ -3354,7 +3363,7 @@ public class CampusServiceImpl implements CampusService {
                 List<?> byMethod = docMap.get("byMethod") instanceof List<?> b ? b : List.of();
                 for (Object item : byMethod) {
                     if (!(item instanceof Map<?, ?> methodEntry)) continue;
-                    if (!Objects.equals(methodEntry.get("methodCode"), methodCode)) continue;
+                    if (methodCode == null || !Objects.equals(methodEntry.get("methodCode"), methodCode)) continue;
                     List<?> docs = methodEntry.get("documents") instanceof List<?> d ? d : List.of();
                     for (Object docItem : docs) {
                         if (!(docItem instanceof Map<?, ?> doc)) continue;

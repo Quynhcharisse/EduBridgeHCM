@@ -200,8 +200,6 @@ public class CreateConfigDataRequest {
         String templateFileUrl;
     }
 
-
-
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
