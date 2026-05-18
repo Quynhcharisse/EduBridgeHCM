@@ -2637,12 +2637,15 @@ public class ParentServiceImpl implements ParentService {
 
                 Optional<SchoolConfig> docConfigOpt = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData");
                 if (docConfigOpt.isPresent() && docConfigOpt.get().getValue() instanceof Map<?, ?> docMap) {
-                    List<Map<String, Object>> requiredDocs = new ArrayList<>();
-                    List<Map<String, Object>> optionalDocs = new ArrayList<>();
-
-                    // mandatoryAll — hồ sơ bắt buộc chung, áp dụng mọi phương thức
                     List<Map<String, Object>> mandatoryDocs = new ArrayList<>();
-                    List<?> mandatoryAll = docMap.get("mandatoryAll") instanceof List<?> m ? m : List.of();
+                    List<?> mandatoryAll = List.of();
+                    Object systemDocReq = platformConfigRepo.findByKey("admissionSettingsData")
+                            .map(c -> ((Map<String, Object>) c.getValue()).get("documentRequirementsData"))
+                            .orElse(null);
+                    if (systemDocReq instanceof Map<?, ?> systemMap
+                            && systemMap.get("mandatoryAll") instanceof List<?> m) {
+                        mandatoryAll = m;
+                    }
                     for (Object item : mandatoryAll) {
                         if (!(item instanceof Map<?, ?> doc)) continue;
                         Map<String, Object> entry = new HashMap<>();
@@ -2651,7 +2654,6 @@ public class ParentServiceImpl implements ParentService {
                         mandatoryDocs.add(entry);
                     }
 
-                    // byMethod — hồ sơ theo phương thức tuyển sinh của offering
                     List<Map<String, Object>> methodDocs = new ArrayList<>();
                     List<?> byMethod = docMap.get("byMethod") instanceof List<?> b ? b : List.of();
                     for (Object item : byMethod) {
@@ -2867,9 +2869,71 @@ public class ParentServiceImpl implements ParentService {
         map.put("identityCard", parent.getIdCardNumber());
         map.put("address", parent.getCurrentAddress());
 
+        if (Status.RESERVATION_CONFIRMED.equals(form.getStatus())) {
+            map.put("confirmCode", form.getConfirmCode());
+
+            if (offering != null) {
+                int schoolId = offering.getCampus().getSchool().getId();
+                String methodCode = offering.getAdmissionMethod();
+
+                Map<String, Object> docMap = resolveSchoolDocumentRequirements(schoolId);
+                if (docMap != null) {
+                    List<Map<String, Object>> mandatoryDocs = new ArrayList<>();
+                    List<?> mandatoryAll = docMap.get("mandatoryAll") instanceof List<?> m ? m : List.of();
+                    for (Object item : mandatoryAll) {
+                        if (!(item instanceof Map<?, ?> doc)) continue;
+                        Map<String, Object> entry = new HashMap<>();
+                        entry.put("name", doc.get("name"));
+                        entry.put("required", doc.get("required"));
+                        entry.put("templateFileUrl", doc.get("templateFileUrl"));
+                        mandatoryDocs.add(entry);
+                    }
+
+                    List<Map<String, Object>> methodDocs = new ArrayList<>();
+                    List<?> byMethod = docMap.get("byMethod") instanceof List<?> b ? b : List.of();
+                    for (Object item : byMethod) {
+                        if (!(item instanceof Map<?, ?> methodEntry)) continue;
+                        if (methodCode == null || !Objects.equals(methodEntry.get("methodCode"), methodCode)) continue;
+                        List<?> docs = methodEntry.get("documents") instanceof List<?> d ? d : List.of();
+                        for (Object docItem : docs) {
+                            if (!(docItem instanceof Map<?, ?> doc)) continue;
+                            Map<String, Object> entry = new HashMap<>();
+                            entry.put("name", doc.get("name"));
+                            entry.put("required", doc.get("required"));
+                            if (doc.get("templateUrl") != null) {
+                                entry.put("templateUrl", doc.get("templateUrl"));
+                            }
+                            methodDocs.add(entry);
+                        }
+                        break;
+                    }
+
+                    map.put("mandatoryDocuments", mandatoryDocs);
+                    map.put("methodDocuments", methodDocs);
+                }
+            }
+        }
+
         return map;
     }
 
+
+    private Map<String, Object> resolveSchoolDocumentRequirements(int schoolId) {
+        Optional<SchoolConfig> docConfigOpt = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData");
+        if (docConfigOpt.isEmpty() || !(docConfigOpt.get().getValue() instanceof Map<?, ?> rawMap)) return null;
+
+        Map<String, Object> docMap = new HashMap<>((Map<String, Object>) rawMap);
+
+        List<?> mandatoryAll = List.of();
+        Object systemDocReq = platformConfigRepo.findByKey("admissionSettingsData")
+                .map(c -> ((Map<String, Object>) c.getValue()).get("documentRequirementsData"))
+                .orElse(null);
+        if (systemDocReq instanceof Map<?, ?> systemMap && systemMap.get("mandatoryAll") instanceof List<?> m) {
+            mandatoryAll = m;
+        }
+        docMap.put("mandatoryAll", mandatoryAll);
+        return docMap;
+    }
 
     private Sort buildConsultationSort(Status status) {
 
