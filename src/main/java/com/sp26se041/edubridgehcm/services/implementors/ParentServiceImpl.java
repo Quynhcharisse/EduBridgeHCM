@@ -1973,7 +1973,7 @@ public class ParentServiceImpl implements ParentService {
                 && admissionReservationFormRepo.existsByStudentProfile_StudentCodeAndStatusAndAdmissionCampaign_Year(
                 studentCode, Status.RESERVATION_CONFIRMED, currentYear)) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Học sinh với CCCD: "+ studentCode +" đã được xác nhận nhập học tại một trường trong hệ thống năm học "
+                    "Học sinh với CCCD: " + studentCode + " đã được xác nhận nhập học tại một trường trong hệ thống năm học "
                             + currentYear + ", không thể nộp thêm hồ sơ giữ chỗ.", null);
         }
 
@@ -2064,7 +2064,7 @@ public class ParentServiceImpl implements ParentService {
             List<CampusProgramOffering> offerings = offeringsBySchoolId.getOrDefault(schoolId, List.of());
 
             if (offerings.isEmpty()) {
-                groupUnavailable(failedGroup, "Trường chưa có chiến dịch tuyển sinh năm "+ currentYear +" cho phép nộp hồ sơ trước vào trường", schoolEntry);
+                groupUnavailable(failedGroup, "Trường chưa có chiến dịch tuyển sinh năm " + currentYear + " cho phép nộp hồ sơ trước vào trường", schoolEntry);
                 continue;
             }
 
@@ -2087,8 +2087,8 @@ public class ParentServiceImpl implements ParentService {
 
             boolean hasAvailable = offerings.stream().anyMatch(o ->
                     !o.getStatus().equals(Status.OFFERING_INACTIVE) &&
-                    !o.getStatus().equals(Status.OFFERING_DRAFT) &&
-                    !o.getStatus().equals(Status.UPCOMING_OFFERING) &&
+                            !o.getStatus().equals(Status.OFFERING_DRAFT) &&
+                            !o.getStatus().equals(Status.UPCOMING_OFFERING) &&
                             o.getApplicationStatus().equals(Status.OPEN) &&
                             o.getRemainingQuota() > 0 &&
                             o.getAllowReservationSubmission()
@@ -2099,14 +2099,14 @@ public class ParentServiceImpl implements ParentService {
                 continue;
             }
 
-                campaign = admissionCampaignRepo
-                        .findBySchoolIdAndYearAndStatus(schoolId, currentYear, Status.OPEN_ADMISSION_CAMPAIGN);
+            campaign = admissionCampaignRepo
+                    .findBySchoolIdAndYearAndStatus(schoolId, currentYear, Status.OPEN_ADMISSION_CAMPAIGN);
 
-                formsToSave.add(AdmissionReservationForm.builder()
+            formsToSave.add(AdmissionReservationForm.builder()
                     .admissionCampaign(campaign.get())
                     .studentProfile(studentProfile.get())
                     .profileMetadata(profileMetaData)
-                        .transcriptImages(transcriptImagesMeta)
+                    .transcriptImages(transcriptImagesMeta)
                     .status(Status.RESERVATION_PENDING)
                     .createdTime(LocalDateTime.now())
                     .updatedTime(LocalDateTime.now())
@@ -2491,7 +2491,7 @@ public class ParentServiceImpl implements ParentService {
                 ? (List<Map<String, Object>>) documentRequirementsData.get("mandatoryAll")
                 : List.of();
 
-            return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách hồ sơ bắt buộc thành công", mandatoryAll);
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách hồ sơ bắt buộc thành công", mandatoryAll);
 
     }
 
@@ -2604,6 +2604,19 @@ public class ParentServiceImpl implements ParentService {
             for (AdmissionReservationForm depositedForm : depositedForms) {
                 depositedForm.setStatus(Status.RESERVATION_GHOST);
                 depositedForm.setUpdatedTime(LocalDateTime.now());
+
+                CampusProgramOffering ghostOffering = depositedForm.getCampusProgramOffering();
+
+                if (ghostOffering != null) {
+                    ghostOffering.setRemainingQuota(ghostOffering.getRemainingQuota() + 1);
+                    campusProgramOfferingRepo.save(ghostOffering);
+                }
+
+                AdmissionCampaign campaign = depositedForm.getAdmissionCampaign();
+                if (campaign != null && campaign.getRemainingQuota() != null) {
+                    campaign.setRemainingQuota(campaign.getRemainingQuota() + 1);
+                    admissionCampaignRepo.save(campaign);
+                }
             }
             if (!depositedForms.isEmpty()) {
                 admissionReservationFormRepo.saveAll(depositedForms);
@@ -2629,7 +2642,7 @@ public class ParentServiceImpl implements ParentService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy gói tuyển sinh", null);
         }
 
-        if (campusProgramOffering.get().getStatus().equals(Status.OFFERING_INACTIVE)){
+        if (campusProgramOffering.get().getStatus().equals(Status.OFFERING_INACTIVE)) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Gói tuyển sinh đã ngừng hoạt động, không thể nộp hồ sơ.", null);
         }
 
@@ -2864,7 +2877,6 @@ public class ParentServiceImpl implements ParentService {
         studentProfile = studentInfoRepo.findById(studentProfileId).orElse(null);
 
 
-
         List<CampusProgramOffering> allOfferings = campusProgramOfferingRepo.findByCampus_School_IdIn(schoolIds);
 
         Map<Integer, List<CampusProgramOffering>> offeringsBySchoolId = allOfferings.stream()
@@ -2894,7 +2906,7 @@ public class ParentServiceImpl implements ParentService {
             Map<String, Object> schoolEntry = Map.of("schoolId", schoolId, "schoolName", school.getName());
 
             if (offerings.isEmpty()) {
-                groupUnavailable(unavailableGrouped, "Trường chưa có chiến dịch tuyển sinh năm "+ currentYear +" cho phép nộp hồ sơ trước vào trường", schoolEntry);
+                groupUnavailable(unavailableGrouped, "Trường chưa có chiến dịch tuyển sinh năm " + currentYear + " cho phép nộp hồ sơ trước vào trường", schoolEntry);
                 continue;
             }
 
@@ -3053,7 +3065,7 @@ public class ParentServiceImpl implements ParentService {
                 .noneMatch(CampusProgramOffering::getAllowReservationSubmission);
 
         if (noneAllowReservation) {
-            return "Trường chưa có chiến dịch tuyển sinh năm "+ currentYear +" cho phép nộp hồ sơ trước vào trường";
+            return "Trường chưa có chiến dịch tuyển sinh năm " + currentYear + " cho phép nộp hồ sơ trước vào trường";
         }
 
         List<CampusProgramOffering> allowedOfferings = offerings.stream()
@@ -3076,13 +3088,14 @@ public class ParentServiceImpl implements ParentService {
         boolean noneOpen = allowedOfferings.stream()
                 .noneMatch(o -> o.getApplicationStatus().equals(Status.OPEN));
         if (noneOpen) {
-            return "Chiến dịch tuyển sinh trường năm "+ currentYear + " hiện chưa cho phép nộp hồ sơ trước vào trường";
+            return "Chiến dịch tuyển sinh trường năm " + currentYear + " hiện chưa cho phép nộp hồ sơ trước vào trường";
         }
 
         boolean allNoQuota = allowedOfferings.stream()
                 .allMatch(o -> o.getRemainingQuota() <= 0
-                && o.getAdmissionCampaign() != null && o.getAdmissionCampaign().getYear() == currentYear);
-        if (allNoQuota) return "Chiến dịch tuyển sinh trường năm " + currentYear +" đã đủ chỉ tiêu hồ sơ ứng tuyển vào trường";
+                        && o.getAdmissionCampaign() != null && o.getAdmissionCampaign().getYear() == currentYear);
+        if (allNoQuota)
+            return "Chiến dịch tuyển sinh trường năm " + currentYear + " đã đủ chỉ tiêu hồ sơ ứng tuyển vào trường";
 
         return "";
     }
