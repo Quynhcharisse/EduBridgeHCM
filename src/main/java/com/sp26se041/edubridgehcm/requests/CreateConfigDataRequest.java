@@ -196,19 +196,11 @@ public class CreateConfigDataRequest {
         String code;
         String name;
         boolean required;
-        List<OcrCriterion> ocrCriteria;
+        List<String> validateCriterion;
         String templateFileUrl;
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class OcrCriterion {
-        String label;
-        List<String> validations;
-    }
+
 
     @Data
     @NoArgsConstructor

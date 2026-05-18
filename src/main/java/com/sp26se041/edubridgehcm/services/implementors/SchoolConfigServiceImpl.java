@@ -244,14 +244,17 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         if (request.getDocumentRequirementsData().getByMethod() != null) {
             for (var methodReq : request.getDocumentRequirementsData().getByMethod()) {
                 if (!validMethodCodes.contains(methodReq.getMethodCode())) {
-                    throw new RuntimeException("Mã phương pháp " + methodReq.getMethodCode() + "không hợp lệ.");
+                    throw new RuntimeException("Mã phương pháp " + methodReq.getMethodCode() + " không hợp lệ.");
                 }
             }
         }
 
         SchoolConfigRequest.DocumentRequirementsData documentRequirementsData = request.getDocumentRequirementsData();
 
-        assert documentRequirementsData.getByMethod() != null;
+        if (documentRequirementsData.getByMethod() == null) {
+            throw new RuntimeException("Danh sách tài liệu theo phương thức không được để trống.");
+        }
+
         List<Map<String, Object>> byMethodJson = documentRequirementsData.getByMethod().stream()
                 .map(method -> {
                     Map<String, Object> data = new HashMap<>();
@@ -262,7 +265,6 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                                 docMap.put("code", doc.getCode());
                                 docMap.put("name", doc.getName());
                                 docMap.put("required", doc.isRequired());
-
                                 if (doc.getTemplateUrl() != null) {
                                     docMap.put("templateUrl", doc.getTemplateUrl());
                                 }
@@ -273,22 +275,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                 })
                 .collect(Collectors.toList());
 
-        Map<String, Object> platformConfig = platformConfigRepo
-                .findByKey("admissionSettingsData")
-                .map(c -> (Map<String, Object>) c.getValue())
-                .orElse(new HashMap<>());
-
-        List<Map<String, Object>> adminMandatoryAll = new ArrayList<>();
-        Object docReqData = platformConfig.get("documentRequirementsData");
-        if (docReqData instanceof Map<?, ?> docMap) {
-            Object adminMandatory = ((Map<String, Object>) docMap).get("mandatoryAll");
-            if (adminMandatory instanceof List<?>) {
-                adminMandatoryAll = (List<Map<String, Object>>) adminMandatory;
-            }
-        }
-
         Map<String, Object> admissionJson = new HashMap<>();
-        admissionJson.put("mandatoryAll", adminMandatoryAll);
         admissionJson.put("byMethod", byMethodJson);
 
         SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData")
@@ -692,6 +679,10 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
             }
         }
 
+        if (result.containsKey("documentRequirementsData")) {
+            result.put("documentRequirementsData", injectMandatoryAll((Map<String, Object>) result.get("documentRequirementsData")));
+        }
+
         return ResponseBuilder.build(HttpStatus.OK, "", result);
     }
 
@@ -801,6 +792,22 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         docReq.put("mandatoryAll", templateDocReq != null ? toSafeList(templateDocReq.get("mandatoryAll")) : Collections.emptyList());
         docReq.put("byMethod", templateDocReq != null ? toSafeList(templateDocReq.get("byMethod")) : Collections.emptyList());
         return docReq;
+    }
+
+    private Map<String, Object> injectMandatoryAll(Map<String, Object> docReqData) {
+        Map<String, Object> result = new HashMap<>(docReqData);
+        List<Map<String, Object>> mandatoryAll = Collections.emptyList();
+        Object systemDocReq = platformConfigRepo.findByKey("admissionSettingsData")
+                .map(c -> ((Map<String, Object>) c.getValue()).get("documentRequirementsData"))
+                .orElse(null);
+        if (systemDocReq instanceof Map<?, ?> systemMap) {
+            Object adminMandatory = ((Map<String, Object>) systemMap).get("mandatoryAll");
+            if (adminMandatory instanceof List<?>) {
+                mandatoryAll = (List<Map<String, Object>>) adminMandatory;
+            }
+        }
+        result.put("mandatoryAll", mandatoryAll);
+        return result;
     }
 
     private List<Map<String, Object>> toSafeList(Object source) {
