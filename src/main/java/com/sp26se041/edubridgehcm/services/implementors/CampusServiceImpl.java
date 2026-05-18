@@ -3290,7 +3290,6 @@ public class CampusServiceImpl implements CampusService {
         map.put("transferCode", form.getTransferCode());
         map.put("paymentProofUrl", form.getPaymentProofUrl());
 
-        // CampusProgramOffering info
         CampusProgramOffering offering = form.getCampusProgramOffering();
 
         if (offering == null) {
@@ -3308,8 +3307,6 @@ public class CampusServiceImpl implements CampusService {
             map.put("schoolName", admissionCampaign.getSchool().getName());
         }
 
-
-        // StudentProfile info
         StudentProfile student = form.getStudentProfile();
         map.put("studentProfileId", student.getId());
         map.put("studentName", student.getStudentName());
@@ -3317,11 +3314,9 @@ public class CampusServiceImpl implements CampusService {
         map.put("gender", student.getGender());
         map.put("transcriptImages", form.getTranscriptImages());
 
-        // Build submittedDocuments: join profileMetadata với documentRequirementsData
         AdmissionCampaign campaign = form.getAdmissionCampaign();
         String methodCode = offering != null ? offering.getAdmissionMethod() : null;
 
-        // Map key → imageUrl từ hồ sơ PH đã nộp
         Map<String, String> submittedMap = new HashMap<>();
         if (form.getProfileMetadata() instanceof List<?> metaList) {
             for (Object item : metaList) {
@@ -3335,18 +3330,10 @@ public class CampusServiceImpl implements CampusService {
         List<Map<String, Object>> submittedDocuments = new ArrayList<>();
         if (campaign != null) {
             int schoolId = campaign.getSchool().getId();
-            Optional<SchoolConfig> docConfigOpt = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData");
-            if (docConfigOpt.isPresent() && docConfigOpt.get().getValue() instanceof Map<?, ?> docMap) {
+            Map<String, Object> docMap = resolveSchoolDocumentRequirements(schoolId);
+            if (docMap != null) {
 
-                // mandatoryAll: luôn lấy fresh từ system config
-                List<?> mandatoryAll = List.of();
-                Object systemDocReq = platformConfigRepo.findByKey("admissionSettingsData")
-                        .map(c -> ((Map<String, Object>) c.getValue()).get("documentRequirementsData"))
-                        .orElse(null);
-                if (systemDocReq instanceof Map<?, ?> systemMap
-                        && systemMap.get("mandatoryAll") instanceof List<?> m) {
-                    mandatoryAll = m;
-                }
+                List<?> mandatoryAll = docMap.get("mandatoryAll") instanceof List<?> m ? m : List.of();
                 for (Object item : mandatoryAll) {
                     if (!(item instanceof Map<?, ?> doc)) continue;
                     String code = doc.get("code") != null ? doc.get("code").toString() : null;
@@ -3359,7 +3346,6 @@ public class CampusServiceImpl implements CampusService {
                     submittedDocuments.add(entry);
                 }
 
-                // byMethod
                 List<?> byMethod = docMap.get("byMethod") instanceof List<?> b ? b : List.of();
                 for (Object item : byMethod) {
                     if (!(item instanceof Map<?, ?> methodEntry)) continue;
@@ -3392,5 +3378,22 @@ public class CampusServiceImpl implements CampusService {
         map.put("address", parent.getCurrentAddress());
 
         return map;
+    }
+
+    private Map<String, Object> resolveSchoolDocumentRequirements(int schoolId) {
+        Optional<SchoolConfig> docConfigOpt = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData");
+        if (docConfigOpt.isEmpty() || !(docConfigOpt.get().getValue() instanceof Map<?, ?> rawMap)) return null;
+
+        Map<String, Object> docMap = new HashMap<>((Map<String, Object>) rawMap);
+
+        List<?> mandatoryAll = List.of();
+        Object systemDocReq = platformConfigRepo.findByKey("admissionSettingsData")
+                .map(c -> ((Map<String, Object>) c.getValue()).get("documentRequirementsData"))
+                .orElse(null);
+        if (systemDocReq instanceof Map<?, ?> systemMap && systemMap.get("mandatoryAll") instanceof List<?> m) {
+            mandatoryAll = m;
+        }
+        docMap.put("mandatoryAll", mandatoryAll);
+        return docMap;
     }
 }
