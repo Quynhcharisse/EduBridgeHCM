@@ -197,6 +197,7 @@ public class CreateConfigDataRequest {
         String name;
         boolean required;
         List<OcrCriterion> ocrCriteria;
+        String templateFileUrl;
     }
 
     @Data

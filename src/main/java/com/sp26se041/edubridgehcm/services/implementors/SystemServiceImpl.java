@@ -486,12 +486,16 @@ public class SystemServiceImpl implements SystemService {
                             docData.put("required", true);
                             docData.put("ocrCriteria", doc.getOcrCriteria() == null ? List.of()
                                     : doc.getOcrCriteria().stream()
-                                            .map(c -> {
-                                                Map<String, Object> m = new HashMap<>();
-                                                m.put("label", c.getLabel());
-                                                m.put("validations", c.getValidations() != null ? c.getValidations() : List.of());
-                                                return m;
-                                            }).toList());
+                                    .map(c -> {
+                                        Map<String, Object> m = new HashMap<>();
+                                        m.put("label", c.getLabel());
+                                        m.put("validations", c.getValidations() != null ? c.getValidations() : List.of());
+                                        return m;
+                                    }).toList());
+                            if (doc.getTemplateFileUrl() == null || doc.getTemplateFileUrl().isBlank()) {
+                                throw new RuntimeException("Tài liệu '" + doc.getName() + "' phải có file mẫu (templateFileUrl).");
+                            }
+                            docData.put("templateFileUrl", doc.getTemplateFileUrl());
                             return docData;
                         })
                         .collect(Collectors.toList());

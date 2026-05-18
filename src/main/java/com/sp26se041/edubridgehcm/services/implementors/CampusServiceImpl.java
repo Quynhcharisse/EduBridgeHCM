@@ -3313,9 +3313,67 @@ public class CampusServiceImpl implements CampusService {
         map.put("studentProfileId", student.getId());
         map.put("studentName", student.getStudentName());
         map.put("studentCode", student.getStudentCode());
-        map.put("profileMetaData", form.getProfileMetadata());
-        map.put("transcriptImages", form.getTranscriptImages());
         map.put("gender", student.getGender());
+        map.put("transcriptImages", form.getTranscriptImages());
+
+        // Build submittedDocuments: join profileMetadata với documentRequirementsData
+        AdmissionCampaign campaign = form.getAdmissionCampaign();
+        String methodCode = offering != null ? offering.getAdmissionMethod() : null;
+
+        // Map key → imageUrl từ hồ sơ PH đã nộp
+        Map<String, String> submittedMap = new HashMap<>();
+        if (form.getProfileMetadata() instanceof List<?> metaList) {
+            for (Object item : metaList) {
+                if (!(item instanceof Map<?, ?> meta)) continue;
+                Object key = meta.get("key");
+                Object url = meta.get("imageUrl");
+                if (key != null) submittedMap.put(key.toString(), url != null ? url.toString() : null);
+            }
+        }
+
+        List<Map<String, Object>> submittedDocuments = new ArrayList<>();
+        if (campaign != null) {
+            int schoolId = campaign.getSchool().getId();
+            Optional<SchoolConfig> docConfigOpt = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData");
+            if (docConfigOpt.isPresent() && docConfigOpt.get().getValue() instanceof Map<?, ?> docMap) {
+
+                // mandatoryAll
+                List<?> mandatoryAll = docMap.get("mandatoryAll") instanceof List<?> m ? m : List.of();
+                for (Object item : mandatoryAll) {
+                    if (!(item instanceof Map<?, ?> doc)) continue;
+                    String code = doc.get("code") != null ? doc.get("code").toString() : null;
+                    Map<String, Object> entry = new HashMap<>();
+                    entry.put("key", code);
+                    entry.put("name", doc.get("name"));
+                    entry.put("required", doc.get("required"));
+                    entry.put("imageUrl", submittedMap.getOrDefault(code, null));
+                    entry.put("submitted", submittedMap.containsKey(code));
+                    submittedDocuments.add(entry);
+                }
+
+                // byMethod
+                List<?> byMethod = docMap.get("byMethod") instanceof List<?> b ? b : List.of();
+                for (Object item : byMethod) {
+                    if (!(item instanceof Map<?, ?> methodEntry)) continue;
+                    if (!Objects.equals(methodEntry.get("methodCode"), methodCode)) continue;
+                    List<?> docs = methodEntry.get("documents") instanceof List<?> d ? d : List.of();
+                    for (Object docItem : docs) {
+                        if (!(docItem instanceof Map<?, ?> doc)) continue;
+                        String code = doc.get("code") != null ? doc.get("code").toString() : null;
+                        Map<String, Object> entry = new HashMap<>();
+                        entry.put("key", code);
+                        entry.put("name", doc.get("name"));
+                        entry.put("required", doc.get("required"));
+                        entry.put("imageUrl", submittedMap.getOrDefault(code, null));
+                        entry.put("submitted", submittedMap.containsKey(code));
+                        submittedDocuments.add(entry);
+                    }
+                    break;
+                }
+            }
+        }
+        map.put("submittedDocuments", submittedDocuments);
+        map.put("admissionMethod", methodCode);
 
         Parent parent = student.getParent();
         map.put("parentProfileId", parent.getId());
