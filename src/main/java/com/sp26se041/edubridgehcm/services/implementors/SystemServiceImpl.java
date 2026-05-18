@@ -663,8 +663,11 @@ public class SystemServiceImpl implements SystemService {
                 } else {
                     Map<String, Object> rowData = new HashMap<>((Map<String, Object>) r.getRowData());
                     if (type == ImportType.MANDATORY_ALL && mergedMap.containsKey(businessKey)) {
-                        Object existingOcr = mergedMap.get(businessKey).get("ocrCriteria");
+                        Map<String, Object> existing = mergedMap.get(businessKey);
+                        Object existingOcr = existing.get("ocrCriteria");
                         if (existingOcr != null) rowData.put("ocrCriteria", existingOcr);
+                        Object existingTemplateFileUrl = existing.get("templateFileUrl");
+                        if (existingTemplateFileUrl != null) rowData.put("templateFileUrl", existingTemplateFileUrl);
                     }
                     mergedMap.put(businessKey, rowData);
                 }
