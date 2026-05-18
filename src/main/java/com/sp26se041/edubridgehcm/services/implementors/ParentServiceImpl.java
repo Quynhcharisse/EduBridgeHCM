@@ -2592,6 +2592,13 @@ public class ParentServiceImpl implements ParentService {
 
             form.setStatus(Status.RESERVATION_CONFIRMED);
             form.setUpdatedTime(LocalDateTime.now());
+
+            String studentCode = form.getStudentProfile() != null ? form.getStudentProfile().getStudentCode() : null;
+            if (studentCode != null) {
+                int year = LocalDateTime.now().getYear();
+                form.setConfirmCode(year + "-" + studentCode);
+            }
+
             admissionReservationFormRepo.save(form);
 
             List<AdmissionReservationForm> depositedForms = admissionReservationFormRepo
