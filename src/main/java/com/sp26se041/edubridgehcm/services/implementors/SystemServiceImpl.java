@@ -484,14 +484,7 @@ public class SystemServiceImpl implements SystemService {
                             docData.put("code", doc.getCode());
                             docData.put("name", doc.getName());
                             docData.put("required", true);
-                            docData.put("ocrCriteria", doc.getOcrCriteria() == null ? List.of()
-                                    : doc.getOcrCriteria().stream()
-                                    .map(c -> {
-                                        Map<String, Object> m = new HashMap<>();
-                                        m.put("label", c.getLabel());
-                                        m.put("validations", c.getValidations() != null ? c.getValidations() : List.of());
-                                        return m;
-                                    }).toList());
+                            docData.put("validateCriterion", doc.getValidateCriterion() != null ? doc.getValidateCriterion() : List.of());
                             if (doc.getTemplateFileUrl() == null || doc.getTemplateFileUrl().isBlank()) {
                                 throw new RuntimeException("Tài liệu '" + doc.getName() + "' phải có file mẫu (templateFileUrl).");
                             }
@@ -517,14 +510,8 @@ public class SystemServiceImpl implements SystemService {
                                 docData.put("code", doc.getCode());
                                 docData.put("name", doc.getName());
                                 docData.put("required", doc.isRequired());
-                                docData.put("ocrCriteria", doc.getOcrCriteria() == null ? List.of() :
-                                        doc.getOcrCriteria().stream().map(c -> {
-                                            Map<String, Object> m = new HashMap<>();
-                                            m.put("label", c.getLabel());
-                                            m.put("validations", c.getValidations() != null ? c.getValidations() : List.of());
-                                            return m;
-                                        }).toList());
-                                docData.put("templateFileUrl", doc.getTemplateFileUrl() != null ? doc.getTemplateFileUrl() : "");
+                                docData.put("validateCriterion", doc.getValidateCriterion() != null ? doc.getValidateCriterion() : List.of());
+                                docData.put("templateUrl", doc.getTemplateFileUrl() != null ? doc.getTemplateFileUrl() : "");
                                 return docData;
                             })
                             .collect(Collectors.toList()));
@@ -662,12 +649,18 @@ public class SystemServiceImpl implements SystemService {
                     mergedMap.remove(businessKey);
                 } else {
                     Map<String, Object> rowData = new HashMap<>((Map<String, Object>) r.getRowData());
-                    if (type == ImportType.MANDATORY_ALL && mergedMap.containsKey(businessKey)) {
+                    if (mergedMap.containsKey(businessKey)) {
                         Map<String, Object> existing = mergedMap.get(businessKey);
-                        Object existingOcr = existing.get("ocrCriteria");
-                        if (existingOcr != null) rowData.put("ocrCriteria", existingOcr);
-                        Object existingTemplateFileUrl = existing.get("templateFileUrl");
-                        if (existingTemplateFileUrl != null) rowData.put("templateFileUrl", existingTemplateFileUrl);
+                        if (type == ImportType.MANDATORY_ALL) {
+                            Object existingValidateCriterion = existing.get("validateCriterion");
+                            if (existingValidateCriterion != null) rowData.put("validateCriterion", existingValidateCriterion);
+                            Object existingTemplateFileUrl = existing.get("templateFileUrl");
+                            if (existingTemplateFileUrl != null) rowData.put("templateFileUrl", existingTemplateFileUrl);
+                        }
+                        if (type == ImportType.METHOD_DOCUMENTS) {
+                            Object existingTemplateUrl = existing.get("templateUrl");
+                            if (existingTemplateUrl != null) rowData.put("templateUrl", existingTemplateUrl);
+                        }
                     }
                     mergedMap.put(businessKey, rowData);
                 }
