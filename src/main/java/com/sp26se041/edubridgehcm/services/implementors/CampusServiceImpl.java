@@ -3163,13 +3163,11 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy đơn đăng ký tuyển sinh.", null);
         }
 
-        // Fix 1: null check campaign
         AdmissionCampaign campaign = form.getAdmissionCampaign();
         if (campaign == null || !actorCampus.getSchool().getId().equals(campaign.getSchool().getId())) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Đơn này không thuộc trường của bạn.", null);
         }
 
-        // Chỉ xử lý được khi PH đã upload proof (PAYMENT_PENDING)
         if (form.getStatus() != Status.RESERVATION_PAYMENT_PENDING) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
                     "Đơn chưa ở trạng thái chờ xác nhận thanh toán (PAYMENT_PENDING).", null);
@@ -3185,10 +3183,9 @@ public class CampusServiceImpl implements CampusService {
 
         switch (action) {
             case "CONFIRM":
-                // Xác nhận tiền đã vào → giữ chỗ thành công
+
                 form.setStatus(Status.RESERVATION_DEPOSITED);
 
-                // Trừ quota offering (slot thực sự bị giữ)
                 if (offering.getRemainingQuota() > 0) {
                     offering.setRemainingQuota(offering.getRemainingQuota() - 1);
                 } else {
@@ -3196,7 +3193,15 @@ public class CampusServiceImpl implements CampusService {
                             "Gói tuyển sinh không còn chỗ trống.", null);
                 }
 
-                // Cập nhật applicationStatus của offering
+                campaign = form.getAdmissionCampaign();
+
+                if (campaign != null && campaign.getRemainingQuota() != null) {
+                    campaign.setRemainingQuota(campaign.getRemainingQuota() - 1);
+                    // sau khi confirm deposited
+                    // quota -1
+                    admissionCampaignRepo.save(campaign);
+                }
+
                 int activeOfferingCount = admissionReservationFormRepo
                         .countByCampusProgramOfferingIdAndStatusIn(offering.getId(), Status.activeOfferingStatuses());
                 Status newAppStatus = deriveApplicationStatusByWindowAndQuota(
@@ -3205,19 +3210,18 @@ public class CampusServiceImpl implements CampusService {
                 offering.setApplicationStatus(newAppStatus);
                 campusProgramOfferingRepo.save(offering);
 
-                // Fix 3: extract account 1 lần
                 Account confirmActor = AuthRequestUtil.extractAuthenticatedAccount();
                 form.setPaymentConfirmedBy(confirmActor != null ? confirmActor.getEmail() : null);
                 break;
 
             case "REJECT_PAYMENT":
-                // Proof không hợp lệ → cho PH upload lại
+
                 if (request.getRejectReason() == null || request.getRejectReason().isBlank()) {
                     return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Vui lòng cung cấp lý do từ chối thanh toán.", null);
                 }
                 form.setStatus(Status.RESERVATION_PAYMENT_REJECTED);
                 form.setRejectReason(request.getRejectReason());
-                form.setPaymentProofUrl(null); // Xóa proof cũ không hợp lệ
+                form.setPaymentProofUrl(null);
                 break;
 
             default:
