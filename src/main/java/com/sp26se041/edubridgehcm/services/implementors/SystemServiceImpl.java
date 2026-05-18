@@ -517,6 +517,14 @@ public class SystemServiceImpl implements SystemService {
                                 docData.put("code", doc.getCode());
                                 docData.put("name", doc.getName());
                                 docData.put("required", doc.isRequired());
+                                docData.put("ocrCriteria", doc.getOcrCriteria() == null ? List.of() :
+                                        doc.getOcrCriteria().stream().map(c -> {
+                                            Map<String, Object> m = new HashMap<>();
+                                            m.put("label", c.getLabel());
+                                            m.put("validations", c.getValidations() != null ? c.getValidations() : List.of());
+                                            return m;
+                                        }).toList());
+                                docData.put("templateFileUrl", doc.getTemplateFileUrl() != null ? doc.getTemplateFileUrl() : "");
                                 return docData;
                             })
                             .collect(Collectors.toList()));

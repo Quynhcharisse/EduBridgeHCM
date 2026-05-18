@@ -3101,7 +3101,6 @@ public class CampusServiceImpl implements CampusService {
             return null;
         }
 
-        // Thu thập required doc codes: mandatoryAll + byMethod theo methodName
         List<String> requiredCodes = new ArrayList<>();
 
         List<?> mandatoryAll = docMap.get("mandatoryAll") instanceof List<?> m ? m : List.of();
@@ -3128,7 +3127,7 @@ public class CampusServiceImpl implements CampusService {
             }
         }
 
-        if (requiredCodes.isEmpty()) return null; // Không có doc bắt buộc → pass
+        if (requiredCodes.isEmpty()) return null;
 
         List<String> checked = checkedDocuments != null
                 ? checkedDocuments.stream().map(String::toUpperCase).toList()
