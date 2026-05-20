@@ -248,4 +248,11 @@ public class CampusController {
       return null;
     }
 
+
+    @GetMapping("/admission/campaign")
+    @PreAuthorize("hasAnyRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> getAdmissionCampaigns(){
+        return campusService.getAdmissionCampaigns();
+    }
+
 }

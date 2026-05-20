@@ -81,4 +81,6 @@ public interface CampusService {
 
     ResponseEntity<ResponseObject> updateAdmissionReservationForms(List<ProcessApplicantRequest> request);
 
+    ResponseEntity<ResponseObject> getAdmissionCampaigns();
+
 }

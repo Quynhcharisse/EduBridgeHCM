@@ -3353,9 +3353,33 @@ public class CampusServiceImpl implements CampusService {
     }
 
     @Override
-    @Transactional
     public ResponseEntity<ResponseObject> updateAdmissionReservationForms(List<ProcessApplicantRequest> request) {
-          return null;
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getAdmissionCampaigns() {
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
+        }
+
+        List<AdmissionCampaign> campaigns =
+                admissionCampaignRepo.findBySchoolIdOrderByYearDesc(actorCampus.getSchool().getId());
+
+        List<Map<String, Object>> result = campaigns.stream()
+                .map(c -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", c.getId());
+                    map.put("name", c.getName());
+                    map.put("isActive", c.getStatus() == Status.OPEN_ADMISSION_CAMPAIGN);
+                    return map;
+                })
+                .toList();
+
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách chiến dịch tuyển sinh thành công", result);
     }
 
     private Map<String, Object> buildN8nVerificationPayload(
