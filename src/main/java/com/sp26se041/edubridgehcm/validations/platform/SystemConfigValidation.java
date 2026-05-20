@@ -47,6 +47,73 @@ public class SystemConfigValidation {
         };
     }
 
+    public static List<Map<String, Object>> getExistingFlatData(Map<String, Object> configValue, ImportType type) {
+        List<Map<String, Object>> flat = new ArrayList<>();
+
+        switch (type) {
+            case ALLOWED_METHODS -> {
+                Object data = configValue.get("allowedMethods");
+                if (data instanceof List<?> list) {
+                    for (Object item : list) {
+                        if (item instanceof Map<?, ?> m) flat.add((Map<String, Object>) m);
+                    }
+                }
+            }
+            case ADMISSION_PROCESSES -> {
+                Object data = configValue.get("admissionProcesses");
+                if (data instanceof List<?> nested) {
+                    for (Object item : nested) {
+                        if (!(item instanceof Map<?, ?> group)) continue;
+                        String methodCode = String.valueOf(group.get("methodCode"));
+                        Object steps = group.get("steps");
+                        if (steps instanceof List<?> stepList) {
+                            for (Object step : stepList) {
+                                if (!(step instanceof Map<?, ?> s)) continue;
+                                Map<String, Object> row = new HashMap<>((Map<String, Object>) s);
+                                row.put("methodCode", methodCode);
+                                flat.add(row);
+                            }
+                        }
+                    }
+                }
+            }
+            case METHOD_DOCUMENTS -> {
+                Object docReq = configValue.get("documentRequirementsData");
+                if (docReq instanceof Map<?, ?> docMap) {
+                    Object byMethod = docMap.get("byMethod");
+                    if (byMethod instanceof List<?> nested) {
+                        for (Object item : nested) {
+                            if (!(item instanceof Map<?, ?> group)) continue;
+                            String methodCode = String.valueOf(group.get("methodCode"));
+                            Object docs = group.get("documents");
+                            if (docs instanceof List<?> docList) {
+                                for (Object doc : docList) {
+                                    if (!(doc instanceof Map<?, ?> d)) continue;
+                                    Map<String, Object> row = new HashMap<>((Map<String, Object>) d);
+                                    row.put("methodCode", methodCode);
+                                    flat.add(row);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            case MANDATORY_ALL -> {
+                Object docReq = configValue.get("documentRequirementsData");
+                if (docReq instanceof Map<?, ?> docMap) {
+                    Object mandatoryAll = docMap.get("mandatoryAll");
+                    if (mandatoryAll instanceof List<?> list) {
+                        for (Object item : list) {
+                            if (item instanceof Map<?, ?> m) flat.add((Map<String, Object>) m);
+                        }
+                    }
+                }
+            }
+        }
+
+        return flat;
+    }
+
     public static void syncLegacyData(Map<String, Object> configValue, List<Map<String, Object>> data, ImportType type) {
         switch (type) {
             case METHOD_DOCUMENTS -> {

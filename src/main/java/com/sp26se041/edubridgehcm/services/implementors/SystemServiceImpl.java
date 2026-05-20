@@ -475,7 +475,7 @@ public class SystemServiceImpl implements SystemService {
         List<Map<String, Object>> mandatoryAllJson = new ArrayList<>();
         List<Map<String, Object>> byMethodJson = new ArrayList<>();
 
-        CreateConfigDataRequest.DocumentRequirementsData documentRequirementsData = admissionSettingsData.getDocumentRequirements();
+        CreateConfigDataRequest.DocumentRequirementsData documentRequirementsData = admissionSettingsData.getDocumentRequirementsData();
         if (documentRequirementsData != null) {
             if (documentRequirementsData.getMandatoryAll() != null) {
                 mandatoryAllJson = documentRequirementsData.getMandatoryAll().stream()
@@ -633,7 +633,7 @@ public class SystemServiceImpl implements SystemService {
                 return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Dữ liệu không hợp lệ", rows);
             }
 
-            List<Map<String, Object>> existingData = (List<Map<String, Object>>) configValue.getOrDefault(type.getSheetName(), new ArrayList<>());
+            List<Map<String, Object>> existingData = SystemConfigValidation.getExistingFlatData(configValue, type);
             Map<String, Map<String, Object>> mergedMap = new LinkedHashMap<>();
 
             existingData.forEach(m -> mergedMap.put(SystemConfigValidation.getBusinessKey(m, type), m));
@@ -649,9 +649,11 @@ public class SystemServiceImpl implements SystemService {
                         Map<String, Object> existing = mergedMap.get(businessKey);
                         if (type == ImportType.MANDATORY_ALL) {
                             Object existingValidateCriterion = existing.get("validateCriterion");
-                            if (existingValidateCriterion != null) rowData.put("validateCriterion", existingValidateCriterion);
+                            if (existingValidateCriterion != null)
+                                rowData.put("validateCriterion", existingValidateCriterion);
                             Object existingTemplateFileUrl = existing.get("templateFileUrl");
-                            if (existingTemplateFileUrl != null) rowData.put("templateFileUrl", existingTemplateFileUrl);
+                            if (existingTemplateFileUrl != null)
+                                rowData.put("templateFileUrl", existingTemplateFileUrl);
                         }
                         if (type == ImportType.METHOD_DOCUMENTS) {
                             Object existingTemplateUrl = existing.get("templateUrl");
@@ -665,10 +667,6 @@ public class SystemServiceImpl implements SystemService {
             List<Map<String, Object>> finalData = new ArrayList<>(mergedMap.values());
 
             List<Map<String, Object>> nestedData = SystemConfigValidation.groupToNestedStructure(finalData, type);
-            if (type != ImportType.METHOD_DOCUMENTS && type != ImportType.MANDATORY_ALL) {
-                configValue.put(type.getSheetName(), nestedData);
-            }
-
             SystemConfigValidation.syncLegacyData(configValue, nestedData, type);
 
             if (type == ImportType.ALLOWED_METHODS) {
