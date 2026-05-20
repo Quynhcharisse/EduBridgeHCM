@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Data
@@ -20,6 +21,7 @@ public class UpdateStudentInfoRequest {
     int studentId;
     String studentName;
     String studentCode;
+    LocalDate dateOfBirth;
     String gender;
     String personalityTypeCode;
     String favouriteJob;

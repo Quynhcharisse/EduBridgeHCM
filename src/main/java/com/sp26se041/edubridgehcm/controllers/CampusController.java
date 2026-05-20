@@ -235,4 +235,9 @@ public class CampusController {
         return campusService.getAdmissionReservationForms(status);
     }
 
+    @PutMapping("/approve/auto/admission/reservation/form")
+    @PreAuthorize("hasAnyRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> approveAutoAdmissionReservationForms(@RequestParam Integer admissionCampaignId) {
+        return
+    }
 }

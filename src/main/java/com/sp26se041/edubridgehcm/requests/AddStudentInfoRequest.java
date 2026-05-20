@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Data
@@ -19,6 +20,7 @@ public class AddStudentInfoRequest {
     String studentName;
     String studentCode;
     String gender;
+    LocalDate dateOfBirth;
     String personalityTypeCode;
     String favouriteJob;
     List<AcademicInfo> academicInfos;

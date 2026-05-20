@@ -21,6 +21,7 @@ import com.sp26se041.edubridgehcm.models.Conversation;
 import com.sp26se041.edubridgehcm.models.Counsellor;
 import com.sp26se041.edubridgehcm.models.CounsellorSlot;
 import com.sp26se041.edubridgehcm.models.Parent;
+import com.sp26se041.edubridgehcm.models.PlatformConfig;
 import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
@@ -126,6 +127,9 @@ import java.util.stream.Collectors;
 public class CampusServiceImpl implements CampusService {
 
     private final SchoolSubscriptionRepo schoolSubscriptionRepo;
+
+
+    private final PlatformConfigRepo platformConfigRepo;
 
     @Value("${AI_SERVICE_N8N}")
     private String n8nUrl;
@@ -3266,6 +3270,131 @@ public class CampusServiceImpl implements CampusService {
         return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách đơn thành công.", result);
     }
 
+    @Override
+    public ResponseEntity<ResponseObject> approveAutoAdmissionReservationForms(Integer admissionCampaignId) {
+
+        Optional<AdmissionCampaign> admissionCampaign = admissionCampaignRepo.findById(admissionCampaignId);
+
+        if (admissionCampaign.isEmpty()){
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Đợt tuyển sinh không tồn tại.", null);
+        }
+
+        AdmissionCampaign campaign = admissionCampaign.get();
+
+        List<AdmissionReservationForm> pendingForms = campaign.getAdmissionReservationForms()
+                .stream()
+                .filter(f -> f.getStatus() == Status.RESERVATION_PENDING)
+                .toList();
+
+        if (pendingForms.isEmpty()) {
+            return ResponseBuilder.build(
+                    HttpStatus.OK,
+                    "Không có đơn nào đang chờ xét duyệt.",
+                    buildAutoReservationVerificationSummary(List.of())
+            );
+        }
+
+        Optional<PlatformConfig> admissionSettings = platformConfigRepo.findByKey("admissionSettingsData");
+
+        if (admissionSettings.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Hệ thống chưa cấu hình thông tin tuyển sinh. Vui lòng thử lại sau.", null);
+        }
+
+        List<Map<String, Object>> requiredDocuments = getRequiredDocuments(admissionSettings.get());
+
+        
+
+    }
+
+    private List<Map<String, Object>> getRequiredDocuments(PlatformConfig admissionSettings){
+
+        Map<String, Object> admissionSettingsData = (Map<String, Object>) admissionSettings.get().getValue();
+
+        Map<String, Object> documentRequirementsData = (Map<String, Object>) admissionSettingsData.get("documentRequirementsData");
+
+        List<Map<String, Object>> mandatoryAll = documentRequirementsData != null
+                && documentRequirementsData.get("mandatoryAll") != null
+                ? (List<Map<String, Object>>) documentRequirementsData.get("mandatoryAll")
+                : List.of();
+        return mandatoryAll;
+    }
+
+    private Map<String, Object> buildAutoReservationVerificationSummary(List<Map<String, Object>> formResults) {
+
+        int validCount   = 0;
+        int invalidCount = 0;
+        int errorCount   = 0;
+
+        List<Map<String, Object>> forms = new ArrayList<>();
+
+        for (Map<String, Object> result : formResults) {
+
+            String overallStatus = (String) result.get("overallStatus");
+
+            switch (overallStatus) {
+                case "valid"   -> validCount++;
+                case "invalid" -> invalidCount++;
+                default        -> errorCount++;
+            }
+
+            // --- documents ---
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> rawDocs =
+                    (List<Map<String, Object>>) result.get("documents");
+
+            List<Map<String, Object>> documents = new ArrayList<>();
+
+            if (rawDocs != null) {
+                for (Map<String, Object> doc : rawDocs) {
+
+                    // --- details ---
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> rawDetails =
+                            (List<Map<String, Object>>) doc.get("details");
+
+                    List<Map<String, Object>> details = new ArrayList<>();
+
+                    if (rawDetails != null) {
+                        for (Map<String, Object> d : rawDetails) {
+                            Map<String, Object> detail = new LinkedHashMap<>();
+                            detail.put("criteria", d.get("criteria"));
+                            detail.put("passed",   d.get("passed"));
+                            detail.put("note",     d.get("note"));
+                            details.add(detail);
+                        }
+                    }
+
+                    Map<String, Object> document = new LinkedHashMap<>();
+                    document.put("key",             doc.get("key"));
+                    document.put("label",           doc.get("label"));
+                    document.put("status",          doc.get("status"));
+                    document.put("submissionImage", doc.get("submissionImage"));
+                    document.put("reason",          doc.get("reason"));
+                    document.put("details",         details);
+                    documents.add(document);
+                }
+            }
+
+            Map<String, Object> form = new LinkedHashMap<>();
+            form.put("formId",        result.get("formId"));
+            form.put("overallStatus", overallStatus);
+            form.put("documents",     documents);
+            forms.add(form);
+        }
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("valid",   validCount);
+        summary.put("invalid", invalidCount);
+        summary.put("error",   errorCount);
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("totalForms", formResults.size());
+        body.put("summary",    summary);
+        body.put("forms",      forms);
+
+        return body;
+    }
+
     private List<Map<String, Object>> buildAdmissionReservationForms(List<AdmissionReservationForm> admissionReservationForms) {
         return admissionReservationForms.stream()
                 .map(this::buildAdmissionReservationForm)
@@ -3306,6 +3435,7 @@ public class CampusServiceImpl implements CampusService {
 
         // StudentProfile info
         StudentProfile student = form.getStudentProfile();
+
         map.put("studentProfileId", student.getId());
         map.put("studentName", student.getStudentName());
         map.put("studentCode", student.getStudentCode());

@@ -76,4 +76,6 @@ public interface CampusService {
 
     ResponseEntity<ResponseObject> getAdmissionReservationForms(String status);
 
+    ResponseEntity<ResponseObject> approveAutoAdmissionReservationForms(Integer admissionCampaignId);
+
 }

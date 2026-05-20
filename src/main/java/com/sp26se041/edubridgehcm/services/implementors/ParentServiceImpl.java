@@ -85,6 +85,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.time.Year;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -670,6 +671,7 @@ public class ParentServiceImpl implements ParentService {
         result.put("studentName", studentProfile.getStudentName());
         result.put("gender", studentProfile.getGender());
         result.put("studentCode", studentProfile.getStudentCode());
+        result.put("dateOfBirth", studentProfile.getDateOfBirth());
         result.put("personalityTypeCode", studentProfile.getPersonalityTypeName());
         result.put("favouriteJob", studentProfile.getFavouriteJob());
         result.put("academicProfileMetadata", mergeAcademicProfileMetadata(studentProfile));
@@ -788,6 +790,7 @@ public class ParentServiceImpl implements ParentService {
         studentInfoRepo.save(StudentProfile.builder()
                 .studentName(normalize(request.getStudentName()))
                 .parent(account.getParent())
+                .dateOfBirth(request.getDateOfBirth())
                 .studentCode(normalize(request.getStudentCode()))
                 .transcriptImages(transcriptImages)
                 .favouriteJob(normalize(request.getFavouriteJob()))
@@ -900,6 +903,7 @@ public class ParentServiceImpl implements ParentService {
         studentProfile.setPersonalityTypeName(normalize(request.getPersonalityTypeCode()));
         studentProfile.setAcademicProfileMetadata(academicProfileMetaData);
         studentProfile.setTranscriptImages(transcriptImages);
+        studentProfile.setDateOfBirth(request.getDateOfBirth());
 
         studentInfoRepo.save(studentProfile);
 
@@ -1021,6 +1025,22 @@ public class ParentServiceImpl implements ParentService {
 //            return "Căn cước công dân học sinh chỉ được chứa chữ số";
 //        }
 
+        if (request.getDateOfBirth() != null) {
+            LocalDate today = LocalDate.now();
+            if (request.getDateOfBirth().isAfter(today)) {
+                return "Ngày sinh không được là ngày trong tương lai";
+            }
+//            int age = Period.between(request.getDateOfBirth(), today).getYears();
+//
+//            if (age < 14) {
+//                return "Ngày sinh không hợp lệ: học sinh phải ít nhất 14 tuổi";
+//            }
+//            if (age > 100) {
+//                return "Ngày sinh không hợp lệ: tuổi không được vượt quá 100";
+//            }
+//
+        }
+
         if (isBlank(request.getGender())) {
             return "Giới tính là bắt buộc";
         }
@@ -1119,6 +1139,20 @@ public class ParentServiceImpl implements ParentService {
             return "Giới tính không hợp lệ";
         }
 
+        if (request.getDateOfBirth() != null) {
+            LocalDate today = LocalDate.now();
+            if (request.getDateOfBirth().isAfter(today)) {
+                return "Ngày sinh không được là ngày trong tương lai";
+            }
+//            int age = Period.between(request.getDateOfBirth(), today).getYears();
+//
+//            if (age < 14) {
+//                return "Ngày sinh không hợp lệ: học sinh phải ít nhất 14 tuổi";
+//            }
+//            if (age > 100) {
+//                return "Ngày sinh không hợp lệ: tuổi không được vượt quá 100";
+//            }
+        }
 
         if (!isBlank(request.getPersonalityTypeCode())) {
 
@@ -2187,6 +2221,22 @@ public class ParentServiceImpl implements ParentService {
                     "Căn cước công dân là bắt buộc để nộp đơn giữ chỗ.", null);
         }
 
+        LocalDate dateOfBirth = studentProfile.get().getDateOfBirth();
+
+        if (dateOfBirth == null) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Ngày tháng năm sinh là bắt buộc để nộp đơn giữ chỗ.", null);
+        }
+
+        LocalDate today = LocalDate.now();
+
+        int age = Period.between(dateOfBirth, today).getYears();
+
+        if (age < 14) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                    "Ngày sinh không hợp lệ: học sinh phải ít nhất 14 tuổi để nộp đơn giữ chỗ.", null);
+        }
+
         if (request.getSubmissionDocuments() == null || request.getSubmissionDocuments().isEmpty()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Vui lòng cung cấp đủ hình ảnh danh sách hồ sơ tài liệu bắt buộc trước khi nộp.", null);
         }
@@ -2476,6 +2526,7 @@ public class ParentServiceImpl implements ParentService {
 
     @Override
     public ResponseEntity<ResponseObject> getRequiredDocuments() {
+
         Optional<PlatformConfig> admissionSettings = platformConfigRepo.findByKey("admissionSettingsData");
 
         if (admissionSettings.isEmpty()) {
