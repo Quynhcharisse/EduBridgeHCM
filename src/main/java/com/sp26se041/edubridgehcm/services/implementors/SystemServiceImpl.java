@@ -485,9 +485,6 @@ public class SystemServiceImpl implements SystemService {
                             docData.put("name", doc.getName());
                             docData.put("required", true);
                             docData.put("validateCriterion", doc.getValidateCriterion() != null ? doc.getValidateCriterion() : List.of());
-                            if (doc.getTemplateFileUrl() == null || doc.getTemplateFileUrl().isBlank()) {
-                                throw new RuntimeException("Tài liệu '" + doc.getName() + "' phải có file mẫu (templateFileUrl).");
-                            }
                             docData.put("templateFileUrl", doc.getTemplateFileUrl());
                             return docData;
                         })

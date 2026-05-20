@@ -55,6 +55,9 @@ public class StudentProfile {
     @Column(name = "student_code")
     String studentCode;
 
+    @Column(name = "date_of_birth")
+    LocalDate dateOfBirth;
+
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb", name = "academic_profile_metadata")
     Object academicProfileMetadata;
