@@ -2903,6 +2903,7 @@ public class ParentServiceImpl implements ParentService {
         map.put("studentProfileId", student.getId());
         map.put("studentName", student.getStudentName());
         map.put("studentCode", student.getStudentCode());
+        map.put("dateOfBirth", student.getDateOfBirth());
         map.put("profileMetaData", form.getProfileMetadata());
         map.put("transcriptImages", form.getTranscriptImages());
         map.put("gender", student.getGender());
