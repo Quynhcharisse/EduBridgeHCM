@@ -128,10 +128,9 @@ import java.util.stream.Collectors;
 public class CampusServiceImpl implements CampusService {
 
     private final SchoolSubscriptionRepo schoolSubscriptionRepo;
-    private final PlatformConfigRepo platformConfigRepo;
-
 
     private final PlatformConfigRepo platformConfigRepo;
+
 
     @Value("${AI_SERVICE_N8N}")
     private String n8nUrl;
@@ -3299,6 +3298,8 @@ public class CampusServiceImpl implements CampusService {
             );
         }
 
+        List<Map<String, Object>> admissionReservationForms = buildPayloadAdmissionReservationForms(pendingForms);
+
         Optional<PlatformConfig> admissionSettings = platformConfigRepo.findByKey("admissionSettingsData");
 
         if (admissionSettings.isEmpty()) {
@@ -3307,13 +3308,83 @@ public class CampusServiceImpl implements CampusService {
 
         List<Map<String, Object>> requiredDocuments = getRequiredDocuments(admissionSettings.get());
 
-        
+        Map<String, Object> payload = buildN8nVerificationPayload(admissionReservationForms, requiredDocuments);
+
+        // Debug: kiểm tra payload thực tế Java gửi lên
+        try {
+            ObjectMapper debugMapper = new ObjectMapper();
+            System.out.println("[AUTO-VERIFY] Payload gửi n8n:\n" + debugMapper.writerWithDefaultPrettyPrinter().writeValueAsString(payload));
+        } catch (Exception ignored) {}
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+
+        List<Map<String, Object>> verificationResults;
+        try {
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    "https://n8n-service-ijbl.onrender.com/webhook/auto-validate-forms",
+                    entity,
+                    String.class
+            );
+
+            System.out.println("[AUTO-VERIFY] HTTP Status : " + response.getStatusCode());
+            System.out.println("[AUTO-VERIFY] Raw body    : " + response.getBody());
+
+            String rawBody = response.getBody();
+            if (rawBody == null || rawBody.isBlank()) {
+                return ResponseBuilder.build(HttpStatus.BAD_GATEWAY, "AI không trả dữ liệu xác minh.", null);
+            }
+
+            ObjectMapper objectMapper = new ObjectMapper();
+            verificationResults = objectMapper.readValue(rawBody, new TypeReference<List<Map<String, Object>>>() {});
+
+        } catch (HttpClientErrorException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Lỗi khi gọi AI xác minh hồ sơ: " + e.getMessage(), null);
+        } catch (HttpServerErrorException e) {
+            return ResponseBuilder.build(HttpStatus.BAD_GATEWAY, "AI xác minh hồ sơ gặp lỗi server: " + e.getMessage(), null);
+        } catch (Exception e) {
+            return ResponseBuilder.build(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi hệ thống khi xác minh hồ sơ.", null);
+        }
+
+        return ResponseBuilder.build(
+                HttpStatus.OK,
+                "Xét duyệt tự động hoàn tất.",
+                buildAutoReservationVerificationSummary(verificationResults)
+        );
+
+    }
+
+    private Map<String, Object> buildN8nVerificationPayload(
+            List<Map<String, Object>> admissionReservationForms,
+            List<Map<String, Object>> requiredDocuments) {
+
+        List<Map<String, Object>> reqDocs = requiredDocuments.stream()
+                .map(doc -> {
+                    List<String> criterias = doc.get("validateCriterion") instanceof List<?>
+                            ? (List<String>) doc.get("validateCriterion")
+                            : List.of();
+
+                    Map<String, Object> reqDoc = new LinkedHashMap<>();
+                    reqDoc.put("key",               doc.get("code"));
+                    reqDoc.put("label",             doc.get("name"));
+                    reqDoc.put("imageProof",        doc.get("templateFileUrl"));
+                    reqDoc.put("validateCriterias", criterias);
+                    return reqDoc;
+                })
+                .toList();
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("forms",             admissionReservationForms);
+        payload.put("requiredDocuments", reqDocs);
+
+        return payload;
 
     }
 
     private List<Map<String, Object>> getRequiredDocuments(PlatformConfig admissionSettings){
 
-        Map<String, Object> admissionSettingsData = (Map<String, Object>) admissionSettings.get().getValue();
+        Map<String, Object> admissionSettingsData = (Map<String, Object>) admissionSettings.getValue();
 
         Map<String, Object> documentRequirementsData = (Map<String, Object>) admissionSettingsData.get("documentRequirementsData");
 
@@ -3321,6 +3392,7 @@ public class CampusServiceImpl implements CampusService {
                 && documentRequirementsData.get("mandatoryAll") != null
                 ? (List<Map<String, Object>>) documentRequirementsData.get("mandatoryAll")
                 : List.of();
+
         return mandatoryAll;
     }
 
@@ -3343,7 +3415,6 @@ public class CampusServiceImpl implements CampusService {
             }
 
             // --- documents ---
-            @SuppressWarnings("unchecked")
             List<Map<String, Object>> rawDocs =
                     (List<Map<String, Object>>) result.get("documents");
 
@@ -3353,7 +3424,6 @@ public class CampusServiceImpl implements CampusService {
                 for (Map<String, Object> doc : rawDocs) {
 
                     // --- details ---
-                    @SuppressWarnings("unchecked")
                     List<Map<String, Object>> rawDetails =
                             (List<Map<String, Object>>) doc.get("details");
 
@@ -3400,7 +3470,47 @@ public class CampusServiceImpl implements CampusService {
         return body;
     }
 
-    private List<Map<String, Object>> buildAdmissionReservationForms(List<AdmissionReservationForm> admissionReservationForms) {
+    private List<Map<String, Object>> buildPayloadAdmissionReservationForms(List<AdmissionReservationForm> admissionReservationForms) {
+        return admissionReservationForms.stream()
+                .map(this::buildPayloadAdmissionReservationForm)
+                .toList();
+    }
+
+    private Map<String, Object> buildPayloadAdmissionReservationForm(AdmissionReservationForm form) {
+        Map<String, Object> map = new HashMap<>();
+
+        map.put("id", form.getId());
+        map.put("status", form.getStatus());
+        map.put("createdTime", form.getCreatedTime());
+        map.put("updatedTime", form.getUpdatedTime());
+
+        Map<String, Object> child = new HashMap<>();
+
+        StudentProfile student = form.getStudentProfile();
+
+        child.put("studentProfileId", student.getId());
+        child.put("studentName", student.getStudentName());
+        child.put("studentCode", student.getStudentCode());
+        child.put("dateOfBirth", student.getDateOfBirth());
+        child.put("profileMetaData", form.getProfileMetadata());
+        child.put("transcriptImages", form.getTranscriptImages());
+        child.put("gender", student.getGender());
+
+        map.put("child", child);
+
+        Parent parent = student.getParent();
+        map.put("parentProfileId", parent.getId());
+        map.put("parentName", parent.getName());
+        map.put("parentPhone", parent.getPhone());
+        map.put("parentEmail", parent.getAccount().getEmail());
+        map.put("identityCard", parent.getIdCardNumber());
+        map.put("address", parent.getCurrentAddress());
+
+        return map;
+
+    }
+
+        private List<Map<String, Object>> buildAdmissionReservationForms(List<AdmissionReservationForm> admissionReservationForms) {
         return admissionReservationForms.stream()
                 .map(this::buildAdmissionReservationForm)
                 .toList();

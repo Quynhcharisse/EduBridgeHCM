@@ -238,6 +238,6 @@ public class CampusController {
     @PutMapping("/approve/auto/admission/reservation/form")
     @PreAuthorize("hasAnyRole('SCHOOL')")
     public ResponseEntity<ResponseObject> approveAutoAdmissionReservationForms(@RequestParam Integer admissionCampaignId) {
-        return
+        return campusService.approveAutoAdmissionReservationForms(admissionCampaignId);
     }
 }
