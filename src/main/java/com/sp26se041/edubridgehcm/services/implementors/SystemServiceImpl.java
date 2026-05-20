@@ -507,6 +507,8 @@ public class SystemServiceImpl implements SystemService {
                                 docData.put("code", doc.getCode());
                                 docData.put("name", doc.getName());
                                 docData.put("required", doc.isRequired());
+                                docData.put("validateCriterion", doc.getValidateCriterion() != null ? doc.getValidateCriterion() : List.of());
+                                docData.put("templateUrl", doc.getTemplateFileUrl() != null ? doc.getTemplateFileUrl() : "");
                                 return docData;
                             })
                             .collect(Collectors.toList()));
@@ -644,9 +646,18 @@ public class SystemServiceImpl implements SystemService {
                     mergedMap.remove(businessKey);
                 } else {
                     Map<String, Object> rowData = new HashMap<>((Map<String, Object>) r.getRowData());
-                    if (type == ImportType.MANDATORY_ALL && mergedMap.containsKey(businessKey)) {
-                        Object existingOcr = mergedMap.get(businessKey).get("ocrCriteria");
-                        if (existingOcr != null) rowData.put("ocrCriteria", existingOcr);
+                    if (mergedMap.containsKey(businessKey)) {
+                        Map<String, Object> existing = mergedMap.get(businessKey);
+                        if (type == ImportType.MANDATORY_ALL) {
+                            Object existingValidateCriterion = existing.get("validateCriterion");
+                            if (existingValidateCriterion != null) rowData.put("validateCriterion", existingValidateCriterion);
+                            Object existingTemplateFileUrl = existing.get("templateFileUrl");
+                            if (existingTemplateFileUrl != null) rowData.put("templateFileUrl", existingTemplateFileUrl);
+                        }
+                        if (type == ImportType.METHOD_DOCUMENTS) {
+                            Object existingTemplateUrl = existing.get("templateUrl");
+                            if (existingTemplateUrl != null) rowData.put("templateUrl", existingTemplateUrl);
+                        }
                     }
                     mergedMap.put(businessKey, rowData);
                 }

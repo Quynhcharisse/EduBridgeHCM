@@ -41,6 +41,7 @@ import com.sp26se041.edubridgehcm.repositories.ConsultationOfflineRequestRepo;
 import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
 import com.sp26se041.edubridgehcm.repositories.CounsellorSlotRepo;
+import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.ProgramRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
 import com.sp26se041.edubridgehcm.repositories.SchoolHolidayRepo;
@@ -127,6 +128,7 @@ import java.util.stream.Collectors;
 public class CampusServiceImpl implements CampusService {
 
     private final SchoolSubscriptionRepo schoolSubscriptionRepo;
+    private final PlatformConfigRepo platformConfigRepo;
 
 
     private final PlatformConfigRepo platformConfigRepo;
@@ -3105,7 +3107,6 @@ public class CampusServiceImpl implements CampusService {
             return null;
         }
 
-        // Thu thập required doc codes: mandatoryAll + byMethod theo methodName
         List<String> requiredCodes = new ArrayList<>();
 
         List<?> mandatoryAll = docMap.get("mandatoryAll") instanceof List<?> m ? m : List.of();
@@ -3132,7 +3133,7 @@ public class CampusServiceImpl implements CampusService {
             }
         }
 
-        if (requiredCodes.isEmpty()) return null; // Không có doc bắt buộc → pass
+        if (requiredCodes.isEmpty()) return null;
 
         List<String> checked = checkedDocuments != null
                 ? checkedDocuments.stream().map(String::toUpperCase).toList()
@@ -3167,13 +3168,11 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy đơn đăng ký tuyển sinh.", null);
         }
 
-        // Fix 1: null check campaign
         AdmissionCampaign campaign = form.getAdmissionCampaign();
         if (campaign == null || !actorCampus.getSchool().getId().equals(campaign.getSchool().getId())) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Đơn này không thuộc trường của bạn.", null);
         }
 
-        // Chỉ xử lý được khi PH đã upload proof (PAYMENT_PENDING)
         if (form.getStatus() != Status.RESERVATION_PAYMENT_PENDING) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
                     "Đơn chưa ở trạng thái chờ xác nhận thanh toán (PAYMENT_PENDING).", null);
@@ -3189,10 +3188,9 @@ public class CampusServiceImpl implements CampusService {
 
         switch (action) {
             case "CONFIRM":
-                // Xác nhận tiền đã vào → giữ chỗ thành công
+
                 form.setStatus(Status.RESERVATION_DEPOSITED);
 
-                // Trừ quota offering (slot thực sự bị giữ)
                 if (offering.getRemainingQuota() > 0) {
                     offering.setRemainingQuota(offering.getRemainingQuota() - 1);
                 } else {
@@ -3200,7 +3198,15 @@ public class CampusServiceImpl implements CampusService {
                             "Gói tuyển sinh không còn chỗ trống.", null);
                 }
 
-                // Cập nhật applicationStatus của offering
+                campaign = form.getAdmissionCampaign();
+
+                if (campaign != null && campaign.getRemainingQuota() != null) {
+                    campaign.setRemainingQuota(campaign.getRemainingQuota() - 1);
+                    // sau khi confirm deposited
+                    // quota -1
+                    admissionCampaignRepo.save(campaign);
+                }
+
                 int activeOfferingCount = admissionReservationFormRepo
                         .countByCampusProgramOfferingIdAndStatusIn(offering.getId(), Status.activeOfferingStatuses());
                 Status newAppStatus = deriveApplicationStatusByWindowAndQuota(
@@ -3209,19 +3215,18 @@ public class CampusServiceImpl implements CampusService {
                 offering.setApplicationStatus(newAppStatus);
                 campusProgramOfferingRepo.save(offering);
 
-                // Fix 3: extract account 1 lần
                 Account confirmActor = AuthRequestUtil.extractAuthenticatedAccount();
                 form.setPaymentConfirmedBy(confirmActor != null ? confirmActor.getEmail() : null);
                 break;
 
             case "REJECT_PAYMENT":
-                // Proof không hợp lệ → cho PH upload lại
+
                 if (request.getRejectReason() == null || request.getRejectReason().isBlank()) {
                     return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Vui lòng cung cấp lý do từ chối thanh toán.", null);
                 }
                 form.setStatus(Status.RESERVATION_PAYMENT_REJECTED);
                 form.setRejectReason(request.getRejectReason());
-                form.setPaymentProofUrl(null); // Xóa proof cũ không hợp lệ
+                form.setPaymentProofUrl(null);
                 break;
 
             default:
@@ -3414,7 +3419,6 @@ public class CampusServiceImpl implements CampusService {
         map.put("transferCode", form.getTransferCode());
         map.put("paymentProofUrl", form.getPaymentProofUrl());
 
-        // CampusProgramOffering info
         CampusProgramOffering offering = form.getCampusProgramOffering();
 
         if (offering == null) {
@@ -3432,16 +3436,68 @@ public class CampusServiceImpl implements CampusService {
             map.put("schoolName", admissionCampaign.getSchool().getName());
         }
 
-
-        // StudentProfile info
         StudentProfile student = form.getStudentProfile();
 
         map.put("studentProfileId", student.getId());
         map.put("studentName", student.getStudentName());
         map.put("studentCode", student.getStudentCode());
-        map.put("profileMetaData", form.getProfileMetadata());
-        map.put("transcriptImages", form.getTranscriptImages());
         map.put("gender", student.getGender());
+        map.put("transcriptImages", form.getTranscriptImages());
+
+        AdmissionCampaign campaign = form.getAdmissionCampaign();
+        String methodCode = offering != null ? offering.getAdmissionMethod() : null;
+
+        Map<String, String> submittedMap = new HashMap<>();
+        if (form.getProfileMetadata() instanceof List<?> metaList) {
+            for (Object item : metaList) {
+                if (!(item instanceof Map<?, ?> meta)) continue;
+                Object key = meta.get("key");
+                Object url = meta.get("imageUrl");
+                if (key != null) submittedMap.put(key.toString(), url != null ? url.toString() : null);
+            }
+        }
+
+        List<Map<String, Object>> submittedDocuments = new ArrayList<>();
+        if (campaign != null) {
+            int schoolId = campaign.getSchool().getId();
+            Map<String, Object> docMap = resolveSchoolDocumentRequirements(schoolId);
+            if (docMap != null) {
+
+                List<?> mandatoryAll = docMap.get("mandatoryAll") instanceof List<?> m ? m : List.of();
+                for (Object item : mandatoryAll) {
+                    if (!(item instanceof Map<?, ?> doc)) continue;
+                    String code = doc.get("code") != null ? doc.get("code").toString() : null;
+                    Map<String, Object> entry = new HashMap<>();
+                    entry.put("key", code);
+                    entry.put("name", doc.get("name"));
+                    entry.put("required", doc.get("required"));
+                    entry.put("imageUrl", submittedMap.getOrDefault(code, null));
+                    entry.put("submitted", submittedMap.containsKey(code));
+                    submittedDocuments.add(entry);
+                }
+
+                List<?> byMethod = docMap.get("byMethod") instanceof List<?> b ? b : List.of();
+                for (Object item : byMethod) {
+                    if (!(item instanceof Map<?, ?> methodEntry)) continue;
+                    if (methodCode == null || !Objects.equals(methodEntry.get("methodCode"), methodCode)) continue;
+                    List<?> docs = methodEntry.get("documents") instanceof List<?> d ? d : List.of();
+                    for (Object docItem : docs) {
+                        if (!(docItem instanceof Map<?, ?> doc)) continue;
+                        String code = doc.get("code") != null ? doc.get("code").toString() : null;
+                        Map<String, Object> entry = new HashMap<>();
+                        entry.put("key", code);
+                        entry.put("name", doc.get("name"));
+                        entry.put("required", doc.get("required"));
+                        entry.put("imageUrl", submittedMap.getOrDefault(code, null));
+                        entry.put("submitted", submittedMap.containsKey(code));
+                        submittedDocuments.add(entry);
+                    }
+                    break;
+                }
+            }
+        }
+        map.put("submittedDocuments", submittedDocuments);
+        map.put("admissionMethod", methodCode);
 
         Parent parent = student.getParent();
         map.put("parentProfileId", parent.getId());
@@ -3452,5 +3508,22 @@ public class CampusServiceImpl implements CampusService {
         map.put("address", parent.getCurrentAddress());
 
         return map;
+    }
+
+    private Map<String, Object> resolveSchoolDocumentRequirements(int schoolId) {
+        Optional<SchoolConfig> docConfigOpt = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData");
+        if (docConfigOpt.isEmpty() || !(docConfigOpt.get().getValue() instanceof Map<?, ?> rawMap)) return null;
+
+        Map<String, Object> docMap = new HashMap<>((Map<String, Object>) rawMap);
+
+        List<?> mandatoryAll = List.of();
+        Object systemDocReq = platformConfigRepo.findByKey("admissionSettingsData")
+                .map(c -> ((Map<String, Object>) c.getValue()).get("documentRequirementsData"))
+                .orElse(null);
+        if (systemDocReq instanceof Map<?, ?> systemMap && systemMap.get("mandatoryAll") instanceof List<?> m) {
+            mandatoryAll = m;
+        }
+        docMap.put("mandatoryAll", mandatoryAll);
+        return docMap;
     }
 }

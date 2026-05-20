@@ -31,6 +31,7 @@ import com.sp26se041.edubridgehcm.services.SupabaseStorageService;
 import com.sp26se041.edubridgehcm.utils.AuthRequestUtil;
 import com.sp26se041.edubridgehcm.utils.ResponseBuilder;
 import com.sp26se041.edubridgehcm.utils.WorkShiftConfigValidator;
+import com.sp26se041.edubridgehcm.validations.school.CampusValidation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -184,7 +185,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
 
         List<String> validMethodCodes = allowedMethodsJson.stream()
                 .map(m -> Objects.toString(m.get("code"), ""))
-                .collect(Collectors.toList());
+                .toList();
 
         List<Map<String, Object>> admissionProcessesJson = new ArrayList<>();
         if (admissionSettingsData.getMethodAdmissionProcess() != null) {
@@ -238,17 +239,21 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
 
         List<String> validMethodCodes = allowedMethods.stream()
                 .map(m -> m.get("code").toString())
-                .collect(Collectors.toList());
+                .toList();
 
         if (request.getDocumentRequirementsData().getByMethod() != null) {
             for (var methodReq : request.getDocumentRequirementsData().getByMethod()) {
                 if (!validMethodCodes.contains(methodReq.getMethodCode())) {
-                    throw new RuntimeException("Mã phương pháp " + methodReq.getMethodCode() + "không hợp lệ.");
+                    throw new RuntimeException("Mã phương pháp " + methodReq.getMethodCode() + " không hợp lệ.");
                 }
             }
         }
 
         SchoolConfigRequest.DocumentRequirementsData documentRequirementsData = request.getDocumentRequirementsData();
+
+        if (documentRequirementsData.getByMethod() == null) {
+            throw new RuntimeException("Danh sách tài liệu theo phương thức không được để trống.");
+        }
 
         List<Map<String, Object>> byMethodJson = documentRequirementsData.getByMethod().stream()
                 .map(method -> {
@@ -260,6 +265,9 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                                 docMap.put("code", doc.getCode());
                                 docMap.put("name", doc.getName());
                                 docMap.put("required", doc.isRequired());
+                                if (doc.getTemplateUrl() != null) {
+                                    docMap.put("templateUrl", doc.getTemplateUrl());
+                                }
                                 return docMap;
                             })
                             .collect(Collectors.toList()));
@@ -267,22 +275,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                 })
                 .collect(Collectors.toList());
 
-        Map<String, Object> platformConfig = platformConfigRepo
-                .findByKey("admissionSettingsData")
-                .map(c -> (Map<String, Object>) c.getValue())
-                .orElse(new HashMap<>());
-
-        List<Map<String, Object>> adminMandatoryAll = new ArrayList<>();
-        Object docReqData = platformConfig.get("documentRequirementsData");
-        if (docReqData instanceof Map<?, ?> docMap) {
-            Object adminMandatory = ((Map<String, Object>) docMap).get("mandatoryAll");
-            if (adminMandatory instanceof List<?>) {
-                adminMandatoryAll = (List<Map<String, Object>>) adminMandatory;
-            }
-        }
-
         Map<String, Object> admissionJson = new HashMap<>();
-        admissionJson.put("mandatoryAll", adminMandatoryAll);
         admissionJson.put("byMethod", byMethodJson);
 
         SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData")
@@ -669,12 +662,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
     }
 
     public static String normalize(String value) {
-        if (value == null) {
-            return null;
-        }
-
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
+        return CampusValidation.normalize(value);
     }
 
     @Override
@@ -689,6 +677,10 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                 Map<String, Object> fallback = getConfigByKey(schoolId, key);
                 if (fallback != null) result.put(key, fallback.get(key));
             }
+        }
+
+        if (result.containsKey("documentRequirementsData")) {
+            result.put("documentRequirementsData", injectMandatoryAll((Map<String, Object>) result.get("documentRequirementsData")));
         }
 
         return ResponseBuilder.build(HttpStatus.OK, "", result);
@@ -800,6 +792,22 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         docReq.put("mandatoryAll", templateDocReq != null ? toSafeList(templateDocReq.get("mandatoryAll")) : Collections.emptyList());
         docReq.put("byMethod", templateDocReq != null ? toSafeList(templateDocReq.get("byMethod")) : Collections.emptyList());
         return docReq;
+    }
+
+    private Map<String, Object> injectMandatoryAll(Map<String, Object> docReqData) {
+        Map<String, Object> result = new HashMap<>(docReqData);
+        List<Map<String, Object>> mandatoryAll = Collections.emptyList();
+        Object systemDocReq = platformConfigRepo.findByKey("admissionSettingsData")
+                .map(c -> ((Map<String, Object>) c.getValue()).get("documentRequirementsData"))
+                .orElse(null);
+        if (systemDocReq instanceof Map<?, ?> systemMap) {
+            Object adminMandatory = ((Map<String, Object>) systemMap).get("mandatoryAll");
+            if (adminMandatory instanceof List<?>) {
+                mandatoryAll = (List<Map<String, Object>>) adminMandatory;
+            }
+        }
+        result.put("mandatoryAll", mandatoryAll);
+        return result;
     }
 
     private List<Map<String, Object>> toSafeList(Object source) {

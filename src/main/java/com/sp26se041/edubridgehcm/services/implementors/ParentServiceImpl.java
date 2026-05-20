@@ -2007,7 +2007,7 @@ public class ParentServiceImpl implements ParentService {
                 && admissionReservationFormRepo.existsByStudentProfile_StudentCodeAndStatusAndAdmissionCampaign_Year(
                 studentCode, Status.RESERVATION_CONFIRMED, currentYear)) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Học sinh với CCCD: "+ studentCode +" đã được xác nhận nhập học tại một trường trong hệ thống năm học "
+                    "Học sinh với CCCD: " + studentCode + " đã được xác nhận nhập học tại một trường trong hệ thống năm học "
                             + currentYear + ", không thể nộp thêm hồ sơ giữ chỗ.", null);
         }
 
@@ -2098,7 +2098,7 @@ public class ParentServiceImpl implements ParentService {
             List<CampusProgramOffering> offerings = offeringsBySchoolId.getOrDefault(schoolId, List.of());
 
             if (offerings.isEmpty()) {
-                groupUnavailable(failedGroup, "Trường chưa có chiến dịch tuyển sinh năm "+ currentYear +" cho phép nộp hồ sơ trước vào trường", schoolEntry);
+                groupUnavailable(failedGroup, "Trường chưa có chiến dịch tuyển sinh năm " + currentYear + " cho phép nộp hồ sơ trước vào trường", schoolEntry);
                 continue;
             }
 
@@ -2121,8 +2121,8 @@ public class ParentServiceImpl implements ParentService {
 
             boolean hasAvailable = offerings.stream().anyMatch(o ->
                     !o.getStatus().equals(Status.OFFERING_INACTIVE) &&
-                    !o.getStatus().equals(Status.OFFERING_DRAFT) &&
-                    !o.getStatus().equals(Status.UPCOMING_OFFERING) &&
+                            !o.getStatus().equals(Status.OFFERING_DRAFT) &&
+                            !o.getStatus().equals(Status.UPCOMING_OFFERING) &&
                             o.getApplicationStatus().equals(Status.OPEN) &&
                             o.getRemainingQuota() > 0 &&
                             o.getAllowReservationSubmission()
@@ -2133,14 +2133,14 @@ public class ParentServiceImpl implements ParentService {
                 continue;
             }
 
-                campaign = admissionCampaignRepo
-                        .findBySchoolIdAndYearAndStatus(schoolId, currentYear, Status.OPEN_ADMISSION_CAMPAIGN);
+            campaign = admissionCampaignRepo
+                    .findBySchoolIdAndYearAndStatus(schoolId, currentYear, Status.OPEN_ADMISSION_CAMPAIGN);
 
-                formsToSave.add(AdmissionReservationForm.builder()
+            formsToSave.add(AdmissionReservationForm.builder()
                     .admissionCampaign(campaign.get())
                     .studentProfile(studentProfile.get())
                     .profileMetadata(profileMetaData)
-                        .transcriptImages(transcriptImagesMeta)
+                    .transcriptImages(transcriptImagesMeta)
                     .status(Status.RESERVATION_PENDING)
                     .createdTime(LocalDateTime.now())
                     .updatedTime(LocalDateTime.now())
@@ -2377,7 +2377,6 @@ public class ParentServiceImpl implements ParentService {
                 ? (List<Map<String, Object>>) documentRequirementsData.get("mandatoryAll")
                 : List.of();
 
-        // imageUrl hiện tại của form
         Map<String, Object> existingDocMap = new HashMap<>();
         if (form.getProfileMetadata() != null) {
             ((List<Map<String, Object>>) form.getProfileMetadata()).forEach(doc -> {
@@ -2387,7 +2386,6 @@ public class ParentServiceImpl implements ParentService {
             });
         }
 
-        // imageUrl từ request
         Map<String, List<String>> requestDocMap = request.getSubmissionDocuments().stream()
                 .filter(d -> d.getImageUrl() != null && !d.getImageUrl().isEmpty())
                 .collect(Collectors.toMap(
@@ -2396,7 +2394,6 @@ public class ParentServiceImpl implements ParentService {
                         (a, b) -> b
                 ));
 
-        // Sync theo mandatoryAll
         List<Map<String, Object>> profileMetaData = mandatoryAll.stream()
                 .map(doc -> {
                     String code = (String) doc.get("code");
@@ -2407,7 +2404,6 @@ public class ParentServiceImpl implements ParentService {
                 })
                 .collect(Collectors.toList());
 
-        // Validate required docs
         List<String> missingDocNames = mandatoryAll.stream()
                 .filter(doc -> Boolean.TRUE.equals(doc.get("required")))
                 .filter(doc -> {
@@ -2542,7 +2538,7 @@ public class ParentServiceImpl implements ParentService {
                 ? (List<Map<String, Object>>) documentRequirementsData.get("mandatoryAll")
                 : List.of();
 
-            return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách hồ sơ bắt buộc thành công", mandatoryAll);
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách hồ sơ bắt buộc thành công", mandatoryAll);
 
     }
 
@@ -2647,6 +2643,13 @@ public class ParentServiceImpl implements ParentService {
 
             form.setStatus(Status.RESERVATION_CONFIRMED);
             form.setUpdatedTime(LocalDateTime.now());
+
+            String studentCode = form.getStudentProfile() != null ? form.getStudentProfile().getStudentCode() : null;
+            if (studentCode != null) {
+                int year = LocalDateTime.now().getYear();
+                form.setConfirmCode(year + "-" + studentCode);
+            }
+
             admissionReservationFormRepo.save(form);
 
             List<AdmissionReservationForm> depositedForms = admissionReservationFormRepo
@@ -2655,12 +2658,78 @@ public class ParentServiceImpl implements ParentService {
             for (AdmissionReservationForm depositedForm : depositedForms) {
                 depositedForm.setStatus(Status.RESERVATION_GHOST);
                 depositedForm.setUpdatedTime(LocalDateTime.now());
+
+                CampusProgramOffering ghostOffering = depositedForm.getCampusProgramOffering();
+
+                if (ghostOffering != null) {
+                    ghostOffering.setRemainingQuota(ghostOffering.getRemainingQuota() + 1);
+                    campusProgramOfferingRepo.save(ghostOffering);
+                }
+
+                AdmissionCampaign campaign = depositedForm.getAdmissionCampaign();
+                if (campaign != null && campaign.getRemainingQuota() != null) {
+                    campaign.setRemainingQuota(campaign.getRemainingQuota() + 1);
+                    admissionCampaignRepo.save(campaign);
+                }
             }
             if (!depositedForms.isEmpty()) {
                 admissionReservationFormRepo.saveAll(depositedForms);
             }
 
-            return ResponseBuilder.build(HttpStatus.OK, "Xác nhận nhập học thành công.", null);
+            // Build response: mã hồ sơ + danh sách tài liệu cần chuẩn bị
+            Map<String, Object> responseData = new HashMap<>();
+            responseData.put("formId", form.getId());
+            responseData.put("confirmCode", form.getConfirmCode());
+
+            CampusProgramOffering confirmedOffering = form.getCampusProgramOffering();
+            if (confirmedOffering != null) {
+                int schoolId = confirmedOffering.getCampus().getSchool().getId();
+                String methodCode = confirmedOffering.getAdmissionMethod();
+
+                Optional<SchoolConfig> docConfigOpt = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData");
+                if (docConfigOpt.isPresent() && docConfigOpt.get().getValue() instanceof Map<?, ?> docMap) {
+                    List<Map<String, Object>> mandatoryDocs = new ArrayList<>();
+                    List<?> mandatoryAll = List.of();
+                    Object systemDocReq = platformConfigRepo.findByKey("admissionSettingsData")
+                            .map(c -> ((Map<String, Object>) c.getValue()).get("documentRequirementsData"))
+                            .orElse(null);
+                    if (systemDocReq instanceof Map<?, ?> systemMap
+                            && systemMap.get("mandatoryAll") instanceof List<?> m) {
+                        mandatoryAll = m;
+                    }
+                    for (Object item : mandatoryAll) {
+                        if (!(item instanceof Map<?, ?> doc)) continue;
+                        Map<String, Object> entry = new HashMap<>();
+                        entry.put("name", doc.get("name"));
+                        entry.put("required", doc.get("required"));
+                        mandatoryDocs.add(entry);
+                    }
+
+                    List<Map<String, Object>> methodDocs = new ArrayList<>();
+                    List<?> byMethod = docMap.get("byMethod") instanceof List<?> b ? b : List.of();
+                    for (Object item : byMethod) {
+                        if (!(item instanceof Map<?, ?> methodEntry)) continue;
+                        if (!Objects.equals(methodEntry.get("methodCode"), methodCode)) continue;
+                        List<?> docs = methodEntry.get("documents") instanceof List<?> d ? d : List.of();
+                        for (Object docItem : docs) {
+                            if (!(docItem instanceof Map<?, ?> doc)) continue;
+                            Map<String, Object> entry = new HashMap<>();
+                            entry.put("name", doc.get("name"));
+                            entry.put("required", doc.get("required"));
+                            if (doc.get("templateUrl") != null) {
+                                entry.put("templateUrl", doc.get("templateUrl"));
+                            }
+                            methodDocs.add(entry);
+                        }
+                        break;
+                    }
+
+                    responseData.put("mandatoryDocuments", mandatoryDocs);
+                    responseData.put("methodDocuments", methodDocs);
+                }
+            }
+
+            return ResponseBuilder.build(HttpStatus.OK, "Xác nhận nhập học thành công.", responseData);
 
         }
 
@@ -2680,7 +2749,7 @@ public class ParentServiceImpl implements ParentService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy gói tuyển sinh", null);
         }
 
-        if (campusProgramOffering.get().getStatus().equals(Status.OFFERING_INACTIVE)){
+        if (campusProgramOffering.get().getStatus().equals(Status.OFFERING_INACTIVE)) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Gói tuyển sinh đã ngừng hoạt động, không thể nộp hồ sơ.", null);
         }
 
@@ -2851,9 +2920,71 @@ public class ParentServiceImpl implements ParentService {
         map.put("identityCard", parent.getIdCardNumber());
         map.put("address", parent.getCurrentAddress());
 
+        if (Status.RESERVATION_CONFIRMED.equals(form.getStatus())) {
+            map.put("confirmCode", form.getConfirmCode());
+
+            if (offering != null) {
+                int schoolId = offering.getCampus().getSchool().getId();
+                String methodCode = offering.getAdmissionMethod();
+
+                Map<String, Object> docMap = resolveSchoolDocumentRequirements(schoolId);
+                if (docMap != null) {
+                    List<Map<String, Object>> mandatoryDocs = new ArrayList<>();
+                    List<?> mandatoryAll = docMap.get("mandatoryAll") instanceof List<?> m ? m : List.of();
+                    for (Object item : mandatoryAll) {
+                        if (!(item instanceof Map<?, ?> doc)) continue;
+                        Map<String, Object> entry = new HashMap<>();
+                        entry.put("name", doc.get("name"));
+                        entry.put("required", doc.get("required"));
+                        entry.put("templateFileUrl", doc.get("templateFileUrl"));
+                        mandatoryDocs.add(entry);
+                    }
+
+                    List<Map<String, Object>> methodDocs = new ArrayList<>();
+                    List<?> byMethod = docMap.get("byMethod") instanceof List<?> b ? b : List.of();
+                    for (Object item : byMethod) {
+                        if (!(item instanceof Map<?, ?> methodEntry)) continue;
+                        if (methodCode == null || !Objects.equals(methodEntry.get("methodCode"), methodCode)) continue;
+                        List<?> docs = methodEntry.get("documents") instanceof List<?> d ? d : List.of();
+                        for (Object docItem : docs) {
+                            if (!(docItem instanceof Map<?, ?> doc)) continue;
+                            Map<String, Object> entry = new HashMap<>();
+                            entry.put("name", doc.get("name"));
+                            entry.put("required", doc.get("required"));
+                            if (doc.get("templateUrl") != null) {
+                                entry.put("templateUrl", doc.get("templateUrl"));
+                            }
+                            methodDocs.add(entry);
+                        }
+                        break;
+                    }
+
+                    map.put("mandatoryDocuments", mandatoryDocs);
+                    map.put("methodDocuments", methodDocs);
+                }
+            }
+        }
+
         return map;
     }
 
+
+    private Map<String, Object> resolveSchoolDocumentRequirements(int schoolId) {
+        Optional<SchoolConfig> docConfigOpt = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData");
+        if (docConfigOpt.isEmpty() || !(docConfigOpt.get().getValue() instanceof Map<?, ?> rawMap)) return null;
+
+        Map<String, Object> docMap = new HashMap<>((Map<String, Object>) rawMap);
+
+        List<?> mandatoryAll = List.of();
+        Object systemDocReq = platformConfigRepo.findByKey("admissionSettingsData")
+                .map(c -> ((Map<String, Object>) c.getValue()).get("documentRequirementsData"))
+                .orElse(null);
+        if (systemDocReq instanceof Map<?, ?> systemMap && systemMap.get("mandatoryAll") instanceof List<?> m) {
+            mandatoryAll = m;
+        }
+        docMap.put("mandatoryAll", mandatoryAll);
+        return docMap;
+    }
 
     private Sort buildConsultationSort(Status status) {
 
@@ -2915,7 +3046,6 @@ public class ParentServiceImpl implements ParentService {
         studentProfile = studentInfoRepo.findById(studentProfileId).orElse(null);
 
 
-
         List<CampusProgramOffering> allOfferings = campusProgramOfferingRepo.findByCampus_School_IdIn(schoolIds);
 
         Map<Integer, List<CampusProgramOffering>> offeringsBySchoolId = allOfferings.stream()
@@ -2945,7 +3075,7 @@ public class ParentServiceImpl implements ParentService {
             Map<String, Object> schoolEntry = Map.of("schoolId", schoolId, "schoolName", school.getName());
 
             if (offerings.isEmpty()) {
-                groupUnavailable(unavailableGrouped, "Trường chưa có chiến dịch tuyển sinh năm "+ currentYear +" cho phép nộp hồ sơ trước vào trường", schoolEntry);
+                groupUnavailable(unavailableGrouped, "Trường chưa có chiến dịch tuyển sinh năm " + currentYear + " cho phép nộp hồ sơ trước vào trường", schoolEntry);
                 continue;
             }
 
@@ -3104,7 +3234,7 @@ public class ParentServiceImpl implements ParentService {
                 .noneMatch(CampusProgramOffering::getAllowReservationSubmission);
 
         if (noneAllowReservation) {
-            return "Trường chưa có chiến dịch tuyển sinh năm "+ currentYear +" cho phép nộp hồ sơ trước vào trường";
+            return "Trường chưa có chiến dịch tuyển sinh năm " + currentYear + " cho phép nộp hồ sơ trước vào trường";
         }
 
         List<CampusProgramOffering> allowedOfferings = offerings.stream()
@@ -3127,13 +3257,14 @@ public class ParentServiceImpl implements ParentService {
         boolean noneOpen = allowedOfferings.stream()
                 .noneMatch(o -> o.getApplicationStatus().equals(Status.OPEN));
         if (noneOpen) {
-            return "Chiến dịch tuyển sinh trường năm "+ currentYear + " hiện chưa cho phép nộp hồ sơ trước vào trường";
+            return "Chiến dịch tuyển sinh trường năm " + currentYear + " hiện chưa cho phép nộp hồ sơ trước vào trường";
         }
 
         boolean allNoQuota = allowedOfferings.stream()
                 .allMatch(o -> o.getRemainingQuota() <= 0
-                && o.getAdmissionCampaign() != null && o.getAdmissionCampaign().getYear() == currentYear);
-        if (allNoQuota) return "Chiến dịch tuyển sinh trường năm " + currentYear +" đã đủ chỉ tiêu hồ sơ ứng tuyển vào trường";
+                        && o.getAdmissionCampaign() != null && o.getAdmissionCampaign().getYear() == currentYear);
+        if (allNoQuota)
+            return "Chiến dịch tuyển sinh trường năm " + currentYear + " đã đủ chỉ tiêu hồ sơ ứng tuyển vào trường";
 
         return "";
     }

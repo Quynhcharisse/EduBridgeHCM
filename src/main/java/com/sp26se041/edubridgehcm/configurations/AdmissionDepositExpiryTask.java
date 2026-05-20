@@ -47,18 +47,8 @@ public class AdmissionDepositExpiryTask {
                 continue;
             }
 
-            Status previousStatus = form.getStatus();
-
-            // 1. Đổi status form
             form.setStatus(Status.RESERVATION_DEPOSIT_EXPIRED);
             reservationFormRepo.save(form);
-
-            // 2. Hoàn quota campaign
-            AdmissionCampaign campaign = form.getAdmissionCampaign();
-            if (campaign != null && campaign.getRemainingQuota() != null) {
-                campaign.setRemainingQuota(campaign.getRemainingQuota() + 1);
-                admissionCampaignRepo.save(campaign);
-            }
 
             expiredCount++;
         }
@@ -92,19 +82,17 @@ public class AdmissionDepositExpiryTask {
             form.setStatus(Status.RESERVATION_GHOST);
             reservationFormRepo.save(form);
 
-            if (previousStatus == Status.RESERVATION_APPROVAL) {
-                AdmissionCampaign campaign = form.getAdmissionCampaign();
-                if (campaign != null && campaign.getRemainingQuota() != null) {
-                    campaign.setRemainingQuota(campaign.getRemainingQuota() + 1);
-                    admissionCampaignRepo.save(campaign);
-                }
-            }
-
             if (previousStatus == Status.RESERVATION_DEPOSITED) {
                 CampusProgramOffering offering = form.getCampusProgramOffering();
                 if (offering != null) {
                     offering.setRemainingQuota(offering.getRemainingQuota() + 1);
                     campusProgramOfferingRepo.save(offering);
+                }
+
+                AdmissionCampaign campaign = form.getAdmissionCampaign();
+                if (campaign != null && campaign.getRemainingQuota() != null) {
+                    campaign.setRemainingQuota(campaign.getRemainingQuota() + 1);
+                    admissionCampaignRepo.save(campaign);
                 }
             }
 

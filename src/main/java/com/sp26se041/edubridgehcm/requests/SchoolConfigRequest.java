@@ -88,17 +88,7 @@ public class SchoolConfigRequest {
         String code;
         String name;
         boolean required;
-        List<OcrCriterion> ocrCriteria;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class OcrCriterion {
-        String label;
-        List<String> validations;
+        String templateUrl;
     }
 
     @Data
