@@ -55,7 +55,7 @@ public class Account implements UserDetails {
     @Enumerated(EnumType.STRING)
     Status status;
 
-        @Column(name = "first_login")
+    @Column(name = "first_login")
     Boolean firstLogin;
 
     @Column(name = "is_restricted")

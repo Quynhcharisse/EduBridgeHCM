@@ -142,7 +142,7 @@ public class CreateConfigDataRequest {
     public static class AdmissionSettingsData {
         List<AdmissionMethodDetail> allowedMethods;
         List<MethodAdmissionProcess> methodAdmissionProcess;
-        DocumentRequirementsData documentRequirements;
+        DocumentRequirementsData documentRequirementsData;
     }
 
     @Data
