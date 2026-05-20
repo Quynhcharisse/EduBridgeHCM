@@ -3328,9 +3328,6 @@ public class CampusServiceImpl implements CampusService {
                     String.class
             );
 
-            System.out.println("[AUTO-VERIFY] HTTP Status : " + response.getStatusCode());
-            System.out.println("[AUTO-VERIFY] Raw body    : " + response.getBody());
-
             String rawBody = response.getBody();
             if (rawBody == null || rawBody.isBlank()) {
                 return ResponseBuilder.build(HttpStatus.BAD_GATEWAY, "AI không trả dữ liệu xác minh.", null);
@@ -3353,6 +3350,36 @@ public class CampusServiceImpl implements CampusService {
                 buildAutoReservationVerificationSummary(verificationResults)
         );
 
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> updateAdmissionReservationForms(List<ProcessApplicantRequest> request) {
+        return null;
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getAdmissionCampaigns() {
+
+        Campus actorCampus = extractActorCampus();
+
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
+        }
+
+        List<AdmissionCampaign> campaigns =
+                admissionCampaignRepo.findBySchoolIdOrderByYearDesc(actorCampus.getSchool().getId());
+
+        List<Map<String, Object>> result = campaigns.stream()
+                .map(c -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", c.getId());
+                    map.put("name", c.getName());
+                    map.put("isActive", c.getStatus() == Status.OPEN_ADMISSION_CAMPAIGN);
+                    return map;
+                })
+                .toList();
+
+        return ResponseBuilder.build(HttpStatus.OK, "Lấy danh sách chiến dịch tuyển sinh thành công", result);
     }
 
     private Map<String, Object> buildN8nVerificationPayload(
