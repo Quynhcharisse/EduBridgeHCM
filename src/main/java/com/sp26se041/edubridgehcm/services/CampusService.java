@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.List;
 
 public interface CampusService {
 
@@ -77,5 +78,7 @@ public interface CampusService {
     ResponseEntity<ResponseObject> getAdmissionReservationForms(String status);
 
     ResponseEntity<ResponseObject> approveAutoAdmissionReservationForms(Integer admissionCampaignId);
+
+    ResponseEntity<ResponseObject> updateAdmissionReservationForms(List<ProcessApplicantRequest> request);
 
 }

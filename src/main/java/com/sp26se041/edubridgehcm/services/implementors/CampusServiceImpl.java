@@ -3328,9 +3328,6 @@ public class CampusServiceImpl implements CampusService {
                     String.class
             );
 
-            System.out.println("[AUTO-VERIFY] HTTP Status : " + response.getStatusCode());
-            System.out.println("[AUTO-VERIFY] Raw body    : " + response.getBody());
-
             String rawBody = response.getBody();
             if (rawBody == null || rawBody.isBlank()) {
                 return ResponseBuilder.build(HttpStatus.BAD_GATEWAY, "AI không trả dữ liệu xác minh.", null);
@@ -3353,6 +3350,12 @@ public class CampusServiceImpl implements CampusService {
                 buildAutoReservationVerificationSummary(verificationResults)
         );
 
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<ResponseObject> updateAdmissionReservationForms(List<ProcessApplicantRequest> request) {
+          return null;
     }
 
     private Map<String, Object> buildN8nVerificationPayload(

@@ -33,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/campus")
@@ -240,4 +241,11 @@ public class CampusController {
     public ResponseEntity<ResponseObject> approveAutoAdmissionReservationForms(@RequestParam Integer admissionCampaignId) {
         return campusService.approveAutoAdmissionReservationForms(admissionCampaignId);
     }
+
+    @PutMapping("/admission/reservation/forms")
+    @PreAuthorize("hasAnyRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> updateAdmissionReservationForms(@RequestBody List<ProcessApplicantRequest> request) {
+      return null;
+    }
+
 }

@@ -270,6 +270,5 @@ public class ParentController {
         return parentService.getQrCodeInfo(admissionFormId);
     }
 
-
 }
 
