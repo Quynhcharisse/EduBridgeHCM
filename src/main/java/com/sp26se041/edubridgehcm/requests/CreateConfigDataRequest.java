@@ -184,7 +184,19 @@ public class CreateConfigDataRequest {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class MethodDocumentRequirement {
         String methodCode;
-        List<DocumentDetail> documents;
+        List<MethodDocumentDetail> documents;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class MethodDocumentDetail {
+        String code;
+        String name;
+        boolean required;
+        String templateUrl;
     }
 
     @Data

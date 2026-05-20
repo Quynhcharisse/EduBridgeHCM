@@ -507,7 +507,7 @@ public class SystemServiceImpl implements SystemService {
                                 docData.put("code", doc.getCode());
                                 docData.put("name", doc.getName());
                                 docData.put("required", doc.isRequired());
-                                docData.put("templateUrl", doc.getTemplateFileUrl() != null ? doc.getTemplateFileUrl() : "");
+                                docData.put("templateUrl", doc.getTemplateUrl() != null ? doc.getTemplateUrl() : "");
                                 return docData;
                             })
                             .collect(Collectors.toList()));
