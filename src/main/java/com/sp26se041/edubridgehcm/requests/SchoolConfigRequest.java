@@ -76,6 +76,7 @@ public class SchoolConfigRequest {
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class DocumentRequirementsData {
+        /** mandatoryAll do platform quy định, school không được cấu hình riêng */
         List<MethodDocumentRequirement> byMethod;
     }
 

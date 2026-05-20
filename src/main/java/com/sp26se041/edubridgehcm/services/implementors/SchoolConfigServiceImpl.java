@@ -173,6 +173,10 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
 
         SchoolConfigRequest.AdmissionSettingsData admissionSettingsData = request.getAdmissionSettingsData();
 
+        if (admissionSettingsData.getAllowedMethods() == null || admissionSettingsData.getAllowedMethods().isEmpty()) {
+            throw new RuntimeException("Danh sách phương thức tuyển sinh không được để trống.");
+        }
+
         List<Map<String, Object>> allowedMethodsJson = admissionSettingsData.getAllowedMethods().stream()
                 .map(method -> {
                     Map<String, Object> data = new HashMap<>();
@@ -185,6 +189,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
 
         List<String> validMethodCodes = allowedMethodsJson.stream()
                 .map(m -> Objects.toString(m.get("code"), ""))
+                .filter(s -> !s.isBlank())
                 .toList();
 
         List<Map<String, Object>> admissionProcessesJson = new ArrayList<>();
@@ -226,6 +231,24 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         config.setValue(admissionJson);
         config.setUpdatedAt(LocalDateTime.now());
         schoolConfigRepo.save(config);
+
+        // Cascade: xóa các byMethod entry của method đã bị loại khỏi allowedMethods
+        schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData").ifPresent(docConfig -> {
+            if (!(docConfig.getValue() instanceof Map<?, ?> rawDoc)) return;
+            Map<String, Object> docMap = new HashMap<>((Map<String, Object>) rawDoc);
+            Object byMethodObj = docMap.get("byMethod");
+            if (byMethodObj instanceof List<?> byMethodList) {
+                List<Map<String, Object>> filtered = byMethodList.stream()
+                        .filter(Map.class::isInstance)
+                        .map(m -> (Map<String, Object>) m)
+                        .filter(m -> validMethodCodes.contains(Objects.toString(m.get("methodCode"), "")))
+                        .collect(Collectors.toList());
+                docMap.put("byMethod", filtered);
+                docConfig.setValue(docMap);
+                docConfig.setUpdatedAt(LocalDateTime.now());
+                schoolConfigRepo.save(docConfig);
+            }
+        });
     }
 
     @Transactional
@@ -238,7 +261,8 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
         List<Map<String, Object>> allowedMethods = (List<Map<String, Object>>) admissionData.get("allowedMethods");
 
         List<String> validMethodCodes = allowedMethods.stream()
-                .map(m -> m.get("code").toString())
+                .map(m -> Objects.toString(m.get("code"), ""))
+                .filter(s -> !s.isBlank())
                 .toList();
 
         if (request.getDocumentRequirementsData().getByMethod() != null) {
@@ -275,8 +299,9 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                 })
                 .collect(Collectors.toList());
 
-        Map<String, Object> admissionJson = new HashMap<>();
-        admissionJson.put("byMethod", byMethodJson);
+        // mandatoryAll do platform quy định, school chỉ lưu byMethod riêng
+        Map<String, Object> documentRequirementsJson = new HashMap<>();
+        documentRequirementsJson.put("byMethod", byMethodJson);
 
         SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData")
                 .orElse(SchoolConfig.builder()
@@ -284,7 +309,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                         .key("documentRequirementsData")
                         .build());
 
-        config.setValue(admissionJson);
+        config.setValue(documentRequirementsJson);
         config.setUpdatedAt(LocalDateTime.now());
         schoolConfigRepo.save(config);
     }
@@ -796,6 +821,8 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
 
     private Map<String, Object> injectMandatoryAll(Map<String, Object> docReqData) {
         Map<String, Object> result = new HashMap<>(docReqData);
+
+        // mandatoryAll luôn lấy từ platform — school không được override
         List<Map<String, Object>> mandatoryAll = Collections.emptyList();
         Object systemDocReq = platformConfigRepo.findByKey("admissionSettingsData")
                 .map(c -> ((Map<String, Object>) c.getValue()).get("documentRequirementsData"))

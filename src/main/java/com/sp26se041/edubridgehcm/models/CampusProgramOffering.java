@@ -98,5 +98,5 @@ public class CampusProgramOffering {
     Status status;
 
     @Column(name = "allow_reservation_submission")
-    Boolean allowReservationSubmission; // lấy từ admissionMethodTimelines của campaign
+    Boolean allowReservationSubmission;
 }

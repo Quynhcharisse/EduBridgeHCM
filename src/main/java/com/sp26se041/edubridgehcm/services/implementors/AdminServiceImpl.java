@@ -205,7 +205,7 @@ public class AdminServiceImpl implements AdminService {
         } catch (HttpClientErrorException e) {
             String rawError = e.getResponseBodyAsString();
 
-            if (rawError == null || rawError.isBlank()) {
+            if (rawError.isBlank()) {
                 return ResponseBuilder.build(
                         HttpStatus.BAD_REQUEST,
                         "Yêu cầu không hợp lệ",
@@ -278,7 +278,7 @@ public class AdminServiceImpl implements AdminService {
         List<Map<String, Object>> items = buildConversationList(conversations, accAdmin.get().getEmail().toString());
 
         boolean hasMore = conversations.size() == 20;
-        Long nextCursorId = hasMore && !conversations.isEmpty()
+        Long nextCursorId = hasMore
                 ? conversations.get(conversations.size() - 1).getId()
                 : null;
 
@@ -1140,10 +1140,6 @@ public class AdminServiceImpl implements AdminService {
 
         if (subscription.getDurationDays() <= 0) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không thể phát hành: thời hạn gói phải lớn hơn 0 ngày.", null);
-        }
-
-        if (subscription.getFeatures() == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không thể phát hành: gói phải có danh sách tính năng.", null);
         }
 
         subscription.setPackageStatus(Status.PACKAGE_ACTIVE);
