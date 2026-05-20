@@ -72,10 +72,10 @@ public class Curriculum {
 
     @ManyToOne
     @JoinColumn(name = "parent_id")
-    Curriculum parent; // liên kết các phiên bản của cùng một chương trình đào tạo
+    Curriculum parent;
 
     @OneToMany(mappedBy = "curriculum")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    List<Program> programs; // Danh sách các Program sử dụng phiên bản khung này
+    List<Program> programs;
 }

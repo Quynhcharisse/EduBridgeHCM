@@ -76,22 +76,8 @@ public class SchoolConfigRequest {
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class DocumentRequirementsData {
+        /** mandatoryAll do platform quy định, school không được cấu hình riêng */
         List<MethodDocumentRequirement> byMethod;
-        /** Tài liệu bắt buộc mà trường có thể override templateFileUrl/validateCriterion so với mẫu platform. */
-        List<MandatoryDocDetail> mandatoryAll;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class MandatoryDocDetail {
-        String code;
-        String name;
-        boolean required;
-        String templateFileUrl;
-        List<String> validateCriterion;
     }
 
     @Data

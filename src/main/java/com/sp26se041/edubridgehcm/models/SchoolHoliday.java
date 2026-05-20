@@ -35,7 +35,7 @@ public class SchoolHoliday {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
 
-    String title; // hiển thị cho Tư vấn viên biết lý do tại sao slot bị khóa hoặc có cảnh báo
+    String title;
 
     @Column(name = "start_date")
     LocalDate startDate;
@@ -49,8 +49,6 @@ public class SchoolHoliday {
 
     @ManyToOne
     @JoinColumn(name = "campus_id")
-    // NULL: Áp dụng toàn trường (Global)
-    // NOT NULL: Chỉ áp dụng cho cơ sở này (Local)
     Campus campus;
 
     @Column(name = "apply_to_consultant")

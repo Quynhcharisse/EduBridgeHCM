@@ -3620,19 +3620,28 @@ public class CampusServiceImpl implements CampusService {
     }
 
     private Map<String, Object> resolveSchoolDocumentRequirements(int schoolId) {
-        Optional<SchoolConfig> docConfigOpt = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData");
-        if (docConfigOpt.isEmpty() || !(docConfigOpt.get().getValue() instanceof Map<?, ?> rawMap)) return null;
-
-        Map<String, Object> docMap = new HashMap<>((Map<String, Object>) rawMap);
-
-        List<?> mandatoryAll = List.of();
+        // mandatoryAll luôn lấy từ platform — school không được override
         Object systemDocReq = platformConfigRepo.findByKey("admissionSettingsData")
                 .map(c -> ((Map<String, Object>) c.getValue()).get("documentRequirementsData"))
                 .orElse(null);
-        if (systemDocReq instanceof Map<?, ?> systemMap && systemMap.get("mandatoryAll") instanceof List<?> m) {
-            mandatoryAll = m;
+        List<?> platformMandatory = (systemDocReq instanceof Map<?, ?> sysMap
+                && sysMap.get("mandatoryAll") instanceof List<?> m) ? m : List.of();
+
+        // Lấy byMethod của school (hoặc fallback về platform nếu school chưa cấu hình)
+        Optional<SchoolConfig> docConfigOpt = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData");
+
+        Map<String, Object> docMap;
+        if (docConfigOpt.isPresent() && docConfigOpt.get().getValue() instanceof Map<?, ?> rawMap) {
+            docMap = new HashMap<>((Map<String, Object>) rawMap);
+        } else if (systemDocReq instanceof Map<?, ?> systemMap) {
+            // School chưa cấu hình byMethod → lấy byMethod từ platform
+            docMap = new HashMap<>((Map<String, Object>) systemMap);
+        } else {
+            return null;
         }
-        docMap.put("mandatoryAll", mandatoryAll);
+
+        // Luôn ghi đè mandatoryAll bằng platform
+        docMap.put("mandatoryAll", platformMandatory);
         return docMap;
     }
 }

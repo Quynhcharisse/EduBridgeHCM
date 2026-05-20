@@ -41,5 +41,4 @@ public class Counsellor {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     List<CounsellorSlot> counsellorSlotList;
-
 }
