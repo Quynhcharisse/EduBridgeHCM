@@ -52,7 +52,6 @@ public class Program {
     @Column(name = "extra_subjects", columnDefinition = "jsonb")
     Object extraSubjectsJsonb;
 
-    // --- NHÓM TRƯỜNG PHỤC VỤ SEARCH & SO SÁNH (Ý THẦY) --
     @Column(name = "graduation_standard", columnDefinition = "TEXT")
     String graduationStandard;
 
@@ -60,16 +59,14 @@ public class Program {
     @Column(name = "language_of_instruction", columnDefinition = "jsonb") // Vietnamese, English, Bilingual
     Object languageOfInstructionList;
 
-    // --- NHÓM TÀI CHÍNH GỐC ---
 
     @Column(name = "base_tuition_fee")
     BigDecimal baseTuitionFee;
 
     @Column(name = "fee_unit")
     @Enumerated(EnumType.STRING)
-    FeeUnit feeUnit; // "Year", "Semester" -> Để so sánh "giá theo năm"
+    FeeUnit feeUnit;
 
-    // --- QUẢN TRỊ ---
     @Column(name = "target_student_description", columnDefinition = "TEXT")
     String targetStudentDescription;
 

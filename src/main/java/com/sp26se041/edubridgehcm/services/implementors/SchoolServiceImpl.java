@@ -2185,14 +2185,27 @@ public class SchoolServiceImpl implements SchoolService {
     @Override
     public ResponseEntity<ResponseObject> viewSchoolList() {
 
-        //uu tien cac truong isFeatured len dau, sau do moi tim den Id / rating
-        List<School> schools = schoolRepo.findAllByOrderByIsFeaturedDescAverageRatingDesc();
+        List<School> schools = schoolRepo.findAllByOrderByIsFeaturedDescIdDesc();
 
-        //Trí sửa
+        if (schools.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.OK, "Hiển thị danh sách trường thành công", List.of());
+        }
+
+        List<Integer> schoolIds = schools.stream().map(School::getId).toList();
+        Map<Integer, Map<String, Object>> operationConfigMap = schoolConfigRepo
+                .findAllByKeyAndSchoolIdIn("operationSettingsData", schoolIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        SchoolConfig::getSchoolId,
+                        config -> config.getValue() instanceof Map<?, ?> m
+                                ? (Map<String, Object>) m
+                                : new HashMap<>()
+                ));
+
         Set<Integer> favouriteSchoolIds = getFavouriteSchoolIds();
 
         List<Map<String, Object>> schoolList = schools.stream().map(school -> {
-            Map<String, Object> operationConfig = getOperationConfig(school.getId());
+            Map<String, Object> operationConfig = operationConfigMap.getOrDefault(school.getId(), new HashMap<>());
             return buildPublicSchoolData(school, favouriteSchoolIds, operationConfig);
         }).toList();
 
@@ -2250,7 +2263,6 @@ public class SchoolServiceImpl implements SchoolService {
 
         data.put("hotline", configHotline);
         data.put("emailSupport", configEmail);
-        data.put("averageRating", school.getAverageRating());
         data.put("foundingDate", school.getFoundingDate());
         return data;
     }

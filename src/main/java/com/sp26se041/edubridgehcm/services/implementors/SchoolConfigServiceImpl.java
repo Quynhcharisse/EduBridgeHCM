@@ -299,31 +299,9 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
                 })
                 .collect(Collectors.toList());
 
-        // Lưu mandatoryAll nếu trường có cấu hình riêng (ví dụ upload templateFileUrl)
-        List<Map<String, Object>> mandatoryAllJson = new ArrayList<>();
-        if (documentRequirementsData.getMandatoryAll() != null) {
-            mandatoryAllJson = documentRequirementsData.getMandatoryAll().stream()
-                    .map(doc -> {
-                        Map<String, Object> docMap = new HashMap<>();
-                        docMap.put("code", doc.getCode());
-                        docMap.put("name", doc.getName());
-                        docMap.put("required", doc.isRequired());
-                        if (doc.getTemplateFileUrl() != null && !doc.getTemplateFileUrl().isBlank()) {
-                            docMap.put("templateFileUrl", doc.getTemplateFileUrl());
-                        }
-                        if (doc.getValidateCriterion() != null) {
-                            docMap.put("validateCriterion", doc.getValidateCriterion());
-                        }
-                        return docMap;
-                    })
-                    .collect(Collectors.toList());
-        }
-
+        // mandatoryAll do platform quy định, school chỉ lưu byMethod riêng
         Map<String, Object> documentRequirementsJson = new HashMap<>();
         documentRequirementsJson.put("byMethod", byMethodJson);
-        if (!mandatoryAllJson.isEmpty()) {
-            documentRequirementsJson.put("mandatoryAll", mandatoryAllJson);
-        }
 
         SchoolConfig config = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData")
                 .orElse(SchoolConfig.builder()
@@ -844,13 +822,7 @@ public class SchoolConfigServiceImpl implements SchoolConfigService {
     private Map<String, Object> injectMandatoryAll(Map<String, Object> docReqData) {
         Map<String, Object> result = new HashMap<>(docReqData);
 
-        // Nếu trường đã lưu mandatoryAll riêng (non-empty) → dùng của trường, không ghi đè
-        Object schoolMandatory = result.get("mandatoryAll");
-        if (schoolMandatory instanceof List<?> list && !list.isEmpty()) {
-            return result;
-        }
-
-        // Fallback: lấy mandatoryAll từ platform (trường chưa cấu hình)
+        // mandatoryAll luôn lấy từ platform — school không được override
         List<Map<String, Object>> mandatoryAll = Collections.emptyList();
         Object systemDocReq = platformConfigRepo.findByKey("admissionSettingsData")
                 .map(c -> ((Map<String, Object>) c.getValue()).get("documentRequirementsData"))

@@ -112,7 +112,7 @@ public enum Status {
     RESERVATION_CONFIRMED("reservation confirmed"),               // PH chốt trường này
     RESERVATION_GHOST("reservation ghost"),                       // PH đã chốt trường khác, hồ sơ này vô hiệu
     RESERVATION_CANCELLED("reservation cancelled"),               // PH tự hủy
-    RESERVATION_REJECTED("reservation rejected"),                 // Trường từ chối
+    RESERVATION_REJECTED("reservation r ejected"),                 // Trường từ chối
 
 
     UPCOMING("Sắp diễn ra"),

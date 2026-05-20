@@ -1,9 +1,60 @@
 package com.sp26se041.edubridgehcm.services.implementors;
 
-import com.sp26se041.edubridgehcm.enums.*;
-import com.sp26se041.edubridgehcm.models.*;
-import com.sp26se041.edubridgehcm.repositories.*;
-import com.sp26se041.edubridgehcm.requests.*;
+import com.sp26se041.edubridgehcm.enums.Gender;
+import com.sp26se041.edubridgehcm.enums.GradeLevel;
+import com.sp26se041.edubridgehcm.enums.NotificationEventType;
+import com.sp26se041.edubridgehcm.enums.Role;
+import com.sp26se041.edubridgehcm.enums.Status;
+import com.sp26se041.edubridgehcm.enums.SubjectType;
+import com.sp26se041.edubridgehcm.models.Account;
+import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
+import com.sp26se041.edubridgehcm.models.AdmissionReservationForm;
+import com.sp26se041.edubridgehcm.models.Campus;
+import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
+import com.sp26se041.edubridgehcm.models.CampusScheduleTemplate;
+import com.sp26se041.edubridgehcm.models.ChatMessage;
+import com.sp26se041.edubridgehcm.models.ConsultationOfflineRequest;
+import com.sp26se041.edubridgehcm.models.Conversation;
+import com.sp26se041.edubridgehcm.models.Counsellor;
+import com.sp26se041.edubridgehcm.models.FavouriteSchool;
+import com.sp26se041.edubridgehcm.models.Major;
+import com.sp26se041.edubridgehcm.models.Parent;
+import com.sp26se041.edubridgehcm.models.PersonalityType;
+import com.sp26se041.edubridgehcm.models.PlatformConfig;
+import com.sp26se041.edubridgehcm.models.School;
+import com.sp26se041.edubridgehcm.models.SchoolConfig;
+import com.sp26se041.edubridgehcm.models.StudentProfile;
+import com.sp26se041.edubridgehcm.models.Subject;
+import com.sp26se041.edubridgehcm.repositories.AccountRepo;
+import com.sp26se041.edubridgehcm.repositories.AdmissionCampaignRepo;
+import com.sp26se041.edubridgehcm.repositories.AdmissionReservationFormRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusProgramOfferingRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusRepo;
+import com.sp26se041.edubridgehcm.repositories.CampusScheduleTemplateRepo;
+import com.sp26se041.edubridgehcm.repositories.ChatMessageRepo;
+import com.sp26se041.edubridgehcm.repositories.ConsultationOfflineRequestRepo;
+import com.sp26se041.edubridgehcm.repositories.ConversationRepo;
+import com.sp26se041.edubridgehcm.repositories.CounsellorRepo;
+import com.sp26se041.edubridgehcm.repositories.FavouriteSchoolRepo;
+import com.sp26se041.edubridgehcm.repositories.MajorRepo;
+import com.sp26se041.edubridgehcm.repositories.ParentRepo;
+import com.sp26se041.edubridgehcm.repositories.PersonalityTypeRepo;
+import com.sp26se041.edubridgehcm.repositories.PlatformConfigRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolConfigRepo;
+import com.sp26se041.edubridgehcm.repositories.SchoolRepo;
+import com.sp26se041.edubridgehcm.repositories.StudentInfoRepo;
+import com.sp26se041.edubridgehcm.repositories.SubjectRepo;
+import com.sp26se041.edubridgehcm.requests.AddFavouriteSchoolRequest;
+import com.sp26se041.edubridgehcm.requests.AddStudentInfoRequest;
+import com.sp26se041.edubridgehcm.requests.AutoFillTranscriptRequest;
+import com.sp26se041.edubridgehcm.requests.CancelAdmissionFormRequest;
+import com.sp26se041.edubridgehcm.requests.CreateAdmissionReservationFormRequest;
+import com.sp26se041.edubridgehcm.requests.CreateAdmissionReservationFormTemplateRequest;
+import com.sp26se041.edubridgehcm.requests.CreateConsultationOfflineRequest;
+import com.sp26se041.edubridgehcm.requests.CreateConversationRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateAdmissionReservationFormRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateAdmissionReservationFormTemplateRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateStudentInfoRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
 import com.sp26se041.edubridgehcm.services.NotificationService;
@@ -16,7 +67,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.*;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +80,6 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
-
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -45,10 +99,15 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-
 import java.util.stream.Collectors;
 
-import static com.sp26se041.edubridgehcm.enums.Status.*;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_CANCELLED;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_COMPLETED;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_CONFIRMED;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_IN_PROGRESS;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_NO_SHOW;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_PENDING;
+import static com.sp26se041.edubridgehcm.enums.Status.RESERVATION_CANCELLED;
 
 @Service
 @RequiredArgsConstructor
@@ -595,7 +654,6 @@ public class ParentServiceImpl implements ParentService {
         map.put("websiteUrl", school.getWebsiteUrl());
         map.put("representativeName", school.getRepresentativeName());
         map.put("hotline", school.getHotline());
-        map.put("averageRating", school.getAverageRating());
         map.put("foundingDate", school.getFoundingDate());
 
         return map;
@@ -2907,19 +2965,28 @@ public class ParentServiceImpl implements ParentService {
 
 
     private Map<String, Object> resolveSchoolDocumentRequirements(int schoolId) {
-        Optional<SchoolConfig> docConfigOpt = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData");
-        if (docConfigOpt.isEmpty() || !(docConfigOpt.get().getValue() instanceof Map<?, ?> rawMap)) return null;
-
-        Map<String, Object> docMap = new HashMap<>((Map<String, Object>) rawMap);
-
-        List<?> mandatoryAll = List.of();
+        // mandatoryAll luôn lấy từ platform — school không được override
         Object systemDocReq = platformConfigRepo.findByKey("admissionSettingsData")
                 .map(c -> ((Map<String, Object>) c.getValue()).get("documentRequirementsData"))
                 .orElse(null);
-        if (systemDocReq instanceof Map<?, ?> systemMap && systemMap.get("mandatoryAll") instanceof List<?> m) {
-            mandatoryAll = m;
+        List<?> platformMandatory = (systemDocReq instanceof Map<?, ?> sysMap
+                && sysMap.get("mandatoryAll") instanceof List<?> m) ? m : List.of();
+
+        // Lấy byMethod của school (hoặc fallback về platform nếu school chưa cấu hình)
+        Optional<SchoolConfig> docConfigOpt = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData");
+
+        Map<String, Object> docMap;
+        if (docConfigOpt.isPresent() && docConfigOpt.get().getValue() instanceof Map<?, ?> rawMap) {
+            docMap = new HashMap<>((Map<String, Object>) rawMap);
+        } else if (systemDocReq instanceof Map<?, ?> systemMap) {
+            // School chưa cấu hình byMethod → lấy byMethod từ platform
+            docMap = new HashMap<>((Map<String, Object>) systemMap);
+        } else {
+            return null;
         }
-        docMap.put("mandatoryAll", mandatoryAll);
+
+        // Luôn ghi đè mandatoryAll bằng platform
+        docMap.put("mandatoryAll", platformMandatory);
         return docMap;
     }
 

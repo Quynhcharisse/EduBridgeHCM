@@ -59,9 +59,8 @@ public class Parent {
 
     // Identity Data
     @Column(name = "id_card_number")
-    String idCardNumber; // cccd
+    String idCardNumber;
 
-    // Professional & Location
     String workplace;
 
     String occupation;

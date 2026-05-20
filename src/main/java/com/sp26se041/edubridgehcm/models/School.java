@@ -19,7 +19,6 @@ import lombok.ToString;
 import lombok.experimental.FieldDefaults;
 import org.jspecify.annotations.NullMarked;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -61,9 +60,6 @@ public class School {
 
     @Column(length = 500)
     String fileName;
-
-    @Column(name = "average_rating")
-    BigDecimal averageRating;
 
     @Column(name = "business_license_url", length = 500)
     String businessLicenseUrl; // Link ảnh giấy phép kinh doanh
