@@ -510,7 +510,6 @@ public class SystemServiceImpl implements SystemService {
                                 docData.put("code", doc.getCode());
                                 docData.put("name", doc.getName());
                                 docData.put("required", doc.isRequired());
-                                docData.put("validateCriterion", doc.getValidateCriterion() != null ? doc.getValidateCriterion() : List.of());
                                 docData.put("templateUrl", doc.getTemplateFileUrl() != null ? doc.getTemplateFileUrl() : "");
                                 return docData;
                             })
