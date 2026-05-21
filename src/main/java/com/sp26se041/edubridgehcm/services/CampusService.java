@@ -9,6 +9,7 @@ import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.ConfirmPaymentDepositRequest;
 import com.sp26se041.edubridgehcm.requests.ProcessApplicantRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateAdmissionReservationFormsRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -79,7 +80,7 @@ public interface CampusService {
 
     ResponseEntity<ResponseObject> approveAutoAdmissionReservationForms(Integer admissionCampaignId);
 
-    ResponseEntity<ResponseObject> updateAdmissionReservationForms(List<ProcessApplicantRequest> request);
+    ResponseEntity<ResponseObject> updateAdmissionReservationForms(UpdateAdmissionReservationFormsRequest request);
 
     ResponseEntity<ResponseObject> getAdmissionCampaigns();
 

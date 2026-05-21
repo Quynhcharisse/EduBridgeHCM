@@ -54,6 +54,7 @@ import com.sp26se041.edubridgehcm.requests.ConfirmPaymentDepositRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.ProcessApplicantRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateAdmissionReservationFormsRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.PageResponse;
@@ -3310,11 +3311,11 @@ public class CampusServiceImpl implements CampusService {
 
         Map<String, Object> payload = buildN8nVerificationPayload(admissionReservationForms, requiredDocuments);
 
-        // Debug: kiểm tra payload thực tế Java gửi lên
         try {
             ObjectMapper debugMapper = new ObjectMapper();
             System.out.println("[AUTO-VERIFY] Payload gửi n8n:\n" + debugMapper.writerWithDefaultPrettyPrinter().writeValueAsString(payload));
         } catch (Exception ignored) {}
+
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -3352,9 +3353,77 @@ public class CampusServiceImpl implements CampusService {
 
     }
 
+
     @Override
-    public ResponseEntity<ResponseObject> updateAdmissionReservationForms(List<ProcessApplicantRequest> request) {
-        return null;
+    @Transactional
+    public ResponseEntity<ResponseObject> updateAdmissionReservationForms(UpdateAdmissionReservationFormsRequest request) {
+
+        if (AccountRestrictionUtil.isRestrictedActor()) {
+            return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Tài khoản của bạn đang bị hạn chế, không thể thực hiện thao tác này.", null);
+        }
+
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
+        }
+
+        List<UpdateAdmissionReservationFormsRequest.AdmissionReservationFormInfo> formInfos =
+                request.getAdmissionReservationFormInfos();
+
+        if (formInfos == null || formInfos.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Danh sách đơn không được để trống.", null);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        int schoolId      = actorCampus.getSchool().getId();
+
+        List<AdmissionReservationForm> toSave = new ArrayList<>();
+
+        for (UpdateAdmissionReservationFormsRequest.AdmissionReservationFormInfo info : formInfos) {
+
+            AdmissionReservationForm form = admissionReservationFormRepo
+                    .findById(info.getFormId()).orElse(null);
+            if (form == null) {
+                return ResponseBuilder.build(HttpStatus.NOT_FOUND,
+                        "Không tìm thấy đơn đăng ký tuyển sinh (formId: " + info.getFormId() + ").", null);
+            }
+
+            AdmissionCampaign campaign = form.getAdmissionCampaign();
+            if (campaign == null || !campaign.getSchool().getId().equals(schoolId)) {
+                return ResponseBuilder.build(HttpStatus.FORBIDDEN,
+                        "Đơn không thuộc trường của bạn (formId: " + info.getFormId() + ").", null);
+            }
+
+            if (form.getStatus() != Status.RESERVATION_PENDING) {
+                return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                        "Đơn đã được xử lý hoặc không hợp lệ (formId: " + info.getFormId() + ").", null);
+            }
+
+            String action = info.getAction() != null ? info.getAction().toUpperCase() : "";
+
+            switch (action) {
+                case "APPROVE" -> form.setStatus(Status.RESERVATION_APPROVAL);
+                case "REJECT" -> {
+                    if (info.getRejectReason() == null || info.getRejectReason().isBlank()) {
+                        return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                                "Vui lòng cung cấp lý do từ chối (formId: " + info.getFormId() + ").", null);
+                    }
+                    form.setStatus(Status.RESERVATION_REJECTED);
+                    form.setRejectReason(info.getRejectReason());
+                }
+                default -> {
+                    return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
+                            "Hành động không hợp lệ (formId: " + info.getFormId() + "). Chỉ chấp nhận APPROVE hoặc REJECT.", null);
+                }
+            }
+
+            form.setUpdatedTime(now);
+            toSave.add(form);
+        }
+
+        admissionReservationFormRepo.saveAll(toSave);
+
+        return ResponseBuilder.build(HttpStatus.OK, "Xử lý danh sách đơn hoàn tất.", null);
     }
 
     @Override
@@ -3420,7 +3489,8 @@ public class CampusServiceImpl implements CampusService {
                 ? (List<Map<String, Object>>) documentRequirementsData.get("mandatoryAll")
                 : List.of();
 
-        return mandatoryAll;
+        return mandatoryAll.stream()
+                .toList();
     }
 
     private Map<String, Object> buildAutoReservationVerificationSummary(List<Map<String, Object>> formResults) {
@@ -3428,6 +3498,7 @@ public class CampusServiceImpl implements CampusService {
         int validCount   = 0;
         int invalidCount = 0;
         int errorCount   = 0;
+        int skippedCount = 0;
 
         List<Map<String, Object>> forms = new ArrayList<>();
 
@@ -3438,6 +3509,7 @@ public class CampusServiceImpl implements CampusService {
             switch (overallStatus) {
                 case "valid"   -> validCount++;
                 case "invalid" -> invalidCount++;
+                case "skipped" -> skippedCount++;
                 default        -> errorCount++;
             }
 
@@ -3478,15 +3550,21 @@ public class CampusServiceImpl implements CampusService {
             }
 
             Map<String, Object> form = new LinkedHashMap<>();
+            if ("error".equals(overallStatus) || "skipped".equals(overallStatus)) {
+                String errorType = (String) result.get("errorType");
+                form.put("errorType",    errorType);
+                form.put("errorMessage", result.get("errorMessage"));
+            }
             form.put("formId",        result.get("formId"));
             form.put("overallStatus", overallStatus);
-            form.put("documents",     documents);
+            form.put("documents", documents);
             forms.add(form);
         }
 
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("valid",   validCount);
         summary.put("invalid", invalidCount);
+        summary.put("skipped", skippedCount);
         summary.put("error",   errorCount);
 
         Map<String, Object> body = new LinkedHashMap<>();

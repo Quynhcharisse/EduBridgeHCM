@@ -8,6 +8,7 @@ import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.requests.ConfirmPaymentDepositRequest;
 import com.sp26se041.edubridgehcm.requests.ProcessApplicantRequest;
+import com.sp26se041.edubridgehcm.requests.UpdateAdmissionReservationFormsRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusProgramOfferingRequest;
 import com.sp26se041.edubridgehcm.responses.ResponseObject;
@@ -244,8 +245,8 @@ public class CampusController {
 
     @PutMapping("/admission/reservation/forms")
     @PreAuthorize("hasAnyRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> updateAdmissionReservationForms(@RequestBody List<ProcessApplicantRequest> request) {
-      return null;
+    public ResponseEntity<ResponseObject> updateAdmissionReservationForms(@RequestBody UpdateAdmissionReservationFormsRequest request) {
+      return campusService.updateAdmissionReservationForms(request);
     }
 
 
