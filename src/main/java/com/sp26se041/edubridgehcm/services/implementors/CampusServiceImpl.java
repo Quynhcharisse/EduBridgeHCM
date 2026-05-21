@@ -3072,11 +3072,6 @@ public class CampusServiceImpl implements CampusService {
                 form.setStatus(Status.RESERVATION_REJECTED);
                 form.setRejectReason(request.getRejectReason());
 
-                // Hoàn lại quota campaign cho PH khác nộp
-                if (campaign.getRemainingQuota() != null) {
-                    campaign.setRemainingQuota(campaign.getRemainingQuota() + 1);
-                    admissionCampaignRepo.save(campaign);
-                }
                 successMessage = "Từ chối đơn đăng ký thành công.";
                 break;
 
@@ -3280,7 +3275,7 @@ public class CampusServiceImpl implements CampusService {
 
         Optional<AdmissionCampaign> admissionCampaign = admissionCampaignRepo.findById(admissionCampaignId);
 
-        if (admissionCampaign.isEmpty()){
+        if (admissionCampaign.isEmpty()) {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Đợt tuyển sinh không tồn tại.", null);
         }
 
@@ -3314,7 +3309,8 @@ public class CampusServiceImpl implements CampusService {
         try {
             ObjectMapper debugMapper = new ObjectMapper();
             System.out.println("[AUTO-VERIFY] Payload gửi n8n:\n" + debugMapper.writerWithDefaultPrettyPrinter().writeValueAsString(payload));
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
 
 
         HttpHeaders headers = new HttpHeaders();
@@ -3335,7 +3331,8 @@ public class CampusServiceImpl implements CampusService {
             }
 
             ObjectMapper objectMapper = new ObjectMapper();
-            verificationResults = objectMapper.readValue(rawBody, new TypeReference<List<Map<String, Object>>>() {});
+            verificationResults = objectMapper.readValue(rawBody, new TypeReference<List<Map<String, Object>>>() {
+            });
 
         } catch (HttpClientErrorException e) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Lỗi khi gọi AI xác minh hồ sơ: " + e.getMessage(), null);
@@ -3375,7 +3372,7 @@ public class CampusServiceImpl implements CampusService {
         }
 
         LocalDateTime now = LocalDateTime.now();
-        int schoolId      = actorCampus.getSchool().getId();
+        int schoolId = actorCampus.getSchool().getId();
 
         List<AdmissionReservationForm> toSave = new ArrayList<>();
 
@@ -3462,23 +3459,23 @@ public class CampusServiceImpl implements CampusService {
                             : List.of();
 
                     Map<String, Object> reqDoc = new LinkedHashMap<>();
-                    reqDoc.put("key",               doc.get("code"));
-                    reqDoc.put("label",             doc.get("name"));
-                    reqDoc.put("imageProof",        doc.get("templateFileUrl"));
+                    reqDoc.put("key", doc.get("code"));
+                    reqDoc.put("label", doc.get("name"));
+                    reqDoc.put("imageProof", doc.get("templateFileUrl"));
                     reqDoc.put("validateCriterias", criterias);
                     return reqDoc;
                 })
                 .toList();
 
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("forms",             admissionReservationForms);
+        payload.put("forms", admissionReservationForms);
         payload.put("requiredDocuments", reqDocs);
 
         return payload;
 
     }
 
-    private List<Map<String, Object>> getRequiredDocuments(PlatformConfig admissionSettings){
+    private List<Map<String, Object>> getRequiredDocuments(PlatformConfig admissionSettings) {
 
         Map<String, Object> admissionSettingsData = (Map<String, Object>) admissionSettings.getValue();
 
@@ -3495,9 +3492,9 @@ public class CampusServiceImpl implements CampusService {
 
     private Map<String, Object> buildAutoReservationVerificationSummary(List<Map<String, Object>> formResults) {
 
-        int validCount   = 0;
+        int validCount = 0;
         int invalidCount = 0;
-        int errorCount   = 0;
+        int errorCount = 0;
         int skippedCount = 0;
 
         List<Map<String, Object>> forms = new ArrayList<>();
@@ -3507,10 +3504,10 @@ public class CampusServiceImpl implements CampusService {
             String overallStatus = (String) result.get("overallStatus");
 
             switch (overallStatus) {
-                case "valid"   -> validCount++;
+                case "valid" -> validCount++;
                 case "invalid" -> invalidCount++;
                 case "skipped" -> skippedCount++;
-                default        -> errorCount++;
+                default -> errorCount++;
             }
 
             // --- documents ---
@@ -3532,19 +3529,19 @@ public class CampusServiceImpl implements CampusService {
                         for (Map<String, Object> d : rawDetails) {
                             Map<String, Object> detail = new LinkedHashMap<>();
                             detail.put("criteria", d.get("criteria"));
-                            detail.put("passed",   d.get("passed"));
-                            detail.put("note",     d.get("note"));
+                            detail.put("passed", d.get("passed"));
+                            detail.put("note", d.get("note"));
                             details.add(detail);
                         }
                     }
 
                     Map<String, Object> document = new LinkedHashMap<>();
-                    document.put("key",             doc.get("key"));
-                    document.put("label",           doc.get("label"));
-                    document.put("status",          doc.get("status"));
+                    document.put("key", doc.get("key"));
+                    document.put("label", doc.get("label"));
+                    document.put("status", doc.get("status"));
                     document.put("submissionImage", doc.get("submissionImage"));
-                    document.put("reason",          doc.get("reason"));
-                    document.put("details",         details);
+                    document.put("reason", doc.get("reason"));
+                    document.put("details", details);
                     documents.add(document);
                 }
             }
@@ -3552,25 +3549,25 @@ public class CampusServiceImpl implements CampusService {
             Map<String, Object> form = new LinkedHashMap<>();
             if ("error".equals(overallStatus) || "skipped".equals(overallStatus)) {
                 String errorType = (String) result.get("errorType");
-                form.put("errorType",    errorType);
+                form.put("errorType", errorType);
                 form.put("errorMessage", result.get("errorMessage"));
             }
-            form.put("formId",        result.get("formId"));
+            form.put("formId", result.get("formId"));
             form.put("overallStatus", overallStatus);
             form.put("documents", documents);
             forms.add(form);
         }
 
         Map<String, Object> summary = new LinkedHashMap<>();
-        summary.put("valid",   validCount);
+        summary.put("valid", validCount);
         summary.put("invalid", invalidCount);
         summary.put("skipped", skippedCount);
-        summary.put("error",   errorCount);
+        summary.put("error", errorCount);
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("totalForms", formResults.size());
-        body.put("summary",    summary);
-        body.put("forms",      forms);
+        body.put("summary", summary);
+        body.put("forms", forms);
 
         return body;
     }
@@ -3615,7 +3612,7 @@ public class CampusServiceImpl implements CampusService {
 
     }
 
-        private List<Map<String, Object>> buildAdmissionReservationForms(List<AdmissionReservationForm> admissionReservationForms) {
+    private List<Map<String, Object>> buildAdmissionReservationForms(List<AdmissionReservationForm> admissionReservationForms) {
         return admissionReservationForms.stream()
                 .map(this::buildAdmissionReservationForm)
                 .toList();
