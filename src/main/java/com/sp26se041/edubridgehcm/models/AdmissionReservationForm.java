@@ -45,7 +45,7 @@ public class AdmissionReservationForm {
     @Column(name = "type")
     String type;
 
-    @Column(name = "reject_reason")
+    @Column(name = "reject_reason", length = 2000)
     String rejectReason;
 
     @Column(name = "confirm_code", unique = true)
