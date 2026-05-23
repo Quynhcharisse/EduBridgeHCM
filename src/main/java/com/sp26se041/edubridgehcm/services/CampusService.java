@@ -1,13 +1,12 @@
 package com.sp26se041.edubridgehcm.services;
 
 import com.sp26se041.edubridgehcm.enums.OfferingProgramAction;
-
 import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.ChatMessageForChatBot;
+import com.sp26se041.edubridgehcm.requests.ConfirmPaymentDepositRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.ConfirmPaymentDepositRequest;
 import com.sp26se041.edubridgehcm.requests.ProcessApplicantRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionReservationFormsRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
@@ -18,7 +17,6 @@ import org.springframework.http.ResponseEntity;
 
 import java.io.IOException;
 import java.time.LocalDate;
-import java.util.List;
 
 public interface CampusService {
 
@@ -84,4 +82,5 @@ public interface CampusService {
 
     ResponseEntity<ResponseObject> getAdmissionCampaigns();
 
+    ResponseEntity<Resource> exportAdmissionForms(String status) throws IOException;
 }

@@ -4,9 +4,9 @@ import com.sp26se041.edubridgehcm.enums.OfferingProgramAction;
 import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.ChatMessageForChatBot;
+import com.sp26se041.edubridgehcm.requests.ConfirmPaymentDepositRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.ConfirmPaymentDepositRequest;
 import com.sp26se041.edubridgehcm.requests.ProcessApplicantRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionReservationFormsRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
@@ -34,7 +34,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
 import java.time.LocalDate;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/campus")
@@ -233,7 +232,7 @@ public class CampusController {
 
     @GetMapping("/admission/reservation/form")
     @PreAuthorize("hasAnyRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> getAdmissionReservationForm(@RequestParam (required = false) String status) {
+    public ResponseEntity<ResponseObject> getAdmissionReservationForm(@RequestParam(required = false) String status) {
         return campusService.getAdmissionReservationForms(status);
     }
 
@@ -246,14 +245,19 @@ public class CampusController {
     @PutMapping("/admission/reservation/forms")
     @PreAuthorize("hasAnyRole('SCHOOL')")
     public ResponseEntity<ResponseObject> updateAdmissionReservationForms(@RequestBody UpdateAdmissionReservationFormsRequest request) {
-      return campusService.updateAdmissionReservationForms(request);
+        return campusService.updateAdmissionReservationForms(request);
     }
-
 
     @GetMapping("/admission/campaign")
     @PreAuthorize("hasAnyRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> getAdmissionCampaigns(){
+    public ResponseEntity<ResponseObject> getAdmissionCampaigns() {
         return campusService.getAdmissionCampaigns();
     }
 
+    @GetMapping("/admission/form/export")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<Resource> exportAdmissionForms(
+            @RequestParam(required = false) String status) throws IOException {
+        return campusService.exportAdmissionForms(status);
+    }
 }

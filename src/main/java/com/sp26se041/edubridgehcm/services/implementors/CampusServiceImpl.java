@@ -77,6 +77,8 @@ import com.sp26se041.edubridgehcm.validations.campus.CounsellorSlotValidation;
 import com.sp26se041.edubridgehcm.validations.campus.CounsellorValidation;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Workbook;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -119,10 +121,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -3613,12 +3618,39 @@ public class CampusServiceImpl implements CampusService {
     }
 
     private List<Map<String, Object>> buildAdmissionReservationForms(List<AdmissionReservationForm> admissionReservationForms) {
+        Object systemDocReq = platformConfigRepo.findByKey("admissionSettingsData")
+                .map(c -> ((Map<String, Object>) c.getValue()).get("documentRequirementsData"))
+                .orElse(null);
+        List<?> platformMandatory = (systemDocReq instanceof Map<?, ?> sysMap
+                && sysMap.get("mandatoryAll") instanceof List<?> m) ? m : List.of();
+
+        Set<Integer> schoolIds = admissionReservationForms.stream()
+                .map(AdmissionReservationForm::getAdmissionCampaign)
+                .filter(Objects::nonNull)
+                .map(c -> c.getSchool().getId())
+                .collect(Collectors.toSet());
+
+        Map<Integer, Map<String, Object>> schoolDocMaps = new HashMap<>();
+        for (int schoolId : schoolIds) {
+            Optional<SchoolConfig> docConfigOpt = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData");
+            Map<String, Object> docMap;
+            if (docConfigOpt.isPresent() && docConfigOpt.get().getValue() instanceof Map<?, ?> rawMap) {
+                docMap = new HashMap<>((Map<String, Object>) rawMap);
+            } else if (systemDocReq instanceof Map<?, ?> systemMap) {
+                docMap = new HashMap<>((Map<String, Object>) systemMap);
+            } else {
+                continue;
+            }
+            docMap.put("mandatoryAll", platformMandatory);
+            schoolDocMaps.put(schoolId, docMap);
+        }
+
         return admissionReservationForms.stream()
-                .map(this::buildAdmissionReservationForm)
+                .map(form -> buildAdmissionReservationForm(form, schoolDocMaps))
                 .toList();
     }
 
-    private Map<String, Object> buildAdmissionReservationForm(AdmissionReservationForm form) {
+    private Map<String, Object> buildAdmissionReservationForm(AdmissionReservationForm form, Map<Integer, Map<String, Object>> schoolDocMaps) {
         Map<String, Object> map = new HashMap<>();
 
         map.put("id", form.getId());
@@ -3644,6 +3676,7 @@ public class CampusServiceImpl implements CampusService {
         if (admissionCampaign == null) {
             map.put("schoolName", "N/A");
         } else {
+            map.put("admissionCampaignId", admissionCampaign.getId());
             map.put("schoolName", admissionCampaign.getSchool().getName());
         }
 
@@ -3652,7 +3685,9 @@ public class CampusServiceImpl implements CampusService {
         map.put("studentProfileId", student.getId());
         map.put("studentName", student.getStudentName());
         map.put("studentCode", student.getStudentCode());
+        map.put("dateOfBirth", student.getDateOfBirth());
         map.put("gender", student.getGender());
+        map.put("profileMetaData", form.getProfileMetadata());
         map.put("transcriptImages", form.getTranscriptImages());
 
         AdmissionCampaign campaign = form.getAdmissionCampaign();
@@ -3671,7 +3706,7 @@ public class CampusServiceImpl implements CampusService {
         List<Map<String, Object>> submittedDocuments = new ArrayList<>();
         if (campaign != null) {
             int schoolId = campaign.getSchool().getId();
-            Map<String, Object> docMap = resolveSchoolDocumentRequirements(schoolId);
+            Map<String, Object> docMap = schoolDocMaps.get(schoolId);
             if (docMap != null) {
 
                 List<?> mandatoryAll = docMap.get("mandatoryAll") instanceof List<?> m ? m : List.of();
@@ -3718,32 +3753,151 @@ public class CampusServiceImpl implements CampusService {
         map.put("identityCard", parent.getIdCardNumber());
         map.put("address", parent.getCurrentAddress());
 
+        if (Status.RESERVATION_CONFIRMED.equals(form.getStatus())) {
+            map.put("confirmCode", form.getConfirmCode());
+        }
+
         return map;
     }
 
-    private Map<String, Object> resolveSchoolDocumentRequirements(int schoolId) {
-        // mandatoryAll luôn lấy từ platform — school không được override
-        Object systemDocReq = platformConfigRepo.findByKey("admissionSettingsData")
-                .map(c -> ((Map<String, Object>) c.getValue()).get("documentRequirementsData"))
-                .orElse(null);
-        List<?> platformMandatory = (systemDocReq instanceof Map<?, ?> sysMap
-                && sysMap.get("mandatoryAll") instanceof List<?> m) ? m : List.of();
+    @Override
+    public ResponseEntity<Resource> exportAdmissionForms(String status) throws IOException {
 
-        // Lấy byMethod của school (hoặc fallback về platform nếu school chưa cấu hình)
-        Optional<SchoolConfig> docConfigOpt = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData");
+        Campus actorCampus = extractActorCampus();
 
-        Map<String, Object> docMap;
-        if (docConfigOpt.isPresent() && docConfigOpt.get().getValue() instanceof Map<?, ?> rawMap) {
-            docMap = new HashMap<>((Map<String, Object>) rawMap);
-        } else if (systemDocReq instanceof Map<?, ?> systemMap) {
-            // School chưa cấu hình byMethod → lấy byMethod từ platform
-            docMap = new HashMap<>((Map<String, Object>) systemMap);
-        } else {
-            return null;
+        if (actorCampus == null || actorCampus.getSchool() == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        // Luôn ghi đè mandatoryAll bằng platform
-        docMap.put("mandatoryAll", platformMandatory);
-        return docMap;
+        if (!actorCampus.getIsPrimaryBranch()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        int schoolId = actorCampus.getSchool().getId();
+
+        List<AdmissionReservationForm> forms;
+        if (status != null && !status.isBlank()) {
+            Status filterStatus;
+            try {
+                filterStatus = Status.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            }
+            forms = admissionReservationFormRepo.findByAdmissionCampaign_School_IdAndStatus(schoolId, filterStatus);
+        } else {
+            forms = admissionReservationFormRepo.findByAdmissionCampaign_School_Id(schoolId);
+        }
+
+        List<AdmissionReservationForm> filteredForms = forms.stream()
+                .filter(f -> !"RESERVATION_TEMPLATE".equals(f.getType()))
+                .toList();
+
+        // Reuse existing build logic — submittedDocuments already computed here
+        List<Map<String, Object>> formMaps = buildAdmissionReservationForms(filteredForms);
+
+        // First pass: collect all unique doc keys in insertion order
+        LinkedHashMap<String, String> docKeyToName = new LinkedHashMap<>();
+        for (Map<String, Object> formMap : formMaps) {
+            Object raw = formMap.get("submittedDocuments");
+            if (!(raw instanceof List<?> list)) continue;
+            for (Object item : list) {
+                if (!(item instanceof Map<?, ?> doc)) continue;
+                Object key = doc.get("key");
+                Object name = doc.get("name");
+                if (key != null) {
+                    docKeyToName.putIfAbsent(key.toString(), name != null ? name.toString() : key.toString());
+                }
+            }
+        }
+        List<String> docKeys = new ArrayList<>(docKeyToName.keySet());
+
+        // Fixed columns + one dynamic column per document type
+        String[] headers = Stream.concat(
+                Stream.of("STT", "Mã đơn", "Trạng thái", "Ngày nộp",
+                        "Tên chiến dịch", "Chương trình", "Phương thức tuyển sinh",
+                        "Mã số học sinh", "Họ tên học sinh",
+                        "Họ tên phụ huynh", "Quan hệ", "Nghề nghiệp", "SĐT phụ huynh",
+                        "Link học bạ"),
+                docKeys.stream().map(docKeyToName::get)
+        ).toArray(String[]::new);
+
+        Path path = Files.createTempFile("export_admission_forms_", ".xlsx");
+        AtomicInteger counter = new AtomicInteger(0);
+
+        ExcelUtil.exportToExcel(path, "Đơn tuyển sinh", headers, formMaps, (formMap, row) -> {
+            int idx = counter.getAndIncrement();
+            AdmissionReservationForm form = forms.get(idx);
+            StudentProfile student = form.getStudentProfile();
+            Parent parent = student != null ? student.getParent() : null;
+
+            row.createCell(0).setCellValue(idx + 1);
+            row.createCell(1).setCellValue(form.getId());
+            row.createCell(2).setCellValue(form.getStatus() != null ? form.getStatus().name() : "");
+            row.createCell(3).setCellValue(form.getCreatedTime() != null ? form.getCreatedTime().toLocalDate().toString() : "");
+            row.createCell(4).setCellValue(form.getAdmissionCampaign() != null ? form.getAdmissionCampaign().getName() : "");
+            row.createCell(5).setCellValue(form.getCampusProgramOffering() != null && form.getCampusProgramOffering().getProgramNameSnapshot() != null
+                    ? form.getCampusProgramOffering().getProgramNameSnapshot() : "");
+            row.createCell(6).setCellValue(formMap.get("admissionMethod") != null ? formMap.get("admissionMethod").toString() : "");
+
+            if (student != null) {
+                row.createCell(7).setCellValue(student.getStudentCode() != null ? student.getStudentCode() : "");
+                row.createCell(8).setCellValue(student.getStudentName() != null ? student.getStudentName() : "");
+            } else {
+                row.createCell(7).setCellValue("");
+                row.createCell(8).setCellValue("");
+            }
+
+            if (parent != null) {
+                row.createCell(9).setCellValue(parent.getName() != null ? parent.getName() : "");
+                row.createCell(10).setCellValue(parent.getRelationship() != null ? parent.getRelationship().name() : "");
+                row.createCell(11).setCellValue(parent.getOccupation() != null ? parent.getOccupation() : "");
+                row.createCell(12).setCellValue(parent.getPhone() != null ? parent.getPhone() : "");
+            } else {
+                row.createCell(9).setCellValue("");
+                row.createCell(10).setCellValue("");
+                row.createCell(11).setCellValue("");
+                row.createCell(12).setCellValue("");
+            }
+
+            row.createCell(13).setCellValue(extractTranscriptLinks(student != null ? student.getTranscriptImages() : null));
+
+            Object rawDocs = formMap.get("submittedDocuments");
+            Map<String, String> docUrlByKey = new HashMap<>();
+            if (rawDocs instanceof List<?> docList) {
+                for (Object item : docList) {
+                    if (!(item instanceof Map<?, ?> doc)) continue;
+                    Object k = doc.get("key");
+                    Object url = doc.get("imageUrl");
+                    if (k != null) docUrlByKey.put(k.toString(), url != null ? url.toString() : "");
+                }
+            }
+            Workbook wb = row.getSheet().getWorkbook();
+            for (int i = 0; i < docKeys.size(); i++) {
+                String url = docUrlByKey.getOrDefault(docKeys.get(i), "");
+                Cell cell = row.createCell(14 + i);
+                if (!url.isBlank()) {
+                    org.apache.poi.ss.usermodel.Hyperlink link =
+                            wb.getCreationHelper().createHyperlink(org.apache.poi.common.usermodel.HyperlinkType.URL);
+                    link.setAddress(url);
+                    cell.setCellValue("Xem ảnh");
+                    cell.setHyperlink(link);
+                }
+            }
+        });
+
+        return buildFileResponse(path, "Don_Tuyen_Sinh.xlsx");
+    }
+
+    @SuppressWarnings("unchecked")
+    private String extractTranscriptLinks(Object transcriptImages) {
+        if (transcriptImages == null) return "";
+        try {
+            List<Map<String, Object>> images = (List<Map<String, Object>>) transcriptImages;
+            return images.stream()
+                    .map(img -> "Lớp " + img.get("grade") + ": " + img.get("imageUrl"))
+                    .collect(Collectors.joining(" | "));
+        } catch (Exception e) {
+            return "";
+        }
     }
 }

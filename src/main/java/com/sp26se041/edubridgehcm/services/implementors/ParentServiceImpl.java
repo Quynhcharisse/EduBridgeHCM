@@ -2861,14 +2861,41 @@ public class ParentServiceImpl implements ParentService {
         return ResponseBuilder.build(HttpStatus.OK, "Hủy đơn giữ chỗ thành công", null);
     }
 
-
     private List<Map<String, Object>> buildAdmissionReservationForms(List<AdmissionReservationForm> admissionReservationForms) {
+        Object systemDocReq = platformConfigRepo.findByKey("admissionSettingsData")
+                .map(c -> ((Map<String, Object>) c.getValue()).get("documentRequirementsData"))
+                .orElse(null);
+        List<?> platformMandatory = (systemDocReq instanceof Map<?, ?> sysMap
+                && sysMap.get("mandatoryAll") instanceof List<?> m) ? m : List.of();
+
+        Set<Integer> schoolIds = admissionReservationForms.stream()
+                .filter(f -> Status.RESERVATION_CONFIRMED.equals(f.getStatus()))
+                .map(AdmissionReservationForm::getCampusProgramOffering)
+                .filter(Objects::nonNull)
+                .map(o -> o.getCampus().getSchool().getId())
+                .collect(Collectors.toSet());
+
+        Map<Integer, Map<String, Object>> schoolDocMaps = new HashMap<>();
+        for (int schoolId : schoolIds) {
+            Optional<SchoolConfig> cfg = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData");
+            Map<String, Object> docMap;
+            if (cfg.isPresent() && cfg.get().getValue() instanceof Map<?, ?> rawMap) {
+                docMap = new HashMap<>((Map<String, Object>) rawMap);
+            } else if (systemDocReq instanceof Map<?, ?> systemMap) {
+                docMap = new HashMap<>((Map<String, Object>) systemMap);
+            } else {
+                continue;
+            }
+            docMap.put("mandatoryAll", platformMandatory);
+            schoolDocMaps.put(schoolId, docMap);
+        }
+
         return admissionReservationForms.stream()
-                .map(this::buildAdmissionReservationForm)
+                .map(form -> buildAdmissionReservationForm(form, schoolDocMaps))
                 .toList();
     }
 
-    private Map<String, Object> buildAdmissionReservationForm(AdmissionReservationForm form) {
+    private Map<String, Object> buildAdmissionReservationForm(AdmissionReservationForm form, Map<Integer, Map<String, Object>> schoolDocMaps) {
         Map<String, Object> map = new HashMap<>();
 
         map.put("id", form.getId());
@@ -2923,7 +2950,7 @@ public class ParentServiceImpl implements ParentService {
                 int schoolId = offering.getCampus().getSchool().getId();
                 String methodCode = offering.getAdmissionMethod();
 
-                Map<String, Object> docMap = resolveSchoolDocumentRequirements(schoolId);
+                Map<String, Object> docMap = schoolDocMaps.get(schoolId);
                 if (docMap != null) {
                     List<Map<String, Object>> mandatoryDocs = new ArrayList<>();
                     List<?> mandatoryAll = docMap.get("mandatoryAll") instanceof List<?> m ? m : List.of();
@@ -2962,33 +2989,6 @@ public class ParentServiceImpl implements ParentService {
         }
 
         return map;
-    }
-
-
-    private Map<String, Object> resolveSchoolDocumentRequirements(int schoolId) {
-        // mandatoryAll luôn lấy từ platform — school không được override
-        Object systemDocReq = platformConfigRepo.findByKey("admissionSettingsData")
-                .map(c -> ((Map<String, Object>) c.getValue()).get("documentRequirementsData"))
-                .orElse(null);
-        List<?> platformMandatory = (systemDocReq instanceof Map<?, ?> sysMap
-                && sysMap.get("mandatoryAll") instanceof List<?> m) ? m : List.of();
-
-        // Lấy byMethod của school (hoặc fallback về platform nếu school chưa cấu hình)
-        Optional<SchoolConfig> docConfigOpt = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "documentRequirementsData");
-
-        Map<String, Object> docMap;
-        if (docConfigOpt.isPresent() && docConfigOpt.get().getValue() instanceof Map<?, ?> rawMap) {
-            docMap = new HashMap<>((Map<String, Object>) rawMap);
-        } else if (systemDocReq instanceof Map<?, ?> systemMap) {
-            // School chưa cấu hình byMethod → lấy byMethod từ platform
-            docMap = new HashMap<>((Map<String, Object>) systemMap);
-        } else {
-            return null;
-        }
-
-        // Luôn ghi đè mandatoryAll bằng platform
-        docMap.put("mandatoryAll", platformMandatory);
-        return docMap;
     }
 
     private Sort buildConsultationSort(Status status) {
