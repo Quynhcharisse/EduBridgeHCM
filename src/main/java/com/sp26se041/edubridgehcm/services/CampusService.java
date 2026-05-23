@@ -17,7 +17,6 @@ import org.springframework.http.ResponseEntity;
 
 import java.io.IOException;
 import java.time.LocalDate;
-import java.util.List;
 
 public interface CampusService {
 
@@ -84,10 +83,4 @@ public interface CampusService {
     ResponseEntity<ResponseObject> getAdmissionCampaigns();
 
     ResponseEntity<Resource> exportAdmissionForms(String status) throws IOException;
-
-    ResponseEntity<Resource> downloadFormDocumentsZip(int formId) throws IOException;
-
-    ResponseEntity<Resource> downloadBulkFormDocumentsZip(List<Integer> formIds) throws IOException;
-
-    ResponseEntity<Resource> downloadAllConfirmedDocumentsZip() throws IOException;
 }
