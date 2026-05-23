@@ -35,12 +35,7 @@ public interface AdmissionReservationFormRepo extends JpaRepository<AdmissionRes
 
     List<AdmissionReservationForm> findByStudentProfileAndStatus(StudentProfile studentProfile, Status status);
 
-
-    Optional<AdmissionReservationForm> findFirstByStudentProfile_Parent_IdAndType(Integer studentProfileParentId, String type);
-
     boolean existsByStudentProfileAndType(StudentProfile studentProfile, String type);
-
-    Optional<AdmissionReservationForm> findFirstByStudentProfileAndType(StudentProfile studentProfile, String type);
 
     Optional<AdmissionReservationForm> findByStudentProfileAndType(StudentProfile studentProfile, String type);
 }

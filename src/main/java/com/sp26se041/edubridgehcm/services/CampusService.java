@@ -83,4 +83,6 @@ public interface CampusService {
     ResponseEntity<ResponseObject> getAdmissionCampaigns();
 
     ResponseEntity<Resource> exportAdmissionForms(String status) throws IOException;
+
+    ResponseEntity<Resource> downloadFormDocumentsZip(int formId) throws IOException;
 }

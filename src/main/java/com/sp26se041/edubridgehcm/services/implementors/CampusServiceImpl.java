@@ -80,6 +80,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
@@ -98,6 +99,7 @@ import org.springframework.web.client.RestTemplate;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -128,6 +130,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @Service
 @RequiredArgsConstructor
@@ -180,6 +184,9 @@ public class CampusServiceImpl implements CampusService {
     private final EntityManager entityManager;
 
     private final RestTemplate restTemplate = new RestTemplate();
+
+    @Value("${app.base-url:http://localhost:8080}")
+    private String appBaseUrl;
 
     @Override
     @Transactional
@@ -3811,13 +3818,12 @@ public class CampusServiceImpl implements CampusService {
         }
         List<String> docKeys = new ArrayList<>(docKeyToName.keySet());
 
-        // Fixed columns + one dynamic column per document type
+        // Fixed columns + dynamic doc columns + 1 cột tải toàn bộ
         String[] headers = Stream.concat(
                 Stream.of("STT", "Mã đơn", "Trạng thái", "Ngày nộp",
                         "Tên chiến dịch", "Chương trình", "Phương thức tuyển sinh",
                         "Mã số học sinh", "Họ tên học sinh",
-                        "Họ tên phụ huynh", "Quan hệ", "Nghề nghiệp", "SĐT phụ huynh",
-                        "Link học bạ"),
+                        "Họ tên phụ huynh", "Quan hệ", "Nghề nghiệp", "SĐT phụ huynh"),
                 docKeys.stream().map(docKeyToName::get)
         ).toArray(String[]::new);
 
@@ -3859,8 +3865,6 @@ public class CampusServiceImpl implements CampusService {
                 row.createCell(12).setCellValue("");
             }
 
-            row.createCell(13).setCellValue(extractTranscriptLinks(student != null ? student.getTranscriptImages() : null));
-
             Object rawDocs = formMap.get("submittedDocuments");
             Map<String, String> docUrlByKey = new HashMap<>();
             if (rawDocs instanceof List<?> docList) {
@@ -3872,13 +3876,16 @@ public class CampusServiceImpl implements CampusService {
                 }
             }
             Workbook wb = row.getSheet().getWorkbook();
+
+            // Cột document đơn lẻ (xem từng ảnh)
             for (int i = 0; i < docKeys.size(); i++) {
                 String url = docUrlByKey.getOrDefault(docKeys.get(i), "");
-                Cell cell = row.createCell(14 + i);
+                Cell cell = row.createCell(13 + i);
                 if (!url.isBlank()) {
+                    String cleanUrl = url.replaceAll("^\\[|]$", "");
                     org.apache.poi.ss.usermodel.Hyperlink link =
                             wb.getCreationHelper().createHyperlink(org.apache.poi.common.usermodel.HyperlinkType.URL);
-                    link.setAddress(url);
+                    link.setAddress(cleanUrl);
                     cell.setCellValue("Xem ảnh");
                     cell.setHyperlink(link);
                 }
@@ -3888,16 +3895,96 @@ public class CampusServiceImpl implements CampusService {
         return buildFileResponse(path, "Don_Tuyen_Sinh.xlsx");
     }
 
-    @SuppressWarnings("unchecked")
-    private String extractTranscriptLinks(Object transcriptImages) {
-        if (transcriptImages == null) return "";
-        try {
-            List<Map<String, Object>> images = (List<Map<String, Object>>) transcriptImages;
-            return images.stream()
-                    .map(img -> "Lớp " + img.get("grade") + ": " + img.get("imageUrl"))
-                    .collect(Collectors.joining(" | "));
-        } catch (Exception e) {
-            return "";
+    @Override
+    public ResponseEntity<Resource> downloadFormDocumentsZip(int formId) throws IOException {
+
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null || actorCampus.getSchool() == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
+
+        AdmissionReservationForm form = admissionReservationFormRepo.findById(formId).orElse(null);
+        if (form == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+
+        if (form.getAdmissionCampaign() == null
+                || form.getAdmissionCampaign().getSchool().getId() != actorCampus.getSchool().getId()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        if (!Status.RESERVATION_CONFIRMED.equals(form.getStatus())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+
+        String confirmCode = form.getConfirmCode();
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+
+            StudentProfile student = form.getStudentProfile();
+            if (student != null && student.getTranscriptImages() instanceof List<?> images) {
+                int idx = 0;
+                for (Object item : images) {
+                    if (!(item instanceof Map<?, ?> img)) continue;
+                    String grade = img.get("grade") != null ? img.get("grade").toString() : "grade_" + idx;
+                    addUrlToZip(zos, toCleanUrl(img.get("imageUrl")), "hoc_ba/" + grade, idx);
+                    idx++;
+                }
+            }
+
+            if (form.getProfileMetadata() instanceof List<?> metaList) {
+                int idx = 0;
+                for (Object item : metaList) {
+                    if (!(item instanceof Map<?, ?> meta)) continue;
+                    String key = meta.get("key") != null ? meta.get("key").toString() : "doc_" + idx;
+                    addUrlToZip(zos, toCleanUrl(meta.get("imageUrl")), "ho_so/" + key, idx);
+                    idx++;
+                }
+            }
+        }
+
+        byte[] zipBytes = baos.toByteArray();
+        String fileName = confirmCode + ".zip";
+        String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + fileName + "\"; filename*=UTF-8''" + encodedFileName)
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .contentLength(zipBytes.length)
+                .body(new ByteArrayResource(zipBytes));
+    }
+
+    private void addUrlToZip(ZipOutputStream zos, String url, String entryName, int fallbackIdx) {
+        if (url == null || url.isBlank()) return;
+        try {
+            byte[] bytes = restTemplate.getForObject(url, byte[].class);
+            if (bytes == null || bytes.length == 0) return;
+            String ext = extractFileExtension(url);
+            zos.putNextEntry(new ZipEntry(entryName + ext));
+            zos.write(bytes);
+            zos.closeEntry();
+        } catch (Exception ignored) {
+            // Bỏ qua ảnh không download được
+        }
+    }
+
+    private String toCleanUrl(Object raw) {
+        if (raw == null) return null;
+        return raw.toString().replaceAll("^\\[|]$", "").trim();
+    }
+
+    private String extractFileExtension(String url) {
+        try {
+            String path = url.split("\\?")[0];
+            int lastDot = path.lastIndexOf('.');
+            int lastSlash = path.lastIndexOf('/');
+            if (lastDot > lastSlash) {
+                return path.substring(lastDot).toLowerCase();
+            }
+        } catch (Exception ignored) {
+        }
+        return ".jpg";
     }
 }
