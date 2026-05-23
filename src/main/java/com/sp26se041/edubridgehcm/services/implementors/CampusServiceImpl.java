@@ -3554,6 +3554,7 @@ public class CampusServiceImpl implements CampusService {
                     document.put("key", doc.get("key"));
                     document.put("label", doc.get("label"));
                     document.put("status", doc.get("status"));
+                    document.put("imageProof", doc.get("imageProof"));
                     document.put("submissionImage", doc.get("submissionImage"));
                     document.put("reason", doc.get("reason"));
                     document.put("details", details);
