@@ -4,9 +4,9 @@ import com.sp26se041.edubridgehcm.enums.OfferingProgramAction;
 import com.sp26se041.edubridgehcm.requests.AssignCounsellorIntoSlotsRequest;
 import com.sp26se041.edubridgehcm.requests.CampusScheduleTemplateRequest;
 import com.sp26se041.edubridgehcm.requests.ChatMessageForChatBot;
+import com.sp26se041.edubridgehcm.requests.ConfirmPaymentDepositRequest;
 import com.sp26se041.edubridgehcm.requests.CreateAccountCounsellorRequest;
 import com.sp26se041.edubridgehcm.requests.CreateCampusProgramOfferingRequest;
-import com.sp26se041.edubridgehcm.requests.ConfirmPaymentDepositRequest;
 import com.sp26se041.edubridgehcm.requests.ProcessApplicantRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateAdmissionReservationFormsRequest;
 import com.sp26se041.edubridgehcm.requests.UpdateCampusConfigRequest;
@@ -34,7 +34,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
 import java.time.LocalDate;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/campus")
@@ -54,9 +53,7 @@ public class CampusController {
 
     @GetMapping("{campusId}/offering/list")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(@PathVariable int campusId,
-                                                                        @RequestParam(defaultValue = "0") int page,
-                                                                        @RequestParam(defaultValue = "10") int pageSize) {
+    public ResponseEntity<ResponseObject> viewCampusProgramOfferingList(@PathVariable int campusId, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int pageSize) {
         return campusService.viewCampusProgramOfferingList(campusId, page, pageSize);
     }
 
@@ -80,8 +77,7 @@ public class CampusController {
 
     @PutMapping("/{offeringId}/offering/status")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(@PathVariable int offeringId,
-                                                                            @RequestParam OfferingProgramAction action) {
+    public ResponseEntity<ResponseObject> changeCampusProgramOfferingStatus(@PathVariable int offeringId, @RequestParam OfferingProgramAction action) {
         return campusService.changeCampusProgramOfferingStatus(offeringId, action);
     }
 
@@ -93,8 +89,7 @@ public class CampusController {
 
     @GetMapping("/counsellor/list")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> viewAccountCounsellorList(@RequestParam(defaultValue = "0") int page,
-                                                                    @RequestParam(defaultValue = "10") int pageSize) {
+    public ResponseEntity<ResponseObject> viewAccountCounsellorList(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int pageSize) {
         return campusService.viewAccountCounsellorList(page, pageSize);
     }
 
@@ -135,9 +130,7 @@ public class CampusController {
     }
 
     @GetMapping("/counsellor/slot/available")
-    public ResponseEntity<ResponseObject> getAvailableSlots(
-            @RequestParam LocalDate targetDate,
-            @RequestParam(required = false) Integer campaignId) {
+    public ResponseEntity<ResponseObject> getAvailableSlots(@RequestParam LocalDate targetDate, @RequestParam(required = false) Integer campaignId) {
         return campusService.getAvailableSlots(targetDate, campaignId);
     }
 
@@ -195,20 +188,14 @@ public class CampusController {
 
     @GetMapping("/consultation/stats")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> getConsultationStats(
-            @RequestParam(defaultValue = "THIS_MONTH") String period,
-            @RequestParam(required = false) LocalDate from,
-            @RequestParam(required = false) LocalDate to) {
+    public ResponseEntity<ResponseObject> getConsultationStats(@RequestParam(defaultValue = "THIS_MONTH") String period, @RequestParam(required = false) LocalDate from, @RequestParam(required = false) LocalDate to) {
         return campusService.getConsultationStats(period, from, to);
     }
 
     @PutMapping("/messages/read/{conversationId}")
     public ResponseEntity<ResponseObject> readMessages(@PathVariable Long conversationId) {
 
-        String email = SecurityContextHolder
-                .getContext()
-                .getAuthentication()
-                .getName();
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
         return webSocketService.markConversationAsRead(conversationId, email);
     }
@@ -233,7 +220,7 @@ public class CampusController {
 
     @GetMapping("/admission/reservation/form")
     @PreAuthorize("hasAnyRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> getAdmissionReservationForm(@RequestParam (required = false) String status) {
+    public ResponseEntity<ResponseObject> getAdmissionReservationForm(@RequestParam(required = false) String status) {
         return campusService.getAdmissionReservationForms(status);
     }
 
@@ -246,14 +233,24 @@ public class CampusController {
     @PutMapping("/admission/reservation/forms")
     @PreAuthorize("hasAnyRole('SCHOOL')")
     public ResponseEntity<ResponseObject> updateAdmissionReservationForms(@RequestBody UpdateAdmissionReservationFormsRequest request) {
-      return campusService.updateAdmissionReservationForms(request);
+        return campusService.updateAdmissionReservationForms(request);
     }
-
 
     @GetMapping("/admission/campaign")
     @PreAuthorize("hasAnyRole('SCHOOL')")
-    public ResponseEntity<ResponseObject> getAdmissionCampaigns(){
+    public ResponseEntity<ResponseObject> getAdmissionCampaigns() {
         return campusService.getAdmissionCampaigns();
     }
 
+    @GetMapping("/admission/form/export")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<Resource> exportAdmissionForms(@RequestParam(required = false) String status) throws IOException {
+        return campusService.exportAdmissionForms(status);
+    }
+
+    @GetMapping("/admission/form/{formId}/documents.zip")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<Resource> downloadFormDocumentsZip(@PathVariable int formId) throws IOException {
+        return campusService.downloadFormDocumentsZip(formId);
+    }
 }
