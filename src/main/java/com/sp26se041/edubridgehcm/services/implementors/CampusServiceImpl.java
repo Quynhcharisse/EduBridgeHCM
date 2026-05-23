@@ -3311,7 +3311,14 @@ public class CampusServiceImpl implements CampusService {
 
         List<Map<String, Object>> requiredDocuments = getRequiredDocuments(admissionSettings.get());
 
-        Map<String, Object> payload = buildN8nVerificationPayload(admissionReservationForms, requiredDocuments);
+        Map<String, Object> admissionSettingsData = (Map<String, Object>) admissionSettings.get().getValue();
+
+        Map<String, Object> documentRequirementsData = (Map<String, Object>) admissionSettingsData.get("documentRequirementsData");
+
+        String transcriptTemplateImageUrl = (String) documentRequirementsData.get("transcriptTemplateImageUrl");
+
+
+        Map<String, Object> payload = buildN8nVerificationPayload(admissionReservationForms, transcriptTemplateImageUrl, requiredDocuments);
 
         try {
             ObjectMapper debugMapper = new ObjectMapper();
@@ -3457,6 +3464,7 @@ public class CampusServiceImpl implements CampusService {
 
     private Map<String, Object> buildN8nVerificationPayload(
             List<Map<String, Object>> admissionReservationForms,
+            String transcriptTemplateImageUrl,
             List<Map<String, Object>> requiredDocuments) {
 
         List<Map<String, Object>> reqDocs = requiredDocuments.stream()
@@ -3477,6 +3485,7 @@ public class CampusServiceImpl implements CampusService {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("forms", admissionReservationForms);
         payload.put("requiredDocuments", reqDocs);
+        payload.put("transcriptTemplateImageUrl", transcriptTemplateImageUrl);
 
         return payload;
     }
