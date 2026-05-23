@@ -3909,7 +3909,7 @@ public class CampusServiceImpl implements CampusService {
         }
 
         if (form.getAdmissionCampaign() == null
-                || form.getAdmissionCampaign().getSchool().getId() != actorCampus.getSchool().getId()) {
+                || !form.getAdmissionCampaign().getSchool().getId().equals(actorCampus.getSchool().getId())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
@@ -3946,6 +3946,96 @@ public class CampusServiceImpl implements CampusService {
 
         byte[] zipBytes = baos.toByteArray();
         String fileName = confirmCode + ".zip";
+        String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + fileName + "\"; filename*=UTF-8''" + encodedFileName)
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .contentLength(zipBytes.length)
+                .body(new ByteArrayResource(zipBytes));
+    }
+
+    @Override
+    public ResponseEntity<Resource> downloadBulkFormDocumentsZip(List<Integer> formIds) throws IOException {
+
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null || actorCampus.getSchool() == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        int schoolId = actorCampus.getSchool().getId();
+
+        List<AdmissionReservationForm> forms = admissionReservationFormRepo.findAllById(formIds)
+                .stream()
+                .filter(f -> Status.RESERVATION_CONFIRMED.equals(f.getStatus()))
+                .filter(f -> f.getAdmissionCampaign() != null
+                        && f.getAdmissionCampaign().getSchool().getId() == schoolId)
+                .toList();
+
+        if (forms.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+
+        return buildZipResponse(forms, "Ho_So_Tuyen_Sinh.zip");
+    }
+
+    @Override
+    public ResponseEntity<Resource> downloadAllConfirmedDocumentsZip() throws IOException {
+
+        Campus actorCampus = extractActorCampus();
+        if (actorCampus == null || actorCampus.getSchool() == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        int schoolId = actorCampus.getSchool().getId();
+
+        List<AdmissionReservationForm> forms = admissionReservationFormRepo
+                .findByAdmissionCampaign_School_IdAndStatus(schoolId, Status.RESERVATION_CONFIRMED)
+                .stream()
+                .filter(f -> !"RESERVATION_TEMPLATE".equals(f.getType()))
+                .toList();
+
+        if (forms.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+
+        return buildZipResponse(forms, "Ho_So_Tuyen_Sinh_Tat_Ca.zip");
+    }
+
+    private ResponseEntity<Resource> buildZipResponse(List<AdmissionReservationForm> forms, String fileName) throws IOException {
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+            for (AdmissionReservationForm form : forms) {
+                String folder = form.getConfirmCode() + "/";
+
+                // Học bạ
+                StudentProfile student = form.getStudentProfile();
+                if (student != null && student.getTranscriptImages() instanceof List<?> images) {
+                    int idx = 0;
+                    for (Object item : images) {
+                        if (!(item instanceof Map<?, ?> img)) continue;
+                        String grade = img.get("grade") != null ? img.get("grade").toString() : "grade_" + idx;
+                        addUrlToZip(zos, toCleanUrl(img.get("imageUrl")), folder + "hoc_ba/" + grade, idx);
+                        idx++;
+                    }
+                }
+
+                // Hồ sơ tài liệu
+                if (form.getProfileMetadata() instanceof List<?> metaList) {
+                    int idx = 0;
+                    for (Object item : metaList) {
+                        if (!(item instanceof Map<?, ?> meta)) continue;
+                        String key = meta.get("key") != null ? meta.get("key").toString() : "doc_" + idx;
+                        addUrlToZip(zos, toCleanUrl(meta.get("imageUrl")), folder + "ho_so/" + key, idx);
+                        idx++;
+                    }
+                }
+            }
+        }
+
+        byte[] zipBytes = baos.toByteArray();
         String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
 
         return ResponseEntity.ok()
