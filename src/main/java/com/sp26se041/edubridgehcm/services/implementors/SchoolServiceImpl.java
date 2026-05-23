@@ -887,7 +887,6 @@ public class SchoolServiceImpl implements SchoolService {
             admissionCampaignRepo.save(admissionCampaign);
         }
 
-        // Chỉ đóng offering khi campaign đã EXPIRED
         if (admissionCampaign.getStatus().equals(Status.EXPIRED)) {
             List<CampusProgramOffering> offerings = campusProgramOfferingRepo.findByAdmissionCampaignId(admissionCampaign.getId());
             if (offerings != null && !offerings.isEmpty()) {

@@ -31,7 +31,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import java.util.List;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -247,24 +246,5 @@ public class CampusController {
     @PreAuthorize("hasRole('SCHOOL')")
     public ResponseEntity<Resource> exportAdmissionForms(@RequestParam(required = false) String status) throws IOException {
         return campusService.exportAdmissionForms(status);
-    }
-
-    @GetMapping("/admission/form/{formId}/documents.zip")
-    @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<Resource> downloadFormDocumentsZip(@PathVariable int formId) throws IOException {
-        return campusService.downloadFormDocumentsZip(formId);
-    }
-
-    @PostMapping("/admission/form/documents-bulk.zip")
-    @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<Resource> downloadBulkFormDocumentsZip(
-            @RequestBody List<Integer> formIds) throws IOException {
-        return campusService.downloadBulkFormDocumentsZip(formIds);
-    }
-
-    @GetMapping("/admission/form/documents-confirmed.zip")
-    @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<Resource> downloadAllConfirmedDocumentsZip() throws IOException {
-        return campusService.downloadAllConfirmedDocumentsZip();
     }
 }
