@@ -3782,6 +3782,11 @@ public class CampusServiceImpl implements CampusService {
 
         int schoolId = actorCampus.getSchool().getId();
 
+        Set<Status> allowedExportStatuses = Set.of(
+                Status.RESERVATION_DEPOSITED,
+                Status.RESERVATION_CONFIRMED
+        );
+
         List<AdmissionReservationForm> forms;
         if (status != null && !status.isBlank()) {
             Status filterStatus;
@@ -3790,19 +3795,20 @@ public class CampusServiceImpl implements CampusService {
             } catch (IllegalArgumentException e) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
             }
+            if (!allowedExportStatuses.contains(filterStatus)) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            }
             forms = admissionReservationFormRepo.findByAdmissionCampaign_School_IdAndStatus(schoolId, filterStatus);
         } else {
-            forms = admissionReservationFormRepo.findByAdmissionCampaign_School_Id(schoolId);
+            forms = admissionReservationFormRepo.findByAdmissionCampaign_School_IdAndStatusIn(schoolId, allowedExportStatuses);
         }
 
         List<AdmissionReservationForm> filteredForms = forms.stream()
                 .filter(f -> !"RESERVATION_TEMPLATE".equals(f.getType()))
                 .toList();
 
-        // Reuse existing build logic — submittedDocuments already computed here
         List<Map<String, Object>> formMaps = buildAdmissionReservationForms(filteredForms);
 
-        // First pass: collect all unique doc keys in insertion order
         LinkedHashMap<String, String> docKeyToName = new LinkedHashMap<>();
         for (Map<String, Object> formMap : formMaps) {
             Object raw = formMap.get("submittedDocuments");
@@ -3817,8 +3823,6 @@ public class CampusServiceImpl implements CampusService {
             }
         }
         List<String> docKeys = new ArrayList<>(docKeyToName.keySet());
-
-        // Fixed columns + dynamic doc columns + 1 cột tải toàn bộ
         String[] headers = Stream.concat(
                 Stream.of("STT", "Mã đơn", "Trạng thái", "Ngày nộp",
                         "Tên chiến dịch", "Chương trình", "Phương thức tuyển sinh",
@@ -3877,7 +3881,6 @@ public class CampusServiceImpl implements CampusService {
             }
             Workbook wb = row.getSheet().getWorkbook();
 
-            // Cột document đơn lẻ (xem từng ảnh)
             for (int i = 0; i < docKeys.size(); i++) {
                 String url = docUrlByKey.getOrDefault(docKeys.get(i), "");
                 Cell cell = row.createCell(13 + i);
