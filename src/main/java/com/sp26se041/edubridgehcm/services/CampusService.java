@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.List;
 
 public interface CampusService {
 
@@ -82,5 +83,5 @@ public interface CampusService {
 
     ResponseEntity<ResponseObject> getAdmissionCampaigns();
 
-    ResponseEntity<Resource> exportAdmissionForms(String status) throws IOException;
+    ResponseEntity<Resource> exportAdmissionForms(List<String> status, Long campaignId) throws IOException;
 }

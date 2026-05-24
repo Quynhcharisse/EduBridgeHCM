@@ -23,6 +23,8 @@ public interface AdmissionReservationFormRepo extends JpaRepository<AdmissionRes
 
     List<AdmissionReservationForm> findByAdmissionCampaign_School_IdAndStatusIn(int schoolId, Collection<Status> statuses);
 
+    List<AdmissionReservationForm> findByAdmissionCampaign_IdAndStatusIn(int campaignId, Collection<Status> statuses);
+
     List<AdmissionReservationForm> findByAdmissionCampaign_School_Id(int schoolId);
 
     List<AdmissionReservationForm> findByStatusIn(Collection<Status> statuses);

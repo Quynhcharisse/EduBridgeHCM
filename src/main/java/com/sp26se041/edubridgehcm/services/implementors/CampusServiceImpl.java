@@ -116,6 +116,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -3454,6 +3455,7 @@ public class CampusServiceImpl implements CampusService {
                     Map<String, Object> map = new HashMap<>();
                     map.put("id", c.getId());
                     map.put("name", c.getName());
+                    map.put("year", c.getYear());
                     map.put("isActive", c.getStatus() == Status.OPEN_ADMISSION_CAMPAIGN);
                     return map;
                 })
@@ -3688,6 +3690,7 @@ public class CampusServiceImpl implements CampusService {
             map.put("admissionCampaignId", admissionCampaign.getId());
             map.put("admissionCampaignName", admissionCampaign.getName());
             map.put("admissionCampaignYear", admissionCampaign.getYear());
+            map.put("admissionCampaignStatus", admissionCampaign.getStatus());
             map.put("schoolName", admissionCampaign.getSchool().getName());
         }
 
@@ -3771,8 +3774,38 @@ public class CampusServiceImpl implements CampusService {
         return map;
     }
 
+    /**
+     * Chuẩn hoá imageUrl thành List<String> — xử lý cả String đơn và List nhiều slot.
+     * Loại bỏ giá trị null/blank và dải ký tự thừa từ JSON array toString().
+     */
+    private List<String> extractUrlList(Object urlRaw) {
+        if (urlRaw == null) return List.of();
+        List<String> result = new ArrayList<>();
+        if (urlRaw instanceof List<?> list) {
+            for (Object u : list) {
+                if (u == null) continue;
+                String s = u.toString().trim();
+                if (!s.isBlank()) result.add(s);
+            }
+        } else {
+            // Có thể là String dạng "[url1, url2]" do List.toString() ở bước trước
+            String raw = urlRaw.toString().trim();
+            if (raw.startsWith("[") && raw.endsWith("]")) {
+                // Tách từng URL trong mảng toString
+                String inner = raw.substring(1, raw.length() - 1);
+                for (String part : inner.split(",")) {
+                    String s = part.trim();
+                    if (!s.isBlank()) result.add(s);
+                }
+            } else if (!raw.isBlank()) {
+                result.add(raw);
+            }
+        }
+        return result;
+    }
+
     @Override
-    public ResponseEntity<Resource> exportAdmissionForms(String status) throws IOException {
+    public ResponseEntity<Resource> exportAdmissionForms(List<String> statuses, Long campaignId) throws IOException {
 
         Campus actorCampus = extractActorCampus();
 
@@ -3791,22 +3824,33 @@ public class CampusServiceImpl implements CampusService {
                 Status.RESERVATION_CONFIRMED
         );
 
-        List<AdmissionReservationForm> forms;
-        if (status != null && !status.isBlank()) {
-            Status filterStatus;
-            try {
-                filterStatus = Status.valueOf(status.toUpperCase());
-            } catch (IllegalArgumentException e) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        // Resolve danh sách status cần filter — nếu không truyền thì lấy cả 2
+        Set<Status> filterStatuses;
+        if (statuses != null && !statuses.isEmpty()) {
+            filterStatuses = new HashSet<>();
+            for (String s : statuses) {
+                if (s == null || s.isBlank()) continue;
+                Status st;
+                try {
+                    st = Status.valueOf(s.trim().toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+                }
+                if (!allowedExportStatuses.contains(st)) {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+                }
+                filterStatuses.add(st);
             }
-
-            if (!allowedExportStatuses.contains(filterStatus)) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-            }
-            forms = admissionReservationFormRepo.findByAdmissionCampaign_School_IdAndStatus(schoolId, filterStatus);
-
+            if (filterStatuses.isEmpty()) filterStatuses = allowedExportStatuses;
         } else {
-            forms = admissionReservationFormRepo.findByAdmissionCampaign_School_IdAndStatusIn(schoolId, allowedExportStatuses);
+            filterStatuses = allowedExportStatuses;
+        }
+
+        List<AdmissionReservationForm> forms;
+        if (campaignId != null) {
+            forms = admissionReservationFormRepo.findByAdmissionCampaign_IdAndStatusIn(campaignId.intValue(), filterStatuses);
+        } else {
+            forms = admissionReservationFormRepo.findByAdmissionCampaign_School_IdAndStatusIn(schoolId, filterStatuses);
         }
 
         List<AdmissionReservationForm> filteredForms = forms.stream()
@@ -3829,6 +3873,7 @@ public class CampusServiceImpl implements CampusService {
             }
         }
         List<String> docKeys = new ArrayList<>(docKeyToName.keySet());
+
         String[] headers = Stream.concat(
                 Stream.of("STT", "Mã đơn", "Trạng thái", "Ngày nộp",
                         "Tên chiến dịch", "Chương trình", "Phương thức tuyển sinh",
@@ -3842,7 +3887,8 @@ public class CampusServiceImpl implements CampusService {
 
         ExcelUtil.exportToExcel(path, "Đơn tuyển sinh", headers, formMaps, (formMap, row) -> {
             int idx = counter.getAndIncrement();
-            AdmissionReservationForm form = forms.get(idx);
+            // FIX: dùng filteredForms thay vì forms để tránh lệch index khi có RESERVATION_TEMPLATE
+            AdmissionReservationForm form = filteredForms.get(idx);
             StudentProfile student = form.getStudentProfile();
             Parent parent = student != null ? student.getParent() : null;
 
@@ -3875,32 +3921,65 @@ public class CampusServiceImpl implements CampusService {
                 row.createCell(12).setCellValue("");
             }
 
+            // Col 13+: URL ảnh minh chứng từng loại giấy tờ
             Object rawDocs = formMap.get("submittedDocuments");
-            Map<String, String> docUrlByKey = new HashMap<>();
+            // key → list URL (xử lý cả imageUrl dạng String và List)
+            Map<String, List<String>> docUrlsByKey = new HashMap<>();
             if (rawDocs instanceof List<?> docList) {
                 for (Object item : docList) {
                     if (!(item instanceof Map<?, ?> doc)) continue;
                     Object k = doc.get("key");
-                    Object url = doc.get("imageUrl");
-                    if (k != null) docUrlByKey.put(k.toString(), url != null ? url.toString() : "");
+                    if (k == null) continue;
+                    Object urlRaw = doc.get("imageUrl");
+                    List<String> urls = extractUrlList(urlRaw);
+                    if (!urls.isEmpty()) docUrlsByKey.put(k.toString(), urls);
                 }
             }
-            Workbook wb = row.getSheet().getWorkbook();
+            // Bổ sung transcriptImages (học bạ THCS lưu riêng, không nằm trong submittedDocuments)
+            Object transcriptRaw = formMap.get("transcriptImages");
+            if (transcriptRaw instanceof List<?> transcriptList) {
+                List<String> transcriptUrls = new ArrayList<>();
+                for (Object t : transcriptList) {
+                    if (t != null && !t.toString().isBlank()) transcriptUrls.add(t.toString().trim());
+                }
+                if (!transcriptUrls.isEmpty()) {
+                    docUrlsByKey.merge("HOC_BA_THCS", transcriptUrls, (a, b) -> {
+                        List<String> merged = new ArrayList<>(a);
+                        merged.addAll(b);
+                        return merged;
+                    });
+                }
+            }
 
             for (int i = 0; i < docKeys.size(); i++) {
-                String url = docUrlByKey.getOrDefault(docKeys.get(i), "");
+                List<String> urls = docUrlsByKey.getOrDefault(docKeys.get(i), List.of());
                 Cell cell = row.createCell(13 + i);
-                if (!url.isBlank()) {
-                    String cleanUrl = url.replaceAll("^\\[|]$", "");
-                    org.apache.poi.ss.usermodel.Hyperlink link =
-                            wb.getCreationHelper().createHyperlink(org.apache.poi.common.usermodel.HyperlinkType.URL);
-                    link.setAddress(cleanUrl);
-                    cell.setCellValue("Xem ảnh");
-                    cell.setHyperlink(link);
+                if (!urls.isEmpty()) {
+                    // Nhiều URL → xuống dòng trong cùng ô
+                    cell.setCellValue(String.join("\n", urls));
                 }
             }
         });
 
-        return buildFileResponse(path, "Don_Tuyen_Sinh.xlsx");
+        String fileName = buildExportFileName(filteredForms);
+        return buildFileResponse(path, fileName);
+    }
+
+    private String buildExportFileName(List<AdmissionReservationForm> forms) {
+        if (forms == null || forms.isEmpty()) return "Don_Tuyen_Sinh.xlsx";
+        AdmissionCampaign campaign = forms.get(0).getAdmissionCampaign();
+        if (campaign == null) return "Don_Tuyen_Sinh.xlsx";
+
+        String name = campaign.getName() != null ? campaign.getName().trim() : "";
+        int year = campaign.getYear();
+
+        String safeName = name
+                .replaceAll("[^\\p{L}\\p{N}\\s]", "")
+                .replaceAll("\\s+", "_")
+                .replaceAll("_+", "_")
+                .trim();
+
+        if (safeName.isBlank()) return String.format("Don_Tuyen_Sinh_%d.xlsx", year);
+        return String.format("Don_Tuyen_Sinh_%s_%d.xlsx", safeName, year);
     }
 }

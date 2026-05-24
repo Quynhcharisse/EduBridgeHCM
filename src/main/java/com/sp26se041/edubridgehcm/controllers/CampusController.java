@@ -31,6 +31,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import java.util.List;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -244,7 +245,9 @@ public class CampusController {
 
     @GetMapping("/admission/form/export")
     @PreAuthorize("hasRole('SCHOOL')")
-    public ResponseEntity<Resource> exportAdmissionForms(@RequestParam(required = false) String status) throws IOException {
-        return campusService.exportAdmissionForms(status);
+    public ResponseEntity<Resource> exportAdmissionForms(
+            @RequestParam(required = false) List<String> status,
+            @RequestParam(required = false) Long campaignId) throws IOException {
+        return campusService.exportAdmissionForms(status, campaignId);
     }
 }
