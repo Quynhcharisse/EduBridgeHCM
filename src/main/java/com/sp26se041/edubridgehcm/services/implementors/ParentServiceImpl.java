@@ -2197,50 +2197,6 @@ public class ParentServiceImpl implements ParentService {
                     "Phụ huynh đã có mẫu hồ sơ giữ chỗ của trẻ " + studentProfile.get().getStudentName() + ", không thể tạo thêm.", null);
         }
 
-
-        List<Map<String, Object>> transcriptImages = studentProfile.get().getTranscriptImages() != null
-                ? (List<Map<String, Object>>) studentProfile.get().getTranscriptImages()
-                : List.of();
-
-        Set<String> submittedGrades = transcriptImages.stream()
-                .filter(t -> t.get("imageUrl") != null && !((String) t.get("imageUrl")).isBlank())
-                .map(t -> (String) t.get("grade"))
-                .collect(Collectors.toSet());
-
-        List<String> requiredGrades = List.of("GRADE_06", "GRADE_07", "GRADE_08", "GRADE_09");
-
-        List<String> missingGrades = requiredGrades.stream()
-                .filter(g -> !submittedGrades.contains(g))
-                .toList();
-
-        if (!missingGrades.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Học sinh chưa cập nhật đầy đủ học bạ 4 khối (lớp 6, 7, 8, 9), vui lòng cập nhật hồ sơ trước khi nộp đơn.", null);
-        }
-
-        String studentCode = studentProfile.get().getStudentCode();
-
-        if (studentCode == null || studentCode.isBlank()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Căn cước công dân là bắt buộc để nộp đơn giữ chỗ.", null);
-        }
-
-        LocalDate dateOfBirth = studentProfile.get().getDateOfBirth();
-
-        if (dateOfBirth == null) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Ngày tháng năm sinh là bắt buộc để nộp đơn giữ chỗ.", null);
-        }
-
-        LocalDate today = LocalDate.now();
-
-        int age = Period.between(dateOfBirth, today).getYears();
-
-        if (age < 14) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST,
-                    "Ngày sinh không hợp lệ: học sinh phải ít nhất 14 tuổi để nộp đơn giữ chỗ.", null);
-        }
-
         if (request.getSubmissionDocuments() == null || request.getSubmissionDocuments().isEmpty()) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Vui lòng cung cấp đủ hình ảnh danh sách hồ sơ tài liệu bắt buộc trước khi nộp.", null);
         }
