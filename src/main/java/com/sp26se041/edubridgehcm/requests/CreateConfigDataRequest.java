@@ -142,6 +142,7 @@ public class CreateConfigDataRequest {
     public static class AdmissionSettingsData {
         List<AdmissionMethodDetail> allowedMethods;
         List<MethodAdmissionProcess> methodAdmissionProcess;
+        String transcriptTemplateImageUrl;
         DocumentRequirementsData documentRequirementsData;
     }
 

@@ -431,6 +431,11 @@ public class SystemServiceImpl implements SystemService {
     public void updateAdmissionSettingsTemplate(CreateConfigDataRequest request) {
         CreateConfigDataRequest.AdmissionSettingsData admissionSettingsData = request.getAdmissionSettingsData();
 
+        // T them hinh anh mau cho OCR hoc ba
+        if (admissionSettingsData.getTranscriptTemplateImageUrl() == null || admissionSettingsData.getTranscriptTemplateImageUrl().trim().isBlank()){
+            throw new RuntimeException("URL hình ảnh mẫu học bạ không được để trống.");
+        }
+
         List<Map<String, Object>> allowedMethodsJson = new ArrayList<>();
         if (admissionSettingsData.getAllowedMethods() != null) {
             allowedMethodsJson = admissionSettingsData.getAllowedMethods().stream()
@@ -519,6 +524,7 @@ public class SystemServiceImpl implements SystemService {
         Map<String, Object> documentRequirementsTemplateJson = new HashMap<>();
         documentRequirementsTemplateJson.put("mandatoryAll", mandatoryAllJson);
         documentRequirementsTemplateJson.put("byMethod", byMethodJson);
+        documentRequirementsTemplateJson.put("transcriptTemplateImageUrl", admissionSettingsData.getTranscriptTemplateImageUrl().trim());
 
         Map<String, Object> admissionJson = new HashMap<>();
         admissionJson.put("allowedMethods", allowedMethodsJson);
