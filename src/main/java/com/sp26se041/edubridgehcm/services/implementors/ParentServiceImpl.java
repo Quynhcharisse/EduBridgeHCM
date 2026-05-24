@@ -2241,18 +2241,9 @@ public class ParentServiceImpl implements ParentService {
             profileMetaData.add(map);
         });
 
-        List<Map<String, Object>> transcriptImagesMeta = new ArrayList<>();
-
-        transcriptImages.forEach(t -> {
-            Map<String, Object> map = new HashMap<>();
-            map.put("grade", t.get("grade"));
-            map.put("imageUrl", t.get("imageUrl"));
-            transcriptImagesMeta.add(map);
-        });
 
         admissionReservationFormRepo.save(
                 AdmissionReservationForm.builder()
-                        .transcriptImages(transcriptImagesMeta)
                         .profileMetadata(profileMetaData)
                         .studentProfile(studentProfile.get())
                         .createdTime(LocalDateTime.now())
