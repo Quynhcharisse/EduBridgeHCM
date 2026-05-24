@@ -26,7 +26,6 @@ import com.sp26se041.edubridgehcm.enums.SubjectType;
 import com.sp26se041.edubridgehcm.enums.SubscriptionAction;
 import com.sp26se041.edubridgehcm.models.Account;
 import com.sp26se041.edubridgehcm.models.AdmissionCampaign;
-import com.sp26se041.edubridgehcm.models.AdmissionReservationForm;
 import com.sp26se041.edubridgehcm.models.Campus;
 import com.sp26se041.edubridgehcm.models.CampusProgramOffering;
 import com.sp26se041.edubridgehcm.models.CampusResourceQuota;
@@ -41,7 +40,6 @@ import com.sp26se041.edubridgehcm.models.Program;
 import com.sp26se041.edubridgehcm.models.School;
 import com.sp26se041.edubridgehcm.models.SchoolConfig;
 import com.sp26se041.edubridgehcm.models.SchoolSubscription;
-import com.sp26se041.edubridgehcm.models.StudentProfile;
 import com.sp26se041.edubridgehcm.models.Subject;
 import com.sp26se041.edubridgehcm.models.Subscription;
 import com.sp26se041.edubridgehcm.models.TemplateDocx;
@@ -1757,6 +1755,35 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("campaignRemainingQuota", campaign.getRemainingQuota());
         data.put("admissionMethodTimelines", methodDetails);
         data.put("campusProgramOfferings", buildCampaignOfferingDetails(campaign.getId()));
+
+        // Thống kê hồ sơ đăng ký giữ chỗ cho chiến dịch (loại trừ form template)
+        long totalApplications = 0, pendingApplications = 0, approvedApplications = 0, rejectedApplications = 0;
+        if (campaign.getAdmissionReservationForms() != null) {
+            totalApplications = campaign.getAdmissionReservationForms().stream()
+                    .filter(f -> !"RESERVATION_TEMPLATE".equals(f.getType()))
+                    .count();
+            pendingApplications = campaign.getAdmissionReservationForms().stream()
+                    .filter(f -> !"RESERVATION_TEMPLATE".equals(f.getType())
+                            && f.getStatus() == Status.RESERVATION_PENDING)
+                    .count();
+            approvedApplications = campaign.getAdmissionReservationForms().stream()
+                    .filter(f -> !"RESERVATION_TEMPLATE".equals(f.getType())
+                            && (f.getStatus() == Status.RESERVATION_APPROVAL
+                                    || f.getStatus() == Status.RESERVATION_PAYMENT_PENDING
+                                    || f.getStatus() == Status.RESERVATION_PAYMENT_REJECTED
+                                    || f.getStatus() == Status.RESERVATION_DEPOSITED
+                                    || f.getStatus() == Status.RESERVATION_CONFIRMED))
+                    .count();
+            rejectedApplications = campaign.getAdmissionReservationForms().stream()
+                    .filter(f -> !"RESERVATION_TEMPLATE".equals(f.getType())
+                            && f.getStatus() == Status.RESERVATION_REJECTED)
+                    .count();
+        }
+        data.put("totalApplications", totalApplications);
+        data.put("pendingApplications", pendingApplications);
+        data.put("approvedApplications", approvedApplications);
+        data.put("rejectedApplications", rejectedApplications);
+
         return data;
     }
 
