@@ -2872,6 +2872,16 @@ public class ParentServiceImpl implements ParentService {
         } else {
             map.put("admissionCampaignId", admissionCampaign.getId());
             map.put("schoolName", admissionCampaign.getSchool().getName());
+
+            List<Map<String, Object>> admissionMethodTimelines = (List<Map<String, Object>>) admissionCampaign.getAdmissionMethodTimelines();
+
+            if (admissionMethodTimelines != null && offering != null) {
+                String methodCode = offering.getAdmissionMethod();
+                admissionMethodTimelines.stream()
+                        .filter(t -> Objects.equals(t.get("methodCode"), methodCode))
+                        .findFirst()
+                        .ifPresent(t -> map.put("confirmEndDate", t.get("confirmationEndDate")));
+            }
         }
 
         map.put("paymentProofUrl", form.getPaymentProofUrl());
