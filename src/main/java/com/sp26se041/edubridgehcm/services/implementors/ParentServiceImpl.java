@@ -1048,8 +1048,7 @@ public class ParentServiceImpl implements ParentService {
             return "Giới tính không hợp lệ";
         }
 
-        if (request.getPersonalityTypeCode() != null || !request.getPersonalityTypeCode().trim().isBlank()) {
-
+        if (request.getPersonalityTypeCode() != null && !request.getPersonalityTypeCode().trim().isBlank()) {
             Optional<PersonalityType> personalityType =
                     personalityTypeRepo.findByCode(request.getPersonalityTypeCode());
             if (personalityType.isEmpty()) {
@@ -1057,7 +1056,7 @@ public class ParentServiceImpl implements ParentService {
             }
         }
 
-        if (request.getFavouriteJob() != null || !request.getFavouriteJob().trim().isBlank()) {
+        if (request.getFavouriteJob() != null && !request.getFavouriteJob().trim().isBlank()) {
             Optional<Major> major = majorRepo.findByName(request.getFavouriteJob());
             if (major.isEmpty()) {
                 return "Ngành nghề yêu thích không hợp lệ";
