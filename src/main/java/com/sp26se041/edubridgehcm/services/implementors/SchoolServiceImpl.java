@@ -1715,6 +1715,7 @@ public class SchoolServiceImpl implements SchoolService {
         Map<String, Object> config = new LinkedHashMap<>();
         config.put("allowedMethods", toListOfMaps(admissionConfig.get("allowedMethods")));
         config.put("mandatoryAll", toListOfMaps(admissionConfig.get("mandatoryAll")));
+        config.put("byMethod", toListOfMaps(admissionConfig.get("byMethod")));
         return config;
     }
 
@@ -1817,6 +1818,13 @@ public class SchoolServiceImpl implements SchoolService {
         Map<String, Object> schoolAdmission = getSchoolConfigMapValue(schoolId, "admissionSettingsData");
         Map<String, Object> schoolDocReq = getSchoolConfigMapValue(schoolId, "documentRequirementsData");
 
+        Map<String, Object> platformAdmission = platformConfigRepo.findByKey("admissionSettingsData")
+                .map(c -> c.getValue() instanceof Map<?, ?> m ? (Map<String, Object>) m : null)
+                .orElse(null);
+        Map<String, Object> platformDocReq = platformAdmission != null && platformAdmission.get("documentRequirementsData") instanceof Map<?, ?> d
+                ? (Map<String, Object>) d
+                : null;
+
         result.put(
                 "allowedMethods",
                 schoolAdmission != null
@@ -1833,17 +1841,15 @@ public class SchoolServiceImpl implements SchoolService {
 
         result.put(
                 "mandatoryAll",
-                schoolDocReq != null
-                        ? toListOfMaps(schoolDocReq.get("mandatoryAll"))
+                platformDocReq != null
+                        ? toListOfMaps(platformDocReq.get("mandatoryAll"))
                         : Collections.emptyList()
         );
 
-        result.put(
-                "byMethod",
-                schoolDocReq != null
-                        ? toListOfMaps(schoolDocReq.get("byMethod"))
-                        : Collections.emptyList()
-        );
+        List<Map<String, Object>> byMethod = schoolDocReq != null
+                ? toListOfMaps(schoolDocReq.get("byMethod"))
+                : (platformDocReq != null ? toListOfMaps(platformDocReq.get("byMethod")) : Collections.emptyList());
+        result.put("byMethod", byMethod);
         return result;
     }
 

@@ -3686,6 +3686,8 @@ public class CampusServiceImpl implements CampusService {
             map.put("schoolName", "N/A");
         } else {
             map.put("admissionCampaignId", admissionCampaign.getId());
+            map.put("admissionCampaignName", admissionCampaign.getName());
+            map.put("admissionCampaignYear", admissionCampaign.getYear());
             map.put("schoolName", admissionCampaign.getSchool().getName());
         }
 
@@ -3797,10 +3799,12 @@ public class CampusServiceImpl implements CampusService {
             } catch (IllegalArgumentException e) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
             }
+
             if (!allowedExportStatuses.contains(filterStatus)) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
             }
             forms = admissionReservationFormRepo.findByAdmissionCampaign_School_IdAndStatus(schoolId, filterStatus);
+
         } else {
             forms = admissionReservationFormRepo.findByAdmissionCampaign_School_IdAndStatusIn(schoolId, allowedExportStatuses);
         }
@@ -3898,23 +3902,5 @@ public class CampusServiceImpl implements CampusService {
         });
 
         return buildFileResponse(path, "Don_Tuyen_Sinh.xlsx");
-    }
-
-    private String toCleanUrl(Object raw) {
-        if (raw == null) return null;
-        return raw.toString().replaceAll("^\\[|]$", "").trim();
-    }
-
-    private String extractFileExtension(String url) {
-        try {
-            String path = url.split("\\?")[0];
-            int lastDot = path.lastIndexOf('.');
-            int lastSlash = path.lastIndexOf('/');
-            if (lastDot > lastSlash) {
-                return path.substring(lastDot).toLowerCase();
-            }
-        } catch (Exception ignored) {
-        }
-        return ".jpg";
     }
 }
