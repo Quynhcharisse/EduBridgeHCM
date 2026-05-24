@@ -78,7 +78,6 @@ import com.sp26se041.edubridgehcm.validations.campus.CounsellorValidation;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.Workbook;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -3663,7 +3662,6 @@ public class CampusServiceImpl implements CampusService {
 
     private Map<String, Object> buildAdmissionReservationForm(AdmissionReservationForm form, Map<Integer, Map<String, Object>> schoolDocMaps) {
         Map<String, Object> map = new HashMap<>();
-
         map.put("id", form.getId());
         map.put("status", form.getStatus());
         map.put("createdTime", form.getCreatedTime());
@@ -3692,10 +3690,22 @@ public class CampusServiceImpl implements CampusService {
             map.put("admissionCampaignYear", admissionCampaign.getYear());
             map.put("admissionCampaignStatus", admissionCampaign.getStatus());
             map.put("schoolName", admissionCampaign.getSchool().getName());
+
+            List<Map<String, Object>> admissionMethodTimelines = (List<Map<String, Object>>) admissionCampaign.getAdmissionMethodTimelines();
+
+            if (admissionMethodTimelines != null && offering != null) {
+                String methodCode = offering.getAdmissionMethod();
+                admissionMethodTimelines.stream()
+                        .filter(t -> Objects.equals(t.get("methodCode"), methodCode))
+                        .findFirst()
+                        .ifPresent(t -> {
+                            map.put("depositEndDate", t.get("depositEndDate"));
+                            map.put("confirmationEndDate", t.get("confirmationEndDate"));
+                        });
+            }
         }
 
         StudentProfile student = form.getStudentProfile();
-
         map.put("studentProfileId", student.getId());
         map.put("studentName", student.getStudentName());
         map.put("studentCode", student.getStudentCode());
@@ -3774,10 +3784,6 @@ public class CampusServiceImpl implements CampusService {
         return map;
     }
 
-    /**
-     * Chuẩn hoá imageUrl thành List<String> — xử lý cả String đơn và List nhiều slot.
-     * Loại bỏ giá trị null/blank và dải ký tự thừa từ JSON array toString().
-     */
     private List<String> extractUrlList(Object urlRaw) {
         if (urlRaw == null) return List.of();
         List<String> result = new ArrayList<>();
