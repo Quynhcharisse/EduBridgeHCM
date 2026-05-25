@@ -3781,9 +3781,9 @@ public class CampusServiceImpl implements CampusService {
         map.put("identityCard", parent.getIdCardNumber());
         map.put("address", parent.getCurrentAddress());
 
-        if (Status.RESERVATION_CONFIRMED.equals(form.getStatus())) {
-            map.put("confirmCode", form.getConfirmCode());
-        }
+        map.put("confirmCode", form.getConfirmCode());
+        map.put("paymentConfirmedBy", form.getPaymentConfirmedBy());
+        map.put("verifiedBy", form.getVerifiedBy());
 
         return map;
     }
@@ -3798,10 +3798,8 @@ public class CampusServiceImpl implements CampusService {
                 if (!s.isBlank()) result.add(s);
             }
         } else {
-            // Có thể là String dạng "[url1, url2]" do List.toString() ở bước trước
             String raw = urlRaw.toString().trim();
             if (raw.startsWith("[") && raw.endsWith("]")) {
-                // Tách từng URL trong mảng toString
                 String inner = raw.substring(1, raw.length() - 1);
                 for (String part : inner.split(",")) {
                     String s = part.trim();
@@ -3834,7 +3832,6 @@ public class CampusServiceImpl implements CampusService {
                 Status.RESERVATION_CONFIRMED
         );
 
-        // Resolve danh sách status cần filter — nếu không truyền thì lấy cả 2
         Set<Status> filterStatuses;
         if (statuses != null && !statuses.isEmpty()) {
             filterStatuses = new HashSet<>();
@@ -3884,11 +3881,39 @@ public class CampusServiceImpl implements CampusService {
         }
         List<String> docKeys = new ArrayList<>(docKeyToName.keySet());
 
+        // Xác định nhóm cột động theo status
+        final boolean showDepositedCols = filterStatuses.contains(Status.RESERVATION_DEPOSITED);
+        final boolean showConfirmedCols = filterStatuses.contains(Status.RESERVATION_CONFIRMED);
+
+        // Cột động DEPOSITED: Link Bằng Chứng TT | Hạn Nộp Cọc
+        // Cột động CONFIRMED: Mã Xác Nhận | Người Xác Nhận TT | Người Xác Minh | Ngày Xác Nhận | Hạn Xác Nhận
+        final int COL_DEPOSITED_START = 13;
+        final int depositedColCount   = showDepositedCols ? 2 : 0;
+        final int COL_CONFIRMED_START = COL_DEPOSITED_START + depositedColCount;
+        final int confirmedColCount   = showConfirmedCols ? 5 : 0;
+        final int COL_DOC_START       = COL_CONFIRMED_START + confirmedColCount;
+
+        List<String> statusSpecificHeaders = new ArrayList<>();
+        if (showDepositedCols) {
+            statusSpecificHeaders.add("Link Bằng Chứng Thanh Toán");
+            statusSpecificHeaders.add("Hạn Nộp Cọc");
+        }
+        if (showConfirmedCols) {
+            statusSpecificHeaders.add("Mã Xác Nhận");
+            statusSpecificHeaders.add("Người Xác Nhận Thanh Toán");
+            statusSpecificHeaders.add("Người Xác Minh");
+            statusSpecificHeaders.add("Ngày Xác Nhận");
+            statusSpecificHeaders.add("Hạn Xác Nhận");
+        }
+
         String[] headers = Stream.concat(
-                Stream.of("STT", "Mã đơn", "Trạng thái", "Ngày nộp",
-                        "Tên chiến dịch", "Chương trình", "Phương thức tuyển sinh",
-                        "Mã số học sinh", "Họ tên học sinh",
-                        "Họ tên phụ huynh", "Quan hệ", "Nghề nghiệp", "SĐT phụ huynh"),
+                Stream.concat(
+                        Stream.of("STT", "Mã đơn", "Trạng thái", "Ngày nộp",
+                                "Tên chiến dịch", "Chương trình", "Phương thức tuyển sinh",
+                                "Mã số học sinh", "Họ tên học sinh",
+                                "Họ tên phụ huynh", "Quan hệ", "Nghề nghiệp", "SĐT phụ huynh"),
+                        statusSpecificHeaders.stream()
+                ),
                 docKeys.stream().map(docKeyToName::get)
         ).toArray(String[]::new);
 
@@ -3897,7 +3922,7 @@ public class CampusServiceImpl implements CampusService {
 
         ExcelUtil.exportToExcel(path, "Đơn tuyển sinh", headers, formMaps, (formMap, row) -> {
             int idx = counter.getAndIncrement();
-            // FIX: dùng filteredForms thay vì forms để tránh lệch index khi có RESERVATION_TEMPLATE
+
             AdmissionReservationForm form = filteredForms.get(idx);
             StudentProfile student = form.getStudentProfile();
             Parent parent = student != null ? student.getParent() : null;
@@ -3931,9 +3956,31 @@ public class CampusServiceImpl implements CampusService {
                 row.createCell(12).setCellValue("");
             }
 
-            // Col 13+: URL ảnh minh chứng từng loại giấy tờ
+            // ── Cột động: RESERVATION_DEPOSITED ──────────────────────────────────
+            if (showDepositedCols) {
+                row.createCell(COL_DEPOSITED_START).setCellValue(
+                        formMap.get("paymentProofUrl") != null ? formMap.get("paymentProofUrl").toString() : "");
+                row.createCell(COL_DEPOSITED_START + 1).setCellValue(
+                        formMap.get("depositEndDate") != null ? formMap.get("depositEndDate").toString() : "");
+            }
+
+            // ── Cột động: RESERVATION_CONFIRMED ──────────────────────────────────
+            if (showConfirmedCols) {
+                row.createCell(COL_CONFIRMED_START).setCellValue(
+                        formMap.get("confirmCode") != null ? formMap.get("confirmCode").toString() : "");
+                row.createCell(COL_CONFIRMED_START + 1).setCellValue(
+                        formMap.get("paymentConfirmedBy") != null ? formMap.get("paymentConfirmedBy").toString() : "");
+                row.createCell(COL_CONFIRMED_START + 2).setCellValue(
+                        formMap.get("verifiedBy") != null ? formMap.get("verifiedBy").toString() : "");
+                row.createCell(COL_CONFIRMED_START + 3).setCellValue(
+                        form.getUpdatedTime() != null ? form.getUpdatedTime().toLocalDate().toString() : "");
+                row.createCell(COL_CONFIRMED_START + 4).setCellValue(
+                        formMap.get("confirmationEndDate") != null ? formMap.get("confirmationEndDate").toString() : "");
+            }
+
+            // ── Cột tài liệu (doc) ────────────────────────────────────────────────
             Object rawDocs = formMap.get("submittedDocuments");
-            // key → list URL (xử lý cả imageUrl dạng String và List)
+
             Map<String, List<String>> docUrlsByKey = new HashMap<>();
             if (rawDocs instanceof List<?> docList) {
                 for (Object item : docList) {
@@ -3945,7 +3992,7 @@ public class CampusServiceImpl implements CampusService {
                     if (!urls.isEmpty()) docUrlsByKey.put(k.toString(), urls);
                 }
             }
-            // Bổ sung transcriptImages (học bạ THCS lưu riêng, không nằm trong submittedDocuments)
+
             Object transcriptRaw = formMap.get("transcriptImages");
             if (transcriptRaw instanceof List<?> transcriptList) {
                 List<String> transcriptUrls = new ArrayList<>();
@@ -3963,22 +4010,34 @@ public class CampusServiceImpl implements CampusService {
 
             for (int i = 0; i < docKeys.size(); i++) {
                 List<String> urls = docUrlsByKey.getOrDefault(docKeys.get(i), List.of());
-                Cell cell = row.createCell(13 + i);
+                Cell cell = row.createCell(COL_DOC_START + i);
                 if (!urls.isEmpty()) {
-                    // Nhiều URL → xuống dòng trong cùng ô
                     cell.setCellValue(String.join("\n", urls));
                 }
             }
         });
 
-        String fileName = buildExportFileName(filteredForms);
+        String fileName = buildExportFileName(filteredForms, filterStatuses);
         return buildFileResponse(path, fileName);
     }
 
-    private String buildExportFileName(List<AdmissionReservationForm> forms) {
-        if (forms == null || forms.isEmpty()) return "Don_Tuyen_Sinh.xlsx";
+    private String buildExportFileName(List<AdmissionReservationForm> forms, Set<Status> filterStatuses) {
+        // Xác định prefix theo trạng thái lọc
+        String prefix;
+        boolean onlyDeposited  = filterStatuses.size() == 1 && filterStatuses.contains(Status.RESERVATION_DEPOSITED);
+        boolean onlyConfirmed  = filterStatuses.size() == 1 && filterStatuses.contains(Status.RESERVATION_CONFIRMED);
+
+        if (onlyDeposited) {
+            prefix = "Don_Da_Dat_Coc";
+        } else if (onlyConfirmed) {
+            prefix = "Don_Da_Xac_Nhan_Nhap_Hoc";
+        } else {
+            prefix = "Don_Tuyen_Sinh";
+        }
+
+        if (forms == null || forms.isEmpty()) return prefix + ".xlsx";
         AdmissionCampaign campaign = forms.get(0).getAdmissionCampaign();
-        if (campaign == null) return "Don_Tuyen_Sinh.xlsx";
+        if (campaign == null) return prefix + ".xlsx";
 
         String name = campaign.getName() != null ? campaign.getName().trim() : "";
         int year = campaign.getYear();
@@ -3989,7 +4048,7 @@ public class CampusServiceImpl implements CampusService {
                 .replaceAll("_+", "_")
                 .trim();
 
-        if (safeName.isBlank()) return String.format("Don_Tuyen_Sinh_%d.xlsx", year);
-        return String.format("Don_Tuyen_Sinh_%s_%d.xlsx", safeName, year);
+        if (safeName.isBlank()) return String.format("%s_%d.xlsx", prefix, year);
+        return String.format("%s_%s_%d.xlsx", prefix, safeName, year);
     }
 }
