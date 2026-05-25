@@ -1092,7 +1092,6 @@ public class SchoolServiceImpl implements SchoolService {
             childData.put("academicProfileMetadata", child.getAcademicProfileMetadata());
             childData.put("personalityTypeName", child.getPersonalityTypeName());
             childData.put("favouriteJob", child.getFavouriteJob());
-            childData.put("transcriptImages", child.getTranscriptImages());
             return childData;
         }).toList();
 
@@ -1788,10 +1787,10 @@ public class SchoolServiceImpl implements SchoolService {
             approvedApplications = campaign.getAdmissionReservationForms().stream()
                     .filter(f -> !"RESERVATION_TEMPLATE".equals(f.getType())
                             && (f.getStatus() == Status.RESERVATION_APPROVAL
-                                    || f.getStatus() == Status.RESERVATION_PAYMENT_PENDING
-                                    || f.getStatus() == Status.RESERVATION_PAYMENT_REJECTED
-                                    || f.getStatus() == Status.RESERVATION_DEPOSITED
-                                    || f.getStatus() == Status.RESERVATION_CONFIRMED))
+                            || f.getStatus() == Status.RESERVATION_PAYMENT_PENDING
+                            || f.getStatus() == Status.RESERVATION_PAYMENT_REJECTED
+                            || f.getStatus() == Status.RESERVATION_DEPOSITED
+                            || f.getStatus() == Status.RESERVATION_CONFIRMED))
                     .count();
             rejectedApplications = campaign.getAdmissionReservationForms().stream()
                     .filter(f -> !"RESERVATION_TEMPLATE".equals(f.getType())
