@@ -1087,6 +1087,12 @@ public class SchoolServiceImpl implements SchoolService {
             childData.put("id", child.getId());
             childData.put("name", child.getStudentName());
             childData.put("gender", child.getGender());
+            childData.put("dateOfBirth", child.getDateOfBirth());
+            childData.put("studentCode", child.getStudentCode());
+            childData.put("academicProfileMetadata", child.getAcademicProfileMetadata());
+            childData.put("personalityTypeName", child.getPersonalityTypeName());
+            childData.put("favouriteJob", child.getFavouriteJob());
+            childData.put("transcriptImages", child.getTranscriptImages());
             return childData;
         }).toList();
 
