@@ -390,9 +390,22 @@ public class SchoolServiceImpl implements SchoolService {
         Account acc = campus.getAccount();
         data.put("account", buildAccountData(acc));
         data.put("imageJson", campus.getImageJson());
-        data.put("facility", campus.getFacility());
+        data.put("facility", resolveEffectiveFacility(campus));
         data.put("policyDetail", campus.getPolicyDetail());
         return data;
+    }
+
+    private Object resolveEffectiveFacility(Campus campus) {
+        if (campus.getFacility() != null) {
+            return campus.getFacility();
+        }
+        SchoolConfig hqFacility = schoolConfigRepo
+                .findBySchoolIdAndKey(campus.getSchool().getId(), "facilityData")
+                .orElse(null);
+        if (hqFacility != null && hqFacility.getValue() instanceof Map) {
+            return hqFacility.getValue();
+        }
+        return null;
     }
 
     private Map<String, Object> buildAccountData(Account account) {
@@ -2318,7 +2331,7 @@ public class SchoolServiceImpl implements SchoolService {
         data.put("status", campus.getStatus());
         data.put("policyDetail", campus.getPolicyDetail());
         data.put("imageJson", campus.getImageJson());
-        data.put("facility", campus.getFacility());
+        data.put("facility", resolveEffectiveFacility(campus));
 
         List<String> consultantEmails = campus.getCounsellorList().stream().map(Counsellor::getAccount).filter(Objects::nonNull).filter(acc -> Role.COUNSELLOR.equals(acc.getRole())).filter(acc -> Status.ACCOUNT_ACTIVE.equals(acc.getStatus())).map(Account::getEmail).toList();
 
