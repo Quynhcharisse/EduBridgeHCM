@@ -465,7 +465,7 @@ public class NotificationServiceImpl implements NotificationService {
                 new EventTemplateConfig(
                         "Lịch hẹn tư vấn mới",
                         "{actorName} vừa đặt lịch tư vấn tại cơ sở vào ngày {appointmentDate}.",
-                        "/school/counselor-schedule",
+                        "/parent/offline-consultations",
                         List.of()
                 )
         );
@@ -510,14 +510,13 @@ public class NotificationServiceImpl implements NotificationService {
                 )
         );
 
-        // ── Counsellor slot assignment ─────────────────────────────────────────
         configs.put(
                 NotificationEventType.COUNSELLOR_SLOT_ASSIGNED,
                 new EventTemplateConfig(
                         "Bạn được phân công lịch tư vấn",
                         "Cơ sở {actorName} vừa phân công lịch tư vấn cho bạn trong chiến dịch {packageName}.",
                         "/counsellor/calendar",
-                        List.of()   // specificRecipients: counsellor accounts
+                        List.of()
                 )
         );
 
@@ -527,7 +526,7 @@ public class NotificationServiceImpl implements NotificationService {
                         "Lịch tư vấn của bạn bị huỷ phân công",
                         "Cơ sở {actorName} vừa huỷ phân công một số lịch tư vấn của bạn.",
                         "/counsellor/calendar",
-                        List.of()   // specificRecipients: counsellor accounts
+                        List.of()
                 )
         );
 

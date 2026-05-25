@@ -1888,7 +1888,6 @@ public class ParentServiceImpl implements ParentService {
 
         consultationOfflineRequestRepo.save(entity);
 
-        // ── Notify school accounts của campus ─────────────────────────────────
         try {
             List<Account> schoolAccounts = accountRepo.findByCampus_School_IdAndRole(
                     campus.getSchool().getId(), Role.SCHOOL);
