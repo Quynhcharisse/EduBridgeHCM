@@ -1815,17 +1815,6 @@ public class SchoolServiceImpl implements SchoolService {
             Program program = offering.getProgram();
             Curriculum curriculum = program.getCurriculum();
 
-            Map<String, Object> curriculumData = new LinkedHashMap<>();
-            curriculumData.put("id", curriculum.getId());
-            curriculumData.put("name", curriculum.getName());
-            curriculumData.put("description", curriculum.getDescription());
-            curriculumData.put("curriculumType", curriculum.getCurriculumType());
-            curriculumData.put("applicationYear", curriculum.getApplicationYear());
-            curriculumData.put("groupCode", curriculum.getGroupCode());
-            curriculumData.put("status", curriculum.getCurriculumStatus());
-            curriculumData.put("subjectOptions", curriculum.getSubjectsJsonb());
-            curriculumData.put("methodLearnings", curriculum.getLearningMethodList());
-
             Map<String, Object> programData = new LinkedHashMap<>();
             programData.put("id", program.getId());
             programData.put("name", offering.getProgramNameSnapshot());
@@ -1836,7 +1825,18 @@ public class SchoolServiceImpl implements SchoolService {
             programData.put("feeUnit", program.getFeeUnit());
             programData.put("extraSubjectList", program.getExtraSubjectsJsonb());
             programData.put("status", program.getStatus());
-            programData.put("curriculum", curriculumData);
+
+            Map<String, Object> curriculumData = new LinkedHashMap<>();
+            curriculumData.put("id", curriculum.getId());
+            curriculumData.put("name", curriculum.getName());
+            curriculumData.put("description", curriculum.getDescription());
+            curriculumData.put("curriculumType", curriculum.getCurriculumType());
+            curriculumData.put("applicationYear", curriculum.getApplicationYear());
+            curriculumData.put("groupCode", curriculum.getGroupCode());
+            curriculumData.put("status", curriculum.getCurriculumStatus());
+            curriculumData.put("subjectOptions", curriculum.getSubjectsJsonb());
+            curriculumData.put("methodLearnings", curriculum.getLearningMethodList());
+            curriculumData.put("program", programData);
 
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("id", offering.getId());
@@ -1849,9 +1849,8 @@ public class SchoolServiceImpl implements SchoolService {
             item.put("admissionMethod", offering.getAdmissionMethod());
             item.put("openDate", offering.getOpenDate());
             item.put("closeDate", offering.getCloseDate());
-            item.put("applicationStatus", offering.getApplicationStatus()); // hồ sơ status
+            item.put("applicationStatus", offering.getApplicationStatus());
             item.put("status", offering.getStatus());
-            item.put("program", programData);
             item.put("curriculum", curriculumData);
             return item;
         }).toList();

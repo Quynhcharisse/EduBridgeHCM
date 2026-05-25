@@ -324,7 +324,6 @@ public class AdmissionCampaignValidation {
                 if (entry.getConfirmationEndDate() == null)
                     return "Ngày hết hạn chốt trường của phương thức '" + code.trim() + "' không được để trống";
 
-                // depositEndDate phải sau endDate (hết hạn nộp hồ sơ)
                 if (!entry.getDepositEndDate().isAfter(entry.getEndDate()))
                     return "Ngày hết hạn đặt cọc phải sau ngày hết hạn nộp hồ sơ của phương thức '" + code.trim() + "'";
 
@@ -347,7 +346,7 @@ public class AdmissionCampaignValidation {
         if (value instanceof LocalDate localDate) {
             return localDate;
         }
-        // Jackson serialize LocalDate thành array [year, month, day] khi lưu vào JSONB
+
         if (value instanceof List<?> list && list.size() == 3) {
             try {
                 int year = ((Number) list.get(0)).intValue();
