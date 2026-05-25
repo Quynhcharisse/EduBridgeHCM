@@ -1436,6 +1436,10 @@ public class CampusServiceImpl implements CampusService {
         if (campusFacilityData != null) {
             campusUpdateInfo.put("itemList", campusFacilityData.get("itemList"));
             campusUpdateInfo.put("imageData", campusFacilityData.get("imageData"));
+        } else if (hqFacility != null && hqFacility.getValue() instanceof Map) {
+            Map<String, Object> hqFacilityMap = (Map<String, Object>) hqFacility.getValue();
+            campusUpdateInfo.put("itemList", hqFacilityMap.get("itemList"));
+            campusUpdateInfo.put("imageData", null);
         }
 
         Map<String, Object> campusPolicyDb = (Map<String, Object>) actorCampus.getPolicyDetail();
