@@ -465,7 +465,7 @@ public class NotificationServiceImpl implements NotificationService {
                 new EventTemplateConfig(
                         "Lịch hẹn tư vấn mới",
                         "{actorName} vừa đặt lịch tư vấn tại cơ sở vào ngày {appointmentDate}.",
-                        "/school/consultation",
+                        "/school/counselor-schedule",
                         List.of()
                 )
         );
@@ -475,7 +475,7 @@ public class NotificationServiceImpl implements NotificationService {
                 new EventTemplateConfig(
                         "Lịch hẹn đã được xác nhận",
                         "Lịch tư vấn ngày {appointmentDate} của bạn đã được xác nhận. Vui lòng đến đúng giờ.",
-                        "/parent/consultation",
+                        "/parent/offline-consultations",
                         List.of()
                 )
         );
@@ -485,7 +485,7 @@ public class NotificationServiceImpl implements NotificationService {
                 new EventTemplateConfig(
                         "Lịch hẹn tư vấn bị huỷ",
                         "Lịch tư vấn ngày {appointmentDate} của bạn đã bị huỷ.",
-                        "/parent/consultation",
+                        "/parent/offline-consultations",
                         List.of()
                 )
         );
@@ -495,7 +495,7 @@ public class NotificationServiceImpl implements NotificationService {
                 new EventTemplateConfig(
                         "Buổi tư vấn đã hoàn thành",
                         "Buổi tư vấn ngày {appointmentDate} của bạn đã kết thúc. Cảm ơn bạn đã tin tưởng.",
-                        "/parent/consultation",
+                        "/parent/offline-consultations",
                         List.of()
                 )
         );
@@ -505,7 +505,7 @@ public class NotificationServiceImpl implements NotificationService {
                 new EventTemplateConfig(
                         "Vắng mặt buổi tư vấn",
                         "Bạn đã không đến buổi tư vấn ngày {appointmentDate}. Vui lòng liên hệ cơ sở để được hỗ trợ.",
-                        "/parent/consultation",
+                        "/parent/offline-consultations",
                         List.of()
                 )
         );
@@ -516,7 +516,7 @@ public class NotificationServiceImpl implements NotificationService {
                 new EventTemplateConfig(
                         "Bạn được phân công lịch tư vấn",
                         "Cơ sở {actorName} vừa phân công lịch tư vấn cho bạn trong chiến dịch {packageName}.",
-                        "/counsellor/schedule",
+                        "/counsellor/calendar",
                         List.of()   // specificRecipients: counsellor accounts
                 )
         );
@@ -526,7 +526,7 @@ public class NotificationServiceImpl implements NotificationService {
                 new EventTemplateConfig(
                         "Lịch tư vấn của bạn bị huỷ phân công",
                         "Cơ sở {actorName} vừa huỷ phân công một số lịch tư vấn của bạn.",
-                        "/counsellor/schedule",
+                        "/counsellor/calendar",
                         List.of()   // specificRecipients: counsellor accounts
                 )
         );
