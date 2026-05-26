@@ -84,4 +84,6 @@ public interface CampusService {
     ResponseEntity<ResponseObject> getAdmissionCampaigns();
 
     ResponseEntity<Resource> exportAdmissionForms(List<String> status, Long campaignId) throws IOException;
+
+    ResponseEntity<ResponseObject> getConsultationOfflineRequests(String status, int page, int size);
 }
