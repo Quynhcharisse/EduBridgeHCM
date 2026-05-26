@@ -465,7 +465,7 @@ public class NotificationServiceImpl implements NotificationService {
                 new EventTemplateConfig(
                         "Lịch hẹn tư vấn mới",
                         "{actorName} vừa đặt lịch tư vấn tại cơ sở vào ngày {appointmentDate}.",
-                        "/parent/offline-consultations",
+                        "school/consultation",
                         List.of()
                 )
         );
