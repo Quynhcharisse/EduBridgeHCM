@@ -250,4 +250,11 @@ public class CampusController {
             @RequestParam(required = false) Long campaignId) throws IOException {
         return campusService.exportAdmissionForms(status, campaignId);
     }
+
+    @GetMapping("/book/consultation/offline")
+    @PreAuthorize("hasRole('SCHOOL')")
+    public ResponseEntity<ResponseObject> getConsultationOfflineRequests(@RequestParam String status ,@RequestParam int page, @RequestParam int pageSize){
+        return campusService.getConsultationOfflineRequests(status, page, pageSize);
+    }
+
 }

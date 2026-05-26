@@ -83,11 +83,13 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
@@ -128,6 +130,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_CANCELLED;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_COMPLETED;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_CONFIRMED;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_IN_PROGRESS;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_NO_SHOW;
+import static com.sp26se041.edubridgehcm.enums.Status.CONSULTATION_PENDING;
 
 @Service
 @RequiredArgsConstructor
@@ -4019,6 +4028,166 @@ public class CampusServiceImpl implements CampusService {
 
         String fileName = buildExportFileName(filteredForms, filterStatuses);
         return buildFileResponse(path, fileName);
+    }
+
+    @Override
+    public ResponseEntity<ResponseObject> getConsultationOfflineRequests(String status, int page, int size) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        Optional<Account> account = accountRepo.findByEmail(email);
+
+        if (account.isEmpty()) {
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy tài khoản",null);
+        }
+
+        Campus campus = extractActorCampus();
+
+        if (campus == null) {
+            return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản cơ sở trường học hoặc bạn không có quyền truy cập.", null);
+        }
+
+        Status parsedStatus;
+
+        try {
+            parsedStatus = fromConsultationValue(status);
+        } catch (IllegalArgumentException e) {
+            return ResponseBuilder.build(
+                    HttpStatus.BAD_REQUEST,
+                    e.getMessage(),
+                    null
+            );
+        }
+
+        Sort sort = buildConsultationSort(parsedStatus);
+
+        Pageable pageable = PaginationUtil.buildPageRequest(page, size, sort);
+
+        Page<ConsultationOfflineRequest> consultationOfflineRequests = consultationOfflineRequestRepo.findAllByCampusAndStatus(campus, parsedStatus, pageable);
+
+        PageResponse<Map<String, Object>> pageResponse = PaginationUtil.buildPageResponse(consultationOfflineRequests, this::buildConsultationOfflineRequest);
+
+        return ResponseBuilder.build(
+                HttpStatus.OK,
+                "Lấy danh sách lịch tư vấn thành công",
+                pageResponse
+        );
+    }
+
+    private Map<String, Object> buildConsultationOfflineRequest(
+            ConsultationOfflineRequest request
+    ) {
+
+        Map<String, Object> map = new HashMap<>();
+
+        map.put("id", request.getId());
+        map.put("phone", request.getPhone());
+        map.put("question", request.getQuestion());
+        map.put("note", request.getNote());
+        map.put("appointmentDate", request.getAppointmentDate());
+        map.put("appointmentTime", request.getAppointmentTime());
+        map.put("status", request.getStatus());
+        map.put("parentId", request.getParent().getId());
+        map.put("parentName", request.getParent().getName());
+
+        LocalDate appointmentDate = request.getAppointmentDate();
+
+        LocalDate startOfWeek = appointmentDate.with(java.time.DayOfWeek.MONDAY);
+        LocalDate endOfWeek = appointmentDate.with(java.time.DayOfWeek.SUNDAY);
+
+        map.put("startDateOfWeek", startOfWeek);
+        map.put("endDateOfWeek", endOfWeek);
+
+        if (request.getCounsellor() == null) {
+            map.put("counsellorId", null);
+            map.put("counsellorName", "N/A");
+        } else {
+            map.put("counsellorId", request.getCounsellor().getId());
+            map.put("counsellorName", request.getCounsellor().getAccount().getEmail());
+        }
+
+        // ── Người đang tiếp nhận + thời gian xác nhận còn lại ───────
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime lockedUntil = request.getLockedUntil();
+
+        if (request.getCounsellor() != null
+                && lockedUntil != null
+                && lockedUntil.isAfter(now)) {
+
+            // Còn bao nhiêu giây
+            long secondsRemaining = java.time.Duration.between(now, lockedUntil).getSeconds();
+
+            map.put("confirmingBy", request.getCounsellor().getAccount().getEmail());
+            map.put("confirmingByName", request.getCounsellor().getName());
+            map.put("lockedUntil", lockedUntil);
+            map.put("secondsRemaining", secondsRemaining);        // FE dùng đếm ngược
+            map.put("minutesRemaining", secondsRemaining / 60);   // hiển thị dạng phút
+        } else {
+            // Không có ai đang tiếp nhận hoặc lock đã hết hạn
+            map.put("confirmingBy", null);
+            map.put("confirmingByName", null);
+            map.put("lockedUntil", null);
+            map.put("secondsRemaining", null);
+            map.put("minutesRemaining", null);
+        }
+
+        if (request.getCancelReason() == null) {
+            map.put("cancelReason", null);
+        } else {
+            map.put("cancelReason", request.getCancelReason().trim());
+        }
+
+        if (request.getNote() == null) {
+            map.put("note", null);
+        } else {
+            map.put("note", request.getNote().trim());
+        }
+
+        return map;
+    }
+
+    private Sort buildConsultationSort(Status status) {
+
+        boolean isUpcomingStatus = List.of(
+                Status.CONSULTATION_PENDING,
+                Status.CONSULTATION_CONFIRMED
+        ).contains(status);
+
+        if (isUpcomingStatus) {
+            return Sort.by(
+                    Sort.Order.asc("appointmentDate"),
+                    Sort.Order.asc("appointmentTime")
+            );
+        }
+
+        return Sort.by(
+                Sort.Order.desc("appointmentDate"),
+                Sort.Order.desc("appointmentTime")
+        );
+    }
+
+    private Status fromConsultationValue(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        String normalizedValue = value.trim().toLowerCase();
+
+        return consultationStatuses()
+                .stream()
+                .filter(status -> status.getValue().equalsIgnoreCase(normalizedValue))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Trạng thái lịch tư vấn cung cấp không hợp lệ"));
+    }
+
+    private Set<Status> consultationStatuses() {
+        return Set.of(
+                CONSULTATION_PENDING,
+                CONSULTATION_CONFIRMED,
+                CONSULTATION_IN_PROGRESS,
+                CONSULTATION_COMPLETED,
+                CONSULTATION_CANCELLED,
+                CONSULTATION_NO_SHOW
+        );
     }
 
     private String buildExportFileName(List<AdmissionReservationForm> forms, Set<Status> filterStatuses) {
