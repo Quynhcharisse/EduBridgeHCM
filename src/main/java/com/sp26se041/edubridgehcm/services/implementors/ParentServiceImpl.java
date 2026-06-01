@@ -85,7 +85,6 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.Period;
 import java.time.Year;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -152,6 +151,7 @@ public class ParentServiceImpl implements ParentService {
     private final CampusProgramOfferingRepo campusProgramOfferingRepo;
 
     private final AdmissionReservationFormRepo admissionReservationFormRepo;
+
     private final PlatformConfigRepo platformConfigRepo;
 
     @Override
@@ -2601,7 +2601,7 @@ public class ParentServiceImpl implements ParentService {
             admissionReservationFormRepo.save(form);
 
             List<AdmissionReservationForm> depositedForms = admissionReservationFormRepo
-                    .findByStudentProfileAndStatus(form.getStudentProfile(), Status.RESERVATION_DEPOSITED);
+                    .findByStudentProfileAndStatusIn((form.getStudentProfile()), List.of(Status.RESERVATION_PAYMENT_PENDING, Status.RESERVATION_DEPOSITED, Status.RESERVATION_PAYMENT_REJECTED, Status.RESERVATION_APPROVAL));
 
             for (AdmissionReservationForm depositedForm : depositedForms) {
                 depositedForm.setStatus(Status.RESERVATION_GHOST);
@@ -2811,7 +2811,7 @@ public class ParentServiceImpl implements ParentService {
         return ResponseBuilder.build(HttpStatus.OK, "Hủy đơn giữ chỗ thành công", null);
     }
 
-    private List<Map<String, Object>> buildAdmissionReservationForms(List<AdmissionReservationForm> admissionReservationForms) {
+    private List buildAdmissionReservationForms(List<AdmissionReservationForm> admissionReservationForms) {
         Object systemDocReq = platformConfigRepo.findByKey("admissionSettingsData")
                 .map(c -> ((Map<String, Object>) c.getValue()).get("documentRequirementsData"))
                 .orElse(null);
@@ -2842,7 +2842,10 @@ public class ParentServiceImpl implements ParentService {
 
         return admissionReservationForms.stream()
                 .map(form -> buildAdmissionReservationForm(form, schoolDocMaps))
-                .toList();
+                .sorted(Comparator.comparing(
+                        map -> (Comparable) map.get("updatedTime"),
+                        Comparator.nullsLast(Comparator.naturalOrder())
+                ))                .toList();
     }
 
     private Map<String, Object> buildAdmissionReservationForm(AdmissionReservationForm form, Map<Integer, Map<String, Object>> schoolDocMaps) {
@@ -2944,6 +2947,7 @@ public class ParentServiceImpl implements ParentService {
 
                     map.put("mandatoryDocuments", mandatoryDocs);
                     map.put("methodDocuments", methodDocs);
+                    map.put("updatedTime", form.getUpdatedTime());
                 }
             }
         }

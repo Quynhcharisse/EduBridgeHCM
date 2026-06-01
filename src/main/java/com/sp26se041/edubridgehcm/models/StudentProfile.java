@@ -81,4 +81,5 @@ public class StudentProfile {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     List<AdmissionReservationForm> admissionReservationForms;
+
 }
