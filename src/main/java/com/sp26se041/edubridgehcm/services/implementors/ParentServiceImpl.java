@@ -2601,7 +2601,7 @@ public class ParentServiceImpl implements ParentService {
             admissionReservationFormRepo.save(form);
 
             List<AdmissionReservationForm> depositedForms = admissionReservationFormRepo
-                    .findByStudentProfileAndStatusIn((form.getStudentProfile()), List.of(Status.RESERVATION_PAYMENT_PENDING, Status.RESERVATION_DEPOSITED, Status.RESERVATION_PAYMENT_REJECTED, Status.RESERVATION_APPROVAL));
+                    .findByStudentProfileAndStatusIn((form.getStudentProfile()), List.of(Status.RESERVATION_PAYMENT_PENDING, Status.RESERVATION_DEPOSITED, Status.RESERVATION_PAYMENT_REJECTED, Status.RESERVATION_APPROVAL, Status.RESERVATION_PENDING));
 
             for (AdmissionReservationForm depositedForm : depositedForms) {
                 depositedForm.setStatus(Status.RESERVATION_GHOST);
