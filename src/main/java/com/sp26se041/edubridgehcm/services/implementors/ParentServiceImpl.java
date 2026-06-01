@@ -2811,7 +2811,7 @@ public class ParentServiceImpl implements ParentService {
         return ResponseBuilder.build(HttpStatus.OK, "Hủy đơn giữ chỗ thành công", null);
     }
 
-    private List buildAdmissionReservationForms(List<AdmissionReservationForm> admissionReservationForms) {
+    private List<Map<String, Object>> buildAdmissionReservationForms(List<AdmissionReservationForm> admissionReservationForms) {
         Object systemDocReq = platformConfigRepo.findByKey("admissionSettingsData")
                 .map(c -> ((Map<String, Object>) c.getValue()).get("documentRequirementsData"))
                 .orElse(null);
@@ -2843,9 +2843,10 @@ public class ParentServiceImpl implements ParentService {
         return admissionReservationForms.stream()
                 .map(form -> buildAdmissionReservationForm(form, schoolDocMaps))
                 .sorted(Comparator.comparing(
-                        map -> (Comparable) map.get("updatedTime"),
-                        Comparator.nullsLast(Comparator.naturalOrder())
-                ))                .toList();
+                        map -> (Comparable) map.get("updatedDatetime"),
+                        Comparator.nullsLast(Comparator.reverseOrder())
+                ))
+                .toList();
     }
 
     private Map<String, Object> buildAdmissionReservationForm(AdmissionReservationForm form, Map<Integer, Map<String, Object>> schoolDocMaps) {
