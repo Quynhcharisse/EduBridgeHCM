@@ -85,7 +85,6 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.Period;
 import java.time.Year;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -152,6 +151,7 @@ public class ParentServiceImpl implements ParentService {
     private final CampusProgramOfferingRepo campusProgramOfferingRepo;
 
     private final AdmissionReservationFormRepo admissionReservationFormRepo;
+
     private final PlatformConfigRepo platformConfigRepo;
 
     @Override
@@ -2601,7 +2601,7 @@ public class ParentServiceImpl implements ParentService {
             admissionReservationFormRepo.save(form);
 
             List<AdmissionReservationForm> depositedForms = admissionReservationFormRepo
-                    .findByStudentProfileAndStatus(form.getStudentProfile(), Status.RESERVATION_DEPOSITED);
+                    .findByStudentProfileAndStatusIn((form.getStudentProfile()), List.of(Status.RESERVATION_PAYMENT_PENDING, Status.RESERVATION_DEPOSITED, Status.RESERVATION_PAYMENT_REJECTED, Status.RESERVATION_APPROVAL));
 
             for (AdmissionReservationForm depositedForm : depositedForms) {
                 depositedForm.setStatus(Status.RESERVATION_GHOST);
@@ -2842,6 +2842,10 @@ public class ParentServiceImpl implements ParentService {
 
         return admissionReservationForms.stream()
                 .map(form -> buildAdmissionReservationForm(form, schoolDocMaps))
+                .sorted(Comparator.comparing(
+                        map -> (Comparable) map.get("updatedDatetime"),
+                        Comparator.nullsLast(Comparator.reverseOrder())
+                ))
                 .toList();
     }
 
@@ -2944,6 +2948,7 @@ public class ParentServiceImpl implements ParentService {
 
                     map.put("mandatoryDocuments", mandatoryDocs);
                     map.put("methodDocuments", methodDocs);
+                    map.put("updatedTime", form.getUpdatedTime());
                 }
             }
         }
