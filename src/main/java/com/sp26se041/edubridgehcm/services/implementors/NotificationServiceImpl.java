@@ -208,7 +208,6 @@ public class NotificationServiceImpl implements NotificationService {
         Map<String, Object> cleanContext = new HashMap<>();
         if (contextData != null) {
             contextData.forEach((key, value) -> {
-                // Chỉ giữ lại các kiểu dữ liệu cơ bản để lưu vào cột JSON của DB
                 if (!(value instanceof Account) && !(value instanceof Iterable)) {
                     cleanContext.put(key, value);
                 }
