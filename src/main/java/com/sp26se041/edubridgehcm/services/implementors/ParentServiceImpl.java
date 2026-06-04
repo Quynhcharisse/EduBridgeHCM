@@ -2748,7 +2748,6 @@ public class ParentServiceImpl implements ParentService {
 
     @Override
     public ResponseEntity<ResponseObject> getAdmissionReservationForms(String status) {
-        // Lấy parent đang đăng nhập
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
         Optional<Account> account = accountRepo.findByEmail(email);
@@ -2774,6 +2773,7 @@ public class ParentServiceImpl implements ParentService {
 
         forms = forms.stream()
                 .filter(f -> !"RESERVATION_TEMPLATE".equals(f.getType()))
+                .sorted(Comparator.comparing(AdmissionReservationForm::getCreatedTime, Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
 
         List<Map<String, Object>> result = buildAdmissionReservationForms(forms);

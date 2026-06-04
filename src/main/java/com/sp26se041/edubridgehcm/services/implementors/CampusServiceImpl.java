@@ -146,7 +146,6 @@ public class CampusServiceImpl implements CampusService {
 
     private final PlatformConfigRepo platformConfigRepo;
 
-
     @Value("${AI_SERVICE_N8N}")
     private String n8nUrl;
 
@@ -3837,6 +3836,7 @@ public class CampusServiceImpl implements CampusService {
         int schoolId = actorCampus.getSchool().getId();
 
         Set<Status> allowedExportStatuses = Set.of(
+                Status.RESERVATION_PAYMENT_PENDING,
                 Status.RESERVATION_DEPOSITED,
                 Status.RESERVATION_CONFIRMED
         );
@@ -3897,10 +3897,10 @@ public class CampusServiceImpl implements CampusService {
         // Cột động DEPOSITED: Link Bằng Chứng TT | Hạn Nộp Cọc
         // Cột động CONFIRMED: Mã Xác Nhận | Người Xác Nhận TT | Người Xác Minh | Ngày Xác Nhận | Hạn Xác Nhận
         final int COL_DEPOSITED_START = 13;
-        final int depositedColCount   = showDepositedCols ? 2 : 0;
+        final int depositedColCount = showDepositedCols ? 2 : 0;
         final int COL_CONFIRMED_START = COL_DEPOSITED_START + depositedColCount;
-        final int confirmedColCount   = showConfirmedCols ? 5 : 0;
-        final int COL_DOC_START       = COL_CONFIRMED_START + confirmedColCount;
+        final int confirmedColCount = showConfirmedCols ? 5 : 0;
+        final int COL_DOC_START = COL_CONFIRMED_START + confirmedColCount;
 
         List<String> statusSpecificHeaders = new ArrayList<>();
         if (showDepositedCols) {
@@ -4037,7 +4037,7 @@ public class CampusServiceImpl implements CampusService {
         Optional<Account> account = accountRepo.findByEmail(email);
 
         if (account.isEmpty()) {
-            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy tài khoản",null);
+            return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không tìm thấy tài khoản", null);
         }
 
         Campus campus = extractActorCampus();
@@ -4193,8 +4193,8 @@ public class CampusServiceImpl implements CampusService {
     private String buildExportFileName(List<AdmissionReservationForm> forms, Set<Status> filterStatuses) {
         // Xác định prefix theo trạng thái lọc
         String prefix;
-        boolean onlyDeposited  = filterStatuses.size() == 1 && filterStatuses.contains(Status.RESERVATION_DEPOSITED);
-        boolean onlyConfirmed  = filterStatuses.size() == 1 && filterStatuses.contains(Status.RESERVATION_CONFIRMED);
+        boolean onlyDeposited = filterStatuses.size() == 1 && filterStatuses.contains(Status.RESERVATION_DEPOSITED);
+        boolean onlyConfirmed = filterStatuses.size() == 1 && filterStatuses.contains(Status.RESERVATION_CONFIRMED);
 
         if (onlyDeposited) {
             prefix = "Don_Da_Dat_Coc";
@@ -4210,7 +4210,7 @@ public class CampusServiceImpl implements CampusService {
 
         String name = campaign.getName() != null ? campaign.getName().trim() : "";
         int year = campaign.getYear();
-
+        
         String safeName = name
                 .replaceAll("[^\\p{L}\\p{N}\\s]", "")
                 .replaceAll("\\s+", "_")

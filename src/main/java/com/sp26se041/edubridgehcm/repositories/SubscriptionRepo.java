@@ -11,7 +11,4 @@ import java.util.List;
 public interface SubscriptionRepo extends JpaRepository<Subscription, Integer> {
 
     List<Subscription> findAllByPackageStatus(Status status);
-
-    // Tìm các gói có priceApplyDate <= hiện tại và có newPrice
-    List<Subscription> findAllByPriceApplyDateLessThanEqual(LocalDate applyDate);
 }

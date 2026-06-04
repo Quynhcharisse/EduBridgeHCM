@@ -14,7 +14,6 @@ public interface SchoolConfigRepo extends JpaRepository<SchoolConfig, Integer> {
 
     Optional<SchoolConfig> findByKey(String k);
 
-    /** Batch load config theo key cho nhiều school cùng lúc — tránh N+1 */
     List<SchoolConfig> findAllByKeyAndSchoolIdIn(String key, List<Integer> schoolIds);
 }
 
