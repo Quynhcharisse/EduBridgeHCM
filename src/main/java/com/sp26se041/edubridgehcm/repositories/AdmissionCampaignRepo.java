@@ -21,7 +21,5 @@ public interface AdmissionCampaignRepo extends JpaRepository<AdmissionCampaign, 
 
     List<AdmissionCampaign> findBySchoolIdAndYear(int schoolId, int year);
 
-    Optional<AdmissionCampaign> findBySchoolIdAndStatus(Integer schoolId, Status status);
-
     Optional<AdmissionCampaign> findBySchoolIdAndYearAndStatus(Integer schoolId, int year, Status status);
 }
