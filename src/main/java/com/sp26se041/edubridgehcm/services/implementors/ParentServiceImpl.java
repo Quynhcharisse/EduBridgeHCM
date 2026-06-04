@@ -2652,13 +2652,19 @@ public class ParentServiceImpl implements ParentService {
 
             admissionReservationFormRepo.save(form);
 
-            List<AdmissionReservationForm> depositedForms = admissionReservationFormRepo
+            List<AdmissionReservationForm> processingForms = admissionReservationFormRepo
                     .findByStudentProfileAndStatusIn((form.getStudentProfile()), List.of(Status.RESERVATION_PAYMENT_PENDING, Status.RESERVATION_DEPOSITED, Status.RESERVATION_PAYMENT_REJECTED, Status.RESERVATION_APPROVAL, Status.RESERVATION_PENDING));
 
-            for (AdmissionReservationForm depositedForm : depositedForms) {
-                depositedForm.setStatus(Status.RESERVATION_GHOST);
-                depositedForm.setUpdatedTime(LocalDateTime.now());
+            for (AdmissionReservationForm processingForm : processingForms) {
+                processingForm.setStatus(Status.RESERVATION_GHOST);
+                processingForm.setUpdatedTime(LocalDateTime.now());
+            }
 
+            List<AdmissionReservationForm> depositedForms = processingForms.stream()
+                    .filter(f -> f.getStatus() == Status.RESERVATION_DEPOSITED)
+                    .collect(Collectors.toList());
+
+            for (AdmissionReservationForm depositedForm : depositedForms) {
                 CampusProgramOffering ghostOffering = depositedForm.getCampusProgramOffering();
 
                 if (ghostOffering != null) {
@@ -2671,9 +2677,11 @@ public class ParentServiceImpl implements ParentService {
                     campaign.setRemainingQuota(campaign.getRemainingQuota() + 1);
                     admissionCampaignRepo.save(campaign);
                 }
+
             }
-            if (!depositedForms.isEmpty()) {
-                admissionReservationFormRepo.saveAll(depositedForms);
+
+            if (!processingForms.isEmpty()) {
+                admissionReservationFormRepo.saveAll(processingForms);
             }
 
             // Build response: mã hồ sơ + danh sách tài liệu cần chuẩn bị
