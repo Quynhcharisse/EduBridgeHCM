@@ -2675,6 +2675,13 @@ public class ParentServiceImpl implements ParentService {
                     responseData.put("mandatoryDocuments", mandatoryDocs);
                     responseData.put("methodDocuments", methodDocs);
                 }
+
+                // Lấy emailSupport từ operationSettingsData của trường
+                Optional<SchoolConfig> operationConfigOpt = schoolConfigRepo.findBySchoolIdAndKey(schoolId, "operationSettingsData");
+                if (operationConfigOpt.isPresent() && operationConfigOpt.get().getValue() instanceof Map<?, ?> opMap) {
+                    Object emailSupport = opMap.get("emailSupport");
+                    responseData.put("emailSupport", emailSupport != null ? emailSupport.toString() : null);
+                }
             }
 
             return ResponseBuilder.build(HttpStatus.OK, "Xác nhận nhập học thành công.", responseData);
@@ -2985,6 +2992,16 @@ public class ParentServiceImpl implements ParentService {
         result.put("appointmentDate", consultationOfflineRequest.getAppointmentDate());
         result.put("appointmentTime", consultationOfflineRequest.getAppointmentTime());
         result.put("schoolName", consultationOfflineRequest.getCampus().getSchool().getName());
+
+        // Lấy emailSupport từ operationSettingsData của trường
+        Optional<SchoolConfig> operationConfigOpt = schoolConfigRepo
+                .findBySchoolIdAndKey(consultationOfflineRequest.getCampus().getSchool().getId(), "operationSettingsData");
+        if (operationConfigOpt.isPresent()
+                && operationConfigOpt.get().getValue() instanceof Map<?, ?> opMap) {
+            Object emailSupport = opMap.get("emailSupport");
+            result.put("emailSupport", emailSupport != null ? emailSupport.toString() : null);
+        }
+
         result.put("campusName", consultationOfflineRequest.getCampus().getName());
         result.put("address", consultationOfflineRequest.getCampus().getAddress());
         result.put("status", consultationOfflineRequest.getStatus().getValue());
