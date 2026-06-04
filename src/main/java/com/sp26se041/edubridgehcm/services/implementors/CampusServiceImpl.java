@@ -3107,6 +3107,20 @@ public class CampusServiceImpl implements CampusService {
         form.setUpdatedTime(LocalDateTime.now());
         admissionReservationFormRepo.save(form);
 
+        try {
+            Account parentAccount = form.getStudentProfile() != null
+                    && form.getStudentProfile().getParent() != null
+                    ? form.getStudentProfile().getParent().getAccount() : null;
+            if (parentAccount != null) {
+                NotificationEventType eventType = "APPROVE".equals(action)
+                        ? NotificationEventType.RESERVATION_APPROVAL
+                        : NotificationEventType.RESERVATION_REJECTED;
+                Map<String, Object> ctx = new HashMap<>();
+                ctx.put("specificRecipients", List.of(parentAccount));
+                notificationService.publish(eventType, actor, ctx);
+            }
+        } catch (Exception ignored) {}
+
         return ResponseBuilder.build(HttpStatus.OK, successMessage, null);
     }
 
@@ -3250,6 +3264,21 @@ public class CampusServiceImpl implements CampusService {
 
         form.setUpdatedTime(LocalDateTime.now());
         admissionReservationFormRepo.save(form);
+
+        try {
+            Account parentAccount = form.getStudentProfile() != null
+                    && form.getStudentProfile().getParent() != null
+                    ? form.getStudentProfile().getParent().getAccount() : null;
+            if (parentAccount != null) {
+                NotificationEventType eventType = "CONFIRM".equals(action)
+                        ? NotificationEventType.RESERVATION_DEPOSITED
+                        : NotificationEventType.RESERVATION_PAYMENT_REJECTED;
+                Account confirmActor2 = AuthRequestUtil.extractAuthenticatedAccount();
+                Map<String, Object> ctx = new HashMap<>();
+                ctx.put("specificRecipients", List.of(parentAccount));
+                notificationService.publish(eventType, confirmActor2, ctx);
+            }
+        } catch (Exception ignored) {}
 
         return ResponseBuilder.build(HttpStatus.OK,
                 action.equals("CONFIRM") ? "Xác nhận đặt cọc thành công." : "Từ chối thanh toán, phụ huynh có thể upload lại.", null);
@@ -3445,6 +3474,22 @@ public class CampusServiceImpl implements CampusService {
         }
 
         admissionReservationFormRepo.saveAll(toSave);
+
+        for (AdmissionReservationForm saved : toSave) {
+            try {
+                Account parentAccount = saved.getStudentProfile() != null
+                        && saved.getStudentProfile().getParent() != null
+                        ? saved.getStudentProfile().getParent().getAccount() : null;
+                if (parentAccount != null) {
+                    NotificationEventType eventType = saved.getStatus() == Status.RESERVATION_APPROVAL
+                            ? NotificationEventType.RESERVATION_APPROVAL
+                            : NotificationEventType.RESERVATION_REJECTED;
+                    Map<String, Object> ctx = new HashMap<>();
+                    ctx.put("specificRecipients", List.of(parentAccount));
+                    notificationService.publish(eventType, null, ctx);
+                }
+            } catch (Exception ignored) {}
+        }
 
         return ResponseBuilder.build(HttpStatus.OK, "Xử lý danh sách đơn hoàn tất.", null);
     }
