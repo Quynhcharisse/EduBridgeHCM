@@ -3230,8 +3230,6 @@ public class CampusServiceImpl implements CampusService {
 
                 if (campaign != null && campaign.getRemainingQuota() != null) {
                     campaign.setRemainingQuota(campaign.getRemainingQuota() - 1);
-                    // sau khi confirm deposited
-                    // quota -1
                     admissionCampaignRepo.save(campaign);
                 }
 
