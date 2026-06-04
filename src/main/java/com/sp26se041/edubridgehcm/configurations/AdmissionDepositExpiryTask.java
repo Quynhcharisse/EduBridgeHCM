@@ -63,7 +63,6 @@ public class AdmissionDepositExpiryTask {
     public void ghostExpiredForms() {
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
 
-        // Bug 2 fix: thêm RESERVATION_DEPOSITED — phụ huynh đã đóng tiền nhưng không chốt trường trước confirmationEndDate
         List<AdmissionReservationForm> candidates = reservationFormRepo.findByStatusIn(
                 Set.of(Status.RESERVATION_DEPOSIT_EXPIRED,
                         Status.RESERVATION_APPROVAL,
