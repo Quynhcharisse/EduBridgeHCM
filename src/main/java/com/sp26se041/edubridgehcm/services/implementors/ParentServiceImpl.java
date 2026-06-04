@@ -2153,6 +2153,22 @@ public class ParentServiceImpl implements ParentService {
                     "schoolName", campaign.get().getSchool().getName(),
                     "campaignName", campaign.get().getName()
             ));
+
+            try {
+                List<Account> schoolAccounts = accountRepo.findByCampus_School_IdAndRole(
+                        schoolId, Role.SCHOOL);
+                if (!schoolAccounts.isEmpty()) {
+                    String displayName = (studentProfile.get().getStudentName() != null && !studentProfile.get().getStudentName().isBlank())
+                            ? studentProfile.get().getStudentName() : studentProfile.get().getParent().getAccount().getEmail();
+                    Map<String, Object> context = new HashMap<>();
+                    context.put("actorName", displayName);
+                    context.put("specificRecipients", schoolAccounts);
+                    notificationService.publish(NotificationEventType.RESERVATION_PENDING,
+                            studentProfile.get().getParent().getAccount(), context);
+                }
+            } catch (Exception ignored) {
+                // notification lỗi không block nghiệp vụ chính
+            }
         }
 
         if (!formsToSave.isEmpty()) {
@@ -2523,6 +2539,24 @@ public class ParentServiceImpl implements ParentService {
             form.setUpdatedTime(LocalDateTime.now());
             admissionReservationFormRepo.save(form);
 
+            try {
+                if (form.getAdmissionCampaign() != null) {
+                    int schoolId = form.getAdmissionCampaign().getSchool().getId();
+                    List<Account> schoolAccounts = accountRepo.findByCampus_School_IdAndRole(schoolId, Role.SCHOOL);
+                    if (!schoolAccounts.isEmpty()) {
+                        String displayName = (form.getStudentProfile() != null && form.getStudentProfile().getStudentName() != null
+                                && !form.getStudentProfile().getStudentName().isBlank())
+                                ? form.getStudentProfile().getStudentName()
+                                : form.getStudentProfile().getParent().getAccount().getEmail();
+                        Map<String, Object> ctx = new HashMap<>();
+                        ctx.put("actorName", displayName);
+                        ctx.put("specificRecipients", schoolAccounts);
+                        notificationService.publish(NotificationEventType.RESERVATION_PAYMENT_PENDING,
+                                form.getStudentProfile().getParent().getAccount(), ctx);
+                    }
+                }
+            } catch (Exception ignored) {}
+
             return ResponseBuilder.build(HttpStatus.OK, "Nộp minh chứng thanh toán thành công.", null);
 
         }
@@ -2579,6 +2613,24 @@ public class ParentServiceImpl implements ParentService {
             form.setStatus(Status.RESERVATION_PAYMENT_PENDING);
             form.setUpdatedTime(LocalDateTime.now());
             admissionReservationFormRepo.save(form);
+
+            try {
+                if (form.getAdmissionCampaign() != null) {
+                    int schoolId = form.getAdmissionCampaign().getSchool().getId();
+                    List<Account> schoolAccounts = accountRepo.findByCampus_School_IdAndRole(schoolId, Role.SCHOOL);
+                    if (!schoolAccounts.isEmpty()) {
+                        String displayName = (form.getStudentProfile() != null && form.getStudentProfile().getStudentName() != null
+                                && !form.getStudentProfile().getStudentName().isBlank())
+                                ? form.getStudentProfile().getStudentName()
+                                : form.getStudentProfile().getParent().getAccount().getEmail();
+                        Map<String, Object> ctx = new HashMap<>();
+                        ctx.put("actorName", displayName);
+                        ctx.put("specificRecipients", schoolAccounts);
+                        notificationService.publish(NotificationEventType.RESERVATION_PAYMENT_PENDING,
+                                form.getStudentProfile().getParent().getAccount(), ctx);
+                    }
+                }
+            } catch (Exception ignored) {}
 
             return ResponseBuilder.build(HttpStatus.OK, "Nộp minh chứng thanh toán và chọn chương trình thành công.", null);
         }
@@ -2683,6 +2735,24 @@ public class ParentServiceImpl implements ParentService {
                     responseData.put("emailSupport", emailSupport != null ? emailSupport.toString() : null);
                 }
             }
+
+            try {
+                if (form.getAdmissionCampaign() != null) {
+                    int schoolId = form.getAdmissionCampaign().getSchool().getId();
+                    List<Account> schoolAccounts = accountRepo.findByCampus_School_IdAndRole(schoolId, Role.SCHOOL);
+                    if (!schoolAccounts.isEmpty()) {
+                        String displayName = (form.getStudentProfile() != null && form.getStudentProfile().getStudentName() != null
+                                && !form.getStudentProfile().getStudentName().isBlank())
+                                ? form.getStudentProfile().getStudentName()
+                                : form.getStudentProfile().getParent().getAccount().getEmail();
+                        Map<String, Object> ctx = new HashMap<>();
+                        ctx.put("actorName", displayName);
+                        ctx.put("specificRecipients", schoolAccounts);
+                        notificationService.publish(NotificationEventType.RESERVATION_CONFIRMED,
+                                form.getStudentProfile().getParent().getAccount(), ctx);
+                    }
+                }
+            } catch (Exception ignored) {}
 
             return ResponseBuilder.build(HttpStatus.OK, "Xác nhận nhập học thành công.", responseData);
 

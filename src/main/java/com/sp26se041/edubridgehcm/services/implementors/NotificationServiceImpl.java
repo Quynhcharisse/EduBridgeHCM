@@ -529,6 +529,76 @@ public class NotificationServiceImpl implements NotificationService {
                 )
         );
 
+        configs.put(
+                NotificationEventType.RESERVATION_PENDING,
+                new EventTemplateConfig(
+                        "Hồ sơ đặt chỗ mới",
+                        "Học sinh {actorName} vừa nộp hồ sơ đặt chỗ. Vui lòng xem xét và phê duyệt.",
+                        "/school/admission-reservations",
+                        List.of()
+                )
+        );
+
+        configs.put(
+                NotificationEventType.RESERVATION_APPROVAL,
+                new EventTemplateConfig(
+                        "Hồ sơ của bạn được duyệt",
+                        "Hồ sơ đặt chỗ của bạn đã được duyệt. Vui lòng chọn gói và tải lên minh chứng thanh toán.",
+                        "/parent/admission-reservations",
+                        List.of()
+                )
+        );
+
+        configs.put(
+                NotificationEventType.RESERVATION_PAYMENT_PENDING,
+                new EventTemplateConfig(
+                        "Minh chứng thanh toán mới",
+                        "Học sinh {actorName} vừa tải lên minh chứng đặt cọc. Vui lòng xác nhận.",
+                        "/school/admission-reservations",
+                        List.of()
+                )
+        );
+
+        configs.put(
+                NotificationEventType.RESERVATION_PAYMENT_REJECTED,
+                new EventTemplateConfig(
+                        "Minh chứng thanh toán bị từ chối",
+                        "Minh chứng đặt cọc của bạn chưa được xác nhận. Vui lòng tải lại minh chứng hợp lệ.",
+                        "/parent/admission-reservations",
+                        List.of()
+                )
+        );
+
+        configs.put(
+                NotificationEventType.RESERVATION_DEPOSITED,
+                new EventTemplateConfig(
+                        "Đặt cọc thành công",
+                        "Xác nhận đặt cọc của bạn đã được chấp nhận. Suất học đã được giữ chỗ.",
+                        "/parent/admission-reservations",
+                        List.of()
+                )
+        );
+
+        configs.put(
+                NotificationEventType.RESERVATION_CONFIRMED,
+                new EventTemplateConfig(
+                        "Xác nhận nhập học",
+                        "Học sinh {actorName} đã xác nhận chọn trường bạn. Hồ sơ nhập học đã được chốt.",
+                        "/school/admission-reservations",
+                        List.of()
+                )
+        );
+
+        configs.put(
+                NotificationEventType.RESERVATION_REJECTED,
+                new EventTemplateConfig(
+                        "Hồ sơ bị từ chối",
+                        "Hồ sơ đặt chỗ của bạn đã bị từ chối.",
+                        "/parent/admission-reservations",
+                        List.of()
+                )
+        );
+
         return configs;
     }
 
