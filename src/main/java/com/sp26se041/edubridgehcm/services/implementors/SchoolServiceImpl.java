@@ -822,6 +822,16 @@ public class SchoolServiceImpl implements SchoolService {
             );
         }
 
+        long confirmedCount = admissionReservationFormRepo
+                .countByAdmissionCampaignIdAndStatus(id, Status.RESERVATION_CONFIRMED);
+        if (confirmedCount > 0) {
+            return ResponseBuilder.build(HttpStatus.PRECONDITION_FAILED,
+                    String.format("Không thể hủy chiến dịch. Đã có %d học sinh xác nhận nhập học. " +
+                                    "Vui lòng liên hệ trực tiếp từng phụ huynh trước khi thực hiện thao tác này.",
+                            confirmedCount),
+                    null);
+        }
+
         campaign.setStatus(Status.CANCELLED_ADMISSION_CAMPAIGN);
         campaign.setReason(normalize(reason));
         admissionCampaignRepo.save(campaign);

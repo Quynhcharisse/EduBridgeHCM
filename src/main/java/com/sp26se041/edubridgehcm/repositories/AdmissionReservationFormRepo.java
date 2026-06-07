@@ -34,15 +34,14 @@ public interface AdmissionReservationFormRepo extends JpaRepository<AdmissionRes
 
     List<AdmissionReservationForm> findByStudentProfile_Parent_Account_Id(Integer parentAccountId);
 
-
     boolean existsByStudentProfile_StudentCodeAndStatusAndAdmissionCampaign_Year(String studentProfileStudentCode, Status status, int admissionCampaignYear);
-
-    List<AdmissionReservationForm> findByStudentProfileAndStatus(StudentProfile studentProfile, Status status);
 
     boolean existsByStudentProfileAndType(StudentProfile studentProfile, String type);
 
     Optional<AdmissionReservationForm> findByStudentProfileAndType(StudentProfile studentProfile, String type);
 
     List<AdmissionReservationForm> findByStudentProfileAndStatusIn(StudentProfile studentProfile, Collection<Status> statuses);
+
+    long countByAdmissionCampaignIdAndStatus(int id, Status status);
 }
 
