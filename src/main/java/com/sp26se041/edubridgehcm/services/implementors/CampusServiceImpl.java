@@ -233,7 +233,6 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Vui lòng chọn phương thức tuyển sinh.", null);
         }
 
-        // Tìm timeline entry khớp với methodCode campus chọn
         Map<?, ?> matchedTimeline = null;
         for (Object rawItem : rawTimelines) {
             if (!(rawItem instanceof Map<?, ?> m)) continue;
@@ -264,7 +263,6 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không xác định được cơ sở áp dụng offering.", null);
         }
 
-        // Check duplicate: cùng campus + cùng program + cùng method trong 1 campaign
         boolean alreadyExists = campusProgramOfferingRepo
                 .findByAdmissionCampaignId(campaign.getId())
                 .stream()
@@ -276,13 +274,11 @@ public class CampusServiceImpl implements CampusService {
                     "Cơ sở đã có gói tuyển sinh cho chương trình này với phương thức '" + requestedMethod + "'.", null);
         }
 
-        // Validate quota campus tự nhập
         Integer requestedQuota = request.getQuota();
         if (requestedQuota == null || requestedQuota <= 0) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Quota phải lớn hơn 0.", null);
         }
 
-        // Quota được campus chính phân bổ cho campus này
         Integer allocatedQuota = resolveConfiguredCampusQuota(
                 actorCampus.getSchool().getId(), targetCampus.getId(), campaign.getYear());
         if (allocatedQuota == null || allocatedQuota <= 0) {
@@ -290,7 +286,6 @@ public class CampusServiceImpl implements CampusService {
                     "Chưa cấu hình quota cho cơ sở này trong chiến dịch năm " + campaign.getYear() + ".", null);
         }
 
-        // Tổng quota các offering hiện có của campus trong campaign
         List<CampusProgramOffering> existingOfferings = campusProgramOfferingRepo
                 .findByAdmissionCampaignId(campaign.getId())
                 .stream()
@@ -332,8 +327,8 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, detailMsg, null);
         }
 
-        // Validate quota theo từng phương thức tuyển sinh (không vượt quota PTTS trong campaign)
-        // Đếm tổng quota đã dùng của TẤT CẢ campus cho method này trong campaign
+        // valid quota theo từng phương thức tuyển sinh (không vượt quota PTTS trong campaign)
+        // count tổng quota đã dùng của trường cho method này trong campaign
         Object methodQuotaRaw = matchedTimeline.get("quota");
         if (methodQuotaRaw != null) {
             try {
@@ -353,7 +348,6 @@ public class CampusServiceImpl implements CampusService {
             }
         }
 
-        // Tính học phí
         BigDecimal basePrice = program.getBaseTuitionFee();
         BigDecimal adjustmentPercent = request.getPriceAdjustmentPercentage() != null
                 ? new BigDecimal(request.getPriceAdjustmentPercentage().toString())
@@ -362,7 +356,6 @@ public class CampusServiceImpl implements CampusService {
                 .multiply(BigDecimal.ONE.add(adjustmentPercent))
                 .setScale(0, RoundingMode.HALF_UP);
 
-        // Validate chính sách học phí
         SchoolConfig financePolicyConfig = schoolConfigRepo
                 .findBySchoolIdAndKey(actorCampus.getSchool().getId(), "financePolicyData")
                 .orElse(null);
@@ -675,12 +668,10 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy chương trình tuyển sinh cơ sở (offering).", null);
         }
 
-        // Kiểm tra offering thuộc campus của actor
         if (!offering.getCampus().getId().equals(actorCampus.getId())) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Bạn không có quyền cập nhật gói tuyển sinh của cơ sở khác.", null);
         }
 
-        // Chiến dịch phải đang OPEN mới được cập nhật offering
         if (offering.getAdmissionCampaign().getStatus() != Status.OPEN_ADMISSION_CAMPAIGN) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Không thể cập nhật gói tuyển sinh khi chiến dịch không còn ở trạng thái Mở.", null);
         }
@@ -944,7 +935,6 @@ public class CampusServiceImpl implements CampusService {
             }
         }
 
-        // Trả block chi tiết để FE không cần gọi thêm API khi mở detail từ list offering.
         Map<String, Object> curriculumData = new LinkedHashMap<>();
         curriculumData.put("id", curriculum.getId());
         curriculumData.put("name", curriculum.getName());
@@ -3055,7 +3045,6 @@ public class CampusServiceImpl implements CampusService {
             return ResponseBuilder.build(HttpStatus.NOT_FOUND, "Không tìm thấy đơn đăng ký tuyển sinh", null);
         }
 
-        // Ownership check qua admissionCampaign (phase 1: offering chưa được chọn → không dùng offering)
         AdmissionCampaign campaign = form.getAdmissionCampaign();
         if (campaign == null || !actorCampus.getSchool().getId().equals(campaign.getSchool().getId())) {
             return ResponseBuilder.build(HttpStatus.FORBIDDEN, "Đơn này không thuộc trường của bạn.", null);
@@ -3119,7 +3108,8 @@ public class CampusServiceImpl implements CampusService {
                 ctx.put("specificRecipients", List.of(parentAccount));
                 notificationService.publish(eventType, actor, ctx);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
 
         return ResponseBuilder.build(HttpStatus.OK, successMessage, null);
     }
@@ -3206,7 +3196,6 @@ public class CampusServiceImpl implements CampusService {
                     "Đơn chưa ở trạng thái chờ xác nhận thanh toán (PAYMENT_PENDING).", null);
         }
 
-        // Fix 2: null check offering
         CampusProgramOffering offering = form.getCampusProgramOffering();
         if (offering == null) {
             return ResponseBuilder.build(HttpStatus.BAD_REQUEST, "Đơn chưa được gắn gói tuyển sinh.", null);
@@ -3276,7 +3265,8 @@ public class CampusServiceImpl implements CampusService {
                 ctx.put("specificRecipients", List.of(parentAccount));
                 notificationService.publish(eventType, confirmActor2, ctx);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
 
         return ResponseBuilder.build(HttpStatus.OK,
                 action.equals("CONFIRM") ? "Xác nhận đặt cọc thành công." : "Từ chối thanh toán, phụ huynh có thể upload lại.", null);
@@ -3486,7 +3476,8 @@ public class CampusServiceImpl implements CampusService {
                     ctx.put("specificRecipients", List.of(parentAccount));
                     notificationService.publish(eventType, null, ctx);
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
 
         return ResponseBuilder.build(HttpStatus.OK, "Xử lý danh sách đơn hoàn tất.", null);
@@ -4253,7 +4244,7 @@ public class CampusServiceImpl implements CampusService {
 
         String name = campaign.getName() != null ? campaign.getName().trim() : "";
         int year = campaign.getYear();
-        
+
         String safeName = name
                 .replaceAll("[^\\p{L}\\p{N}\\s]", "")
                 .replaceAll("\\s+", "_")
