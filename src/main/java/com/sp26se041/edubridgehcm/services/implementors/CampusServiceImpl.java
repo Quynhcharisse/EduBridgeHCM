@@ -3692,12 +3692,24 @@ public class CampusServiceImpl implements CampusService {
             Map<String, Object> docMap;
             if (docConfigOpt.isPresent() && docConfigOpt.get().getValue() instanceof Map<?, ?> rawMap) {
                 docMap = new HashMap<>((Map<String, Object>) rawMap);
+                // Merge platform mandatory vào đầu danh sách school mandatory, không override
+                List<Object> schoolMandatory = docMap.get("mandatoryAll") instanceof List<?> sm
+                        ? new ArrayList<>((List<Object>) sm) : new ArrayList<>();
+                List<Object> merged = new ArrayList<>(platformMandatory);
+                for (Object item : schoolMandatory) {
+                    if (!(item instanceof Map<?, ?> doc)) continue;
+                    Object code = doc.get("code");
+                    boolean alreadyInPlatform = merged.stream()
+                            .filter(p -> p instanceof Map<?, ?>)
+                            .anyMatch(p -> Objects.equals(((Map<?, ?>) p).get("code"), code));
+                    if (!alreadyInPlatform) merged.add(item);
+                }
+                docMap.put("mandatoryAll", merged);
             } else if (systemDocReq instanceof Map<?, ?> systemMap) {
                 docMap = new HashMap<>((Map<String, Object>) systemMap);
             } else {
                 continue;
             }
-            docMap.put("mandatoryAll", platformMandatory);
             schoolDocMaps.put(schoolId, docMap);
         }
 
@@ -3768,8 +3780,19 @@ public class CampusServiceImpl implements CampusService {
             for (Object item : metaList) {
                 if (!(item instanceof Map<?, ?> meta)) continue;
                 Object key = meta.get("key");
-                Object url = meta.get("imageUrl");
-                if (key != null) submittedMap.put(key.toString(), url != null ? url.toString() : null);
+                if (key == null) continue;
+                Object urlRaw = meta.get("imageUrl");
+                String firstUrl = null;
+                if (urlRaw instanceof List<?> urlList) {
+                    firstUrl = urlList.stream()
+                            .filter(u -> u != null && !u.toString().isBlank())
+                            .map(Object::toString)
+                            .findFirst().orElse(null);
+                } else if (urlRaw != null) {
+                    String s = urlRaw.toString().trim();
+                    if (!s.isBlank()) firstUrl = s;
+                }
+                submittedMap.put(key.toString(), firstUrl);
             }
         }
 
@@ -3789,6 +3812,7 @@ public class CampusServiceImpl implements CampusService {
                     entry.put("required", doc.get("required"));
                     entry.put("imageUrl", submittedMap.getOrDefault(code, null));
                     entry.put("submitted", submittedMap.containsKey(code));
+                    entry.put("templateFileUrl", doc.get("templateFileUrl"));
                     submittedDocuments.add(entry);
                 }
 
@@ -3806,6 +3830,7 @@ public class CampusServiceImpl implements CampusService {
                         entry.put("required", doc.get("required"));
                         entry.put("imageUrl", submittedMap.getOrDefault(code, null));
                         entry.put("submitted", submittedMap.containsKey(code));
+                        entry.put("templateFileUrl", doc.get("templateFileUrl"));
                         submittedDocuments.add(entry);
                     }
                     break;
