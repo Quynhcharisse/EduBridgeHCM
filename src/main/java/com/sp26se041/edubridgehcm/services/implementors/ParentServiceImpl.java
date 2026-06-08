@@ -2555,7 +2555,8 @@ public class ParentServiceImpl implements ParentService {
                                 form.getStudentProfile().getParent().getAccount(), ctx);
                     }
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
 
             return ResponseBuilder.build(HttpStatus.OK, "Nộp minh chứng thanh toán thành công.", null);
 
@@ -2630,7 +2631,8 @@ public class ParentServiceImpl implements ParentService {
                                 form.getStudentProfile().getParent().getAccount(), ctx);
                     }
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
 
             return ResponseBuilder.build(HttpStatus.OK, "Nộp minh chứng thanh toán và chọn chương trình thành công.", null);
         }
@@ -2647,7 +2649,13 @@ public class ParentServiceImpl implements ParentService {
 
             String studentCode = form.getStudentProfile() != null ? form.getStudentProfile().getStudentCode() : null;
             if (studentCode != null) {
-                form.setConfirmCode("HS" + LocalDateTime.now().getYear() % 100 + "-" + studentCode.substring(studentCode.length() - 4));
+                LocalDateTime now = LocalDateTime.now();
+                form.setConfirmCode("HS" + now.getYear() % 100
+                        + String.format("%02d", now.getMonthValue())
+                        + String.format("%02d", now.getDayOfMonth())
+                        + String.format("%02d", now.getHour())
+                        + String.format("%02d", now.getMinute())
+                        + "-" + studentCode.substring(studentCode.length() - 4));
             }
 
             admissionReservationFormRepo.save(form);
@@ -2760,7 +2768,8 @@ public class ParentServiceImpl implements ParentService {
                                 form.getStudentProfile().getParent().getAccount(), ctx);
                     }
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
 
             return ResponseBuilder.build(HttpStatus.OK, "Xác nhận nhập học thành công.", responseData);
 
