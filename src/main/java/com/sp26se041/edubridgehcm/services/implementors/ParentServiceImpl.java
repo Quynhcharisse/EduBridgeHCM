@@ -2880,7 +2880,7 @@ public class ParentServiceImpl implements ParentService {
         }
 
         // Chỉ cho phép hủy khi đang chờ xét duyệt
-        if (!admissionReservationForm.get().getStatus().equals(Status.RESERVATION_PENDING)) {
+        if (!admissionReservationForm.get().getStatus().equals(Status.RESERVATION_CONFIRMED)) {
             return ResponseBuilder.build(
                     HttpStatus.BAD_REQUEST,
                     "Chỉ có thể hủy đơn giữ chỗ đang ở trạng thái chờ xét duyệt",
