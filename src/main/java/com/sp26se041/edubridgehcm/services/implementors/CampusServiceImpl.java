@@ -117,7 +117,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -3894,38 +3893,13 @@ public class CampusServiceImpl implements CampusService {
 
         int schoolId = actorCampus.getSchool().getId();
 
-        Set<Status> allowedExportStatuses = Set.of(
-                Status.RESERVATION_PAYMENT_PENDING,
-                Status.RESERVATION_DEPOSITED,
-                Status.RESERVATION_CONFIRMED
-        );
-
-        Set<Status> filterStatuses;
-        if (statuses != null && !statuses.isEmpty()) {
-            filterStatuses = new HashSet<>();
-            for (String s : statuses) {
-                if (s == null || s.isBlank()) continue;
-                Status st;
-                try {
-                    st = Status.valueOf(s.trim().toUpperCase());
-                } catch (IllegalArgumentException e) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-                }
-                if (!allowedExportStatuses.contains(st)) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-                }
-                filterStatuses.add(st);
-            }
-            if (filterStatuses.isEmpty()) filterStatuses = allowedExportStatuses;
-        } else {
-            filterStatuses = allowedExportStatuses;
-        }
-
         List<AdmissionReservationForm> forms;
         if (campaignId != null) {
-            forms = admissionReservationFormRepo.findByAdmissionCampaign_IdAndStatusIn(campaignId.intValue(), filterStatuses);
+            forms = admissionReservationFormRepo.findByAdmissionCampaign_IdAndStatusIn(
+                    campaignId.intValue(), Set.of(Status.RESERVATION_CONFIRMED));
         } else {
-            forms = admissionReservationFormRepo.findByAdmissionCampaign_School_IdAndStatusIn(schoolId, filterStatuses);
+            forms = admissionReservationFormRepo.findByAdmissionCampaign_School_IdAndStatusIn(
+                    schoolId, Set.of(Status.RESERVATION_CONFIRMED));
         }
 
         List<AdmissionReservationForm> filteredForms = forms.stream()
@@ -3949,39 +3923,16 @@ public class CampusServiceImpl implements CampusService {
         }
         List<String> docKeys = new ArrayList<>(docKeyToName.keySet());
 
-        // Xác định nhóm cột động theo status
-        final boolean showDepositedCols = filterStatuses.contains(Status.RESERVATION_DEPOSITED);
-        final boolean showConfirmedCols = filterStatuses.contains(Status.RESERVATION_CONFIRMED);
-
-        // Cột động DEPOSITED: Link Bằng Chứng TT | Hạn Nộp Cọc
-        // Cột động CONFIRMED: Mã Xác Nhận | Người Xác Nhận TT | Người Xác Minh | Ngày Xác Nhận | Hạn Xác Nhận
-        final int COL_DEPOSITED_START = 13;
-        final int depositedColCount = showDepositedCols ? 2 : 0;
-        final int COL_CONFIRMED_START = COL_DEPOSITED_START + depositedColCount;
-        final int confirmedColCount = showConfirmedCols ? 5 : 0;
-        final int COL_DOC_START = COL_CONFIRMED_START + confirmedColCount;
-
-        List<String> statusSpecificHeaders = new ArrayList<>();
-        if (showDepositedCols) {
-            statusSpecificHeaders.add("Link Bằng Chứng Thanh Toán");
-            statusSpecificHeaders.add("Hạn Nộp Cọc");
-        }
-        if (showConfirmedCols) {
-            statusSpecificHeaders.add("Mã Xác Nhận");
-            statusSpecificHeaders.add("Người Xác Nhận Thanh Toán");
-            statusSpecificHeaders.add("Người Xác Minh");
-            statusSpecificHeaders.add("Ngày Xác Nhận");
-            statusSpecificHeaders.add("Hạn Xác Nhận");
-        }
+        // col 0-12: thông tin cơ bản | col 13-17: thông tin xác nhận | col 18+: tài liệu
+        final int COL_CONFIRMED_START = 13;
+        final int COL_DOC_START = 18;
 
         String[] headers = Stream.concat(
-                Stream.concat(
-                        Stream.of("STT", "Mã đơn", "Trạng thái", "Ngày nộp",
-                                "Tên chiến dịch", "Chương trình", "Phương thức tuyển sinh",
-                                "Mã số học sinh", "Họ tên học sinh",
-                                "Họ tên phụ huynh", "Quan hệ", "Nghề nghiệp", "SĐT phụ huynh"),
-                        statusSpecificHeaders.stream()
-                ),
+                Stream.of("STT", "Mã đơn", "Trạng thái", "Ngày nộp",
+                        "Tên chiến dịch", "Chương trình", "Phương thức tuyển sinh",
+                        "Mã số học sinh", "Họ tên học sinh",
+                        "Họ tên phụ huynh", "Quan hệ", "Nghề nghiệp", "SĐT phụ huynh",
+                        "Mã Xác Nhận", "Người Xác Nhận Thanh Toán", "Người Xác Minh", "Ngày Xác Nhận", "Hạn Xác Nhận"),
                 docKeys.stream().map(docKeyToName::get)
         ).toArray(String[]::new);
 
@@ -4024,27 +3975,16 @@ public class CampusServiceImpl implements CampusService {
                 row.createCell(12).setCellValue("");
             }
 
-            // ── Cột động: RESERVATION_DEPOSITED ──────────────────────────────────
-            if (showDepositedCols) {
-                row.createCell(COL_DEPOSITED_START).setCellValue(
-                        formMap.get("paymentProofUrl") != null ? formMap.get("paymentProofUrl").toString() : "");
-                row.createCell(COL_DEPOSITED_START + 1).setCellValue(
-                        formMap.get("depositEndDate") != null ? formMap.get("depositEndDate").toString() : "");
-            }
-
-            // ── Cột động: RESERVATION_CONFIRMED ──────────────────────────────────
-            if (showConfirmedCols) {
-                row.createCell(COL_CONFIRMED_START).setCellValue(
-                        formMap.get("confirmCode") != null ? formMap.get("confirmCode").toString() : "");
-                row.createCell(COL_CONFIRMED_START + 1).setCellValue(
-                        formMap.get("paymentConfirmedBy") != null ? formMap.get("paymentConfirmedBy").toString() : "");
-                row.createCell(COL_CONFIRMED_START + 2).setCellValue(
-                        formMap.get("verifiedBy") != null ? formMap.get("verifiedBy").toString() : "");
-                row.createCell(COL_CONFIRMED_START + 3).setCellValue(
-                        form.getUpdatedTime() != null ? form.getUpdatedTime().toLocalDate().toString() : "");
-                row.createCell(COL_CONFIRMED_START + 4).setCellValue(
-                        formMap.get("confirmationEndDate") != null ? formMap.get("confirmationEndDate").toString() : "");
-            }
+            row.createCell(COL_CONFIRMED_START).setCellValue(
+                    formMap.get("confirmCode") != null ? formMap.get("confirmCode").toString() : "");
+            row.createCell(COL_CONFIRMED_START + 1).setCellValue(
+                    formMap.get("paymentConfirmedBy") != null ? formMap.get("paymentConfirmedBy").toString() : "");
+            row.createCell(COL_CONFIRMED_START + 2).setCellValue(
+                    formMap.get("verifiedBy") != null ? formMap.get("verifiedBy").toString() : "");
+            row.createCell(COL_CONFIRMED_START + 3).setCellValue(
+                    form.getUpdatedTime() != null ? form.getUpdatedTime().toLocalDate().toString() : "");
+            row.createCell(COL_CONFIRMED_START + 4).setCellValue(
+                    formMap.get("confirmationEndDate") != null ? formMap.get("confirmationEndDate").toString() : "");
 
             // ── Cột tài liệu (doc) ────────────────────────────────────────────────
             Object rawDocs = formMap.get("submittedDocuments");
@@ -4085,7 +4025,7 @@ public class CampusServiceImpl implements CampusService {
             }
         });
 
-        String fileName = buildExportFileName(filteredForms, filterStatuses);
+        String fileName = buildExportFileName(filteredForms);
         return buildFileResponse(path, fileName);
     }
 
@@ -4249,19 +4189,8 @@ public class CampusServiceImpl implements CampusService {
         );
     }
 
-    private String buildExportFileName(List<AdmissionReservationForm> forms, Set<Status> filterStatuses) {
-        // Xác định prefix theo trạng thái lọc
-        String prefix;
-        boolean onlyDeposited = filterStatuses.size() == 1 && filterStatuses.contains(Status.RESERVATION_DEPOSITED);
-        boolean onlyConfirmed = filterStatuses.size() == 1 && filterStatuses.contains(Status.RESERVATION_CONFIRMED);
-
-        if (onlyDeposited) {
-            prefix = "Don_Da_Dat_Coc";
-        } else if (onlyConfirmed) {
-            prefix = "Don_Da_Xac_Nhan_Nhap_Hoc";
-        } else {
-            prefix = "Don_Tuyen_Sinh";
-        }
+    private String buildExportFileName(List<AdmissionReservationForm> forms) {
+        String prefix = "Don_Da_Xac_Nhan_Nhap_Hoc";
 
         if (forms == null || forms.isEmpty()) return prefix + ".xlsx";
         AdmissionCampaign campaign = forms.get(0).getAdmissionCampaign();
